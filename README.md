@@ -39,9 +39,6 @@ END NOTE
 
 - X/Twitter: [@kregenrek](https://x.com/kregenrek)
 
-## My Courses
-
-- Learn to build software with AI: [instructa.ai](https://www.instructa.ai)
 
 ## See my other projects:
 
