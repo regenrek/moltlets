@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -56,8 +56,63 @@ describe("stack", () => {
     expect(Object.keys(stack.hosts)).toEqual(["clawdbot-fleet-host"]);
   });
 
+  it("rejects unsafe host keys in stack.json", async () => {
+    const stackPath = path.join(repoRoot, ".clawdlets", "stack.json");
+    const original = await readFile(stackPath, "utf8");
+    await writeFile(
+      stackPath,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          envFile: ".env",
+          hosts: {
+            "../pwn": {
+              flakeHost: "clawdbot-fleet-host",
+              targetHost: "admin@100.64.0.1",
+              hetzner: { serverType: "cx43" },
+              terraform: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+              secrets: { localDir: "secrets/hosts/clawdbot-fleet-host", remoteDir: "/var/lib/clawdlets/secrets/hosts/clawdbot-fleet-host" },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const { loadStack } = await import("../src/stack");
+    try {
+      expect(() => loadStack({ cwd: repoRoot })).toThrow(/invalid host name/i);
+    } finally {
+      await writeFile(stackPath, original, "utf8");
+    }
+  });
+
   it("loads env file relative to stack dir when stack.envFile is relative", async () => {
     const { loadStack, loadStackEnv } = await import("../src/stack");
+    await writeFile(
+      path.join(repoRoot, ".clawdlets", "stack.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          base: { flake: "github:example/repo" },
+          envFile: ".env",
+          hosts: {
+            "clawdbot-fleet-host": {
+              flakeHost: "clawdbot-fleet-host",
+              targetHost: "admin@100.64.0.1",
+              hetzner: { serverType: "cx43" },
+              terraform: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+              secrets: { localDir: "secrets/hosts/clawdbot-fleet-host", remoteDir: "/var/lib/clawdlets/secrets/hosts/clawdbot-fleet-host" },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
     const { stack } = loadStack({ cwd: repoRoot });
     const loaded = loadStackEnv({ cwd: repoRoot, envFile: stack.envFile });
     expect(loaded.envFile).toBe(path.join(repoRoot, ".clawdlets", ".env"));
