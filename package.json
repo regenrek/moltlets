@@ -1,20 +1,20 @@
 {
-  "name": "clawdbot-nix-hetzner-macherjek",
+  "name": "clawdlets-workspace",
   "private": true,
   "scripts": {
     "postinstall": "pnpm -r build",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
-    "clawdlets:build": "pnpm --filter clawdlets build",
-    "clawdlets:doctor": "pnpm --filter clawdlets doctor",
-    "clawdlets:bootstrap": "pnpm --filter clawdlets bootstrap",
-    "clawdlets:lockdown": "pnpm --filter clawdlets lockdown",
-    "clawdlets:server": "pnpm --filter clawdlets server",
-    "clawdlets:stack": "pnpm --filter clawdlets stack",
-    "clawdlets:secrets": "pnpm --filter clawdlets secrets",
-    "clawdlets:infra": "pnpm --filter clawdlets infra",
-    "clawdlets:help": "pnpm --filter clawdlets help"
+    "test": "pnpm -r --if-present test",
+    "clawdlets:build": "pnpm -C cli build",
+    "clawdlets:doctor": "node cli/dist/main.js doctor",
+    "clawdlets:bootstrap": "node cli/dist/main.js bootstrap",
+    "clawdlets:lockdown": "node cli/dist/main.js lockdown",
+    "clawdlets:server": "node cli/dist/main.js server",
+    "clawdlets:stack": "node cli/dist/main.js stack",
+    "clawdlets:secrets": "node cli/dist/main.js secrets",
+    "clawdlets:infra": "node cli/dist/main.js infra",
+    "clawdlets:help": "node cli/dist/main.js --help"
   },
   "packageManager": "pnpm@10.25.0"
 }

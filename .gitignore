@@ -1,11 +1,5 @@
-# sops (never commit in public repo)
-infra/secrets/**
-
 # local stack (never commit)
 .clawdlets/
-
-# nixos-anywhere extra-files (contains private key)
-infra/secrets/extra-files/
 
 # local env vars
 .env
@@ -26,3 +20,7 @@ cli/coverage/
 packages/core/node_modules/
 packages/core/dist/
 packages/core/coverage/
+packages/template/node_modules/
+packages/template/dist/
+packages/template/coverage/
+*.tsbuildinfo

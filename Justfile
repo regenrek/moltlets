@@ -39,13 +39,13 @@ stack-validate:
 stack-print:
   cd {{justfile_directory()}} && pnpm run clawdlets:stack -- print
 
-secrets-init host="bots01":
+secrets-init host="clawdbot-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawdlets:secrets -- init --host {{host}}
 
-secrets-sync host="bots01":
+secrets-sync host="clawdbot-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawdlets:secrets -- sync --host {{host}}
 
-infra-apply host="bots01" bootstrap_ssh="true":
+infra-apply host="clawdbot-fleet-host" bootstrap_ssh="true":
   cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply --host {{host}} --bootstrap-ssh={{bootstrap_ssh}}
 
 server-units target_host:

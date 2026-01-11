@@ -15,4 +15,3 @@ terraform.tfstate.backup
 *.tfstate.backup
 
 # never in git (if you create it)
-infra/secrets/
