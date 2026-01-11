@@ -1,0 +1,41 @@
+name: Bump nix-clawdbot
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Update nix-clawdbot input
+        run: |
+          set -euo pipefail
+          nix flake update --update-input nix-clawdbot
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6
+        with:
+          branch: chore/bump-nix-clawdbot
+          delete-branch: true
+          commit-message: "chore: bump nix-clawdbot"
+          title: "chore: bump nix-clawdbot"
+          body: |
+            Automated flake.lock update for nix-clawdbot.
