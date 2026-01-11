@@ -34,7 +34,7 @@ Therefore:
 ## Recommended hardening checks
 
 - Confirm Hetzner firewall no longer allows TCP/22 from the internet after lockdown.
-- Confirm NixOS firewall only allows SSH via `tailscale0`/`wg0` when `bootstrapSsh=false`.
+- Confirm NixOS firewall only allows SSH via `tailscale0` when `bootstrapSsh=false`.
 - Keep `.clawdlets/` gitignored (required).
 
 ## Supply chain (CI)

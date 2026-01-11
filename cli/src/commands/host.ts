@@ -42,7 +42,7 @@ const add = defineCommand({
       bootstrapSsh: true,
       diskDevice: "/dev/disk/by-id/CHANGE_ME",
       sshAuthorizedKeys: [],
-      tailnet: { mode: "none", wireguardAdminPeers: [] },
+      tailnet: { mode: "tailscale" },
       agentModelPrimary: "zai/glm-4.7",
     };
 
@@ -60,12 +60,10 @@ const set = defineCommand({
     "bootstrap-ssh": { type: "string", description: "Bootstrap SSH (true/false)." },
     "disk-device": { type: "string", description: "Disk device (e.g. /dev/disk/by-id/...).", },
     "agent-model-primary": { type: "string", description: "Primary agent model (e.g. zai/glm-4.7)." },
-    tailnet: { type: "string", description: "Tailnet mode: none|tailscale|wireguard." },
+    tailnet: { type: "string", description: "Tailnet mode: none|tailscale." },
     "clear-ssh-keys": { type: "boolean", description: "Clear sshAuthorizedKeys.", default: false },
     "add-ssh-key": { type: "string", description: "Add SSH public key contents (repeatable).", array: true },
     "add-ssh-key-file": { type: "string", description: "Add SSH public key from file (repeatable).", array: true },
-    "clear-wireguard-peers": { type: "boolean", description: "Clear wireguardAdminPeers.", default: false },
-    "add-wireguard-peer": { type: "string", description: "Add WireGuard admin peer (repeatable).", array: true },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
@@ -89,8 +87,8 @@ const set = defineCommand({
 
     if (args.tailnet !== undefined) {
       const mode = String(args.tailnet).trim();
-      if (mode !== "none" && mode !== "tailscale" && mode !== "wireguard") {
-        throw new Error("invalid --tailnet (expected none|tailscale|wireguard)");
+      if (mode !== "none" && mode !== "tailscale") {
+        throw new Error("invalid --tailnet (expected none|tailscale)");
       }
       next.tailnet.mode = mode;
     }
@@ -103,12 +101,6 @@ const set = defineCommand({
     for (const k of (((args as any)["add-ssh-key"] || []) as string[])) {
       const v = String(k).trim();
       if (v) next.sshAuthorizedKeys = Array.from(new Set([...next.sshAuthorizedKeys, v]));
-    }
-
-    if ((args as any)["clear-wireguard-peers"]) next.tailnet.wireguardAdminPeers = [];
-    for (const peer of (((args as any)["add-wireguard-peer"] || []) as string[])) {
-      const v = String(peer).trim();
-      if (v) next.tailnet.wireguardAdminPeers = Array.from(new Set([...next.tailnet.wireguardAdminPeers, v]));
     }
 
     const nextConfig = ClawdletsConfigSchema.parse({ ...config, hosts: { ...config.hosts, [hostName]: next } });

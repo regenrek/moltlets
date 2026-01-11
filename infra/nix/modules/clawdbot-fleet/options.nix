@@ -417,40 +417,6 @@ in {
       description = "Allow public SSH during initial bootstrap.";
     };
 
-    wireguard = {
-      interface = lib.mkOption {
-        type = lib.types.str;
-        default = "wg0";
-        description = "WireGuard interface name.";
-      };
-      address = lib.mkOption {
-        type = lib.types.str;
-        default = "10.44.0.1/24";
-        description = "WireGuard address for this host.";
-      };
-      listenPort = lib.mkOption {
-        type = lib.types.port;
-        default = 51820;
-        description = "WireGuard UDP listen port.";
-      };
-      adminPeers = lib.mkOption {
-        type = lib.types.listOf (lib.types.submodule {
-          options = {
-            publicKey = lib.mkOption {
-              type = lib.types.str;
-              description = "WireGuard peer public key.";
-            };
-            allowedIPs = lib.mkOption {
-              type = lib.types.listOf lib.types.str;
-              description = "Allowed IPs for the peer.";
-            };
-          };
-        });
-        default = [];
-        description = "Admin peers allowed to connect via WireGuard.";
-      };
-    };
-
     tailscale = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -473,7 +439,7 @@ in {
       authKeySecret = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
-        description = "Optional sops secret name containing a Tailscale auth key for non-interactive login.";
+        description = "Sops secret name containing a Tailscale auth key for non-interactive login.";
       };
     };
   };

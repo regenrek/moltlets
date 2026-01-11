@@ -39,21 +39,8 @@ variable "bootstrap_ssh" {
   default = true
 }
 
-variable "wireguard_port" {
-  type = string
-  default = "51820"
-}
-
 resource "hcloud_firewall" "fw" {
   name = "${var.name}-fw"
-
-  rule {
-    direction   = "in"
-    protocol    = "udp"
-    port        = var.wireguard_port
-    source_ips  = ["0.0.0.0/0", "::/0"]
-    description = "WireGuard"
-  }
 
   dynamic "rule" {
     for_each = var.bootstrap_ssh ? [1] : []

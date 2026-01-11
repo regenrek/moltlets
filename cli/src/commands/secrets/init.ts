@@ -10,7 +10,6 @@ import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe
 import { mkpasswdYescryptHash } from "@clawdbot/clawdlets-core/lib/mkpasswd";
 import { sopsPathRegexForDirFiles, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
-import { wgGenKey } from "@clawdbot/clawdlets-core/lib/wireguard";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
 import { parseSecretsInitJson, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdbot/clawdlets-core/lib/secrets-init";
 import { loadStack, loadStackEnv } from "@clawdbot/clawdlets-core/stack";
@@ -159,22 +158,33 @@ export const secretsInit = defineCommand({
     const bots = clawdletsConfig.fleet.bots;
     if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
 
+    const clawdletsHostCfg = clawdletsConfig.hosts[hostName];
+    if (!clawdletsHostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
+    const tailnetMode = String(clawdletsHostCfg.tailnet?.mode || "none");
+    const requiresTailscaleAuthKey = tailnetMode === "tailscale";
+
     const flowSecrets = "secrets init";
     const values: {
       adminPassword: string;
       adminPasswordHash: string;
-      wgPrivateKey: string;
+      tailscaleAuthKey: string;
       zAiApiKey: string;
       discordTokens: Record<string, string>;
-    } = { adminPassword: "", adminPasswordHash: "", wgPrivateKey: "", zAiApiKey: "", discordTokens: {} };
+    } = { adminPassword: "", adminPasswordHash: "", tailscaleAuthKey: "", zAiApiKey: "", discordTokens: {} };
 
     if (interactive) {
       type Step =
         | { kind: "adminPassword" }
+        | { kind: "tailscaleAuthKey" }
         | { kind: "zAiApiKey" }
         | { kind: "discordToken"; bot: string };
 
-      const allSteps: Step[] = [{ kind: "adminPassword" }, { kind: "zAiApiKey" }, ...bots.map((b) => ({ kind: "discordToken", bot: b }) as const)];
+      const allSteps: Step[] = [
+        { kind: "adminPassword" },
+        ...(requiresTailscaleAuthKey ? ([{ kind: "tailscaleAuthKey" }] as const) : []),
+        { kind: "zAiApiKey" },
+        ...bots.map((b) => ({ kind: "discordToken", bot: b }) as const),
+      ];
 
       for (let i = 0; i < allSteps.length;) {
         const step = allSteps[i]!;
@@ -183,6 +193,8 @@ export const secretsInit = defineCommand({
           v = await p.password({
             message: "Admin password (used to generate admin_password_hash; leave blank to keep existing/placeholder)",
           });
+        } else if (step.kind === "tailscaleAuthKey") {
+          v = await p.password({ message: "Tailscale auth key (tailscale_auth_key) (required for non-interactive tailnet bootstrap)" });
         } else if (step.kind === "zAiApiKey") {
           v = await p.password({ message: "ZAI API key (z_ai_api_key) (optional)" });
         } else {
@@ -201,6 +213,7 @@ export const secretsInit = defineCommand({
 
         const s = String(v ?? "");
         if (step.kind === "adminPassword") values.adminPassword = s;
+        else if (step.kind === "tailscaleAuthKey") values.tailscaleAuthKey = s;
         else if (step.kind === "zAiApiKey") values.zAiApiKey = s;
         else values.discordTokens[step.bot] = s;
         i += 1;
@@ -208,19 +221,26 @@ export const secretsInit = defineCommand({
     } else {
       const input = readSecretsInitJson(String(args.fromJson));
       values.adminPasswordHash = input.adminPasswordHash;
-      values.wgPrivateKey = input.wgPrivateKey || "";
+      values.tailscaleAuthKey = input.tailscaleAuthKey || "";
       values.zAiApiKey = input.zAiApiKey || "";
       values.discordTokens = input.discordTokens || {};
     }
 
-    const requiredSecrets = ["wg_private_key", "admin_password_hash", "z_ai_api_key", ...bots.map((b) => `discord_token_${b}`)];
+    const requiredSecrets = [
+      ...(requiresTailscaleAuthKey ? ["tailscale_auth_key"] : []),
+      "admin_password_hash",
+      "z_ai_api_key",
+      ...bots.map((b) => `discord_token_${b}`),
+    ];
 
     const resolvedValues: Record<string, string> = {};
     for (const secretName of requiredSecrets) {
       const existing = await readExistingScalar(secretName);
-      if (secretName === "wg_private_key") {
-        if (values.wgPrivateKey.trim()) resolvedValues[secretName] = values.wgPrivateKey.trim();
-        else resolvedValues[secretName] = existing ?? (args.dryRun ? "<wg_private_key>" : await wgGenKey(nix));
+      if (secretName === "tailscale_auth_key") {
+        if (values.tailscaleAuthKey.trim()) resolvedValues[secretName] = values.tailscaleAuthKey.trim();
+        else if (existing && !existing.includes("<")) resolvedValues[secretName] = existing;
+        else if (args.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
+        else throw new Error("missing tailscale auth key (tailscale_auth_key); pass --allow-placeholders only if you intend to set it later");
         continue;
       }
 

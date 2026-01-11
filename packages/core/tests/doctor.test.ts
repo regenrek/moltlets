@@ -146,7 +146,7 @@ describe("doctor", () => {
           bootstrapSsh: true,
           diskDevice: "/dev/disk/by-id/TEST",
           sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
-          tailnet: { mode: "none", wireguardAdminPeers: [] },
+          tailnet: { mode: "none" },
           agentModelPrimary: "zai/glm-4.7",
         },
       },
@@ -224,7 +224,6 @@ describe("doctor", () => {
 
     const secretsDir = path.join(repoRoot, ".clawdlets", "secrets", "hosts", "clawdbot-fleet-host");
     await mkdir(secretsDir, { recursive: true });
-    await writeFile(path.join(secretsDir, "wg_private_key.yaml"), "wg_private_key: x\nsops: {}\n", "utf8");
     await writeFile(path.join(secretsDir, "admin_password_hash.yaml"), "admin_password_hash: y\nsops: {}\n", "utf8");
     await writeFile(path.join(secretsDir, "discord_token_alpha.yaml"), "discord_token_alpha: z\nsops: {}\n", "utf8");
     await writeFile(path.join(secretsDir, "discord_token_beta.yaml"), "discord_token_beta: z2\nsops: {}\n", "utf8");

@@ -1,6 +1,6 @@
 export type SecretsInitJson = {
   adminPasswordHash: string;
-  wgPrivateKey?: string;
+  tailscaleAuthKey?: string;
   zAiApiKey?: string;
   discordTokens: Record<string, string>;
 };
@@ -29,10 +29,10 @@ export function parseSecretsInitJson(raw: string): SecretsInitJson {
     discordTokens[String(k)] = token;
   }
 
-  const wgPrivateKey = typeof obj.wgPrivateKey === "string" ? obj.wgPrivateKey.trim() : undefined;
+  const tailscaleAuthKey = typeof obj.tailscaleAuthKey === "string" ? obj.tailscaleAuthKey.trim() : undefined;
   const zAiApiKey = typeof obj.zAiApiKey === "string" ? obj.zAiApiKey.trim() : undefined;
 
-  return { adminPasswordHash, wgPrivateKey, zAiApiKey, discordTokens };
+  return { adminPasswordHash, tailscaleAuthKey, zAiApiKey, discordTokens };
 }
 
 export function validateSecretsInitNonInteractive(params: {
@@ -50,4 +50,3 @@ export function validateSecretsInitNonInteractive(params: {
     throw new Error("refusing to overwrite existing secrets without --yes (or pass --dry-run)");
   }
 }
-

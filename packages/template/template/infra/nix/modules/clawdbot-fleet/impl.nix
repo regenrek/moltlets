@@ -638,12 +638,6 @@ EOF
   perBotSkillSecrets = lib.mkMerge (map mkBotSkillSecrets cfg.bots);
   perBotTemplates = lib.mkMerge (map mkTemplate cfg.bots);
   perBotEnvTemplates = lib.mkMerge (map mkEnvTemplate cfg.bots);
-  wgSecret = {
-    wg_private_key = {
-      inherit (mkSopsSecretFor "wg_private_key") owner group mode sopsFile;
-    };
-  };
-  wgIf = cfg.wireguard.interface;
   sshListen = [
     # NixOS' OpenSSH module formats `ListenAddress` as `${addr}:${port}` when `port` is set.
     # For IPv6 this becomes `:::22` and sshd rejects it. Keep `port = null` and rely on `services.openssh.ports` (default: 22).
@@ -661,10 +655,6 @@ in {
       {
         assertion = cfg.guildId != "";
         message = "services.clawdbotFleet.guildId must be set.";
-      }
-      {
-        assertion = cfg.wireguard.adminPeers != [];
-        message = "services.clawdbotFleet.wireguard.adminPeers must be set.";
       }
       {
         assertion = lib.all (b: lib.hasAttr b cfg.routing) cfg.bots;
@@ -744,8 +734,8 @@ in {
       {
         assertion =
           (!cfg.tailscale.enable)
-          || (cfg.tailscale.authKeySecret == null || cfg.tailscale.authKeySecret != "");
-        message = "services.clawdbotFleet.tailscale.authKeySecret must be null or a non-empty string.";
+          || (cfg.tailscale.authKeySecret != null && cfg.tailscale.authKeySecret != "");
+        message = "services.clawdbotFleet.tailscale.authKeySecret must be set when tailscale is enabled.";
       }
     ];
 
@@ -797,26 +787,13 @@ in {
 
     networking.firewall = {
       enable = true;
-      allowedUDPPorts = [ cfg.wireguard.listenPort ];
       allowedTCPPorts = lib.mkIf cfg.bootstrapSsh [ 22 ];
-      interfaces.${wgIf}.allowedTCPPorts = lib.mkIf (!cfg.bootstrapSsh) [ 22 ];
       interfaces.tailscale0.allowedTCPPorts =
         lib.mkIf (!cfg.bootstrapSsh && cfg.tailscale.enable) [ 22 ];
     };
 
     networking.nftables.enable = true;
     networking.nftables.ruleset = builtins.readFile ../../nftables/egress-block.nft;
-
-    networking.wireguard.interfaces.${wgIf} = {
-      ips = [ cfg.wireguard.address ];
-      listenPort = cfg.wireguard.listenPort;
-      privateKeyFile = config.sops.secrets.wg_private_key.path;
-
-      peers = map (peer: {
-        publicKey = peer.publicKey;
-        allowedIPs = peer.allowedIPs;
-      }) cfg.wireguard.adminPeers;
-    };
 
     services.tailscale = lib.mkIf cfg.tailscale.enable {
       enable = true;
@@ -831,7 +808,6 @@ in {
       validateSopsFiles = false;
 
       secrets = lib.mkMerge [
-        wgSecret
         perBotSecrets
         perBotSkillSecrets
         (lib.optionalAttrs (cfg.tailscale.enable && cfg.tailscale.authKeySecret != null) {

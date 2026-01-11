@@ -10,6 +10,7 @@ import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawdbot/cla
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { evalFleetConfig } from "@clawdbot/clawdlets-core/lib/fleet-nix-eval";
 import { withFlakesEnv } from "@clawdbot/clawdlets-core/lib/nix-flakes";
+import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { requireDeployGate } from "../lib/deploy-gate.js";
 
 async function purgeKnownHosts(ipv4: string, opts: { dryRun: boolean }) {
@@ -151,7 +152,15 @@ export const bootstrap = defineCommand({
 
     const fleetPath = path.join(repoRoot, "infra", "configs", "fleet.nix");
     const bots = (await evalFleetConfig({ repoRoot, fleetFilePath: fleetPath, nixBin })).bots;
-    const requiredSecrets = ["wg_private_key", "admin_password_hash", ...bots.map((b) => `discord_token_${b}`)];
+
+    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, stackDir: args.stackDir });
+    const tailnetMode = String(clawdletsConfig.hosts[hostName]?.tailnet?.mode || "none");
+
+    const requiredSecrets = [
+      ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
+      "admin_password_hash",
+      ...bots.map((b) => `discord_token_${b}`),
+    ];
 
     const remoteSecretsDir = String(host.secrets.remoteDir || "").trim();
     if (!remoteSecretsDir) throw new Error(`missing stack host secrets.remoteDir for ${hostName}`);

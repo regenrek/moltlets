@@ -19,7 +19,6 @@ beforeEach(() => {
 describe("tool helpers", () => {
   it("supports dryRun", async () => {
     const { ageKeygen } = await import("../src/lib/age-keygen");
-    const { wgGenKey } = await import("../src/lib/wireguard");
     const { mkpasswdYescryptHash } = await import("../src/lib/mkpasswd");
     const { looksLikeSshKeyContents, normalizeSshPublicKey } = await import("../src/lib/ssh");
 
@@ -27,7 +26,6 @@ describe("tool helpers", () => {
     expect(pair.publicKey.startsWith("age1")).toBe(true);
     expect(pair.secretKey.startsWith("AGE-SECRET-KEY-")).toBe(true);
 
-    expect(await wgGenKey({ nixBin: "nix", dryRun: true })).toBe("<wg_private_key>");
     expect(await mkpasswdYescryptHash("pw", { nixBin: "nix", dryRun: true })).toBe(
       "<admin_password_hash>",
     );
@@ -51,18 +49,6 @@ describe("tool helpers", () => {
     expect(pair.secretKey).toBe("AGE-SECRET-KEY-ABCDEF");
   });
 
-  it("validates WireGuard key output (non-dryRun)", async () => {
-    const good = `${"A".repeat(43)}=`;
-    nixToolsState.shellOutput = good;
-    const { wgGenKey } = await import("../src/lib/wireguard");
-    expect(await wgGenKey({ nixBin: "nix", dryRun: false })).toBe(good);
-
-    nixToolsState.shellOutput = "nope";
-    await expect(wgGenKey({ nixBin: "nix", dryRun: false })).rejects.toThrow(
-      /unexpected output/,
-    );
-  });
-
   it("extracts yescrypt hash (non-dryRun)", async () => {
     nixToolsState.shellWithInputOutput = ["hello", "$y$hash", "bye"].join("\n");
     const { mkpasswdYescryptHash } = await import("../src/lib/mkpasswd");
@@ -74,4 +60,3 @@ describe("tool helpers", () => {
     );
   });
 });
-

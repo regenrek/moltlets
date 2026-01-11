@@ -48,10 +48,9 @@ const HostSchema = z.object({
   sshAuthorizedKeys: z.array(z.string().trim().min(1)).default([]),
   tailnet: z
     .object({
-      mode: z.enum(["none", "tailscale", "wireguard"]).default("none"),
-      wireguardAdminPeers: z.array(z.string().trim().min(1)).default([]),
+      mode: z.enum(["none", "tailscale"]).default("tailscale"),
     })
-    .default({ mode: "none", wireguardAdminPeers: [] }),
+    .default({ mode: "tailscale" }),
   agentModelPrimary: z.string().trim().default("zai/glm-4.7"),
 });
 
@@ -88,7 +87,7 @@ export function createDefaultClawdletsConfig(params: { host: string; bots?: stri
         bootstrapSsh: true,
         diskDevice: "/dev/disk/by-id/CHANGE_ME",
         sshAuthorizedKeys: [],
-        tailnet: { mode: "none", wireguardAdminPeers: [] },
+        tailnet: { mode: "tailscale" },
         agentModelPrimary: "zai/glm-4.7",
       },
     },

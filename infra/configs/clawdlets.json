@@ -14,9 +14,8 @@
       "bootstrapSsh": true,
       "diskDevice": "/dev/disk/by-id/CHANGE_ME",
       "sshAuthorizedKeys": [],
-      "tailnet": { "mode": "none", "wireguardAdminPeers": [] },
+      "tailnet": { "mode": "tailscale" },
       "agentModelPrimary": "zai/glm-4.7"
     }
   }
 }
-

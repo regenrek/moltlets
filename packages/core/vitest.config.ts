@@ -27,7 +27,7 @@ export default defineConfig({
         "src/lib/secrets-policy.ts",
         "src/lib/sops-config.ts",
         "src/lib/ssh.ts",
-        "src/lib/wireguard.ts"
+        "src/lib/secrets-init.ts"
       ],
       exclude: ["src/index.ts"],
       thresholds: {

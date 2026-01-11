@@ -83,7 +83,7 @@ cp .clawdlets/secrets/hosts/clawdbot-fleet-host.agekey .clawdlets/extra-files/cl
 
 ## Common keys
 
-- `wg_private_key`
+- `tailscale_auth_key` (required when using Tailscale auto-join)
 - `discord_token_<bot>`
 - `z_ai_api_key` (Z.AI provider; mapped to ZAI_API_KEY/Z_AI_API_KEY env)
 

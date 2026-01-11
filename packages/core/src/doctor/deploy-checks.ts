@@ -120,15 +120,12 @@ export async function addDeployChecks(params: {
     });
 
     const mode = String(clawdletsHostCfg.tailnet?.mode || "none");
-    const peers = (clawdletsHostCfg.tailnet?.wireguardAdminPeers || []) as string[];
     if (mode === "none") {
       params.push({ scope: "deploy", status: "warn", label: "tailnet configured", detail: "(tailnet.mode=none)" });
-    } else if (mode === "wireguard" && peers.length === 0) {
-      params.push({ scope: "deploy", status: "warn", label: "tailnet configured", detail: "(wireguard; missing admin peers)" });
     } else if (mode === "tailscale") {
       params.push({ scope: "deploy", status: "ok", label: "tailnet configured", detail: "(tailscale)" });
     } else {
-      params.push({ scope: "deploy", status: "ok", label: "tailnet configured", detail: "(wireguard)" });
+      params.push({ scope: "deploy", status: "warn", label: "tailnet configured", detail: `(unknown: ${mode})` });
     }
   }
 
@@ -214,7 +211,12 @@ export async function addDeployChecks(params: {
         }
 
         if (params.fleetBots && params.fleetBots.length > 0) {
-          const required = ["wg_private_key", "admin_password_hash", ...params.fleetBots.map((b) => `discord_token_${b}`)];
+          const tailnetMode = String(clawdletsHostCfg?.tailnet?.mode || "none");
+          const required = [
+            ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
+            "admin_password_hash",
+            ...params.fleetBots.map((b) => `discord_token_${b}`),
+          ];
           for (const secretName of required) {
             const f = path.join(secretsLocalDir, `${secretName}.yaml`);
             params.push({

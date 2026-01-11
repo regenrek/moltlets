@@ -42,7 +42,7 @@ async function trySshCapture(targetHost: string, remoteCmd: string, opts: { tty?
 const serverAudit = defineCommand({
   meta: {
     name: "audit",
-    description: "Audit host invariants over SSH (bootstrap firewall, wireguard, services, rendered env).",
+    description: "Audit host invariants over SSH (bootstrap firewall, tailscale, services, rendered env).",
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
@@ -90,11 +90,13 @@ const serverAudit = defineCommand({
     else if (bootstrap.includes("Value: true")) add({ status: "missing", label: "bootstrapSsh", detail: "(true; public SSH firewall open)" });
     else add({ status: "warn", label: "bootstrapSsh", detail: "(unknown; nixos-option not available?)" });
 
-    const wgIfRaw = await nixosOption("services.clawdbotFleet.wireguard.interface");
-    const wgIfMatch = wgIfRaw.match(/Value:\s*\"([^\"]+)\"/);
-    const wgIf = wgIfMatch?.[1] ? wgIfMatch[1] : "wg0";
-
-    await must("wireguard service", [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", `wireguard-${wgIf}.service` ].join(" "));
+    const tailscaleEnabled = (await nixosOption("services.tailscale.enable")).includes("Value: true");
+    if (tailscaleEnabled) {
+      await must("tailscale service", [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", "tailscaled.service" ].join(" "));
+      await must("tailscale autoconnect", [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", "tailscaled-autoconnect.service" ].join(" "));
+    } else {
+      add({ status: "warn", label: "tailscale enabled", detail: "(services.tailscale.enable=false)" });
+    }
 
     const botsRaw = await nixosOption("services.clawdbotFleet.bots");
     const bots = Array.from(botsRaw.matchAll(/"([^"]+)"/g)).map((m) => String(m[1] ?? "")).filter(Boolean);

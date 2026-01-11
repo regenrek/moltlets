@@ -121,10 +121,10 @@ in {
     identity = fleet.identity;
     codex = fleet.codex;
     tailscale.enable = tailnetMode == "tailscale";
+    tailscale.authKeySecret = lib.mkIf (tailnetMode == "tailscale") "tailscale_auth_key";
     opsSnapshot.enable = true;
     bootstrapSsh = hostCfg.bootstrapSsh or true;
     disableBonjour = true;
     agentModelPrimary = hostCfg.agentModelPrimary or "zai/glm-4.7";
-    wireguard.adminPeers = tailnet.wireguardAdminPeers or [ ];
   };
 }

@@ -104,7 +104,7 @@ sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
 
 ## Bonjour / mDNS (optional)
 
-If mDNS errors appear on `wg0`, Bonjour is disabled by default in the template host config.
+If mDNS errors appear, Bonjour is disabled by default in the template host config.
 
 ## GitHub inventory sync (optional)
 
@@ -206,10 +206,10 @@ One-time login on the host:
 sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
 ```
 
-## Admin access (WireGuard + Tailscale)
+## Admin access (Tailscale)
 
-WireGuard is used for admin SSH by default. Tailscale is also supported and
-recommended for ease of access:
+Tailscale is used for admin SSH:
 
 - set tailnet mode: `clawdlets host set --tailnet tailscale`
-- on the host, run `sudo tailscale up` once (unless using an auth key)
+- store a Tailscale auth key in secrets (`tailscale_auth_key.yaml`)
+- first boot auto-joins via NixOS `services.tailscale.authKeyFile` (no manual `tailscale up`)

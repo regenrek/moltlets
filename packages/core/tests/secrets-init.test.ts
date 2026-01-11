@@ -25,13 +25,13 @@ describe("secrets-init JSON + non-interactive validation", () => {
     const out = parseSecretsInitJson(
       JSON.stringify({
         adminPasswordHash: "  hash  ",
-        wgPrivateKey: "  wg  ",
+        tailscaleAuthKey: "  ts  ",
         zAiApiKey: "  zai  ",
         discordTokens: { maren: "  tok  ", sonja: " " },
       }),
     );
     expect(out.adminPasswordHash).toBe("hash");
-    expect(out.wgPrivateKey).toBe("wg");
+    expect(out.tailscaleAuthKey).toBe("ts");
     expect(out.zAiApiKey).toBe("zai");
     expect(out.discordTokens).toEqual({ maren: "tok" });
   });
@@ -75,4 +75,3 @@ describe("secrets-init JSON + non-interactive validation", () => {
     ).not.toThrow();
   });
 });
-

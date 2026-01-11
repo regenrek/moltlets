@@ -46,7 +46,12 @@ export const secretsVerify = defineCommand({
     const { config } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
     const bots = config.fleet.bots;
 
-    const requiredSecrets = ["wg_private_key", "admin_password_hash", ...bots.map((b) => `discord_token_${b}`)];
+    const tailnetMode = String(config.hosts[hostName]?.tailnet?.mode || "none");
+    const requiredSecrets = [
+      ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
+      "admin_password_hash",
+      ...bots.map((b) => `discord_token_${b}`),
+    ];
     const optionalSecrets = ["z_ai_api_key", "root_password_hash"];
 
     type Result = { secret: string; status: "ok" | "missing" | "warn"; detail?: string };

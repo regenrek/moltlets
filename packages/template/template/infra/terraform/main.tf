@@ -46,11 +46,6 @@ variable "location" {
   default = "nbg1"
 }
 
-variable "wireguard_port" {
-  type = string
-  default = "51820"
-}
-
 provider "hcloud" {
   token = var.hcloud_token
 }
@@ -63,5 +58,4 @@ module "clawdbot_fleet_host" {
   bootstrap_ssh = var.bootstrap_ssh
   server_type   = var.server_type
   location      = var.location
-  wireguard_port = var.wireguard_port
 }
