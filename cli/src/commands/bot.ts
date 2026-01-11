@@ -2,7 +2,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
-import { loadClawdletsConfig, writeClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { ClawdletsConfigSchema, loadClawdletsConfig, writeClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
 
 function validateBotId(value: string): string | undefined {
@@ -60,7 +60,8 @@ const add = defineCommand({
       ...config,
       fleet: { ...config.fleet, bots: [...existingBots, botId] },
     };
-    await writeClawdletsConfig({ configPath, config: next });
+    const validated = ClawdletsConfigSchema.parse(next);
+    await writeClawdletsConfig({ configPath, config: validated });
     console.log(`ok: added bot ${botId}`);
   },
 });
@@ -79,7 +80,8 @@ const rm = defineCommand({
     if (!existingBots.includes(botId)) throw new Error(`bot not found: ${botId}`);
     const nextBots = existingBots.filter((b) => b !== botId);
     const next = { ...config, fleet: { ...config.fleet, bots: nextBots } };
-    await writeClawdletsConfig({ configPath, config: next });
+    const validated = ClawdletsConfigSchema.parse(next);
+    await writeClawdletsConfig({ configPath, config: validated });
     console.log(`ok: removed bot ${botId}`);
   },
 });

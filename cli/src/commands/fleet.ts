@@ -1,7 +1,7 @@
 import process from "node:process";
 import { defineCommand } from "citty";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
-import { loadClawdletsConfig, writeClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { ClawdletsConfigSchema, loadClawdletsConfig, writeClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 
 const show = defineCommand({
   meta: { name: "show", description: "Print fleet config (from infra/configs/clawdlets.json)." },
@@ -49,7 +49,8 @@ const set = defineCommand({
 
     if ((args as any)["restic-repository"] !== undefined) next.fleet.backups.restic.repository = String((args as any)["restic-repository"]).trim();
 
-    await writeClawdletsConfig({ configPath, config: next });
+    const validated = ClawdletsConfigSchema.parse(next);
+    await writeClawdletsConfig({ configPath, config: validated });
     console.log("ok");
   },
 });
