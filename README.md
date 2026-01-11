@@ -31,10 +31,14 @@ Constraints:
 - no shims/workarounds; fix root cause; single source of truth
 
 What I want:
-1) exact local commands (macOS) for: pnpm install, clawdlets stack init, clawdlets secrets init, doctor
-2) exact deploy steps: infra apply -> bootstrap -> connect via Tailscale -> lockdown
-3) exact ops commands: server status/logs/restart; rebuild pinned by full git SHA
-4) if something fails: ask for the exact error output and propose the next command
+1) exact local commands (macOS) for: pnpm install, clawdlets project init, clawdlets stack init, clawdlets secrets init, doctor
+2) which commands are wizard/interactive (project init / stack init / secrets init) vs. non-interactive (config/fleet/host)
+3) exact deploy steps: infra apply -> bootstrap -> connect via Tailscale -> lockdown
+4) exact ops commands: server status/logs/restart; rebuild pinned by full git SHA
+5) non-interactive agent-friendly commands:
+   - stack init: pass flags (admin cidr, ssh pubkey file, hcloud token) instead of prompts
+   - secrets init: use --from-json <path|-> (never pass secrets via argv flags)
+6) if something fails: ask for the exact error output and propose the next command
 
 Start by reading docs/README.md, then tell me the minimal command sequence for one host.
 ```
