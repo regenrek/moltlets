@@ -6,6 +6,7 @@ import * as p from "@clack/prompts";
 import { getTemplateDir } from "@clawdlets/template";
 import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe";
 import { capture, run } from "@clawdbot/clawdlets-core/lib/run";
+import { assertSafeHostName } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
 
 function wantsInteractive(flag: boolean | undefined): boolean {
@@ -105,6 +106,7 @@ const projectInit = defineCommand({
     if (!dirRaw) throw new Error("missing --dir");
     const destDir = path.resolve(process.cwd(), dirRaw);
     const host = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    assertSafeHostName(host);
     const projectName = path.basename(destDir);
 
     if (interactive) {
@@ -134,7 +136,8 @@ const projectInit = defineCommand({
 
     const subs = {
       "__PROJECT_NAME__": projectName,
-      "__HOST__": host,
+      "clawdbot-fleet-host": host,
+      "clawdbot_fleet_host": host.replace(/-/g, "_"),
     };
 
     const planned: string[] = [];

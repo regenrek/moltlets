@@ -9,7 +9,7 @@
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
   "hosts": {
-    "__HOST__": {
+    "clawdbot-fleet-host": {
       "enable": false,
       "bootstrapSsh": true,
       "diskDevice": "/dev/disk/by-id/CHANGE_ME",
@@ -19,4 +19,3 @@
     }
   }
 }
-
