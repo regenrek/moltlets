@@ -45,7 +45,7 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Cache Nix store
-        uses: nix-community/cache-nix-action@8351fb9f51c580c96c509987ebb99e38aed956ce # v5
+        uses: nix-community/cache-nix-action@b426b118b6dc86d6952988d396aa7c6b09776d08 # v5
         with:
           nix: false
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/flake.lock') }}
