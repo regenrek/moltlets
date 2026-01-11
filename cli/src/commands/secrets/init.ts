@@ -12,8 +12,7 @@ import { sopsPathRegexForDirFiles, upsertSopsCreationRule } from "@clawdbot/claw
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { wgGenKey } from "@clawdbot/clawdlets-core/lib/wireguard";
 import { loadStack, loadStackEnv } from "@clawdbot/clawdlets-core/stack";
-import { evalFleetConfig } from "@clawdbot/clawdlets-core/lib/fleet-nix-eval";
-import { assertSafeHostName } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { assertSafeHostName, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
 import { sanitizeOperatorId, upsertYamlScalarLine } from "./common.js";
 
@@ -180,10 +179,9 @@ export const secretsInit = defineCommand({
       }
     };
 
-    const fleetPath = path.join(layout.repoRoot, "infra", "configs", "fleet.nix");
-    const bots = fs.existsSync(fleetPath)
-      ? (await evalFleetConfig({ repoRoot: layout.repoRoot, fleetFilePath: fleetPath, nixBin: nix.nixBin })).bots
-      : ["maren", "sonja", "gunnar", "melinda"];
+    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
+    const bots = clawdletsConfig.fleet.bots;
+    if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
 
     const flowSecrets = "secrets init";
     const values: {

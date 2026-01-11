@@ -2,7 +2,13 @@ import fs from "node:fs";
 import process from "node:process";
 import { defineCommand } from "citty";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
-import { ClawdletsConfigSchema, loadClawdletsConfig, writeClawdletsConfig, type ClawdletsHostConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import {
+  assertSafeHostName,
+  ClawdletsConfigSchema,
+  loadClawdletsConfig,
+  writeClawdletsConfig,
+  type ClawdletsHostConfig,
+} from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 
 function parseBoolOrUndefined(v: unknown): boolean | undefined {
   if (v === undefined || v === null) return undefined;
@@ -28,6 +34,7 @@ const add = defineCommand({
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
     const hostName = String(args.host || "").trim();
     if (!hostName) throw new Error("missing --host");
+    assertSafeHostName(hostName);
     if (config.hosts[hostName]) throw new Error(`host already exists in clawdlets.json: ${hostName}`);
 
     const nextHost: ClawdletsHostConfig = {
@@ -65,6 +72,7 @@ const set = defineCommand({
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
 
     const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    assertSafeHostName(hostName);
     const existing = config.hosts[hostName];
     if (!existing) throw new Error(`unknown host in clawdlets.json: ${hostName}`);
 
@@ -103,7 +111,7 @@ const set = defineCommand({
       if (v) next.tailnet.wireguardAdminPeers = Array.from(new Set([...next.tailnet.wireguardAdminPeers, v]));
     }
 
-    const nextConfig = { ...config, hosts: { ...config.hosts, [hostName]: next } };
+    const nextConfig = ClawdletsConfigSchema.parse({ ...config, hosts: { ...config.hosts, [hostName]: next } });
     await writeClawdletsConfig({ configPath, config: nextConfig });
     console.log(`ok: updated host ${hostName}`);
   },
