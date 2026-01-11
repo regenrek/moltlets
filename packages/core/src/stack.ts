@@ -5,6 +5,7 @@ import { z } from "zod";
 import { expandPath } from "./lib/path-expand.js";
 import { tryGetOriginFlake } from "./lib/git.js";
 import { findRepoRoot } from "./lib/repo.js";
+import { SafeHostNameSchema } from "./lib/clawdlets-config.js";
 
 export const STACK_SCHEMA_VERSION = 2 as const;
 
@@ -34,7 +35,7 @@ export const StackSchema = z.object({
     })
     .optional(),
   envFile: z.string().trim().min(1).optional(),
-  hosts: z.record(z.string().trim().min(1), HostSchema).refine((v) => Object.keys(v).length > 0, {
+  hosts: z.record(SafeHostNameSchema, HostSchema).refine((v) => Object.keys(v).length > 0, {
     message: "hosts must not be empty",
   }),
 });

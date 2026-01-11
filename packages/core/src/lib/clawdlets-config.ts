@@ -78,6 +78,8 @@ export const ClawdletsConfigSchema = z.object({
 export type ClawdletsConfig = z.infer<typeof ClawdletsConfigSchema>;
 export type ClawdletsHostConfig = z.infer<typeof HostSchema>;
 
+export const SafeHostNameSchema = HostNameSchema;
+
 export function assertSafeHostName(hostName: string): void {
   const v = String(hostName || "").trim();
   if (!SAFE_HOSTNAME_RE.test(v)) {
