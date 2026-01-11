@@ -1,4 +1,5 @@
 import { capture, captureWithInput, run, type RunOpts } from "./run.js";
+import { withFlakesEnv } from "./nix-flakes.js";
 
 export type NixToolOpts = {
   nixBin: string;
@@ -14,7 +15,7 @@ export async function nixRunCapture(
   opts: NixToolOpts,
 ): Promise<string> {
   const nixArgs = ["run", "--impure", `nixpkgs#${pkg}`, "--", ...args];
-  return await capture(opts.nixBin, nixArgs, opts);
+  return await capture(opts.nixBin, nixArgs, { ...opts, env: withFlakesEnv(opts.env) });
 }
 
 export async function nixRun(
@@ -23,7 +24,7 @@ export async function nixRun(
   opts: NixToolOpts,
 ): Promise<void> {
   const nixArgs = ["run", "--impure", `nixpkgs#${pkg}`, "--", ...args];
-  const runOpts: RunOpts = opts;
+  const runOpts: RunOpts = { ...opts, env: withFlakesEnv(opts.env) };
   await run(opts.nixBin, nixArgs, runOpts);
 }
 
@@ -34,7 +35,7 @@ export async function nixShellCapture(
   opts: NixToolOpts,
 ): Promise<string> {
   const nixArgs = ["shell", `nixpkgs#${pkg}`, "-c", cmd, ...args];
-  return await capture(opts.nixBin, nixArgs, opts);
+  return await capture(opts.nixBin, nixArgs, { ...opts, env: withFlakesEnv(opts.env) });
 }
 
 export async function nixShellCaptureWithInput(
@@ -45,5 +46,5 @@ export async function nixShellCaptureWithInput(
   opts: NixToolOpts,
 ): Promise<string> {
   const nixArgs = ["shell", `nixpkgs#${pkg}`, "-c", cmd, ...args];
-  return await captureWithInput(opts.nixBin, nixArgs, input, opts);
+  return await captureWithInput(opts.nixBin, nixArgs, input, { ...opts, env: withFlakesEnv(opts.env) });
 }

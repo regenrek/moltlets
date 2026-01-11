@@ -6,7 +6,6 @@
   "exports": {
     ".": "./dist/index.js",
     "./doctor": "./dist/doctor.js",
-    "./setup": "./dist/setup.js",
     "./repo-layout": "./dist/repo-layout.js",
     "./stack": "./dist/stack.js",
     "./lib/*": "./dist/lib/*.js"

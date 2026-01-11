@@ -19,16 +19,16 @@ describe("stack", () => {
       path.join(repoRoot, ".clawdlets", "stack.json"),
       JSON.stringify(
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           base: { flake: "github:example/repo" },
           envFile: ".env",
           hosts: {
-            bots01: {
-              flakeHost: "bots01",
+            "clawdbot-fleet-host": {
+              flakeHost: "clawdbot-fleet-host",
               targetHost: "admin@100.64.0.1",
               hetzner: { serverType: "cx43" },
               terraform: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
-              secrets: { localFile: "secrets/hosts/bots01.yaml", remoteFile: "/var/lib/clawdlets/secrets/hosts/bots01.yaml" },
+              secrets: { localDir: "secrets/hosts/clawdbot-fleet-host", remoteDir: "/var/lib/clawdlets/secrets/hosts/clawdbot-fleet-host" },
             },
           },
         },
@@ -51,9 +51,9 @@ describe("stack", () => {
     const { stack, layout } = loadStack({ cwd: repoRoot });
     expect(layout.repoRoot).toBe(repoRoot);
     expect(layout.stackFile.endsWith(path.join(".clawdlets", "stack.json"))).toBe(true);
-    expect(stack.schemaVersion).toBe(1);
+    expect(stack.schemaVersion).toBe(2);
     expect(stack.base?.flake).toBe("github:example/repo");
-    expect(Object.keys(stack.hosts)).toEqual(["bots01"]);
+    expect(Object.keys(stack.hosts)).toEqual(["clawdbot-fleet-host"]);
   });
 
   it("loads env file relative to stack dir when stack.envFile is relative", async () => {
@@ -71,15 +71,15 @@ describe("stack", () => {
       stackPath,
       JSON.stringify(
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           envFile: ".env",
           hosts: {
-            bots01: {
-              flakeHost: "bots01",
+            "clawdbot-fleet-host": {
+              flakeHost: "clawdbot-fleet-host",
               targetHost: "admin@100.64.0.1",
               hetzner: { serverType: "cx43" },
               terraform: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
-              secrets: { localFile: "secrets/hosts/bots01.yaml", remoteFile: "/var/lib/clawdlets/secrets/hosts/bots01.yaml" },
+              secrets: { localDir: "secrets/hosts/clawdbot-fleet-host", remoteDir: "/var/lib/clawdlets/secrets/hosts/clawdbot-fleet-host" },
             },
           },
         },

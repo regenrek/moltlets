@@ -32,40 +32,37 @@ beforeEach(() => {
 });
 
 describe("sops args", () => {
-  it("passes --config before decrypt subcommand", async () => {
+  it("decrypt uses the expected sops args", async () => {
     const { sopsDecryptYamlFile } = await import("../src/lib/sops");
     await sopsDecryptYamlFile({
-      filePath: "/tmp/hosts/bots01.yaml",
-      filenameOverride: "bots01.yaml",
-      sopsConfigPath: "/tmp/.sops.yaml",
+      filePath: "/tmp/hosts/clawdbot-fleet-host.yaml",
+      filenameOverride: "clawdbot-fleet-host.yaml",
       ageKeyFile: "/tmp/operator.agekey",
       nix: { nixBin: "nix", dryRun: true },
     });
 
     expect(nixToolsState.lastShellArgs).not.toBeNull();
     const args = nixToolsState.lastShellArgs!;
-    expect(args[0]).toBe("--config");
-    expect(args[1]).toBe("/tmp/.sops.yaml");
-    expect(args[2]).toBe("decrypt");
+    expect(args[0]).toBe("decrypt");
+    expect(args).toContain("--filename-override");
+    expect(args).toContain("clawdbot-fleet-host.yaml");
+    expect(args[args.length - 1]).toBe("/tmp/hosts/clawdbot-fleet-host.yaml");
   });
 
-  it("passes --config before encrypt subcommand", async () => {
+  it("encrypt defaults filename-override to outPath", async () => {
     const { sopsEncryptYamlToFile } = await import("../src/lib/sops");
     await sopsEncryptYamlToFile({
       plaintextYaml: "hello: world\n",
-      outPath: "/tmp/hosts/bots01.yaml",
-      filenameOverride: "bots01.yaml",
-      sopsConfigPath: "/tmp/.sops.yaml",
+      outPath: "/tmp/hosts/clawdbot-fleet-host.yaml",
       nix: { nixBin: "nix", dryRun: true },
     });
 
     expect(runState.lastArgs).not.toBeNull();
     const args = runState.lastArgs!;
-    const idxConfig = args.indexOf("--config");
     const idxEncrypt = args.indexOf("encrypt");
-    expect(idxConfig).toBeGreaterThanOrEqual(0);
     expect(idxEncrypt).toBeGreaterThanOrEqual(0);
-    expect(idxConfig).toBeLessThan(idxEncrypt);
+    const idxOverride = args.indexOf("--filename-override");
+    expect(idxOverride).toBeGreaterThanOrEqual(0);
+    expect(args[idxOverride + 1]).toBe("/tmp/hosts/clawdbot-fleet-host.yaml");
   });
 });
-

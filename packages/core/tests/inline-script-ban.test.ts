@@ -1,0 +1,12 @@
+import { describe, it, expect } from "vitest";
+import path from "node:path";
+import { findInlineScriptingViolations } from "../src/lib/inline-script-ban";
+
+describe("inline scripting ban", () => {
+  it("rejects inline python/node in infra/scripts", () => {
+    const repoRoot = path.resolve(__dirname, "..", "..", "..");
+    const violations = findInlineScriptingViolations({ repoRoot });
+    expect(violations).toEqual([]);
+  });
+});
+

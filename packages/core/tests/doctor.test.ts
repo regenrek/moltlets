@@ -1,10 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { sopsPathRegexForDirFiles } from "../src/lib/sops-config";
+
+let mockFleetMain: any = null;
+let mockFleetTemplate: any = null;
 
 vi.mock("../src/lib/run.js", () => ({
-  capture: vi.fn(async () => "nix (mock) 2.0"),
+  capture: vi.fn(async (_cmd: string, args: string[]) => {
+    if (args.includes("--version")) return "nix (mock) 2.0";
+    if (args[0] === "eval" || args.includes("eval")) {
+      const joined = args.join(" ");
+      const isTemplate = joined.includes("packages/template/template/infra/configs/fleet.nix");
+      return JSON.stringify(isTemplate ? mockFleetTemplate : mockFleetMain);
+    }
+    return "";
+  }),
   run: vi.fn(async () => {}),
   captureWithInput: vi.fn(async () => ""),
 }));
@@ -29,73 +41,223 @@ describe("doctor", () => {
     repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-doctor-"));
     await writeFile(path.join(repoRoot, "flake.nix"), "{ }", "utf8");
     await mkdir(path.join(repoRoot, "scripts"), { recursive: true });
+    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
+    await mkdir(path.join(repoRoot, "packages", "template", "template", "docs"), { recursive: true });
+    await mkdir(path.join(repoRoot, "packages", "template", "template", "infra", "configs"), { recursive: true });
+    await mkdir(path.join(repoRoot, "packages", "template", "template", "infra", "nix", "hosts"), { recursive: true });
     await mkdir(path.join(repoRoot, "infra", "terraform"), { recursive: true });
     await mkdir(path.join(repoRoot, "infra", "configs"), { recursive: true });
     await mkdir(path.join(repoRoot, "infra", "nix", "hosts"), { recursive: true });
-    await mkdir(path.join(repoRoot, "infra", "secrets", "extra-files", "bots01", "var", "lib", "sops-nix"), { recursive: true });
+    await mkdir(path.join(repoRoot, ".clawdlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix"), { recursive: true });
+
+    const bundledSkillsText = ["[", '  "github",', '  "brave-search",', '  "coding-agent"', "]", ""].join("\n");
+    await writeFile(path.join(repoRoot, "infra", "configs", "bundled-skills.json"), bundledSkillsText, "utf8");
+    await writeFile(
+      path.join(repoRoot, "packages", "template", "template", "infra", "configs", "bundled-skills.json"),
+      bundledSkillsText,
+      "utf8",
+    );
+
+    await writeFile(path.join(repoRoot, "docs", "overview.md"), "# overview\n", "utf8");
+    await writeFile(
+      path.join(repoRoot, "docs", "docs.yaml"),
+      [
+        "docs:",
+        "  - path: docs/overview.md",
+        "    when: seed",
+        "    summary: seed",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await writeFile(path.join(repoRoot, "packages", "template", "template", "docs", "overview.md"), "# overview\n", "utf8");
+    await writeFile(
+      path.join(repoRoot, "packages", "template", "template", "docs", "docs.yaml"),
+      [
+        "docs:",
+        "  - path: docs/overview.md",
+        "    when: seed",
+        "    summary: seed",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
 
     const sshPub = path.join(repoRoot, "id_ed25519.pub");
     await writeFile(sshPub, "ssh-ed25519 AAAATEST test\n", "utf8");
 
-    const operatorKey = path.join(repoRoot, "infra", "secrets", "operators", "tester.agekey");
+    const operatorKey = path.join(repoRoot, ".clawdlets", "secrets", "operators", "tester.agekey");
     await mkdir(path.dirname(operatorKey), { recursive: true });
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
+    await mkdir(path.join(repoRoot, ".clawdlets"), { recursive: true });
     await writeFile(
-      path.join(repoRoot, ".env"),
+      path.join(repoRoot, ".clawdlets", ".env"),
       [
         "HCLOUD_TOKEN=abc",
-        "ADMIN_CIDR=203.0.113.10/32",
-        `SSH_PUBKEY_FILE=${sshPub}`,
         `SOPS_AGE_KEY_FILE=${operatorKey}`,
-        "SERVER_TYPE=cx43",
         "",
       ].join("\n"),
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(repoRoot, ".clawdlets", "stack.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          envFile: ".env",
+          hosts: {
+            "clawdbot-fleet-host": {
+              flakeHost: "clawdbot-fleet-host",
+              targetHost: "root@clawdbot-fleet-host",
+              hetzner: { serverType: "cx43" },
+              terraform: {
+                adminCidr: "203.0.113.10/32",
+                sshPubkeyFile: "id_ed25519.pub",
+              },
+              secrets: {
+                localDir: "secrets/hosts/clawdbot-fleet-host",
+                remoteDir: "/var/lib/clawdlets/secrets/hosts/clawdbot-fleet-host",
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+
+    const clawdletsConfig = {
+      schemaVersion: 1,
+      fleet: {
+        guildId: "",
+        bots: ["alpha", "beta"],
+        botOverrides: {},
+        routingOverrides: {},
+        codex: { enable: false, bots: [] },
+        backups: { restic: { enable: false, repository: "" } },
+      },
+      hosts: {
+        "clawdbot-fleet-host": {
+          enable: false,
+          bootstrapSsh: true,
+          diskDevice: "/dev/disk/by-id/TEST",
+          sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
+          tailnet: { mode: "none", wireguardAdminPeers: [] },
+          agentModelPrimary: "zai/glm-4.7",
+        },
+      },
+    };
+
+    await writeFile(path.join(repoRoot, "infra", "configs", "clawdlets.json"), JSON.stringify(clawdletsConfig, null, 2) + "\n", "utf8");
+    await writeFile(
+      path.join(repoRoot, "packages", "template", "template", "infra", "configs", "clawdlets.json"),
+      JSON.stringify(clawdletsConfig, null, 2) + "\n",
       "utf8",
     );
 
     await writeFile(
       path.join(repoRoot, "infra", "configs", "fleet.nix"),
-      ' { bots = [ "alpha" "beta" ]; } ',
+      [
+        "{ lib }:",
+        "let",
+        "  cfg = builtins.fromJSON (builtins.readFile ./clawdlets.json);",
+        "  fleetCfg = cfg.fleet or { };",
+        "in {",
+        "  bots = fleetCfg.bots or [ \"alpha\" \"beta\" ];",
+        "  botProfiles = {",
+        "    alpha = { skills = { allowBundled = [ ]; entries = { }; }; github = { }; };",
+        "    beta = { skills = { allowBundled = [ ]; entries = { }; }; github = { }; };",
+        "  };",
+        "}",
+        "",
+      ].join("\n"),
       "utf8",
     );
 
     await writeFile(
-      path.join(repoRoot, "infra", "secrets", ".sops.yaml"),
+      path.join(repoRoot, "packages", "template", "template", "infra", "configs", "fleet.nix"),
+      [
+        "{ lib }:",
+        "let",
+        "  cfg = builtins.fromJSON (builtins.readFile ./clawdlets.json);",
+        "  fleetCfg = cfg.fleet or { };",
+        "in {",
+        "  bots = fleetCfg.bots or [ \"alpha\" \"beta\" ];",
+        "  botProfiles = {",
+        "    alpha = { skills = { allowBundled = [ ]; entries = { }; }; github = { }; };",
+        "    beta = { skills = { allowBundled = [ ]; entries = { }; }; github = { }; };",
+        "  };",
+        "}",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    mockFleetMain = {
+      bots: ["alpha", "beta"],
+      botProfiles: {
+        alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
+        beta: { skills: { allowBundled: [], entries: {} }, github: {} },
+      },
+    };
+    mockFleetTemplate = JSON.parse(JSON.stringify(mockFleetMain));
+
+    await mkdir(path.join(repoRoot, ".clawdlets", "secrets", "hosts"), { recursive: true });
+
+    await writeFile(
+      path.join(repoRoot, ".clawdlets", "secrets", ".sops.yaml"),
       [
         "creation_rules:",
-        "  - path_regex: ^bots01\\.yaml$",
-        "    age: age1a, age1b",
+        `  - path_regex: ${sopsPathRegexForDirFiles("secrets/hosts/clawdbot-fleet-host", "yaml")}`,
+        "    key_groups:",
+        "      - age:",
+        "          - age1a",
+        "          - age1b",
         "",
       ].join("\n"),
       "utf8",
     );
 
-    await writeFile(
-      path.join(repoRoot, "infra", "secrets", "bots01.yaml"),
-      [
-        "wg_private_key: x",
-        "admin_password_hash: y",
-        "discord_token_alpha: z",
-        "discord_token_beta: z2",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+    const secretsDir = path.join(repoRoot, ".clawdlets", "secrets", "hosts", "clawdbot-fleet-host");
+    await mkdir(secretsDir, { recursive: true });
+    await writeFile(path.join(secretsDir, "wg_private_key.yaml"), "wg_private_key: x\nsops: {}\n", "utf8");
+    await writeFile(path.join(secretsDir, "admin_password_hash.yaml"), "admin_password_hash: y\nsops: {}\n", "utf8");
+    await writeFile(path.join(secretsDir, "discord_token_alpha.yaml"), "discord_token_alpha: z\nsops: {}\n", "utf8");
+    await writeFile(path.join(secretsDir, "discord_token_beta.yaml"), "discord_token_beta: z2\nsops: {}\n", "utf8");
 
     await writeFile(
-      path.join(repoRoot, "infra", "secrets", "extra-files", "bots01", "var", "lib", "sops-nix", "key.txt"),
+      path.join(repoRoot, ".clawdlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
       "AGE-SECRET-KEY-TEST\n",
       "utf8",
     );
 
     await writeFile(
-      path.join(repoRoot, "infra", "nix", "hosts", "bots01.nix"),
+      path.join(repoRoot, "infra", "nix", "hosts", "clawdlets-host.nix"),
       [
         "users.users.admin = {",
         '  openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAATEST test" ];',
         "};",
+        "users.users.breakglass = { extraGroups = [ \"wheel\" ]; };",
         "services.clawdbotFleet = { bootstrapSsh = true; };",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(repoRoot, "packages", "template", "template", "infra", "nix", "hosts", "clawdlets-host.nix"),
+      [
+        "{ config, lib, ... }:",
+        "let",
+        "  cfg = builtins.fromJSON (builtins.readFile ../../configs/clawdlets.json);",
+        "  hostCfg = (cfg.hosts.${config.clawdlets.hostName} or { });",
+        "in {",
+        "  _module.args.hostCfg = hostCfg;",
+        "}",
         "",
       ].join("\n"),
       "utf8",
@@ -110,49 +272,94 @@ describe("doctor", () => {
 
   afterEach(() => {
     process.env = { ...originalEnv };
+    mockFleetMain = {
+      bots: ["alpha", "beta"],
+      botProfiles: {
+        alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
+        beta: { skills: { allowBundled: [], entries: {} }, github: {} },
+      },
+    };
+    mockFleetTemplate = JSON.parse(JSON.stringify(mockFleetMain));
     vi.clearAllMocks();
   });
 
   it("passes with a fully seeded repo", async () => {
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
-    expect(checks.some((c) => c.status === "missing")).toBe(false);
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   });
 
-  it("flags SSH_PUBKEY_FILE contents as invalid", async () => {
-    const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({
-      cwd: repoRoot,
-      envFile: path.join(repoRoot, ".env"),
-      host: "bots01",
-    });
+  it("rejects skills.allowBundled = null in fleet configs", async () => {
+    mockFleetMain.botProfiles.alpha.skills.allowBundled = null;
+    mockFleetTemplate.botProfiles.alpha.skills.allowBundled = null;
 
-    expect(checks.some((c) => c.label === "SSH_PUBKEY_FILE" && c.status === "missing")).toBe(false);
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "template fleet policy" && c.status === "missing")).toBe(true);
+  });
+
+  it("rejects unknown bundled skills", async () => {
+    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["unknown-skill"];
+
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
+  });
+
+  it("requires GitHub app auth config when bundled github enabled", async () => {
+    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["github"];
+    mockFleetMain.botProfiles.alpha.github = {};
+
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
+  });
+
+  it("requires breakglass in wheel and forbids admin in wheel", async () => {
+    const hostPath = path.join(repoRoot, "infra", "nix", "hosts", "clawdlets-host.nix");
+    const originalHost = await readFile(hostPath, "utf8");
 
     await writeFile(
-      path.join(repoRoot, ".env"),
+      hostPath,
       [
-        "HCLOUD_TOKEN=abc",
-        "ADMIN_CIDR=203.0.113.10/32",
-        "SSH_PUBKEY_FILE=ssh-ed25519 AAAATEST test",
+        "users.users.admin = {",
+        "  extraGroups = [ \"wheel\" ];",
+        "};",
+        "services.clawdbotFleet = { bootstrapSsh = true; };",
         "",
       ].join("\n"),
       "utf8",
     );
 
-    const checks2 = await collectDoctorChecks({
-      cwd: repoRoot,
-      envFile: path.join(repoRoot, ".env"),
-      host: "bots01",
-    });
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    expect(checks.some((c) => c.label === "admin wheel access" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "breakglass wheel access" && c.status === "missing")).toBe(true);
+
+    await writeFile(hostPath, originalHost, "utf8");
+  });
+
+  it("flags terraform ssh pubkey file contents as invalid", async () => {
+    const stackPath = path.join(repoRoot, ".clawdlets", "stack.json");
+    const originalStack = await readFile(stackPath, "utf8");
+
+    const raw = JSON.parse(originalStack) as any;
+    raw.hosts["clawdbot-fleet-host"].terraform.sshPubkeyFile = "ssh-ed25519 AAAATEST test";
+    await writeFile(stackPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     expect(
-      checks2.some(
+      checks.some(
         (c) =>
-          c.label === "SSH_PUBKEY_FILE" &&
+          c.label === "terraform ssh pubkey file" &&
           c.status === "missing" &&
           String(c.detail || "").includes("must be a path"),
       ),
     ).toBe(true);
+
+    await writeFile(stackPath, originalStack, "utf8");
   });
 
   it("requires GITHUB_TOKEN when repo is private", async () => {
@@ -162,7 +369,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "private-or-missing" });
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("missing");
   });
@@ -175,7 +382,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("ok");
   });
@@ -188,7 +395,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -201,7 +408,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -213,7 +420,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "rate-limited" });
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -225,7 +432,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: false, status: "network", detail: "boom" });
 
     const { collectDoctorChecks } = await import("../src/doctor");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "bots01" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });

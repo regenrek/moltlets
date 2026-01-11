@@ -3,6 +3,7 @@ import path from "node:path";
 import { ensureHcloudSshKeyId } from "./hcloud.js";
 import { run } from "./run.js";
 import type { LoadEnvResult } from "./env.js";
+import { withFlakesEnv } from "./nix-flakes.js";
 
 export type TerraformApplyParams = {
   loaded: LoadEnvResult;
@@ -43,6 +44,7 @@ export async function applyTerraformVars(params: {
     ...env,
     NIXPKGS_ALLOW_UNFREE: String(env.NIXPKGS_ALLOW_UNFREE || "").trim() || "1",
   };
+  const terraformEnvWithFlakes = withFlakesEnv(terraformEnv);
   const terraformArgs = (tfArgs: string[]): string[] => [
     "run",
     "--impure",
@@ -54,7 +56,7 @@ export async function applyTerraformVars(params: {
 
   await run(nixBin, terraformArgs(["init", "-input=false"]), {
     cwd: terraformDir,
-    env: terraformEnv,
+    env: terraformEnvWithFlakes,
     dryRun: params.dryRun,
     redact,
   });
@@ -85,7 +87,7 @@ export async function applyTerraformVars(params: {
 
   await run(nixBin, terraformArgs(tfApplyArgs), {
     cwd: terraformDir,
-    env: terraformEnv,
+    env: terraformEnvWithFlakes,
     dryRun: params.dryRun,
     redact,
   });

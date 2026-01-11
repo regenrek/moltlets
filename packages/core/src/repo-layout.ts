@@ -3,60 +3,81 @@ import path from "node:path";
 export type RepoLayout = {
   repoRoot: string;
 
+  stackDir: string;
+
   infraDir: string;
   terraformDir: string;
   configsDir: string;
+  clawdletsConfigPath: string;
   fleetConfigPath: string;
 
   nixDir: string;
   nixHostsDir: string;
+  nixHostModulePath: string;
 
   secretsDir: string;
   secretsHostsDir: string;
   secretsOperatorsDir: string;
+  extraFilesDir: string;
   sopsConfigPath: string;
 };
 
-export function getRepoLayout(repoRoot: string): RepoLayout {
+export function getRepoLayout(repoRoot: string, stackDir?: string): RepoLayout {
+  const resolvedStackDir = stackDir ?? path.join(repoRoot, ".clawdlets");
   const infraDir = path.join(repoRoot, "infra");
   const terraformDir = path.join(infraDir, "terraform");
   const configsDir = path.join(infraDir, "configs");
+  const clawdletsConfigPath = path.join(configsDir, "clawdlets.json");
   const fleetConfigPath = path.join(configsDir, "fleet.nix");
   const nixDir = path.join(infraDir, "nix");
   const nixHostsDir = path.join(nixDir, "hosts");
-  const secretsDir = path.join(infraDir, "secrets");
+  const nixHostModulePath = path.join(nixHostsDir, "clawdlets-host.nix");
+  const secretsDir = path.join(resolvedStackDir, "secrets");
   const secretsHostsDir = path.join(secretsDir, "hosts");
   const secretsOperatorsDir = path.join(secretsDir, "operators");
+  const extraFilesDir = path.join(resolvedStackDir, "extra-files");
   const sopsConfigPath = path.join(secretsDir, ".sops.yaml");
 
   return {
     repoRoot,
+    stackDir: resolvedStackDir,
     infraDir,
     terraformDir,
     configsDir,
+    clawdletsConfigPath,
     fleetConfigPath,
     nixDir,
     nixHostsDir,
+    nixHostModulePath,
     secretsDir,
     secretsHostsDir,
     secretsOperatorsDir,
+    extraFilesDir,
     sopsConfigPath,
   };
 }
 
 export function getHostNixPath(layout: RepoLayout, host: string): string {
-  return path.join(layout.nixHostsDir, `${host}.nix`);
+  void host;
+  return layout.nixHostModulePath;
 }
 
-export function getHostSecretsPath(layout: RepoLayout, host: string): string {
-  return path.join(layout.secretsDir, `${host}.yaml`);
+export function getHostSecretsDir(layout: RepoLayout, host: string): string {
+  return path.join(layout.secretsHostsDir, host);
+}
+
+export function getHostSecretFile(layout: RepoLayout, host: string, secretName: string): string {
+  return path.join(getHostSecretsDir(layout, host), `${secretName}.yaml`);
 }
 
 export function getHostExtraFilesDir(layout: RepoLayout, host: string): string {
-  return path.join(layout.secretsDir, "extra-files", host);
+  return path.join(layout.extraFilesDir, host);
 }
 
 export function getHostExtraFilesKeyPath(layout: RepoLayout, host: string): string {
   return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "sops-nix", "key.txt");
 }
 
+export function getHostExtraFilesSecretsDir(layout: RepoLayout, host: string): string {
+  return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "clawdlets", "secrets", "hosts", host);
+}

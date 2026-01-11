@@ -6,7 +6,7 @@ import { expandPath } from "./lib/path-expand.js";
 import { tryGetOriginFlake } from "./lib/git.js";
 import { findRepoRoot } from "./lib/repo.js";
 
-export const STACK_SCHEMA_VERSION = 1 as const;
+export const STACK_SCHEMA_VERSION = 2 as const;
 
 const HetznerSchema = z.object({
   serverType: z.string().trim().min(1),
@@ -21,8 +21,8 @@ const HostSchema = z.object({
     sshPubkeyFile: z.string().trim().min(1),
   }),
   secrets: z.object({
-    localFile: z.string().trim().min(1),
-    remoteFile: z.string().trim().min(1),
+    localDir: z.string().trim().min(1),
+    remoteDir: z.string().trim().min(1),
   }),
 });
 
