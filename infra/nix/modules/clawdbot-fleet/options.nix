@@ -397,18 +397,5 @@ in {
       default = "/srv/clawdbot";
       description = "Base directory for per-bot state dirs.";
     };
-
-    sopsDir = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = ''
-        Directory containing encrypted sops YAML files on the host filesystem (one secret per file).
-
-        Recommended (keeps secrets out of the Nix store):
-        - /var/lib/clawdlets/secrets/hosts/<host>/
-
-        If null, defaults to /var/lib/clawdlets/secrets/hosts/<host>/ (derived from networking.hostName).
-      '';
-    };
   };
 }

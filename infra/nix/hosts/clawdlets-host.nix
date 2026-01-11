@@ -117,7 +117,6 @@ in {
 
   services.clawdbotFleet = {
     enable = hostCfg.enable or false;
-    sopsDir = config.clawdlets.secrets.hostDir;
     bots = fleet.bots;
     guildId = fleet.guildId;
     routing = fleet.routing;

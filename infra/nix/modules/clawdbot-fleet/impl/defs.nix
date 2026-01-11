@@ -6,8 +6,10 @@ let
 
   defaultHostSecretsDir = "/var/lib/clawdlets/secrets/hosts/${config.networking.hostName}";
   resolvedSopsDir =
-    if (cfg.sopsDir or null) != null
-    then cfg.sopsDir
+    if (config ? clawdlets)
+       && (config.clawdlets ? secrets)
+       && ((config.clawdlets.secrets.hostDir or null) != null)
+    then config.clawdlets.secrets.hostDir
     else defaultHostSecretsDir;
 
   mkSopsSecret = {
