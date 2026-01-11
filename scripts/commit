@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF' >&2
+usage: scripts/commit [--clear-staged] [--allow-detached] [--force-lock] "type(scope): msg" <path...>
+
+Stages only the provided paths and creates a single commit with the given message.
+
+Flags:
+  --clear-staged   Unstage any currently-staged changes before staging provided paths
+  --allow-detached Allow commit on detached HEAD
+  --force-lock     Trash stale .git/index.lock before retrying (requires `trash`)
+EOF
+}
+
+clear_staged=false
+allow_detached=false
+force_lock=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --clear-staged) clear_staged=true; shift ;;
+    --allow-detached) allow_detached=true; shift ;;
+    --force-lock) force_lock=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) echo "error: unknown flag: $1" >&2; usage; exit 2 ;;
+    *) break ;;
+  esac
+done
+
+if [[ $# -lt 2 ]]; then
+  echo "error: missing commit message and/or paths" >&2
+  usage
+  exit 2
+fi
+
+msg="$1"
+shift
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "${repo_root}" ]]; then
+  echo "error: not in a git repo" >&2
+  exit 2
+fi
+
+git_dir="$(git rev-parse --git-dir)"
+
+if [[ -f "${git_dir}/MERGE_HEAD" || -f "${git_dir}/CHERRY_PICK_HEAD" || -f "${git_dir}/REVERT_HEAD" || -d "${git_dir}/rebase-apply" || -d "${git_dir}/rebase-merge" ]]; then
+  echo "error: merge/rebase/cherry-pick in progress" >&2
+  exit 2
+fi
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+if [[ -z "${branch}" && "${allow_detached}" != "true" ]]; then
+  echo "error: detached HEAD (use --allow-detached to override)" >&2
+  exit 2
+fi
+
+if [[ "${force_lock}" == "true" && -f "${git_dir}/index.lock" ]]; then
+  if ! command -v trash >/dev/null 2>&1; then
+    echo "error: --force-lock requires \`trash\` on PATH" >&2
+    exit 2
+  fi
+  trash "${git_dir}/index.lock"
+fi
+
+if git diff --cached --quiet; then
+  :
+else
+  if [[ "${clear_staged}" == "true" ]]; then
+    git reset >/dev/null
+  else
+    echo "error: staged changes exist (use --clear-staged to override)" >&2
+    exit 2
+  fi
+fi
+
+git add -- "$@"
+
+if git diff --cached --quiet; then
+  echo "error: nothing staged (did paths exist / have changes?)" >&2
+  exit 2
+fi
+
+git commit -m "${msg}"
+
