@@ -1,4 +1,5 @@
 import path from "node:path";
+import { assertSafeHostName, assertSafeSecretName } from "./lib/identifiers.js";
 
 export type RepoLayout = {
   repoRoot: string;
@@ -63,21 +64,27 @@ export function getHostNixPath(layout: RepoLayout, host: string): string {
 }
 
 export function getHostSecretsDir(layout: RepoLayout, host: string): string {
+  assertSafeHostName(host);
   return path.join(layout.secretsHostsDir, host);
 }
 
 export function getHostSecretFile(layout: RepoLayout, host: string, secretName: string): string {
+  assertSafeHostName(host);
+  assertSafeSecretName(secretName);
   return path.join(getHostSecretsDir(layout, host), `${secretName}.yaml`);
 }
 
 export function getHostExtraFilesDir(layout: RepoLayout, host: string): string {
+  assertSafeHostName(host);
   return path.join(layout.extraFilesDir, host);
 }
 
 export function getHostExtraFilesKeyPath(layout: RepoLayout, host: string): string {
+  assertSafeHostName(host);
   return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "sops-nix", "key.txt");
 }
 
 export function getHostExtraFilesSecretsDir(layout: RepoLayout, host: string): string {
+  assertSafeHostName(host);
   return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "clawdlets", "secrets", "hosts", host);
 }
