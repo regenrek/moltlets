@@ -7,6 +7,7 @@ import { parseAgeKeyFile } from "@clawdbot/clawdlets-core/lib/age";
 import { assertSafeHostName } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
 import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe";
+import { resolveLegacySecretPaths } from "@clawdbot/clawdlets-core/lib/secrets-migrate";
 import { removeSopsCreationRule, sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { readDotenvFile, nextBackupPath, resolveRepoRootFromStackDir } from "./common.js";
@@ -180,11 +181,15 @@ export const secretsMigrate = defineCommand({
         if (!k) continue;
         const secretName = String(k).trim();
         const value = typeof v === "string" ? v : v == null ? "" : String(v);
-        const outPath = path.join(localSecretsDir, `${secretName}.yaml`);
+        const { localPath, extraPath } = resolveLegacySecretPaths({
+          localSecretsDir,
+          extraFilesSecretsDir,
+          secretName,
+        });
         const plaintextYaml = YAML.stringify({ [secretName]: value });
-        await sopsEncryptYamlToFile({ plaintextYaml, outPath, nix });
-        const encrypted = fs.readFileSync(outPath, "utf8");
-        await writeFileAtomic(path.join(extraFilesSecretsDir, `${secretName}.yaml`), encrypted, { mode: 0o400 });
+        await sopsEncryptYamlToFile({ plaintextYaml, outPath: localPath, nix });
+        const encrypted = fs.readFileSync(localPath, "utf8");
+        await writeFileAtomic(extraPath, encrypted, { mode: 0o400 });
       }
 
       const oldBackup = nextBackupPath(legacyLocalFile);

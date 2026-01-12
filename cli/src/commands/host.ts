@@ -24,6 +24,12 @@ function readFileTrimmed(filePath: string): string {
   return raw.trim();
 }
 
+function toStringArray(v: unknown): string[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) return v.map((x) => String(x));
+  return [String(v)];
+}
+
 const add = defineCommand({
   meta: { name: "add", description: "Add a host entry to infra/configs/clawdlets.json." },
   args: {
@@ -76,7 +82,7 @@ const set = defineCommand({
     const existing = config.hosts[hostName];
     if (!existing) throw new Error(`unknown host in clawdlets.json: ${hostName}`);
 
-    const next: ClawdletsHostConfig = JSON.parse(JSON.stringify(existing)) as ClawdletsHostConfig;
+    const next: ClawdletsHostConfig = structuredClone(existing) as ClawdletsHostConfig;
 
     const enable = parseBoolOrUndefined(args.enable);
     if (enable !== undefined) next.enable = enable;
@@ -99,12 +105,12 @@ const set = defineCommand({
     }
 
     if ((args as any)["clear-ssh-keys"]) next.sshAuthorizedKeys = [];
-    for (const file of (((args as any)["add-ssh-key-file"] || []) as string[])) {
-      const v = readFileTrimmed(String(file));
+    for (const file of toStringArray((args as any)["add-ssh-key-file"])) {
+      const v = readFileTrimmed(file);
       if (v) next.sshAuthorizedKeys = Array.from(new Set([...next.sshAuthorizedKeys, v]));
     }
-    for (const k of (((args as any)["add-ssh-key"] || []) as string[])) {
-      const v = String(k).trim();
+    for (const k of toStringArray((args as any)["add-ssh-key"])) {
+      const v = k.trim();
       if (v) next.sshAuthorizedKeys = Array.from(new Set([...next.sshAuthorizedKeys, v]));
     }
 

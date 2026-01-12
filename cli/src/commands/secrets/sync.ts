@@ -34,9 +34,16 @@ export const secretsSync = defineCommand({
     const tarLocal = path.join(os.tmpdir(), `clawdlets-secrets.${hostName}.${process.pid}.tgz`);
     const tarRemote = `/tmp/clawdlets-secrets.${hostName}.${process.pid}.tgz`;
 
-    await run("tar", ["-C", localDir, "-czf", tarLocal, "."], { redact: [] });
-    await run("scp", [tarLocal, `${targetHost}:${tarRemote}`], { redact: [] });
-    if (fs.existsSync(tarLocal)) fs.unlinkSync(tarLocal);
+    try {
+      await run("tar", ["-C", localDir, "-czf", tarLocal, "."], { redact: [] });
+      await run("scp", [tarLocal, `${targetHost}:${tarRemote}`], { redact: [] });
+    } finally {
+      try {
+        if (fs.existsSync(tarLocal)) fs.unlinkSync(tarLocal);
+      } catch {
+        // best-effort cleanup
+      }
+    }
 
     const sudo = needsSudo(targetHost);
     const installCmd = [
@@ -59,4 +66,3 @@ export const secretsSync = defineCommand({
     console.log(`ok: synced secrets to ${remoteDir}`);
   },
 });
-

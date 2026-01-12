@@ -7,7 +7,8 @@ wrapper="$bin_dir/clawdlets"
 
 mkdir -p "$bin_dir"
 
-pnpm -C "$repo_root/cli" build >/dev/null
+# Build workspace deps first so cli runtime imports exist in dist/
+pnpm -C "$repo_root" -r build >/dev/null
 
 cat >"$wrapper" <<EOF
 #!/usr/bin/env bash
@@ -17,4 +18,3 @@ EOF
 
 chmod +x "$wrapper"
 echo "ok: $wrapper"
-

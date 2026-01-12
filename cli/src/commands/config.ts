@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import { ensureDir } from "@clawdbot/clawdlets-core/lib/fs-safe";
+import { splitDotPath } from "@clawdbot/clawdlets-core/lib/dot-path";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import {
   createDefaultClawdletsConfig,
@@ -10,14 +11,6 @@ import {
   loadClawdletsConfig,
   writeClawdletsConfig,
 } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
-
-function splitPath(p0: string): string[] {
-  const p = p0.trim();
-  if (!p) throw new Error("missing --path");
-  const parts = p.split(".").map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) throw new Error("invalid --path");
-  return parts;
-}
 
 function getAtPath(obj: any, parts: string[]): unknown {
   let cur: any = obj;
@@ -113,7 +106,7 @@ const get = defineCommand({
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { config } = loadClawdletsConfig({ repoRoot });
-    const parts = splitPath(String(args.path || ""));
+    const parts = splitDotPath(String(args.path || ""));
     const v = getAtPath(config as any, parts);
     if (args.json) console.log(JSON.stringify({ path: parts.join("."), value: v }, null, 2));
     else console.log(typeof v === "string" ? v : JSON.stringify(v, null, 2));
@@ -131,9 +124,9 @@ const set = defineCommand({
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
-    const parts = splitPath(String(args.path || ""));
+    const parts = splitDotPath(String(args.path || ""));
 
-    const next = JSON.parse(JSON.stringify(config)) as any;
+    const next = structuredClone(config) as any;
 
     if (args.delete) {
       const ok = deleteAtPath(next, parts);

@@ -25,7 +25,7 @@ const set = defineCommand({
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
 
-    const next = JSON.parse(JSON.stringify(config)) as typeof config;
+    const next = structuredClone(config) as typeof config;
 
     if ((args as any)["guild-id"] !== undefined) next.fleet.guildId = String((args as any)["guild-id"]).trim();
 

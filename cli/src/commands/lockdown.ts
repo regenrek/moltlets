@@ -6,22 +6,7 @@ import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { loadStack, loadStackEnv, resolveStackBaseFlake } from "@clawdbot/clawdlets-core/stack";
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { requireDeployGate } from "../lib/deploy-gate.js";
-
-function needsSudo(targetHost: string): boolean {
-  return !/^root@/i.test(targetHost.trim());
-}
-
-function requireTargetHost(targetHost: string, hostName: string): string {
-  const v = targetHost.trim();
-  if (v) return v;
-  throw new Error(
-    [
-      `missing target host for ${hostName}`,
-      "set it in .clawdlets/stack.json (hosts.<host>.targetHost) or pass --target-host",
-      "recommended: use an SSH config alias (e.g. botsmj)",
-    ].join("; "),
-  );
-}
+import { needsSudo, requireTargetHost } from "./ssh-target.js";
 
 function resolveHostFromFlake(flakeBase: string): string | null {
   const hashIndex = flakeBase.indexOf("#");
