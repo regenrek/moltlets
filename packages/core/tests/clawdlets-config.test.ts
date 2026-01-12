@@ -105,6 +105,19 @@ describe("clawdlets config schema", () => {
     }
 
     {
+      const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: "a" });
+      expect(r).toEqual({ ok: true, host: "a", source: "flag" });
+    }
+
+    {
+      const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: "b" });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toMatch(/unknown host/i);
+    }
+
+    {
       const config = { schemaVersion: 2, fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r).toEqual({ ok: true, host: "a", source: "soleHost" });
