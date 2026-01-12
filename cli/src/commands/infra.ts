@@ -5,12 +5,7 @@ import { defineCommand } from "citty";
 import { applyOpenTofuVars } from "@clawdbot/clawdlets-core/lib/opentofu";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { loadStack, loadStackEnv } from "@clawdbot/clawdlets-core/stack";
-
-function getHost(stackHosts: Record<string, unknown>, host: string): unknown {
-  const h = stackHosts[host];
-  if (!h) throw new Error(`unknown host: ${host}`);
-  return h;
-}
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 const infraApply = defineCommand({
   meta: {
@@ -19,7 +14,7 @@ const infraApply = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     "public-ssh": {
       type: "boolean",
       description: "Whether public SSH (22) is open in Hetzner firewall.",
@@ -29,8 +24,10 @@ const infraApply = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = getHost(stack.hosts, hostName) as typeof stack.hosts[string];
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     const envLoaded = loadStackEnv({ cwd: process.cwd(), stackDir: args.stackDir, envFile: stack.envFile });
     const hcloudToken = String(envLoaded.env.HCLOUD_TOKEN || "").trim();

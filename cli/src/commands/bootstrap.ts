@@ -12,6 +12,7 @@ import { evalFleetConfig } from "@clawdbot/clawdlets-core/lib/fleet-nix-eval";
 import { withFlakesEnv } from "@clawdbot/clawdlets-core/lib/nix-flakes";
 import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { requireDeployGate } from "../lib/deploy-gate.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 async function purgeKnownHosts(ipv4: string, opts: { dryRun: boolean }) {
   const rm = async (host: string) => {
@@ -39,7 +40,7 @@ export const bootstrap = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     flake: { type: "string", description: "Override base flake (default: stack.base.flake)." },
     rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
     ref: { type: "string", description: "Git ref to pin (branch or tag)." },
@@ -48,9 +49,10 @@ export const bootstrap = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     await requireDeployGate({ stackDir: args.stackDir, host: hostName, scope: "deploy", strict: false });
 
@@ -147,7 +149,7 @@ export const bootstrap = defineCommand({
     const extraFiles = path.join(layout.stackDir, "extra-files", hostName);
     const requiredKey = path.join(extraFiles, "var", "lib", "sops-nix", "key.txt");
     if (!fs.existsSync(requiredKey)) {
-      throw new Error(`missing extra-files key: ${requiredKey} (run: clawdlets secrets init --host ${hostName})`);
+      throw new Error(`missing extra-files key: ${requiredKey} (run: clawdlets secrets init)`);
     }
 
     const fleetPath = path.join(repoRoot, "infra", "configs", "fleet.nix");
@@ -166,13 +168,13 @@ export const bootstrap = defineCommand({
     if (!remoteSecretsDir) throw new Error(`missing stack host secrets.remoteDir for ${hostName}`);
     const extraFilesSecretsDir = path.join(extraFiles, remoteSecretsDir.replace(/^\/+/, ""));
     if (!fs.existsSync(extraFilesSecretsDir)) {
-      throw new Error(`missing extra-files secrets dir: ${extraFilesSecretsDir} (run: clawdlets secrets init --host ${hostName})`);
+      throw new Error(`missing extra-files secrets dir: ${extraFilesSecretsDir} (run: clawdlets secrets init)`);
     }
 
     for (const secretName of requiredSecrets) {
       const f = path.join(extraFilesSecretsDir, `${secretName}.yaml`);
       if (!fs.existsSync(f)) {
-        throw new Error(`missing extra-files secret: ${f} (run: clawdlets secrets init --host ${hostName})`);
+        throw new Error(`missing extra-files secret: ${f} (run: clawdlets secrets init)`);
       }
     }
 

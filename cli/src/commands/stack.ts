@@ -9,6 +9,7 @@ import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe
 import { validateTargetHost } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { StackSchema, getStackLayout, loadStack, loadStackEnv, resolveStackBaseFlake } from "@clawdbot/clawdlets-core/stack";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 function requireTty(): void {
   if (!process.stdout.isTTY) throw new Error("requires a TTY (interactive)");
@@ -166,10 +167,10 @@ const stackInit = defineCommand({
       await writeStackSchemaJson(path.join(layout.distDir, "stack.schema.json"));
 
       const nextLines: string[] = [];
-      nextLines.push(`next: clawdlets secrets init --host ${host}`);
+      nextLines.push(`next: clawdlets secrets init`);
       nextLines.push("next: clawdlets doctor --scope deploy");
-      nextLines.push(`next: clawdlets bootstrap --host ${host}`);
-      if (!targetHostInput) nextLines.push(`next: clawdlets stack set-target-host --host ${host} --target-host <ssh-alias>`);
+      nextLines.push(`next: clawdlets bootstrap`);
+      if (!targetHostInput) nextLines.push(`next: clawdlets stack set-target-host --target-host <ssh-alias>`);
       console.log(nextLines.join("\n"));
       return;
     }
@@ -396,19 +397,19 @@ const stackInit = defineCommand({
       p.note("No git origin found. Set stack.base.flake (or add git remote origin) before bootstrap.", "base flake");
     }
     if (!targetHostInput) {
-      p.note(`Set later with: clawdlets stack set-target-host --host ${host} --target-host <alias|user@host>`, "ssh target");
+      p.note(`Set later with: clawdlets stack set-target-host --target-host <alias|user@host>`, "ssh target");
     }
 
     const nextLines: string[] = [];
-    nextLines.push(`- clawdlets secrets init --host ${host}`);
+    nextLines.push(`- clawdlets secrets init`);
     nextLines.push("- clawdlets doctor");
     if (!baseFlake && !originFlakeFromGit) {
       nextLines.push("- set git remote origin (so blank base flake works)");
       nextLines.push("  - gh repo create <owner>/<repo> --private --source . --remote origin --push");
     }
-    nextLines.push(`- clawdlets bootstrap --host ${host}`);
+    nextLines.push(`- clawdlets bootstrap`);
     if (!targetHostInput) {
-      nextLines.push(`- clawdlets stack set-target-host --host ${host} --target-host <ssh-alias>`);
+      nextLines.push(`- clawdlets stack set-target-host --target-host <ssh-alias>`);
     }
     p.note(nextLines.join("\n"), "Next");
     p.outro(`wrote ${path.relative(layout.repoRoot, layout.stackFile)}`);
@@ -422,14 +423,15 @@ const stackSetTargetHost = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target (alias or user@host)." },
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const h = stack.hosts[hostName];
-    if (!h) throw new Error(`unknown host: ${hostName}`);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const h = requireStackHostOrExit(stack, hostName);
+    if (!h) return;
     const targetHost = String(args.targetHost || "").trim();
     if (!targetHost) throw new Error("missing --target-host");
     validateTargetHost(targetHost);

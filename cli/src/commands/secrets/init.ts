@@ -16,6 +16,7 @@ import { loadStack, loadStackEnv } from "@clawdbot/clawdlets-core/stack";
 import { assertSafeHostName, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { readYamlScalarFromMapping } from "@clawdbot/clawdlets-core/lib/yaml-scalar";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../../lib/host-resolve.js";
 import { upsertYamlScalarLine } from "./common.js";
 
 function wantsInteractive(flag: boolean | undefined): boolean {
@@ -47,7 +48,7 @@ export const secretsInit = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     interactive: { type: "boolean", description: "Prompt for secret values (requires TTY).", default: false },
     fromJson: { type: "string", description: "Read secret values from JSON file (or '-' for stdin) (non-interactive)." },
     allowPlaceholders: { type: "boolean", description: "Allow placeholders for missing tokens.", default: false },
@@ -60,10 +61,11 @@ export const secretsInit = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
     assertSafeHostName(hostName);
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     const interactive = wantsInteractive(Boolean(args.interactive));
     if (interactive && !process.stdout.isTTY) throw new Error("--interactive requires a TTY");

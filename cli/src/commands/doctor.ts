@@ -1,6 +1,7 @@
 import process from "node:process";
 import { defineCommand } from "citty";
 import { collectDoctorChecks } from "@clawdbot/clawdlets-core/doctor";
+import { resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 export const doctor = defineCommand({
   meta: {
@@ -9,7 +10,7 @@ export const doctor = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     scope: {
       type: "string",
       description: "Which checks to run: repo | deploy | all (default: all).",
@@ -19,7 +20,8 @@ export const doctor = defineCommand({
     strict: { type: "boolean", description: "Fail on warn too (deploy gating).", default: false },
   },
   async run({ args }) {
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
     const scopeRaw = String(args.scope || "all").trim();
     if (scopeRaw !== "repo" && scopeRaw !== "deploy" && scopeRaw !== "all") {
       throw new Error(`invalid --scope: ${scopeRaw} (expected repo|deploy|all)`);

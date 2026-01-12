@@ -2,7 +2,8 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { loadStack } from "@clawdbot/clawdlets-core/stack";
-import { needsSudo, requireHost, requireTargetHost } from "./common.js";
+import { needsSudo, requireTargetHost } from "./common.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../../lib/host-resolve.js";
 
 function normalizeKind(raw: string): "prs" | "issues" {
   const v = raw.trim();
@@ -17,14 +18,16 @@ const serverGithubSyncStatus = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
     const { stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = requireHost(stack, hostName);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
     const targetHost = requireTargetHost(String(args.targetHost || host.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
@@ -47,15 +50,17 @@ const serverGithubSyncRun = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     bot: { type: "string", description: "Bot id (default: all bots with sync enabled)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
     const { stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = requireHost(stack, hostName);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
     const targetHost = requireTargetHost(String(args.targetHost || host.targetHost || ""), hostName);
 
     const bot = String(args.bot || "").trim();
@@ -78,7 +83,7 @@ const serverGithubSyncLogs = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     bot: { type: "string", description: "Bot id (required)." },
     follow: { type: "boolean", description: "Follow logs.", default: false },
@@ -87,8 +92,10 @@ const serverGithubSyncLogs = defineCommand({
   },
   async run({ args }) {
     const { stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = requireHost(stack, hostName);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
     const targetHost = requireTargetHost(String(args.targetHost || host.targetHost || ""), hostName);
 
     const bot = String(args.bot || "").trim();
@@ -117,7 +124,7 @@ const serverGithubSyncShow = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     bot: { type: "string", description: "Bot id (required)." },
     kind: { type: "string", description: "Snapshot kind: prs|issues.", default: "prs" },
@@ -126,8 +133,10 @@ const serverGithubSyncShow = defineCommand({
   },
   async run({ args }) {
     const { stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = requireHost(stack, hostName);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
     const targetHost = requireTargetHost(String(args.targetHost || host.targetHost || ""), hostName);
 
     const bot = String(args.bot || "").trim();

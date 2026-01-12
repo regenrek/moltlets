@@ -13,7 +13,7 @@ Goal: prove clawdlets can provision + operate a single Hetzner host end-to-end w
   - `.clawdlets/extra-files/<host>/var/lib/sops-nix/key.txt`
   - `.clawdlets/extra-files/<host>/var/lib/clawdlets/secrets/hosts/<host>/*.yaml`
 - `clawdlets doctor --scope deploy` passes.
-- `clawdlets bootstrap --host <host>` succeeds.
+- `clawdlets bootstrap` succeeds.
 
 ### Post-install validation
 
@@ -40,7 +40,7 @@ Goal: prove clawdlets can provision + operate a single Hetzner host end-to-end w
 - Rebuild pinned: `clawdlets server rebuild --target-host <host> --rev HEAD` works.
 - Rotate a Discord token:
   - edit `.clawdlets/secrets/hosts/<host>/discord_token_<bot>.yaml` with `sops`
-  - `clawdlets secrets sync --host <host>`
+  - `clawdlets secrets sync`
   - rebuild pinned; bot uses new token
 - Roll back by rebuilding an older commit SHA (pinned) and confirm bot still runs.
 
