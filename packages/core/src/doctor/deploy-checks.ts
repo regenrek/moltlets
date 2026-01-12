@@ -250,13 +250,17 @@ export async function addDeployChecks(params: {
             const rules = Array.isArray((parsed as { creation_rules?: unknown }).creation_rules)
               ? ((parsed as { creation_rules: unknown[] }).creation_rules as Array<{ path_regex?: unknown }>)
               : [];
-            const expected = sopsPathRegexForDirFiles(hostCfg.secrets.localDir, "yaml");
+            const configDir = path.dirname(params.layout.sopsConfigPath);
+            const relSecretsDir = path
+              .relative(configDir, secretsLocalDir)
+              .replace(/\\/g, "/");
+            const expected = sopsPathRegexForDirFiles(relSecretsDir, "yaml");
             const hasRule = rules.some((r) => String(r?.path_regex || "") === expected);
             params.push({
               scope: "deploy",
               status: hasRule ? "ok" : "missing",
               label: "sops creation rule",
-              detail: hasRule ? `(${hostCfg.secrets.localDir}/*.yaml)` : `(missing rule for ${hostCfg.secrets.localDir}/*.yaml)`,
+              detail: hasRule ? `(${relSecretsDir}/*.yaml)` : `(missing rule for ${relSecretsDir}/*.yaml)`,
             });
           } catch {
             params.push({ scope: "deploy", status: "warn", label: "sops config parse", detail: "(invalid YAML)" });

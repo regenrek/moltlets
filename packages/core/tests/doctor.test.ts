@@ -213,7 +213,7 @@ describe("doctor", () => {
       path.join(repoRoot, ".clawdlets", "secrets", ".sops.yaml"),
       [
         "creation_rules:",
-        `  - path_regex: ${sopsPathRegexForDirFiles("secrets/hosts/clawdbot-fleet-host", "yaml")}`,
+        `  - path_regex: ${sopsPathRegexForDirFiles("hosts/clawdbot-fleet-host", "yaml")}`,
         "    key_groups:",
         "      - age:",
         "          - age1a",
