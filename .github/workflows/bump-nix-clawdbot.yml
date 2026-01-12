@@ -31,6 +31,24 @@ jobs:
           set -euo pipefail
           nix flake update --update-input nix-clawdbot
 
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate template dist
+        run: pnpm -C packages/template run build
+
       - name: Create GitHub App token
         id: app-token
         uses: actions/create-github-app-token@26968a09c0ea4f3e233fdddbafd1166051a095f6 # v1
