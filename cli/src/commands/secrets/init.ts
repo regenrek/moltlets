@@ -8,14 +8,15 @@ import { parseAgeKeyFile } from "@clawdbot/clawdlets-core/lib/age";
 import { upsertDotenv } from "@clawdbot/clawdlets-core/lib/dotenv-file";
 import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe";
 import { mkpasswdYescryptHash } from "@clawdbot/clawdlets-core/lib/mkpasswd";
-import { sopsPathRegexForDirFiles, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
+import { removeSopsCreationRule, sopsPathRegexForDirFiles, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
-import { parseSecretsInitJson, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdbot/clawdlets-core/lib/secrets-init";
+import { buildSecretsInitTemplate, isPlaceholderSecretValue, listSecretsInitPlaceholders, parseSecretsInitJson, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdbot/clawdlets-core/lib/secrets-init";
 import { loadStack, loadStackEnv } from "@clawdbot/clawdlets-core/stack";
 import { assertSafeHostName, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { readYamlScalarFromMapping } from "@clawdbot/clawdlets-core/lib/yaml-scalar";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../../lib/host-resolve.js";
 import { upsertYamlScalarLine } from "./common.js";
 
 function wantsInteractive(flag: boolean | undefined): boolean {
@@ -47,7 +48,7 @@ export const secretsInit = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     interactive: { type: "boolean", description: "Prompt for secret values (requires TTY).", default: false },
     fromJson: { type: "string", description: "Read secret values from JSON file (or '-' for stdin) (non-interactive)." },
     allowPlaceholders: { type: "boolean", description: "Allow placeholders for missing tokens.", default: false },
@@ -60,13 +61,16 @@ export const secretsInit = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
     assertSafeHostName(hostName);
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
-    const interactive = wantsInteractive(Boolean(args.interactive));
-    if (interactive && !process.stdout.isTTY) throw new Error("--interactive requires a TTY");
+    const hasTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+    let interactive = wantsInteractive(Boolean(args.interactive));
+    if (!interactive && hasTty && !args.fromJson) interactive = true;
+    if (interactive && !hasTty) throw new Error("--interactive requires a TTY");
 
     const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
 
@@ -81,9 +85,52 @@ export const secretsInit = defineCommand({
 
     const localSecretsDir = path.join(layout.stackDir, host.secrets.localDir);
 
+    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
+    const bots = clawdletsConfig.fleet.bots;
+    if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
+
+    const clawdletsHostCfg = clawdletsConfig.hosts[hostName];
+    if (!clawdletsHostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
+    const tailnetMode = String(clawdletsHostCfg.tailnet?.mode || "none");
+    const requiresTailscaleAuthKey = tailnetMode === "tailscale";
+
+    const defaultSecretsJsonPath = path.join(layout.stackDir, "secrets.json");
+    const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
+
+    let fromJson = args.fromJson ? String(args.fromJson) : undefined;
+    if (!interactive && !fromJson) {
+      if (fs.existsSync(defaultSecretsJsonPath)) {
+        fromJson = defaultSecretsJsonPath;
+        if (!args.allowPlaceholders) {
+          const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
+          const parsed = parseSecretsInitJson(raw);
+          const placeholders = listSecretsInitPlaceholders({ input: parsed, bots, requiresTailscaleAuthKey });
+          if (placeholders.length > 0) {
+            console.error(`error: placeholders found in ${defaultSecretsJsonDisplay} (fill it or pass --allow-placeholders)`);
+            for (const p0 of placeholders) console.error(`- ${p0}`);
+            process.exitCode = 1;
+            return;
+          }
+        }
+      } else {
+        const template = buildSecretsInitTemplate({ bots, requiresTailscaleAuthKey });
+
+        if (!args.dryRun) {
+          await ensureDir(path.dirname(defaultSecretsJsonPath));
+          await writeFileAtomic(defaultSecretsJsonPath, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
+        }
+
+        console.error(`${args.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);
+        if (args.dryRun) console.error("run without --dry-run to write it");
+        else console.error(`fill it, then run: clawdlets secrets init --from-json ${defaultSecretsJsonDisplay}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     validateSecretsInitNonInteractive({
       interactive,
-      fromJson: args.fromJson ? String(args.fromJson) : undefined,
+      fromJson,
       yes: Boolean(args.yes),
       dryRun: Boolean(args.dryRun),
       localSecretsDirExists: fs.existsSync(localSecretsDir),
@@ -124,9 +171,18 @@ export const secretsInit = defineCommand({
     const hostKeys = await ensureAgePair(hostKeyPath, hostPubPath);
 
     const existingSops = fs.existsSync(sopsConfigPath) ? fs.readFileSync(sopsConfigPath, "utf8") : undefined;
+    const localSecretsDirRelToSopsConfigDir = path
+      .relative(secretsDir, localSecretsDir)
+      .replace(/\\/g, "/");
+
+    const legacySopsPathRegex = sopsPathRegexForDirFiles(`secrets/hosts/${hostName}`, "yaml");
+    const withoutLegacy = removeSopsCreationRule({ existingYaml: existingSops, pathRegex: legacySopsPathRegex });
+    const withoutStdin = removeSopsCreationRule({ existingYaml: withoutLegacy, pathRegex: "^/dev/stdin$" });
+
     const nextSops = upsertSopsCreationRule({
-      existingYaml: existingSops,
-      pathRegex: sopsPathRegexForDirFiles(`secrets/hosts/${hostName}`, "yaml"),
+      existingYaml: withoutStdin,
+      // sops matches against a path relative to the config dir; our config lives at <stackDir>/secrets/.sops.yaml.
+      pathRegex: sopsPathRegexForDirFiles(localSecretsDirRelToSopsConfigDir, "yaml"),
       ageRecipients: [hostKeys.publicKey, operatorKeys.publicKey],
     });
     if (!args.dryRun) {
@@ -153,15 +209,6 @@ export const secretsInit = defineCommand({
 	        return null;
 	      }
 	    };
-
-    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
-    const bots = clawdletsConfig.fleet.bots;
-    if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
-
-    const clawdletsHostCfg = clawdletsConfig.hosts[hostName];
-    if (!clawdletsHostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
-    const tailnetMode = String(clawdletsHostCfg.tailnet?.mode || "none");
-    const requiresTailscaleAuthKey = tailnetMode === "tailscale";
 
     const flowSecrets = "secrets init";
     const values: {
@@ -219,7 +266,7 @@ export const secretsInit = defineCommand({
         i += 1;
       }
     } else {
-      const input = readSecretsInitJson(String(args.fromJson));
+      const input = readSecretsInitJson(String(fromJson));
       values.adminPasswordHash = input.adminPasswordHash;
       values.tailscaleAuthKey = input.tailscaleAuthKey || "";
       values.zAiApiKey = input.zAiApiKey || "";
@@ -238,7 +285,7 @@ export const secretsInit = defineCommand({
       const existing = await readExistingScalar(secretName);
       if (secretName === "tailscale_auth_key") {
         if (values.tailscaleAuthKey.trim()) resolvedValues[secretName] = values.tailscaleAuthKey.trim();
-        else if (existing && !existing.includes("<")) resolvedValues[secretName] = existing;
+        else if (existing && !isPlaceholderSecretValue(existing)) resolvedValues[secretName] = existing;
         else if (args.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
         else throw new Error("missing tailscale auth key (tailscale_auth_key); pass --allow-placeholders only if you intend to set it later");
         continue;
@@ -280,7 +327,7 @@ export const secretsInit = defineCommand({
       for (const secretName of requiredSecrets) {
         const outPath = path.join(localSecretsDir, `${secretName}.yaml`);
         const plaintextYaml = upsertYamlScalarLine({ text: "\n", key: secretName, value: resolvedValues[secretName] ?? "" });
-        await sopsEncryptYamlToFile({ plaintextYaml, outPath, nix });
+        await sopsEncryptYamlToFile({ plaintextYaml, outPath, configPath: sopsConfigPath, nix });
         const encrypted = fs.readFileSync(outPath, "utf8");
         await writeFileAtomic(path.join(extraFilesSecretsDir, `${secretName}.yaml`), encrypted, { mode: 0o400 });
       }

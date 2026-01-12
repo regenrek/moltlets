@@ -37,7 +37,7 @@ Pinned rebuilds:
 
 Secrets rotation:
 
-- edit `.clawdlets/secrets/hosts/<host>/*.yaml` → `clawdlets secrets sync --host <host>` → rebuild pinned
+- edit `.clawdlets/secrets/hosts/<host>/*.yaml` → `clawdlets secrets sync` → rebuild pinned
 
 ## Rollback (must exist before prod)
 

@@ -6,8 +6,10 @@ import YAML from "yaml";
 import { sopsDecryptYamlFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
 import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { isPlaceholderSecretValue } from "@clawdbot/clawdlets-core/lib/secrets-init";
 import { loadStack } from "@clawdbot/clawdlets-core/stack";
-import { isPlaceholder, readDotenvFile } from "./common.js";
+import { readDotenvFile } from "./common.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../../lib/host-resolve.js";
 
 export const secretsVerify = defineCommand({
   meta: {
@@ -16,7 +18,7 @@ export const secretsVerify = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     operator: {
       type: "string",
       description: "Operator id for age key name (default: $USER). Used if SOPS_AGE_KEY_FILE is not set.",
@@ -26,9 +28,10 @@ export const secretsVerify = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
 
@@ -77,11 +80,11 @@ export const secretsVerify = defineCommand({
         }
         const v = parsed[secretName];
         const value = typeof v === "string" ? v : v == null ? "" : String(v);
-        if (!optional && isPlaceholder(value)) {
+        if (!optional && isPlaceholderSecretValue(value)) {
           results.push({ secret: secretName, status: "missing", detail: `(placeholder: ${value.trim()})` });
           return;
         }
-        if (optional && isPlaceholder(value) && value.trim() !== "<OPTIONAL>") {
+        if (optional && isPlaceholderSecretValue(value)) {
           results.push({ secret: secretName, status: "missing", detail: `(placeholder: ${value.trim()})` });
           return;
         }

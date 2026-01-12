@@ -1,6 +1,52 @@
 import { describe, it, expect } from "vitest";
 
 describe("secrets-init JSON + non-interactive validation", () => {
+  it("detects placeholders in buildSecretsInitTemplate (enforcement regression)", async () => {
+    const { buildSecretsInitTemplate, listSecretsInitPlaceholders } = await import("../src/lib/secrets-init");
+
+    const t1 = buildSecretsInitTemplate({ bots: ["maren", "sonja"], requiresTailscaleAuthKey: true });
+    expect(
+      listSecretsInitPlaceholders({
+        input: t1,
+        bots: ["maren", "sonja"],
+        requiresTailscaleAuthKey: true,
+      }),
+    ).toEqual(["adminPasswordHash", "discordTokens.maren", "discordTokens.sonja", "tailscaleAuthKey"]);
+
+    const t2 = buildSecretsInitTemplate({ bots: ["maren"], requiresTailscaleAuthKey: false });
+    expect(
+      listSecretsInitPlaceholders({
+        input: { ...t2, tailscaleAuthKey: "<REPLACE_WITH_TSKEY_AUTH>" },
+        bots: ["maren"],
+        requiresTailscaleAuthKey: false,
+      }),
+    ).toEqual(["adminPasswordHash", "discordTokens.maren"]);
+  });
+
+  it("isPlaceholderSecretValue only matches full <...> tokens", async () => {
+    const { isPlaceholderSecretValue } = await import("../src/lib/secrets-init");
+    expect(isPlaceholderSecretValue("<FILL_ME>")).toBe(true);
+    expect(isPlaceholderSecretValue("abc<FILL_ME>def")).toBe(false);
+    expect(isPlaceholderSecretValue("<OPTIONAL>")).toBe(false);
+  });
+
+  it("listSecretsInitPlaceholders finds placeholders by field", async () => {
+    const { listSecretsInitPlaceholders } = await import("../src/lib/secrets-init");
+    const input = {
+      adminPasswordHash: "<REPLACE_WITH_YESCRYPT_HASH>",
+      tailscaleAuthKey: "<REPLACE_WITH_TSKEY_AUTH>",
+      zAiApiKey: "<OPTIONAL>",
+      discordTokens: { maren: "<REPLACE_WITH_DISCORD_TOKEN>", sonja: "tok<ok>" },
+    };
+    expect(
+      listSecretsInitPlaceholders({
+        input,
+        bots: ["maren", "sonja"],
+        requiresTailscaleAuthKey: true,
+      }),
+    ).toEqual(["adminPasswordHash", "discordTokens.maren", "tailscaleAuthKey"]);
+  });
+
   it("parseSecretsInitJson rejects invalid JSON without leaking content", async () => {
     const { parseSecretsInitJson } = await import("../src/lib/secrets-init");
     expect(() => parseSecretsInitJson("{")).toThrow(/expected valid JSON/i);

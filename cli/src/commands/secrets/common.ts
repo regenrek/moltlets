@@ -44,13 +44,6 @@ export function nextBackupPath(filePath: string): string {
   return `${base}.${Date.now()}`;
 }
 
-export function isPlaceholder(v: string): boolean {
-  const s = v.trim();
-  if (!s) return false;
-  if (s === "<OPTIONAL>") return false;
-  return /^<[^>]+>$/.test(s);
-}
-
 export function resolveRepoRootFromStackDir(stackDir: string): string {
   return path.resolve(stackDir, "..");
 }

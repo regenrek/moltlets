@@ -11,6 +11,7 @@ import { resolveLegacySecretPaths } from "@clawdbot/clawdlets-core/lib/secrets-m
 import { removeSopsCreationRule, sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { readDotenvFile, nextBackupPath, resolveRepoRootFromStackDir } from "./common.js";
+import { resolveHostNameOrExit } from "../../lib/host-resolve.js";
 
 export const secretsMigrate = defineCommand({
   meta: {
@@ -19,7 +20,7 @@ export const secretsMigrate = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     operator: {
       type: "string",
       description: "Operator id for age key name (default: $USER). Used if SOPS_AGE_KEY_FILE is not set.",
@@ -33,7 +34,8 @@ export const secretsMigrate = defineCommand({
     const stackFile = path.join(stackDir, "stack.json");
     if (!fs.existsSync(stackFile)) throw new Error(`missing stack file: ${stackFile}`);
 
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
     assertSafeHostName(hostName);
 
     let stackRaw: unknown;
@@ -50,7 +52,14 @@ export const secretsMigrate = defineCommand({
     }
     const hosts = stackObj.hosts || {};
     const host = hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    if (!host) {
+      const available = Object.keys(hosts);
+      console.error(`warn: unknown stack host: ${hostName}`);
+      console.error(`tip: stack hosts: ${available.length > 0 ? available.join(", ") : "(none)"}`);
+      console.error(`tip: pass --host <name> to select a host`);
+      process.exitCode = 1;
+      return;
+    }
 
     const envFileRel = String(stackObj.envFile || ".env");
     const envPath = path.isAbsolute(envFileRel) ? envFileRel : path.join(stackDir, envFileRel);
@@ -187,7 +196,7 @@ export const secretsMigrate = defineCommand({
           secretName,
         });
         const plaintextYaml = YAML.stringify({ [secretName]: value });
-        await sopsEncryptYamlToFile({ plaintextYaml, outPath: localPath, nix });
+        await sopsEncryptYamlToFile({ plaintextYaml, outPath: localPath, configPath: sopsConfigPath, nix });
         const encrypted = fs.readFileSync(localPath, "utf8");
         await writeFileAtomic(extraPath, encrypted, { mode: 0o400 });
       }
@@ -212,6 +221,6 @@ export const secretsMigrate = defineCommand({
     await writeFileAtomic(stackFile, `${JSON.stringify(nextStack, null, 2)}\n`);
 
     console.log(`ok: migrated secrets to ${localSecretsDir}`);
-    console.log(`next: clawdlets secrets sync --host ${hostName} && clawdlets server rebuild --target-host <host> --rev HEAD`);
+    console.log(`next: clawdlets secrets sync && clawdlets server rebuild --target-host <host> --rev HEAD`);
   },
 });

@@ -24,13 +24,13 @@ This generates:
 Then sync to the host (used by sops-nix on the server):
 
 ```bash
-clawdlets secrets sync --host <host>
+clawdlets secrets sync
 ```
 
 Verify (recommended before rebuild):
 
 ```bash
-clawdlets secrets verify --host <host>
+clawdlets secrets verify
 ```
 
 ## Migration (legacy stacks)
@@ -39,7 +39,7 @@ If you previously used a single file per host (like `.clawdlets/secrets/hosts/cl
 
 ```bash
 clawdlets stack migrate
-clawdlets secrets migrate --host <host>
+clawdlets secrets migrate
 ```
 
 Notes:
@@ -50,7 +50,7 @@ Notes:
 After migrating:
 
 ```bash
-clawdlets secrets sync --host <host>
+clawdlets secrets sync
 ```
 
 ## Manual steps (if needed)

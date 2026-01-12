@@ -21,8 +21,8 @@ clawdlets server rebuild --target-host admin@<ipv4> --rev HEAD
 
 1) Edit files under `.clawdlets/secrets/hosts/clawdbot-fleet-host/` (example: `discord_token_maren.yaml`)
 2) Re-encrypt (or use `clawdlets secrets init` to regenerate)
-3) `clawdlets secrets sync --host clawdbot-fleet-host`
-4) `clawdlets secrets verify --host clawdbot-fleet-host`
+3) `clawdlets secrets sync`
+4) `clawdlets secrets verify`
 5) Rebuild (pinned):
 
 ```bash
@@ -38,7 +38,7 @@ clawdlets bot add --bot <id>
 
 2) Add secret `.clawdlets/secrets/hosts/<host>/discord_token_<id>.yaml` (use `clawdlets secrets init`), then:
 ```bash
-clawdlets secrets sync --host <host>
+clawdlets secrets sync
 clawdlets server rebuild --target-host admin@<target> --rev HEAD
 ```
 
@@ -52,7 +52,7 @@ clawdlets config set --path fleet.botOverrides.maren.skills.allowBundled --value
 3) If it needs secrets: add `.clawdlets/secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.botOverrides.<bot>.skills.entries."<skill>".*Secret/envSecrets`
 4) Sync + rebuild:
 ```bash
-clawdlets secrets sync --host <host>
+clawdlets secrets sync
 clawdlets server rebuild --target-host admin@<target> --rev HEAD
 ```
 

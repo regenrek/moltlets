@@ -60,6 +60,8 @@ clawdlets secrets init
 clawdlets doctor --scope deploy
 ```
 
+Non-interactive: keep inputs in `.clawdlets/secrets.json` and run `clawdlets secrets init --from-json .clawdlets/secrets.json` (if the file is missing, `secrets init` will write a template and exit).
+
 3) Provision + install:
 ```bash
 clawdlets bootstrap

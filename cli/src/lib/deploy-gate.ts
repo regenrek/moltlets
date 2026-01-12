@@ -27,9 +27,8 @@ export async function requireDeployGate(params: {
     `doctor gate failed (${params.scope}${params.strict ? ", strict" : ""})`,
     ...summarize(missing),
     ...(params.strict ? summarize(warn).map((l) => `warn: ${l}`) : []),
-    `hint: run clawdlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""} --host ${params.host}`,
+    `hint: run clawdlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""}`,
   ];
 
   throw new Error(lines.join("\n"));
 }
-

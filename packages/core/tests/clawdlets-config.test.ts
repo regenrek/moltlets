@@ -60,7 +60,92 @@ describe("clawdlets config schema", () => {
     const { createDefaultClawdletsConfig } = await import("../src/lib/clawdlets-config");
     const cfg = createDefaultClawdletsConfig({ host: "   ", bots: [" maren ", "", "sonja"] });
     expect(Object.keys(cfg.hosts)).toEqual(["clawdbot-fleet-host"]);
+    expect(cfg.defaultHost).toBe("clawdbot-fleet-host");
     expect(cfg.fleet.bots).toEqual(["maren", "sonja"]);
+  });
+
+  it("rejects defaultHost not present in hosts", async () => {
+    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    expect(() =>
+      ClawdletsConfigSchema.parse({
+        schemaVersion: 2,
+        defaultHost: "missing-host",
+        fleet: { bots: ["maren"] },
+        hosts: {
+          "clawdbot-fleet-host": {
+            enable: false,
+            diskDevice: "/dev/disk/by-id/CHANGE_ME",
+            sshAuthorizedKeys: [],
+            publicSsh: { enable: false },
+            provisioning: { enable: false },
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      }),
+    ).toThrow(/defaultHost not found/i);
+  });
+
+  it("resolveHostName uses defaultHost and sole-host fallback", async () => {
+    const { resolveHostName } = await import("../src/lib/clawdlets-config");
+    const baseHost = {
+      enable: false,
+      diskDevice: "/dev/disk/by-id/CHANGE_ME",
+      sshAuthorizedKeys: [],
+      publicSsh: { enable: false },
+      provisioning: { enable: false },
+      tailnet: { mode: "none" },
+      agentModelPrimary: "zai/glm-4.7",
+    } as const;
+
+    {
+      const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: undefined });
+      expect(r).toEqual({ ok: true, host: "a", source: "defaultHost" });
+    }
+
+    {
+      const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: "a" });
+      expect(r).toEqual({ ok: true, host: "a", source: "flag" });
+    }
+
+    {
+      const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: "b" });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toMatch(/unknown host/i);
+    }
+
+    {
+      const config = { schemaVersion: 2, fleet: {}, hosts: { a: baseHost } } as any;
+      const r = resolveHostName({ config, host: undefined });
+      expect(r).toEqual({ ok: true, host: "a", source: "soleHost" });
+    }
+
+    {
+      const config = { schemaVersion: 2, fleet: {}, hosts: { a: baseHost, b: baseHost } } as any;
+      const r = resolveHostName({ config, host: undefined });
+      expect(r.ok).toBe(false);
+    }
+  });
+
+  it("resolveHostName returns ok=false for invalid --host tokens", async () => {
+    const { resolveHostName } = await import("../src/lib/clawdlets-config");
+    const baseHost = {
+      enable: false,
+      diskDevice: "/dev/disk/by-id/CHANGE_ME",
+      sshAuthorizedKeys: [],
+      publicSsh: { enable: false },
+      provisioning: { enable: false },
+      tailnet: { mode: "none" },
+      agentModelPrimary: "zai/glm-4.7",
+    } as const;
+
+    const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+    const r = resolveHostName({ config, host: ";" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toMatch(/invalid host name/i);
   });
 
   it("loadClawdletsConfig throws for missing config file", async () => {

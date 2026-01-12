@@ -2,10 +2,12 @@ import fs from "node:fs";
 import process from "node:process";
 import { defineCommand } from "citty";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
+import { looksLikeSshPrivateKey, parseSshPublicKeysFromText } from "@clawdbot/clawdlets-core/lib/ssh";
 import {
   assertSafeHostName,
   ClawdletsConfigSchema,
   loadClawdletsConfig,
+  resolveHostName,
   writeClawdletsConfig,
   type ClawdletsHostConfig,
 } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
@@ -19,9 +21,19 @@ function parseBoolOrUndefined(v: unknown): boolean | undefined {
   throw new Error(`invalid boolean: ${String(v)} (use true/false)`);
 }
 
-function readFileTrimmed(filePath: string): string {
+function readSshPublicKeysFromFile(filePath: string): string[] {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) throw new Error(`not a file: ${filePath}`);
+  if (stat.size > 64 * 1024) throw new Error(`ssh key file too large (>64KB): ${filePath}`);
+
   const raw = fs.readFileSync(filePath, "utf8");
-  return raw.trim();
+  if (looksLikeSshPrivateKey(raw)) {
+    throw new Error(`refusing to read ssh private key (expected .pub): ${filePath}`);
+  }
+
+  const keys = parseSshPublicKeysFromText(raw);
+  if (keys.length === 0) throw new Error(`no ssh public keys found in file: ${filePath}`);
+  return keys;
 }
 
 function toStringArray(v: unknown): string[] {
@@ -53,16 +65,43 @@ const add = defineCommand({
       agentModelPrimary: "zai/glm-4.7",
     };
 
-    const next = ClawdletsConfigSchema.parse({ ...config, hosts: { ...config.hosts, [hostName]: nextHost } });
+    const next = ClawdletsConfigSchema.parse({
+      ...config,
+      defaultHost: config.defaultHost || hostName,
+      hosts: { ...config.hosts, [hostName]: nextHost },
+    });
     await writeClawdletsConfig({ configPath, config: next });
     console.log(`ok: added host ${hostName}`);
+  },
+});
+
+const setDefault = defineCommand({
+  meta: { name: "set-default", description: "Set config.defaultHost (default host used when --host is omitted)." },
+  args: {
+    host: { type: "string", description: "Host name (defaults to current defaultHost / sole host)." },
+  },
+  async run({ args }) {
+    const repoRoot = findRepoRoot(process.cwd());
+    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+
+    const resolved = resolveHostName({ config, host: args.host });
+    if (!resolved.ok) {
+      console.error(`warn: ${resolved.message}`);
+      for (const t of resolved.tips) console.error(`tip: ${t}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const next = ClawdletsConfigSchema.parse({ ...config, defaultHost: resolved.host });
+    await writeClawdletsConfig({ configPath, config: next });
+    console.log(`ok: defaultHost = ${resolved.host}`);
   },
 });
 
 const set = defineCommand({
   meta: { name: "set", description: "Set host config fields (in infra/configs/clawdlets.json)." },
   args: {
-    host: { type: "string", description: "Host name.", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     enable: { type: "string", description: "Enable fleet services (true/false)." },
     "public-ssh": { type: "string", description: "Public SSH (true/false; not recommended)." },
     provisioning: { type: "string", description: "Provisioning mode (true/false; relaxes validation)." },
@@ -77,10 +116,22 @@ const set = defineCommand({
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
 
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    assertSafeHostName(hostName);
+    const resolved = resolveHostName({ config, host: args.host });
+    if (!resolved.ok) {
+      console.error(`warn: ${resolved.message}`);
+      for (const t of resolved.tips) console.error(`tip: ${t}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const hostName = resolved.host;
     const existing = config.hosts[hostName];
-    if (!existing) throw new Error(`unknown host in clawdlets.json: ${hostName}`);
+    if (!existing) {
+      console.error(`warn: unknown host in clawdlets.json: ${hostName}`);
+      console.error(`tip: available hosts: ${Object.keys(config.hosts).join(", ")}`);
+      process.exitCode = 1;
+      return;
+    }
 
     const next: ClawdletsHostConfig = structuredClone(existing) as ClawdletsHostConfig;
 
@@ -105,13 +156,24 @@ const set = defineCommand({
     }
 
     if ((args as any)["clear-ssh-keys"]) next.sshAuthorizedKeys = [];
-    for (const file of toStringArray((args as any)["add-ssh-key-file"])) {
-      const v = readFileTrimmed(file);
-      if (v) next.sshAuthorizedKeys = Array.from(new Set([...next.sshAuthorizedKeys, v]));
-    }
-    for (const k of toStringArray((args as any)["add-ssh-key"])) {
-      const v = k.trim();
-      if (v) next.sshAuthorizedKeys = Array.from(new Set([...next.sshAuthorizedKeys, v]));
+    {
+      const keys = new Set<string>(next.sshAuthorizedKeys || []);
+
+      for (const file of toStringArray((args as any)["add-ssh-key-file"])) {
+        for (const k of readSshPublicKeysFromFile(file)) keys.add(k);
+      }
+
+      for (const raw of toStringArray((args as any)["add-ssh-key"])) {
+        if (!raw.trim()) continue;
+        if (looksLikeSshPrivateKey(raw)) {
+          throw new Error("refusing to add ssh private key (expected public key contents)");
+        }
+        const parsed = parseSshPublicKeysFromText(raw);
+        if (parsed.length === 0) throw new Error("invalid --add-ssh-key (expected ssh public key contents)");
+        for (const k of parsed) keys.add(k);
+      }
+
+      next.sshAuthorizedKeys = Array.from(keys);
     }
 
     const nextConfig = ClawdletsConfigSchema.parse({ ...config, hosts: { ...config.hosts, [hostName]: next } });
@@ -122,5 +184,5 @@ const set = defineCommand({
 
 export const host = defineCommand({
   meta: { name: "host", description: "Manage host config (infra/configs/clawdlets.json)." },
-  subCommands: { add, set },
+  subCommands: { add, "set-default": setDefault, set },
 });

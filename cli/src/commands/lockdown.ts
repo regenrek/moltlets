@@ -7,6 +7,7 @@ import { loadStack, loadStackEnv, resolveStackBaseFlake } from "@clawdbot/clawdl
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { requireDeployGate } from "../lib/deploy-gate.js";
 import { needsSudo, requireTargetHost } from "./ssh-target.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 function resolveHostFromFlake(flakeBase: string): string | null {
   const hashIndex = flakeBase.indexOf("#");
@@ -22,7 +23,7 @@ export const lockdown = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     flake: { type: "string", description: "Override base flake (default: stack.base.flake)." },
     rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
@@ -34,9 +35,10 @@ export const lockdown = defineCommand({
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     await requireDeployGate({ stackDir: args.stackDir, host: hostName, scope: "deploy", strict: true });
 

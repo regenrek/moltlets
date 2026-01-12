@@ -213,7 +213,7 @@ describe("doctor", () => {
       path.join(repoRoot, ".clawdlets", "secrets", ".sops.yaml"),
       [
         "creation_rules:",
-        `  - path_regex: ${sopsPathRegexForDirFiles("secrets/hosts/clawdbot-fleet-host", "yaml")}`,
+        `  - path_regex: ${sopsPathRegexForDirFiles("hosts/clawdbot-fleet-host", "yaml")}`,
         "    key_groups:",
         "      - age:",
         "          - age1a",
@@ -347,7 +347,8 @@ describe("doctor", () => {
 	    const originalStack = await readFile(stackPath, "utf8");
 
 	    const raw = JSON.parse(originalStack) as any;
-	    raw.hosts["clawdbot-fleet-host"].opentofu.sshPubkeyFile = "ssh-ed25519 AAAATEST test";
+	    raw.hosts["clawdbot-fleet-host"].opentofu.sshPubkeyFile =
+	      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test";
 	    await writeFile(stackPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor");

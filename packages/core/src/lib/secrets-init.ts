@@ -5,6 +5,50 @@ export type SecretsInitJson = {
   discordTokens: Record<string, string>;
 };
 
+export function isPlaceholderSecretValue(value: string): boolean {
+  const s = value.trim();
+  if (!s) return false;
+  if (s === "<OPTIONAL>") return false;
+  return /^<[^>]+>$/.test(s);
+}
+
+export function listSecretsInitPlaceholders(params: {
+  input: SecretsInitJson;
+  bots: string[];
+  requiresTailscaleAuthKey: boolean;
+}): string[] {
+  const out = new Set<string>();
+
+  if (isPlaceholderSecretValue(params.input.adminPasswordHash)) out.add("adminPasswordHash");
+
+  if (params.requiresTailscaleAuthKey && params.input.tailscaleAuthKey && isPlaceholderSecretValue(params.input.tailscaleAuthKey)) {
+    out.add("tailscaleAuthKey");
+  }
+
+  if (params.input.zAiApiKey && isPlaceholderSecretValue(params.input.zAiApiKey)) out.add("zAiApiKey");
+
+  const bots = Array.from(new Set(params.bots.map((b) => String(b).trim()).filter(Boolean)));
+  for (const b of bots) {
+    const v = params.input.discordTokens?.[b];
+    if (v && isPlaceholderSecretValue(v)) out.add(`discordTokens.${b}`);
+  }
+
+  return Array.from(out).sort();
+}
+
+export function buildSecretsInitTemplate(params: {
+  bots: string[];
+  requiresTailscaleAuthKey: boolean;
+}): SecretsInitJson {
+  const bots = Array.from(new Set(params.bots.map((b) => String(b).trim()).filter(Boolean)));
+  return {
+    adminPasswordHash: "<REPLACE_WITH_YESCRYPT_HASH>",
+    ...(params.requiresTailscaleAuthKey ? { tailscaleAuthKey: "<REPLACE_WITH_TSKEY_AUTH>" } : {}),
+    zAiApiKey: "<OPTIONAL>",
+    discordTokens: Object.fromEntries(bots.map((b) => [b, "<REPLACE_WITH_DISCORD_TOKEN>"])),
+  };
+}
+
 export function parseSecretsInitJson(raw: string): SecretsInitJson {
   let parsed: unknown;
   try {

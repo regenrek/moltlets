@@ -7,6 +7,7 @@ import { run } from "@clawdbot/clawdlets-core/lib/run";
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { loadStack } from "@clawdbot/clawdlets-core/stack";
 import { needsSudo, requireTargetHost } from "./common.js";
+import { requireStackHostOrExit, resolveHostNameOrExit } from "../../lib/host-resolve.js";
 
 export const secretsSync = defineCommand({
   meta: {
@@ -15,15 +16,16 @@ export const secretsSync = defineCommand({
   },
   args: {
     stackDir: { type: "string", description: "Stack directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from stack)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
     const { layout, stack } = loadStack({ cwd: process.cwd(), stackDir: args.stackDir });
-    const hostName = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
-    const host = stack.hosts[hostName];
-    if (!host) throw new Error(`unknown host: ${hostName}`);
+    const hostName = resolveHostNameOrExit({ cwd: process.cwd(), stackDir: args.stackDir, hostArg: args.host });
+    if (!hostName) return;
+    const host = requireStackHostOrExit(stack, hostName);
+    if (!host) return;
 
     const targetHost = requireTargetHost(String(args.targetHost || host.targetHost || ""), hostName);
 
