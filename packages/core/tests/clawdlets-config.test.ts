@@ -117,6 +117,24 @@ describe("clawdlets config schema", () => {
     }
   });
 
+  it("resolveHostName returns ok=false for invalid --host tokens", async () => {
+    const { resolveHostName } = await import("../src/lib/clawdlets-config");
+    const baseHost = {
+      enable: false,
+      diskDevice: "/dev/disk/by-id/CHANGE_ME",
+      sshAuthorizedKeys: [],
+      publicSsh: { enable: false },
+      provisioning: { enable: false },
+      tailnet: { mode: "none" },
+      agentModelPrimary: "zai/glm-4.7",
+    } as const;
+
+    const config = { schemaVersion: 2, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+    const r = resolveHostName({ config, host: ";" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toMatch(/invalid host name/i);
+  });
+
   it("loadClawdletsConfig throws for missing config file", async () => {
     const { loadClawdletsConfig } = await import("../src/lib/clawdlets-config");
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-config-missing-"));

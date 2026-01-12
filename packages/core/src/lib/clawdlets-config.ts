@@ -123,7 +123,20 @@ export function resolveHostName(params: { config: ClawdletsConfig; host?: unknow
   const provided = String(params.host ?? "").trim();
 
   if (provided) {
-    assertSafeHostName(provided);
+    try {
+      assertSafeHostName(provided);
+    } catch (e) {
+      return {
+        ok: false,
+        message: String((e as Error)?.message || e),
+        availableHosts,
+        tips: [
+          "host names must be safe identifiers (no spaces or shell metacharacters)",
+          availableHosts.length > 0 ? `available hosts: ${availableHosts.join(", ")}` : "available hosts: (none)",
+          `use --host <name> to select a host`,
+        ],
+      };
+    }
     if (params.config.hosts[provided]) {
       return { ok: true, host: provided, source: "flag" };
     }
