@@ -58,7 +58,7 @@ export async function capture(
       stdio: ["ignore", "pipe", "inherit"],
     });
     child.stdout.on("data", (buf) => {
-      chunks.push(Buffer.isBuffer(buf) ? buf : Buffer.from(buf));
+      chunks.push(buf);
     });
     child.on("error", reject);
     child.on("exit", (code) => {
@@ -84,7 +84,7 @@ export async function captureWithInput(
       stdio: ["pipe", "pipe", "inherit"],
     });
     child.stdout.on("data", (buf) => {
-      chunks.push(Buffer.isBuffer(buf) ? buf : Buffer.from(buf));
+      chunks.push(buf);
     });
     child.on("error", reject);
     child.stdin.write(input);

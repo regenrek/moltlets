@@ -12,4 +12,10 @@ describe("splitDotPath", () => {
     expect(splitDotPath(" fleet.guildId ")).toEqual(["fleet", "guildId"]);
     expect(splitDotPath("a..b")).toEqual(["a", "b"]);
   });
+
+  it("rejects empty paths", () => {
+    expect(() => splitDotPath("")).toThrow(/missing --path/i);
+    expect(() => splitDotPath("   ")).toThrow(/missing --path/i);
+    expect(() => splitDotPath(".")).toThrow(/invalid --path/i);
+  });
 });

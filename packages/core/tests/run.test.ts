@@ -17,6 +17,11 @@ describe("run helpers", () => {
     expect(out).toBe("ok");
   });
 
+  it("returns empty string on dry-run capture", async () => {
+    const out = await capture("echo", ["hi"], { dryRun: true });
+    expect(out).toBe("");
+  });
+
   it("captures stdout with stdin input", async () => {
     const out = await captureWithInput(
       process.execPath,
@@ -24,6 +29,11 @@ describe("run helpers", () => {
       "hello\n",
     );
     expect(out).toBe("hello");
+  });
+
+  it("returns empty string on dry-run captureWithInput", async () => {
+    const out = await captureWithInput("echo", ["hi"], "input\n", { dryRun: true });
+    expect(out).toBe("");
   });
 
   it("throws when command exits non-zero", async () => {
