@@ -9,8 +9,7 @@ import {
   getHostRemoteSecretsDir,
   getHostSecretsDir,
 } from "../repo-layout.js";
-import { sopsPathRegexForDirFiles } from "../lib/sops-config.js";
-import { relativePathForSopsRule } from "../lib/sops-path.js";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostAgeKeySopsCreationRulePathSuffix, getHostSecretsSopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathSuffix } from "../lib/sops-rules.js";
 import { validateHostSecretsYamlFiles } from "../lib/secrets-policy.js";
 import { capture } from "../lib/run.js";
 import { looksLikeSshKeyContents, normalizeSshPublicKey } from "../lib/ssh.js";
@@ -273,24 +272,30 @@ export async function addDeployChecks(params: {
           ? ((parsed as { creation_rules: unknown[] }).creation_rules as Array<{ path_regex?: unknown }>)
           : [];
 
-        const configDir = path.dirname(params.layout.sopsConfigPath);
-        let relSecretsDir: string;
-        try {
-          relSecretsDir = relativePathForSopsRule({ fromDir: configDir, toPath: secretsLocalDir, label: "host secrets dir" });
-        } catch (e) {
-          params.push({ scope: "deploy", status: "warn", label: "sops creation rule", detail: String((e as Error)?.message || e) });
-          relSecretsDir = "";
-        }
-
-        if (relSecretsDir) {
-          const expected = sopsPathRegexForDirFiles(relSecretsDir, "yaml");
+        const checkRule = (label: string, expected: string, detail: string) => {
           const hasRule = rules.some((r) => String(r?.path_regex || "") === expected);
           params.push({
             scope: "deploy",
             status: hasRule ? "ok" : "missing",
-            label: "sops creation rule",
-            detail: hasRule ? `(${relSecretsDir}/*.yaml)` : `(missing rule for ${relSecretsDir}/*.yaml)`,
+            label,
+            detail: hasRule ? "(ok)" : detail,
           });
+        };
+
+        try {
+          const rel = getHostSecretsSopsCreationRulePathSuffix(params.layout, host);
+          const expected = getHostSecretsSopsCreationRulePathRegex(params.layout, host);
+          checkRule("sops creation rule (host secrets)", expected, `(missing rule for ${rel}/*.yaml; run: clawdlets secrets init)`);
+        } catch (e) {
+          params.push({ scope: "deploy", status: "warn", label: "sops creation rule (host secrets)", detail: String((e as Error)?.message || e) });
+        }
+
+        try {
+          const rel = getHostAgeKeySopsCreationRulePathSuffix(params.layout, host);
+          const expected = getHostAgeKeySopsCreationRulePathRegex(params.layout, host);
+          checkRule("sops creation rule (host age key)", expected, `(missing rule for ${rel}; run: clawdlets secrets init)`);
+        } catch (e) {
+          params.push({ scope: "deploy", status: "warn", label: "sops creation rule (host age key)", detail: String((e as Error)?.message || e) });
         }
       }
     }

@@ -7,9 +7,9 @@ import { ageKeygen } from "@clawdbot/clawdlets-core/lib/age-keygen";
 import { parseAgeKeyFile } from "@clawdbot/clawdlets-core/lib/age";
 import { ensureDir, writeFileAtomic } from "@clawdbot/clawdlets-core/lib/fs-safe";
 import { mkpasswdYescryptHash } from "@clawdbot/clawdlets-core/lib/mkpasswd";
-import { sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix, upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
+import { upsertSopsCreationRule } from "@clawdbot/clawdlets-core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdbot/clawdlets-core/lib/sops";
-import { relativePathForSopsRule } from "@clawdbot/clawdlets-core/lib/sops-path";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdbot/clawdlets-core/lib/sops-rules";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
 import { buildSecretsInitTemplate, isPlaceholderSecretValue, listSecretsInitPlaceholders, parseSecretsInitJson, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdbot/clawdlets-core/lib/secrets-init";
 import { readYamlScalarFromMapping } from "@clawdbot/clawdlets-core/lib/yaml-scalar";
@@ -71,7 +71,6 @@ export const secretsInit = defineCommand({
 
     const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
 
-    const secretsDir = layout.secretsDir;
     const sopsConfigPath = layout.sopsConfigPath;
     const operatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
     const operatorPubPath = path.join(layout.localOperatorKeysDir, `${operatorId}.age.pub`);
@@ -162,11 +161,11 @@ export const secretsInit = defineCommand({
     const operatorKeys = await ensureAgePair(operatorKeyPath, operatorPubPath);
 
     const existingSops = fs.existsSync(sopsConfigPath) ? fs.readFileSync(sopsConfigPath, "utf8") : undefined;
-    const hostKeyRel = relativePathForSopsRule({ fromDir: secretsDir, toPath: hostKeyFile, label: "host age key file" });
+    const hostKeyPathRegex = getHostAgeKeySopsCreationRulePathRegex(layout, hostName);
 
     const withHostKeyRule = upsertSopsCreationRule({
       existingYaml: existingSops,
-      pathRegex: sopsPathRegexForPathSuffix(hostKeyRel),
+      pathRegex: hostKeyPathRegex,
       ageRecipients: [operatorKeys.publicKey],
     });
 
@@ -206,10 +205,10 @@ export const secretsInit = defineCommand({
       }
     }
 
-    const hostSecretsRel = relativePathForSopsRule({ fromDir: secretsDir, toPath: localSecretsDir, label: "host secrets dir" });
+    const hostSecretsPathRegex = getHostSecretsSopsCreationRulePathRegex(layout, hostName);
     const nextSops = upsertSopsCreationRule({
       existingYaml: withHostKeyRule,
-      pathRegex: sopsPathRegexForDirFiles(hostSecretsRel, "yaml"),
+      pathRegex: hostSecretsPathRegex,
       ageRecipients: [hostKeys.publicKey, operatorKeys.publicKey],
     });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { sopsPathRegexForDirFiles } from "../src/lib/sops-config";
+import { sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix } from "../src/lib/sops-config";
 
 let mockFleetMain: any = null;
 let mockFleetTemplate: any = null;
@@ -181,6 +181,11 @@ describe("doctor", () => {
       [
         "creation_rules:",
         `  - path_regex: ${sopsPathRegexForDirFiles("hosts/clawdbot-fleet-host", "yaml")}`,
+        "    key_groups:",
+        "      - age:",
+        "          - age1a",
+        "          - age1b",
+        `  - path_regex: ${sopsPathRegexForPathSuffix("keys/hosts/clawdbot-fleet-host.agekey.yaml")}`,
         "    key_groups:",
         "      - age:",
         "          - age1a",
