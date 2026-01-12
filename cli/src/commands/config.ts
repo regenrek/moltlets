@@ -126,7 +126,7 @@ const set = defineCommand({
     const { configPath, config } = loadClawdletsConfig({ repoRoot });
     const parts = splitDotPath(String(args.path || ""));
 
-    const next = JSON.parse(JSON.stringify(config)) as any;
+    const next = structuredClone(config) as any;
 
     if (args.delete) {
       const ok = deleteAtPath(next, parts);

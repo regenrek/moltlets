@@ -76,7 +76,7 @@ const set = defineCommand({
     const existing = config.hosts[hostName];
     if (!existing) throw new Error(`unknown host in clawdlets.json: ${hostName}`);
 
-    const next: ClawdletsHostConfig = JSON.parse(JSON.stringify(existing)) as ClawdletsHostConfig;
+    const next: ClawdletsHostConfig = structuredClone(existing) as ClawdletsHostConfig;
 
     const enable = parseBoolOrUndefined(args.enable);
     if (enable !== undefined) next.enable = enable;

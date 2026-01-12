@@ -205,7 +205,7 @@ describe("doctor", () => {
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
     };
-    mockFleetTemplate = JSON.parse(JSON.stringify(mockFleetMain));
+    mockFleetTemplate = structuredClone(mockFleetMain);
 
     await mkdir(path.join(repoRoot, ".clawdlets", "secrets", "hosts"), { recursive: true });
 
@@ -280,7 +280,7 @@ describe("doctor", () => {
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
     };
-    mockFleetTemplate = JSON.parse(JSON.stringify(mockFleetMain));
+    mockFleetTemplate = structuredClone(mockFleetMain);
     vi.clearAllMocks();
   });
 
