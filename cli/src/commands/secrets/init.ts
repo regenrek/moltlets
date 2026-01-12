@@ -67,8 +67,10 @@ export const secretsInit = defineCommand({
     const host = requireStackHostOrExit(stack, hostName);
     if (!host) return;
 
-    const interactive = wantsInteractive(Boolean(args.interactive));
-    if (interactive && !process.stdout.isTTY) throw new Error("--interactive requires a TTY");
+    const hasTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+    let interactive = wantsInteractive(Boolean(args.interactive));
+    if (!interactive && hasTty && !args.fromJson) interactive = true;
+    if (interactive && !hasTty) throw new Error("--interactive requires a TTY");
 
     const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
 
@@ -83,9 +85,54 @@ export const secretsInit = defineCommand({
 
     const localSecretsDir = path.join(layout.stackDir, host.secrets.localDir);
 
+    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
+    const bots = clawdletsConfig.fleet.bots;
+    if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
+
+    const clawdletsHostCfg = clawdletsConfig.hosts[hostName];
+    if (!clawdletsHostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
+    const tailnetMode = String(clawdletsHostCfg.tailnet?.mode || "none");
+    const requiresTailscaleAuthKey = tailnetMode === "tailscale";
+
+    const defaultSecretsJsonPath = path.join(layout.stackDir, "secrets.json");
+    const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
+
+    let fromJson = args.fromJson ? String(args.fromJson) : undefined;
+    if (!interactive && !fromJson) {
+      if (fs.existsSync(defaultSecretsJsonPath)) {
+        fromJson = defaultSecretsJsonPath;
+        if (!args.allowPlaceholders) {
+          const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
+          if (raw.includes("<")) {
+            console.error(`error: placeholders found in ${defaultSecretsJsonDisplay} (fill it or pass --allow-placeholders)`);
+            process.exitCode = 1;
+            return;
+          }
+        }
+      } else {
+        const template: SecretsInitJson = {
+          adminPasswordHash: "<REPLACE_WITH_YESCRYPT_HASH>",
+          ...(requiresTailscaleAuthKey ? { tailscaleAuthKey: "<REPLACE_WITH_TSKEY_AUTH>" } : {}),
+          zAiApiKey: "<OPTIONAL>",
+          discordTokens: Object.fromEntries(bots.map((b) => [b, "<REPLACE_WITH_DISCORD_TOKEN>"])),
+        };
+
+        if (!args.dryRun) {
+          await ensureDir(path.dirname(defaultSecretsJsonPath));
+          await writeFileAtomic(defaultSecretsJsonPath, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
+        }
+
+        console.error(`${args.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);
+        if (args.dryRun) console.error("run without --dry-run to write it");
+        else console.error(`fill it, then run: clawdlets secrets init --host ${hostName} --from-json ${defaultSecretsJsonDisplay}`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     validateSecretsInitNonInteractive({
       interactive,
-      fromJson: args.fromJson ? String(args.fromJson) : undefined,
+      fromJson,
       yes: Boolean(args.yes),
       dryRun: Boolean(args.dryRun),
       localSecretsDirExists: fs.existsSync(localSecretsDir),
@@ -156,15 +203,6 @@ export const secretsInit = defineCommand({
 	      }
 	    };
 
-    const { config: clawdletsConfig } = loadClawdletsConfig({ repoRoot: layout.repoRoot, stackDir: args.stackDir });
-    const bots = clawdletsConfig.fleet.bots;
-    if (bots.length === 0) throw new Error("fleet.bots is empty (set bots in infra/configs/clawdlets.json)");
-
-    const clawdletsHostCfg = clawdletsConfig.hosts[hostName];
-    if (!clawdletsHostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
-    const tailnetMode = String(clawdletsHostCfg.tailnet?.mode || "none");
-    const requiresTailscaleAuthKey = tailnetMode === "tailscale";
-
     const flowSecrets = "secrets init";
     const values: {
       adminPassword: string;
@@ -221,7 +259,7 @@ export const secretsInit = defineCommand({
         i += 1;
       }
     } else {
-      const input = readSecretsInitJson(String(args.fromJson));
+      const input = readSecretsInitJson(String(fromJson));
       values.adminPasswordHash = input.adminPasswordHash;
       values.tailscaleAuthKey = input.tailscaleAuthKey || "";
       values.zAiApiKey = input.zAiApiKey || "";
