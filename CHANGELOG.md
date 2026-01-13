@@ -17,6 +17,9 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Config schema bump: `infra/configs/clawdlets.json` schemaVersion `4` (adds `fleet.envSecrets` and removes baked-in provider keys).
 - CLI flag rename: `--stack-dir` → `--runtime-dir`.
 - Secrets init JSON: replaces `zAiApiKey` with `secrets.<secretName>` map.
+- Server ops: `server logs|status|audit` now use sudoers-compatible `systemctl`/`journalctl` invocation order; `server logs` defaults to `-n 200` and adds `--lines`.
+- Server rebuild: when connecting as `admin@...` (non-wheel), `server rebuild` runs the constrained `/etc/clawdlets/bin/rebuild-host --rev <sha>` path (requires `clawdlets.operator.rebuild` enabled on-host).
+- SSH capture: `sshCapture(..., { tty: true })` now actually allocates a TTY (fixes `ssh: Pseudo-terminal will not be allocated...` for capture use-cases).
 
 ### Removed
 - Stack concept + `clawdlets stack` command.

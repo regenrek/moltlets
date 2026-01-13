@@ -47,5 +47,6 @@ export async function sshCapture(
   opts: RunOpts & { tty?: boolean } = {},
 ): Promise<string> {
   const sshArgs = [...buildSshArgs(targetHost, { tty: opts.tty }), remoteCmd];
-  return await capture("ssh", sshArgs, opts);
+  const { tty, ...runOpts } = opts;
+  return await capture("ssh", sshArgs, tty ? { ...runOpts, stdin: "inherit" } : runOpts);
 }

@@ -90,6 +90,10 @@ in {
         else "";
     in ''
     Cmnd_Alias CLAWDBOT_SYSTEMCTL = \
+      /run/current-system/sw/bin/systemctl is-active tailscaled.service, \
+      /run/current-system/sw/bin/systemctl is-active tailscaled-autoconnect.service, \
+      /run/current-system/sw/bin/systemctl show tailscaled.service, \
+      /run/current-system/sw/bin/systemctl show tailscaled-autoconnect.service, \
       /run/current-system/sw/bin/systemctl status clawdbot-*, \
       /run/current-system/sw/bin/systemctl status clawdbot-* --no-pager, \
       /run/current-system/sw/bin/systemctl status clawdbot-*.service, \
@@ -107,13 +111,17 @@ in {
       /run/current-system/sw/bin/systemctl list-units clawdbot-* --no-pager, \
       /run/current-system/sw/bin/systemctl list-units clawdbot-*.service, \
       /run/current-system/sw/bin/systemctl list-units clawdbot-*.service --no-pager, \
+      /run/current-system/sw/bin/systemctl list-units --all --plain --legend=false --no-pager clawdbot-*.service, \
       /run/current-system/sw/bin/systemctl show clawdbot-*, \
       /run/current-system/sw/bin/systemctl show clawdbot-*.service, \
       /run/current-system/sw/bin/systemctl cat clawdbot-*, \
       /run/current-system/sw/bin/systemctl cat clawdbot-*.service
     Cmnd_Alias CLAWDBOT_JOURNAL = \
       /run/current-system/sw/bin/journalctl -u clawdbot-* --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --no-pager
+      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * -f --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * -f --no-pager
     Cmnd_Alias CLAWDBOT_SS = /run/current-system/sw/bin/ss -ltnp
     Cmnd_Alias CLAWDBOT_GH_SYNC_READ = /etc/clawdlets/bin/gh-sync-read *
     ${rebuildSudo}

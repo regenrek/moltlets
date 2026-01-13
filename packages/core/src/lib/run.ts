@@ -5,6 +5,7 @@ export type RunOpts = {
   env?: NodeJS.ProcessEnv;
   dryRun?: boolean;
   redact?: string[];
+  stdin?: "inherit" | "ignore";
 };
 
 function redactLine(line: string, values?: string[]): string {
@@ -52,10 +53,13 @@ export async function capture(
 
   return await new Promise<string>((resolve, reject) => {
     const chunks: Buffer[] = [];
+    const stdinMode = opts.stdin ?? "ignore";
+    const stdio: ["inherit" | "ignore", "pipe", "inherit"] =
+      stdinMode === "inherit" ? ["inherit", "pipe", "inherit"] : ["ignore", "pipe", "inherit"];
     const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: opts.env,
-      stdio: ["ignore", "pipe", "inherit"],
+      stdio,
     });
     child.stdout.on("data", (buf) => {
       chunks.push(buf);

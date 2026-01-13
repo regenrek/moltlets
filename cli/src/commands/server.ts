@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 import { resolveGitRev } from "@clawdbot/clawdlets-core/lib/git";
 import { shellQuote, sshCapture, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { resolveBaseFlake } from "@clawdbot/clawdlets-core/lib/base-flake";
-import { getHostRemoteSecretsDir } from "@clawdbot/clawdlets-core/repo-layout";
 import { requireTargetHost, needsSudo } from "./server/common.js";
 import { serverGithubSync } from "./server/github-sync.js";
 import { loadHostContextOrExit } from "../lib/context.js";
@@ -20,6 +19,26 @@ function normalizeSince(value: string): string {
   if (unit === "h") return `${n} hour ago`;
   if (unit === "d") return `${n} day ago`;
   return v;
+}
+
+function normalizeClawdbotUnit(value: string): string {
+  const v = value.trim();
+  if (v === "clawdbot-*.service") return v;
+  if (/^clawdbot-[A-Za-z0-9._-]+$/.test(v)) return `${v}.service`;
+  if (/^clawdbot-[A-Za-z0-9._-]+\.service$/.test(v)) return v;
+  throw new Error(`invalid --unit: ${v} (expected clawdbot-<id>[.service] or clawdbot-*.service)`);
+}
+
+function parseSystemctlShow(output: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of output.split("\n")) {
+    const idx = line.indexOf("=");
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx);
+    if (key in out) continue;
+    out[key] = line.slice(idx + 1);
+  }
+  return out;
 }
 
 function resolveHostFromFlake(flakeBase: string): string | null {
@@ -43,7 +62,7 @@ async function trySshCapture(targetHost: string, remoteCmd: string, opts: { tty?
 const serverAudit = defineCommand({
   meta: {
     name: "audit",
-    description: "Audit host invariants over SSH (bootstrap firewall, tailscale, services, rendered env).",
+    description: "Audit host invariants over SSH (tailscale, clawdbot services).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
@@ -52,134 +71,78 @@ const serverAudit = defineCommand({
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
     json: { type: "boolean", description: "Output JSON.", default: false },
   },
-	  async run({ args }) {
-	    const cwd = process.cwd();
-	    const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
-	    if (!ctx) return;
-	    const { hostName, hostCfg } = ctx;
-	    const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
+  async run({ args }) {
+    const cwd = process.cwd();
+    const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
+    if (!ctx) return;
+    const { config, hostName, hostCfg } = ctx;
+    const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
+    const bots = config.fleet.bots ?? [];
 
     const checks: AuditCheck[] = [];
     const add = (c: AuditCheck) => checks.push(c);
 
-    const opt = async (label: string, cmd: string) => {
+    const must = async (label: string, cmd: string): Promise<string | null> => {
       const out = await trySshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
-      if (!out.ok) add({ status: "warn", label, detail: out.out });
+      if (!out.ok) {
+        add({ status: "missing", label, detail: out.out });
+        return null;
+      }
       return out.out;
     };
 
-    const must = async (label: string, cmd: string) => {
-      const out = await trySshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
-      if (!out.ok) add({ status: "missing", label, detail: out.out });
-      else add({ status: "ok", label, detail: out.out });
-      return out;
-    };
-
-    const nixosOption = async (name: string) => {
-      const cmd = [
-        ...(sudo ? ["sudo"] : []),
-        "sh",
-        "-lc",
-        `nixos-option ${shellQuote(name)} 2>/dev/null || true`,
-      ].join(" ");
-      return await opt(`nixos-option ${name}`, cmd);
-    };
-
-    const provisioning = await nixosOption("clawdlets.provisioning.enable");
-    const publicSsh = await nixosOption("clawdlets.publicSsh.enable");
-
-    const provisioningEnabled = provisioning.includes("Value: true");
-    const publicSshEnabled = publicSsh.includes("Value: true");
-
-    if (publicSshEnabled) add({ status: "missing", label: "publicSsh", detail: "(enabled; public SSH open)" });
-    else if (publicSsh.includes("Value: false")) add({ status: "ok", label: "publicSsh", detail: "(disabled)" });
-    else add({ status: "warn", label: "publicSsh", detail: "(unknown; nixos-option not available?)" });
-
-    if (provisioningEnabled) add({ status: "warn", label: "provisioning", detail: "(enabled)" });
-    else if (provisioning.includes("Value: false")) add({ status: "ok", label: "provisioning", detail: "(disabled)" });
-    else add({ status: "warn", label: "provisioning", detail: "(unknown; nixos-option not available?)" });
-
-    const tailscaleEnabled = (await nixosOption("services.tailscale.enable")).includes("Value: true");
-    if (tailscaleEnabled) {
-      await must("tailscale service", [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", "tailscaled.service" ].join(" "));
-      await must("tailscale autoconnect", [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", "tailscaled-autoconnect.service" ].join(" "));
-    } else {
-      add({ status: "warn", label: "tailscale enabled", detail: "(services.tailscale.enable=false)" });
-    }
-
-    const botsRaw = await nixosOption("services.clawdbotFleet.bots");
-    const bots = Array.from(botsRaw.matchAll(/"([^"]+)"/g)).map((m) => String(m[1] ?? "")).filter(Boolean);
-    if (bots.length === 0) add({ status: "warn", label: "fleet bots list", detail: "(could not read services.clawdbotFleet.bots)" });
-    else add({ status: "ok", label: "fleet bots list", detail: bots.join(", ") });
-
-    for (const b of bots) {
-      await must(`service clawdbot-${b}`, [ ...(sudo ? ["sudo"] : []), "systemctl", "is-active", `clawdbot-${b}.service` ].join(" "));
-      await must(
-        `rendered env clawdbot-${b}`,
-        [
-          ...(sudo ? ["sudo"] : []),
-          "sh",
-          "-lc",
-          shellQuote(`test -s /run/secrets/rendered/clawdbot-${b}.env && echo ok`),
-        ].join(" "),
+    if (hostCfg.tailnet?.mode === "tailscale") {
+      const tailscaled = await must(
+        "tailscale service",
+        [ ...(sudo ? ["sudo"] : []), "systemctl", "show", "tailscaled.service" ].join(" "),
       );
+      if (tailscaled) {
+        const parsed = parseSystemctlShow(tailscaled);
+        add({
+          status: parsed.ActiveState === "active" ? "ok" : "missing",
+          label: "tailscale service state",
+          detail: `${parsed.ActiveState || "?"}/${parsed.SubState || "?"}`,
+        });
+      }
+
+      const autoconnect = await must(
+        "tailscale autoconnect",
+        [ ...(sudo ? ["sudo"] : []), "systemctl", "show", "tailscaled-autoconnect.service" ].join(" "),
+      );
+      if (autoconnect) {
+        const parsed = parseSystemctlShow(autoconnect);
+        add({
+          status: parsed.ActiveState === "active" ? "ok" : "missing",
+          label: "tailscale autoconnect state",
+          detail: `${parsed.ActiveState || "?"}/${parsed.SubState || "?"}`,
+        });
+      }
     }
 
-    const allowUsers = await opt(
-      "sshd AllowUsers",
-      [ ...(sudo ? ["sudo"] : []), "sh", "-lc", shellQuote("sshd -T 2>/dev/null | awk '$1==\"allowusers\"{print}' || true") ].join(" "),
-    );
-    if (/\ballowusers\s+admin\b/i.test(allowUsers) && !/\bbreakglass\b/i.test(allowUsers)) {
-      add({ status: "ok", label: "sshd AllowUsers", detail: "(admin only)" });
-    } else if (allowUsers.trim().length === 0) {
-      add({ status: "warn", label: "sshd AllowUsers", detail: "(not set; relying on other controls)" });
+    if (Array.isArray(bots) && bots.length > 0) {
+      add({ status: "ok", label: "fleet bots list", detail: bots.join(", ") });
     } else {
-      add({ status: "missing", label: "sshd AllowUsers", detail: allowUsers.trim() });
+      add({ status: "warn", label: "fleet bots list", detail: "(empty)" });
     }
 
-    const sshd = await trySshCapture(targetHost, [ ...(sudo ? ["sudo"] : []), "sshd", "-T" ].join(" "), { tty: false });
-    if (!sshd.ok) {
-      add({ status: "warn", label: "sshd config", detail: sshd.out });
-    } else if (/passwordauthentication\s+no/i.test(sshd.out) && /kbdinteractiveauthentication\s+no/i.test(sshd.out)) {
-      add({ status: "ok", label: "sshd password auth", detail: "(disabled)" });
-    } else {
-      add({ status: "missing", label: "sshd password auth", detail: "(password auth may be enabled)" });
-    }
+    for (const bot of bots) {
+      const unit = normalizeClawdbotUnit(`clawdbot-${String(bot).trim()}`);
+      const show = await must(`systemctl show ${unit}`, [ ...(sudo ? ["sudo"] : []), "systemctl", "show", shellQuote(unit) ].join(" "));
+      if (!show) continue;
+      const parsed = parseSystemctlShow(show);
+      const loadState = parsed.LoadState || "";
+      const activeState = parsed.ActiveState || "";
+      const subState = parsed.SubState || "";
 
-    const remoteSecretsDir = getHostRemoteSecretsDir(hostName);
-    await must(
-      "remote secrets dir",
-      [ ...(sudo ? ["sudo"] : []), "sh", "-lc", shellQuote(`test -d ${shellQuote(remoteSecretsDir)} && echo ok`) ].join(" "),
-    );
-    await must(
-      "remote secrets perms",
-      [
-        ...(sudo ? ["sudo"] : []),
-        "sh",
-        "-lc",
-        shellQuote(
-          `bad="$(find ${shellQuote(remoteSecretsDir)} -maxdepth 1 -type f -name '*.yaml' -printf '%m %u %g %p\\n' | awk '$1!=\"400\" || $2!=\"root\" || $3!=\"root\" {print; exit 0}' || true)"; if [ -n "$bad" ]; then echo "bad: $bad" >&2; exit 1; fi; echo ok`,
-        ),
-      ].join(" "),
-    );
-
-    const firewall = await opt(
-      "firewall port 22 (public)",
-      [
-        ...(sudo ? ["sudo"] : []),
-        "sh",
-        "-lc",
-        shellQuote(
-          "nft list ruleset 2>/dev/null | grep -n \"dport 22\" || true",
-        ),
-      ].join(" "),
-    );
-    if (!publicSshEnabled && firewall.trim().length === 0) {
-      add({ status: "ok", label: "firewall port 22 (public)", detail: "(no public dport 22 rule found)" });
-    } else if (!publicSshEnabled && firewall.trim().length > 0) {
-      add({ status: "missing", label: "firewall port 22 (public)", detail: firewall.trim() });
+      if (loadState && loadState !== "loaded") {
+        add({ status: "missing", label: `${unit} load state`, detail: `LoadState=${loadState}` });
+      } else if (activeState === "active" && subState === "running") {
+        add({ status: "ok", label: `${unit} state`, detail: `${activeState}/${subState}` });
+      } else {
+        add({ status: "missing", label: `${unit} state`, detail: `${activeState || "?"}/${subState || "?"}` });
+      }
     }
 
     if (args.json) console.log(JSON.stringify({ host: hostName, targetHost, checks }, null, 2));
@@ -212,13 +175,10 @@ const serverStatus = defineCommand({
       ...(sudo ? ["sudo"] : []),
       "systemctl",
       "list-units",
-      "--all",
-      "--plain",
-      "--legend=false",
-      "--no-pager",
       "clawdbot-*.service",
+      "--no-pager",
     ].join(" ");
-    const out = await sshCapture(targetHost, cmd);
+    const out = await sshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
     console.log(out);
   },
 });
@@ -237,6 +197,7 @@ const serverLogs = defineCommand({
       description: "systemd unit (default: clawdbot-*.service).",
       default: "clawdbot-*.service",
     },
+    lines: { type: "string", description: "Number of lines (default: 200).", default: "200" },
     since: { type: "string", description: "Time window (supports 5m/1h/2d or journalctl syntax)." },
     follow: { type: "boolean", description: "Follow logs.", default: false },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
@@ -249,17 +210,21 @@ const serverLogs = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
-    const unit = String(args.unit || "clawdbot-*.service").trim() || "clawdbot-*.service";
+    const unit = normalizeClawdbotUnit(String(args.unit || "clawdbot-*.service"));
     const since = args.since ? normalizeSince(String(args.since)) : "";
+    const n = String(args.lines || "200").trim() || "200";
+    if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
 
     const cmdArgs = [
       ...(sudo ? ["sudo"] : []),
       "journalctl",
-      "--no-pager",
-      ...(args.follow ? ["-f"] : []),
-      ...(since ? ["--since", shellQuote(since)] : []),
       "-u",
       shellQuote(unit),
+      "-n",
+      shellQuote(n),
+      ...(since ? ["--since", shellQuote(since)] : []),
+      ...(args.follow ? ["-f"] : []),
+      "--no-pager",
     ];
     const remoteCmd = cmdArgs.join(" ");
     await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
@@ -289,6 +254,23 @@ const serverRebuild = defineCommand({
 
     const githubToken = String(process.env.GITHUB_TOKEN || "").trim();
 
+    const rev = String(args.rev || "").trim();
+    const ref = String(args.ref || "").trim();
+    if (rev && ref) throw new Error("use either --rev or --ref (not both)");
+
+    const sudo = needsSudo(targetHost);
+    if (sudo) {
+      if (ref) throw new Error("ref rebuild is not supported over constrained sudo; use --rev <sha|HEAD>");
+      if (String(args.flake || "").trim()) throw new Error("flake override is not supported over constrained sudo; set clawdlets.operator.rebuild.flakeBase instead");
+      if (githubToken) throw new Error("GITHUB_TOKEN rebuild is not supported over constrained sudo; use a trusted workstation rebuild for private repos");
+
+      const resolved = await resolveGitRev(layout.repoRoot, rev || "HEAD");
+      if (!resolved) throw new Error(`unable to resolve git rev: ${rev || "HEAD"}`);
+      const remoteCmd = ["sudo", "/etc/clawdlets/bin/rebuild-host", "--rev", resolved].map(shellQuote).join(" ");
+      await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
+      return;
+    }
+
     const baseResolved = await resolveBaseFlake({ repoRoot, config });
     const flakeBase = String(args.flake || baseResolved.flake || "").trim();
     if (!flakeBase) throw new Error("missing base flake (set baseFlake in infra/configs/clawdlets.json, set git origin, or pass --flake)");
@@ -299,10 +281,6 @@ const serverRebuild = defineCommand({
       throw new Error(`flake host mismatch: ${hostFromFlake} vs ${requestedHost}`);
     }
     const flakeWithHost = flakeBase.includes("#") ? flakeBase : `${flakeBase}#${requestedHost}`;
-
-    const rev = String(args.rev || "").trim();
-    const ref = String(args.ref || "").trim();
-    if (rev && ref) throw new Error("use either --rev or --ref (not both)");
 
     const hashIndex = flakeWithHost.indexOf("#");
     const flakeBasePath = hashIndex === -1 ? flakeWithHost : flakeWithHost.slice(0, hashIndex);
@@ -322,17 +300,14 @@ const serverRebuild = defineCommand({
       flake = `${flakeBasePath}${sep}ref=${ref}${flakeFragment}`;
     }
 
-    const sudo = needsSudo(targetHost);
-    const remoteArgs: string[] = [];
-    if (sudo) remoteArgs.push("sudo");
-    remoteArgs.push("env");
+    const remoteArgs: string[] = ["env"];
     if (githubToken) {
       remoteArgs.push(`NIX_CONFIG=access-tokens = github.com=${githubToken}`);
     }
     remoteArgs.push("nixos-rebuild", "switch", "--flake", flake);
 
     const remoteCmd = remoteArgs.map(shellQuote).join(" ");
-    await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
+    await sshRun(targetHost, remoteCmd, { tty: false });
   },
 });
 

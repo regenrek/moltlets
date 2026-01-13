@@ -99,15 +99,17 @@ const serverGithubSyncLogs = defineCommand({
 
     const sudo = needsSudo(targetHost);
     const unit = `clawdbot-gh-sync-${bot}.service`;
+    const n = String(args.lines || "200").trim() || "200";
+    if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
       "journalctl",
       "-u",
       shellQuote(unit),
-      "--no-pager",
       "-n",
-      shellQuote(String(args.lines || "200")),
+      shellQuote(n),
       ...(args.follow ? ["-f"] : []),
+      "--no-pager",
     ].join(" ");
     await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
   },
