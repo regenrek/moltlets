@@ -2,6 +2,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import { collectDoctorChecks } from "@clawdbot/clawdlets-core/doctor";
 import { resolveHostNameOrExit } from "../lib/host-resolve.js";
+import { renderDoctorReport } from "../lib/doctor-render.js";
 
 export const doctor = defineCommand({
   meta: {
@@ -17,6 +18,7 @@ export const doctor = defineCommand({
       default: "all",
     },
     json: { type: "boolean", description: "Output JSON.", default: false },
+    "show-ok": { type: "boolean", description: "Show ok checks too.", default: false },
     strict: { type: "boolean", description: "Fail on warn too (deploy gating).", default: false },
   },
   async run({ args }) {
@@ -26,20 +28,19 @@ export const doctor = defineCommand({
     if (scopeRaw !== "repo" && scopeRaw !== "deploy" && scopeRaw !== "all") {
       throw new Error(`invalid --scope: ${scopeRaw} (expected repo|deploy|all)`);
     }
+    const scope = scopeRaw as "repo" | "deploy" | "all";
 
     const checks = await collectDoctorChecks({
       cwd: process.cwd(),
       runtimeDir: (args as any).runtimeDir,
       host: hostName,
-      scope: scopeRaw,
+      scope,
     });
 
     if (args.json) {
       console.log(JSON.stringify({ scope: scopeRaw, host: hostName, checks }, null, 2));
     } else {
-      for (const c of checks) {
-        console.log(`${c.scope} ${c.status}: ${c.label}${c.detail ? ` (${c.detail})` : ""}`);
-      }
+      console.log(renderDoctorReport({ checks, host: hostName, scope, strict: args.strict, showOk: Boolean((args as any)["show-ok"]) }));
     }
 
     if (checks.some((c) => c.status === "missing")) process.exitCode = 1;

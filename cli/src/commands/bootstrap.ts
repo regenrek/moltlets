@@ -47,6 +47,7 @@ export const bootstrap = defineCommand({
 	    rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
 	    ref: { type: "string", description: "Git ref to pin (branch or tag)." },
 	    "keep-public-ssh": { type: "boolean", description: "Keep public SSH open after install (not recommended).", default: false },
+	    force: { type: "boolean", description: "Skip doctor gate (not recommended).", default: false },
 	    dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
 	  },
 	  async run({ args }) {
@@ -58,7 +59,11 @@ export const bootstrap = defineCommand({
 	    const hostCfg = clawdletsConfig.hosts[hostName];
 	    if (!hostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
 
-	    await requireDeployGate({ runtimeDir: (args as any).runtimeDir, host: hostName, scope: "deploy", strict: false });
+	    if (Boolean((args as any).force)) {
+	      console.error("warn: skipping doctor gate (--force)");
+	    } else {
+	      await requireDeployGate({ runtimeDir: (args as any).runtimeDir, host: hostName, scope: "deploy", strict: false });
+	    }
 
 	    const hcloudToken = String(process.env.HCLOUD_TOKEN || "").trim();
 	    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set env var)");

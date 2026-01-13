@@ -1,5 +1,6 @@
 import process from "node:process";
 import { collectDoctorChecks } from "@clawdbot/clawdlets-core/doctor";
+import { renderDoctorGateFailure } from "./doctor-render.js";
 
 export async function requireDeployGate(params: {
   runtimeDir?: string;
@@ -20,15 +21,5 @@ export async function requireDeployGate(params: {
   const failed = missing.length > 0 || (params.strict && warn.length > 0);
   if (!failed) return;
 
-  const summarize = (xs: typeof checks, limit = 6) =>
-    xs.slice(0, limit).map((c) => `${c.scope} ${c.status}: ${c.label}${c.detail ? ` (${c.detail})` : ""}`);
-
-  const lines = [
-    `doctor gate failed (${params.scope}${params.strict ? ", strict" : ""})`,
-    ...summarize(missing),
-    ...(params.strict ? summarize(warn).map((l) => `warn: ${l}`) : []),
-    `hint: run clawdlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""}`,
-  ];
-
-  throw new Error(lines.join("\n"));
+  throw new Error(renderDoctorGateFailure({ checks, scope: params.scope, strict: params.strict }));
 }

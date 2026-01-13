@@ -96,11 +96,14 @@ describe("doctor", () => {
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
-        guildId: "",
+        guildId: "123",
         envSecrets: { ZAI_API_KEY: "z_ai_api_key", Z_AI_API_KEY: "z_ai_api_key" },
         bots: ["alpha", "beta"],
         botOverrides: {},
-        routingOverrides: {},
+        routingOverrides: {
+          alpha: { channels: ["bots"], requireMention: true },
+          beta: { channels: ["bots"], requireMention: true },
+        },
         codex: { enable: false, bots: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
@@ -268,6 +271,24 @@ describe("doctor", () => {
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
+  });
+
+  it("requires discord routing config (guildId + channels)", async () => {
+    const configPath = path.join(repoRoot, "infra", "configs", "clawdlets.json");
+    const original = await readFile(configPath, "utf8");
+
+    const raw = JSON.parse(original) as any;
+    raw.fleet.guildId = "";
+    raw.fleet.routingOverrides = {};
+    await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+
+    process.env.HCLOUD_TOKEN = "abc";
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "deploy" });
+    const check = checks.find((c) => c.label === "discord routing");
+    expect(check?.status).toBe("missing");
+
+    await writeFile(configPath, original, "utf8");
   });
 
   it("rejects skills.allowBundled = null in fleet configs", async () => {

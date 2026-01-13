@@ -10,6 +10,8 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Non-interactive secrets provisioning: `clawdlets secrets init --from-json <path|->`.
 - Fleet-level secret env wiring: `infra/configs/clawdlets.json.fleet.envSecrets` (env var → sops secret name), used for LLM API keys.
 - New docs: `docs/config.md` (canonical config + host knobs).
+- Doctor check: `discord routing` now verifies `fleet.guildId` and per-bot `fleet.routingOverrides.<bot>.channels` to prevent “silent” bots.
+- `clawdlets bootstrap --force` skips doctor preflight gate (advanced usage).
 
 ### Changed
 - Workflow automation: `nix-clawdbot` bump PRs are created using a GitHub App token (so normal PR checks run) and are compatible with strict branch protection.
@@ -17,6 +19,7 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Config schema bump: `infra/configs/clawdlets.json` schemaVersion `4` (adds `fleet.envSecrets` and removes baked-in provider keys).
 - CLI flag rename: `--stack-dir` → `--runtime-dir`.
 - Secrets init JSON: replaces `zAiApiKey` with `secrets.<secretName>` map.
+- Doctor UX: output grouped by scope/category with status coloring; add `clawdlets doctor --show-ok` to include ok checks.
 - Server ops: `server logs|status|audit` now use sudoers-compatible `systemctl`/`journalctl` invocation order; `server logs` defaults to `-n 200` and adds `--lines`.
 - Server rebuild: when connecting as `admin@...` (non-wheel), `server rebuild` runs the constrained `/etc/clawdlets/bin/rebuild-host --rev <sha>` path (requires `clawdlets.operator.rebuild` enabled on-host).
 - SSH capture: `sshCapture(..., { tty: true })` now actually allocates a TTY (fixes `ssh: Pseudo-terminal will not be allocated...` for capture use-cases).
