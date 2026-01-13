@@ -61,17 +61,29 @@ export const secretsInit = defineCommand({
     dryRun: { type: "boolean", description: "Print actions without writing.", default: false },
   },
   async run({ args }) {
+    type SecretsInitArgs = {
+      runtimeDir?: string;
+      host?: string;
+      interactive?: boolean;
+      fromJson?: string | boolean;
+      allowPlaceholders?: boolean;
+      operator?: string;
+      yes?: boolean;
+      dryRun?: boolean;
+    };
+
+    const a = args as unknown as SecretsInitArgs;
     const cwd = process.cwd();
-    const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
+    const ctx = loadHostContextOrExit({ cwd, runtimeDir: a.runtimeDir, hostArg: a.host });
     if (!ctx) return;
     const { layout, config: clawdletsConfig, hostName, hostCfg } = ctx;
 
     const hasTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-    let interactive = wantsInteractive(Boolean(args.interactive));
-    if (!interactive && hasTty && !args.fromJson) interactive = true;
+    let interactive = wantsInteractive(Boolean(a.interactive));
+    if (!interactive && hasTty && !a.fromJson) interactive = true;
     if (interactive && !hasTty) throw new Error("--interactive requires a TTY");
 
-    const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
+    const operatorId = sanitizeOperatorId(String(a.operator || process.env.USER || "operator"));
 
     const sopsConfigPath = layout.sopsConfigPath;
     const operatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
@@ -109,14 +121,14 @@ export const secretsInit = defineCommand({
     const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
 
     let fromJson = resolveSecretsInitFromJsonArg({
-      fromJsonRaw: (args as any).fromJson,
+      fromJsonRaw: a.fromJson,
       argv: process.argv,
       stdinIsTTY: Boolean(process.stdin.isTTY),
     });
     if (!interactive && !fromJson) {
       if (fs.existsSync(defaultSecretsJsonPath)) {
         fromJson = defaultSecretsJsonPath;
-        if (!args.allowPlaceholders) {
+        if (!a.allowPlaceholders) {
           const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
           const parsed = parseSecretsInitJson(raw);
           const placeholders = listSecretsInitPlaceholders({ input: parsed, bots, requiresTailscaleAuthKey });
@@ -130,13 +142,13 @@ export const secretsInit = defineCommand({
       } else {
         const template = buildSecretsInitTemplate({ bots, requiresTailscaleAuthKey, secrets: templateExtraSecrets });
 
-        if (!args.dryRun) {
+        if (!a.dryRun) {
           await ensureDir(path.dirname(defaultSecretsJsonPath));
           await writeFileAtomic(defaultSecretsJsonPath, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
         }
 
-        console.error(`${args.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);
-        if (args.dryRun) console.error("run without --dry-run to write it");
+        console.error(`${a.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);
+        if (a.dryRun) console.error("run without --dry-run to write it");
         else console.error(`fill it, then run: clawdlets secrets init --from-json ${defaultSecretsJsonDisplay}`);
         process.exitCode = 1;
         return;
@@ -146,12 +158,12 @@ export const secretsInit = defineCommand({
     validateSecretsInitNonInteractive({
       interactive,
       fromJson,
-      yes: Boolean(args.yes),
-      dryRun: Boolean(args.dryRun),
+      yes: Boolean(a.yes),
+      dryRun: Boolean(a.dryRun),
       localSecretsDirExists: fs.existsSync(localSecretsDir),
     });
 
-    if (interactive && fs.existsSync(localSecretsDir) && !args.yes) {
+    if (interactive && fs.existsSync(localSecretsDir) && !a.yes) {
       const ok = await p.confirm({ message: `Update existing secrets dir? (${localSecretsDir})`, initialValue: true });
       if (p.isCancel(ok)) {
         const nav = await navOnCancel({ flow: "secrets init", canBack: false });
@@ -161,7 +173,7 @@ export const secretsInit = defineCommand({
       if (!ok) return;
     }
 
-    const nix = { nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: Boolean(args.dryRun) } as const;
+    const nix = { nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: Boolean(a.dryRun) } as const;
 
     const ensureAgePair = async (keyPath: string, pubPath: string) => {
       if (fs.existsSync(keyPath) && fs.existsSync(pubPath)) {
@@ -173,7 +185,7 @@ export const secretsInit = defineCommand({
         return { secretKey: parsed.secretKey, publicKey };
       }
       const pair = await ageKeygen(nix);
-      if (!args.dryRun) {
+      if (!a.dryRun) {
         await ensureDir(path.dirname(keyPath));
         await writeFileAtomic(keyPath, pair.fileText, { mode: 0o600 });
         await writeFileAtomic(pubPath, `${pair.publicKey}\n`, { mode: 0o644 });
@@ -194,7 +206,7 @@ export const secretsInit = defineCommand({
 
     let hostKeys: { secretKey: string; publicKey: string };
     if (fs.existsSync(hostKeyFile)) {
-      if (args.dryRun) {
+      if (a.dryRun) {
         hostKeys = {
           publicKey: "age1dryrundryrundryrundryrundryrundryrundryrundryrundryrun0l9p4",
           secretKey: "AGE-SECRET-KEY-DRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUN",
@@ -221,7 +233,7 @@ export const secretsInit = defineCommand({
           value: pair.secretKey,
         }) + "\n";
 
-      if (!args.dryRun) {
+      if (!a.dryRun) {
         await ensureDir(path.dirname(sopsConfigPath));
         await writeFileAtomic(sopsConfigPath, withHostKeyRule, { mode: 0o644 });
         await sopsEncryptYamlToFile({ plaintextYaml, outPath: hostKeyFile, configPath: sopsConfigPath, nix });
@@ -235,7 +247,7 @@ export const secretsInit = defineCommand({
       ageRecipients: [hostKeys.publicKey, operatorKeys.publicKey],
     });
 
-    if (!args.dryRun) {
+    if (!a.dryRun) {
       await ensureDir(path.dirname(sopsConfigPath));
       await writeFileAtomic(sopsConfigPath, nextSops, { mode: 0o644 });
       await ensureDir(path.dirname(extraFilesKeyPath));
@@ -340,7 +352,7 @@ export const secretsInit = defineCommand({
       if (secretName === "tailscale_auth_key") {
         if (values.tailscaleAuthKey.trim()) resolvedValues[secretName] = values.tailscaleAuthKey.trim();
         else if (existing && !isPlaceholderSecretValue(existing)) resolvedValues[secretName] = existing;
-        else if (args.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
+        else if (a.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
         else throw new Error("missing tailscale auth key (tailscale_auth_key); pass --allow-placeholders only if you intend to set it later");
         continue;
       }
@@ -349,7 +361,7 @@ export const secretsInit = defineCommand({
         if (values.adminPasswordHash.trim()) {
           resolvedValues[secretName] = values.adminPasswordHash.trim();
         } else if (values.adminPassword.trim()) {
-          resolvedValues[secretName] = args.dryRun ? "<admin_password_hash>" : await mkpasswdYescryptHash(String(values.adminPassword), nix);
+          resolvedValues[secretName] = a.dryRun ? "<admin_password_hash>" : await mkpasswdYescryptHash(String(values.adminPassword), nix);
         } else {
           resolvedValues[secretName] = existing ?? "<FILL_ME>";
         }
@@ -361,7 +373,7 @@ export const secretsInit = defineCommand({
         const vv = values.discordTokens[bot]?.trim() || "";
         if (vv) resolvedValues[secretName] = vv;
         else if (existing) resolvedValues[secretName] = existing;
-        else if (args.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
+        else if (a.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
         else throw new Error(`missing discord token for ${bot} (provide it in --from-json.discordTokens or pass --allow-placeholders)`);
         continue;
       }
@@ -379,14 +391,14 @@ export const secretsInit = defineCommand({
       if (required) {
         const envVars = envVarsBySecretName[secretName] || [];
         const envHint = envVars.length > 0 ? ` (env: ${envVars.join(", ")})` : "";
-        if (args.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
+        if (a.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
         else throw new Error(`missing required secret: ${secretName}${envHint} (set it in --from-json.secrets or via interactive prompts)`);
         continue;
       }
       resolvedValues[secretName] = "<OPTIONAL>";
     }
 
-    if (!args.dryRun) {
+    if (!a.dryRun) {
       await ensureDir(localSecretsDir);
       await ensureDir(extraFilesSecretsDir);
 
