@@ -262,7 +262,44 @@ export const bootstrap = defineCommand({
       });
     }
 
-    await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
-    console.log(`ok: installed; ssh admin@${ipv4}`);
-  },
-});
+	    await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
+
+	    const keepPublicSsh = Boolean((args as any)["keep-public-ssh"]);
+	    const publicSshStatus = keepPublicSsh ? "OPEN" : "CLOSED";
+
+	    console.log("🎉 Bootstrap complete.");
+	    console.log(`Host: ${hostName}`);
+	    console.log(`IPv4: ${ipv4}`);
+	    console.log(`Public SSH (22): ${publicSshStatus}`);
+
+	    if (tailnetMode === "tailscale") {
+	      console.log("");
+	      console.log("Next (tailscale):");
+	      console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
+	      console.log("   tailscale status  # look for the 100.x address");
+	      console.log(`2) Set future SSH target to tailnet:`);
+	      console.log(`   clawdlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
+	      console.log("3) Verify access:");
+	      console.log("   ssh admin@<tailscale-ip> 'hostname; uptime'");
+	      console.log("4) Optional checks:");
+	      console.log("   clawdlets server audit --host " + hostName);
+	    } else if (keepPublicSsh) {
+	      console.log("");
+	      console.log("Next:");
+	      console.log(`- You kept public SSH open (22). Verify: ssh admin@${ipv4}`);
+	      console.log("- After you have tailnet/targetHost working, close it again:");
+	      console.log("  clawdlets infra apply --host " + hostName + " --public-ssh false");
+	    } else {
+	      console.log("");
+	      console.log("Notes:");
+	      console.log("- This host does not use tailscale, and public SSH is closed. You may be locked out.");
+	      console.log("- If you need access: re-run bootstrap with --keep-public-ssh or temporarily open it:");
+	      console.log("  clawdlets infra apply --host " + hostName + " --public-ssh true");
+	    }
+
+	    if (!keepPublicSsh) {
+	      console.log("");
+	      console.log(`Info: ssh admin@${ipv4} timing out is expected when Public SSH (22) is CLOSED.`);
+	    }
+	  },
+	});
