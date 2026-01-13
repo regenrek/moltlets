@@ -3,6 +3,7 @@ import { defineCommand } from "citty";
 import { resolveGitRev } from "@clawdbot/clawdlets-core/lib/git";
 import { shellQuote, sshCapture, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { resolveBaseFlake } from "@clawdbot/clawdlets-core/lib/base-flake";
+import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { requireTargetHost, needsSudo } from "./server/common.js";
 import { serverGithubSync } from "./server/github-sync.js";
 import { loadHostContextOrExit } from "../lib/context.js";
@@ -238,6 +239,7 @@ const serverRebuild = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
     flake: { type: "string", description: "Flake base override (default: clawdlets.json baseFlake or git origin)." },
@@ -252,7 +254,11 @@ const serverRebuild = defineCommand({
     const { layout, repoRoot, config, hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const githubToken = String(process.env.GITHUB_TOKEN || "").trim();
+    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+    if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
+    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
+
+    const githubToken = String(deployCreds.values.GITHUB_TOKEN || "").trim();
 
     const rev = String(args.rev || "").trim();
     const ref = String(args.ref || "").trim();

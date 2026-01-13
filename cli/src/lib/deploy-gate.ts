@@ -4,6 +4,7 @@ import { renderDoctorGateFailure } from "./doctor-render.js";
 
 export async function requireDeployGate(params: {
   runtimeDir?: string;
+  envFile?: string;
   host: string;
   scope: "deploy" | "repo";
   strict: boolean;
@@ -11,6 +12,7 @@ export async function requireDeployGate(params: {
   const checks = await collectDoctorChecks({
     cwd: process.cwd(),
     runtimeDir: params.runtimeDir,
+    envFile: params.envFile,
     host: params.host,
     scope: params.scope,
   });

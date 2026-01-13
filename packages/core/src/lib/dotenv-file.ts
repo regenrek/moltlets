@@ -1,12 +1,18 @@
+import dotenv from "dotenv";
+
 export type DotenvMap = Record<string, string>;
 
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function parseDotenv(text: string): DotenvMap {
+  return dotenv.parse(text);
+}
+
 export function formatDotenvValue(value: string): string {
   const trimmed = value.trim();
-  if (trimmed === "") return '""';
+  if (trimmed === "") return "";
   // Safer default: quote when characters could confuse dotenv parsing.
   if (/[\s#"'`$]/.test(trimmed)) return JSON.stringify(trimmed);
   return trimmed;

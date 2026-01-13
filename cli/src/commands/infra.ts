@@ -4,6 +4,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
 import { applyOpenTofuVars, destroyOpenTofuVars } from "@clawdbot/clawdlets-core/lib/opentofu";
+import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
@@ -16,6 +17,7 @@ const infraApply = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     "public-ssh": {
       type: "boolean",
@@ -33,8 +35,12 @@ const infraApply = defineCommand({
     const hostCfg = clawdletsConfig.hosts[hostName];
     if (!hostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
 
-    const hcloudToken = String(process.env.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set env var)");
+    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+    if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
+    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
+
+    const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
     const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
     if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
@@ -56,9 +62,9 @@ const infraApply = defineCommand({
         serverType: hostCfg.hetzner.serverType,
         publicSsh: Boolean((args as any)["public-ssh"]),
       },
-      nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix",
+      nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
-      redact: [hcloudToken, process.env.GITHUB_TOKEN].filter(Boolean) as string[],
+      redact: [hcloudToken, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
     });
 
     console.log(`ok: opentofu applied for ${hostName}`);
@@ -73,6 +79,7 @@ const infraDestroy = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     force: { type: "boolean", description: "Skip confirmation prompt (non-interactive).", default: false },
     dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
@@ -86,8 +93,12 @@ const infraDestroy = defineCommand({
     const hostCfg = clawdletsConfig.hosts[hostName];
     if (!hostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
 
-    const hcloudToken = String(process.env.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set env var)");
+    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+    if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
+    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
+
+    const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
     const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
     if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
@@ -124,9 +135,9 @@ const infraDestroy = defineCommand({
         serverType: hostCfg.hetzner.serverType,
         publicSsh: false,
       },
-      nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix",
+      nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
-      redact: [hcloudToken, process.env.GITHUB_TOKEN].filter(Boolean) as string[],
+      redact: [hcloudToken, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
     });
 
     console.log(`ok: opentofu destroyed for ${hostName}`);

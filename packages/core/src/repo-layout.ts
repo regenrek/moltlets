@@ -7,6 +7,9 @@ export type RepoLayout = {
   // Local runtime dir (gitignored). Defaults to <repoRoot>/.clawdlets.
   runtimeDir: string;
 
+  // Local deploy creds env file (gitignored). Defaults to <runtimeDir>/env.
+  envFilePath: string;
+
   infraDir: string;
   opentofuDir: string;
   configsDir: string;
@@ -32,6 +35,7 @@ export type RepoLayout = {
 
 export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout {
   const resolvedRuntimeDir = runtimeDir ?? path.join(repoRoot, ".clawdlets");
+  const envFilePath = path.join(resolvedRuntimeDir, "env");
   const infraDir = path.join(repoRoot, "infra");
   const opentofuDir = path.join(infraDir, "opentofu");
   const configsDir = path.join(infraDir, "configs");
@@ -52,6 +56,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
   return {
     repoRoot,
     runtimeDir: resolvedRuntimeDir,
+    envFilePath,
     infraDir,
     opentofuDir,
     configsDir,

@@ -1,0 +1,111 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm, writeFile, mkdir, chmod } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { loadDeployCreds } from "../src/lib/deploy-creds";
+
+const ENV_KEYS = ["HCLOUD_TOKEN", "GITHUB_TOKEN", "NIX_BIN", "SOPS_AGE_KEY_FILE"] as const;
+
+let savedEnv: Record<string, string | undefined> = {};
+
+beforeEach(() => {
+  savedEnv = {};
+  for (const key of ENV_KEYS) {
+    savedEnv[key] = process.env[key];
+    delete process.env[key];
+  }
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const v = savedEnv[key];
+    if (v === undefined) delete process.env[key];
+    else process.env[key] = v;
+  }
+});
+
+async function setupRepo(): Promise<{ dir: string }> {
+  const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-deploy-creds-"));
+  await writeFile(path.join(dir, "flake.nix"), "{}\n", "utf8");
+  await mkdir(path.join(dir, "scripts"), { recursive: true });
+  return { dir };
+}
+
+describe("deploy-creds", () => {
+  it("loads default <runtimeDir>/env file", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+
+      const loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.envFile?.status).toBe("ok");
+      expect(loaded.envFile?.origin).toBe("default");
+      expect(loaded.values.HCLOUD_TOKEN).toBe("token");
+      expect(loaded.sources.HCLOUD_TOKEN).toBe("file");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("process.env wins over env file", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=filetoken\n", "utf8");
+      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+
+      process.env.HCLOUD_TOKEN = "envtoken";
+
+      const loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.values.HCLOUD_TOKEN).toBe("envtoken");
+      expect(loaded.sources.HCLOUD_TOKEN).toBe("env");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects insecure env file permissions", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await chmod(path.join(dir, ".clawdlets", "env"), 0o644);
+
+      const loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.envFile?.status).toBe("invalid");
+      expect(loaded.values.HCLOUD_TOKEN).toBeUndefined();
+      expect(loaded.sources.HCLOUD_TOKEN).toBe("unset");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("tracks explicit missing env file", async () => {
+    const { dir } = await setupRepo();
+    try {
+      const loaded = loadDeployCreds({ cwd: dir, envFile: "./missing.env" });
+      expect(loaded.envFile?.origin).toBe("explicit");
+      expect(loaded.envFile?.status).toBe("missing");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves SOPS_AGE_KEY_FILE relative to repo root", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawdlets", "env"), "SOPS_AGE_KEY_FILE=.clawdlets/keys/operators/me.agekey\n", "utf8");
+      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+
+      const loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.values.SOPS_AGE_KEY_FILE).toBe(path.join(dir, ".clawdlets", "keys", "operators", "me.agekey"));
+      expect(loaded.sources.SOPS_AGE_KEY_FILE).toBe("file");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+

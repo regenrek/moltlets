@@ -6,6 +6,7 @@ import { applyOpenTofuVars } from "@clawdbot/clawdlets-core/lib/opentofu";
 import { resolveGitRev } from "@clawdbot/clawdlets-core/lib/git";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
+import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { resolveBaseFlake } from "@clawdbot/clawdlets-core/lib/base-flake";
@@ -27,6 +28,7 @@ export const lockdown = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
     flake: { type: "string", description: "Override base flake (default: clawdlets.json baseFlake or git origin)." },
@@ -46,12 +48,16 @@ export const lockdown = defineCommand({
     const hostCfg = clawdletsConfig.hosts[hostName];
     if (!hostCfg) throw new Error(`missing host in infra/configs/clawdlets.json: ${hostName}`);
 
-    await requireDeployGate({ runtimeDir: (args as any).runtimeDir, host: hostName, scope: "deploy", strict: true });
+    await requireDeployGate({ runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile, host: hostName, scope: "deploy", strict: true });
 
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const hcloudToken = String(process.env.HCLOUD_TOKEN || "").trim();
-    const githubToken = String(process.env.GITHUB_TOKEN || "").trim();
+    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+    if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
+    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
+
+    const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
+    const githubToken = String(deployCreds.values.GITHUB_TOKEN || "").trim();
 
     const baseResolved = await resolveBaseFlake({ repoRoot, config: clawdletsConfig });
     const flakeBase = String(args.flake || baseResolved.flake || "").trim();
@@ -96,7 +102,7 @@ export const lockdown = defineCommand({
     }
 
     if (!args.skipTofu) {
-      if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set env var)");
+      if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
       const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
       if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
@@ -117,7 +123,7 @@ export const lockdown = defineCommand({
           serverType: hostCfg.hetzner.serverType,
           publicSsh: false,
         },
-        nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix",
+        nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
         dryRun: args.dryRun,
         redact: [hcloudToken, githubToken].filter(Boolean) as string[],
       });

@@ -7,6 +7,7 @@ import { sopsDecryptYamlFile } from "@clawdbot/clawdlets-core/lib/sops";
 import { sanitizeOperatorId } from "@clawdbot/clawdlets-core/lib/identifiers";
 import { buildFleetEnvSecretsPlan } from "@clawdbot/clawdlets-core/lib/fleet-env-secrets";
 import { isPlaceholderSecretValue } from "@clawdbot/clawdlets-core/lib/secrets-init";
+import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdbot/clawdlets-core/repo-layout";
 import { loadHostContextOrExit } from "../../lib/context.js";
 
@@ -17,6 +18,7 @@ export const secretsVerify = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     operator: {
       type: "string",
@@ -31,14 +33,19 @@ export const secretsVerify = defineCommand({
     if (!ctx) return;
     const { layout, config, hostName, hostCfg } = ctx;
 
+    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+    if (deployCreds.envFile?.origin === "explicit" && deployCreds.envFile.status !== "ok") {
+      throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || deployCreds.envFile.status})`);
+    }
+
     const operatorId = sanitizeOperatorId(String(args.operator || process.env.USER || "operator"));
 
     const operatorKeyPath =
       (args.ageKeyFile ? String(args.ageKeyFile).trim() : "") ||
-      (process.env.SOPS_AGE_KEY_FILE ? String(process.env.SOPS_AGE_KEY_FILE).trim() : "") ||
+      (deployCreds.values.SOPS_AGE_KEY_FILE ? String(deployCreds.values.SOPS_AGE_KEY_FILE).trim() : "") ||
       getLocalOperatorAgeKeyPath(layout, operatorId);
 
-    const nix = { nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: false } as const;
+    const nix = { nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: false } as const;
 
     const localDir = getHostSecretsDir(layout, hostName);
     const bots = config.fleet.bots;

@@ -6,6 +6,7 @@ import { applyOpenTofuVars } from "@clawdbot/clawdlets-core/lib/opentofu";
 import { resolveGitRev } from "@clawdbot/clawdlets-core/lib/git";
 import { capture, run } from "@clawdbot/clawdlets-core/lib/run";
 import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawdbot/clawdlets-core/lib/github";
+import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import { evalFleetConfig } from "@clawdbot/clawdlets-core/lib/fleet-nix-eval";
@@ -42,6 +43,7 @@ export const bootstrap = defineCommand({
 	  },
 	  args: {
 	    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+	    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
 	    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
 	    flake: { type: "string", description: "Override base flake (default: clawdlets.json baseFlake or git origin)." },
 	    rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
@@ -62,14 +64,18 @@ export const bootstrap = defineCommand({
 	    if (Boolean((args as any).force)) {
 	      console.error("warn: skipping doctor gate (--force)");
 	    } else {
-	      await requireDeployGate({ runtimeDir: (args as any).runtimeDir, host: hostName, scope: "deploy", strict: false });
+	      await requireDeployGate({ runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile, host: hostName, scope: "deploy", strict: false });
 	    }
 
-	    const hcloudToken = String(process.env.HCLOUD_TOKEN || "").trim();
-	    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set env var)");
-	    const githubToken = String(process.env.GITHUB_TOKEN || "").trim();
+	    const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
+	    if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
+	    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
-	    const nixBin = String(process.env.NIX_BIN || "nix").trim() || "nix";
+	    const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
+	    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+	    const githubToken = String(deployCreds.values.GITHUB_TOKEN || "").trim();
+
+	    const nixBin = String(deployCreds.values.NIX_BIN || "nix").trim() || "nix";
 	    const opentofuDir = layout.opentofuDir;
 
 	    const serverType = String(hostCfg.hetzner.serverType || "").trim();

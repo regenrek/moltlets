@@ -34,6 +34,7 @@ function categoryForLabel(label: string): string {
   if (l.includes("public repo hygiene") || l.includes("inline scripting") || l.includes("docs index") || l.includes("bundled skills")) return "repo hygiene";
   if (l.includes("fleet") || l.includes("guild") || l.includes("discord") || l.includes("routing")) return "fleet / discord";
   if (l.includes("sops") || l.includes("secret") || l.includes("envsecrets") || l.includes("llm api")) return "secrets";
+  if (l.includes("deploy env file") || l.includes("env file")) return "infra";
   if (l.includes("hetzner") || l.includes("opentofu") || l.includes("hcloud") || l.includes("nixos-anywhere") || l === "provisioning" || l === "publicssh") return "infra";
   if (l.includes("github_token") || l.includes("base flake")) return "github";
   if (l.includes("ssh") || l.includes("targethost") || l.includes("authorizedkeys")) return "ssh";
@@ -153,4 +154,3 @@ export function renderDoctorGateFailure(params: {
   lines.push(`hint: run clawdlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""}`);
   return lines.join("\n");
 }
-

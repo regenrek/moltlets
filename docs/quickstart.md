@@ -24,6 +24,8 @@ If you’re developing inside this monorepo, use the pnpm wrappers (example): `p
 - `clawdlets doctor --scope deploy`: deploy preflight (fails on missing).
 - `clawdlets doctor --scope deploy --strict`: lockdown gate (fails on warn/missing).
 - `clawdlets secrets init`: generates operator keys + host key, writes encrypted secrets under `secrets/hosts/<host>/`, and generates `.clawdlets/extra-files/<host>/...` for first install.
+- `clawdlets env init`: creates `.clawdlets/env` for deploy creds (local-only; gitignored).
+- `clawdlets env show`: show resolved deploy creds (redacted) + sources.
 - `clawdlets bootstrap`: runs OpenTofu + `nixos-anywhere` install (prints target IPv4; clears stale `known_hosts`).
 - `clawdlets infra apply`: opentofu apply only (bootstrap SSH toggle).
 - `clawdlets lockdown`: rebuild over VPN/tailnet and remove public SSH from Hetzner firewall.
@@ -53,9 +55,12 @@ Canonical config lives in `infra/configs/clawdlets.json` (don’t edit Nix files
 
 2) Create secrets + preflight:
 ```bash
+clawdlets env init
 clawdlets secrets init
 clawdlets doctor --scope deploy
 ```
+
+Edit `.clawdlets/env` and set `HCLOUD_TOKEN` (required). Set `GITHUB_TOKEN` only if your base flake repo is private.
 
 Non-interactive: keep inputs in `.clawdlets/secrets.json` and run `clawdlets secrets init --from-json .clawdlets/secrets.json` (if the file is missing, `secrets init` will write a template and exit).
 

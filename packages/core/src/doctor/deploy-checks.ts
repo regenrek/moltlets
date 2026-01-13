@@ -63,7 +63,7 @@ export async function addDeployChecks(params: {
     scope: "deploy",
     status: params.hcloudToken ? "ok" : "missing",
     label: "HCLOUD_TOKEN",
-    detail: params.hcloudToken ? "(set)" : undefined,
+    detail: params.hcloudToken ? "(set)" : "(set in .clawdlets/env or env var; run: clawdlets env init)",
   });
 
   if (params.sopsAgeKeyFile) {

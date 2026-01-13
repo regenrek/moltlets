@@ -24,6 +24,7 @@ fix `trusted-users` once. See `docs/install.md`.
 Run:
 
 ```bash
+clawdlets env init
 clawdlets secrets init
 clawdlets doctor --scope deploy
 clawdlets bootstrap
@@ -50,7 +51,7 @@ clawdlets server rebuild --target-host admin@<tailscale-ip> --rev HEAD
 
 Notes:
 - `nixos-rebuild` runs on the host (your macOS machine doesn’t need it installed).
-- This keeps `GITHUB_TOKEN` off disk on the server (only in process env during the command).
+- This keeps `GITHUB_TOKEN` off disk on the server (only in process env during the command; set it via `.clawdlets/env` or a normal env var).
 - Host Nix config includes the garnix cache (see `infra/nix/modules/clawdlets-host-baseline.nix`), so updates should
   substitute instead of rebuilding from source in normal cases.
 
@@ -65,7 +66,7 @@ If you want “real egress control” for bot services, enable proxy allowlist m
 
 ### Private base repo + PAT
 
-If your base flake repo is private, set `GITHUB_TOKEN` in your environment (fine-grained PAT; Contents: read).
+If your base flake repo is private, set `GITHUB_TOKEN` (recommended: `.clawdlets/env`; fine-grained PAT; Contents: read).
 
 ### Private repo + store PAT on server
 

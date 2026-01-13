@@ -3,6 +3,7 @@ import { bot } from "./commands/bot.js";
 import { bootstrap } from "./commands/bootstrap.js";
 import { config } from "./commands/config.js";
 import { doctor } from "./commands/doctor.js";
+import { env } from "./commands/env.js";
 import { host } from "./commands/host.js";
 import { fleet } from "./commands/fleet.js";
 import { infra } from "./commands/infra.js";
@@ -21,6 +22,7 @@ const main = defineCommand({
     bootstrap,
     config,
     doctor,
+    env,
     host,
     fleet,
     infra,

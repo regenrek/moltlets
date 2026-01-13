@@ -2,15 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ensureHcloudSshKeyId } from "./hcloud.js";
 import { run } from "./run.js";
-import type { LoadEnvResult } from "./env.js";
 import { withFlakesEnv } from "./nix-flakes.js";
-
-export type OpenTofuApplyParams = {
-  loaded: LoadEnvResult;
-  serverType?: string;
-  publicSsh: boolean;
-  dryRun?: boolean;
-};
 
 export type OpenTofuApplyVars = {
   hcloudToken: string;
@@ -159,27 +151,6 @@ export async function destroyOpenTofuVars(params: {
   await run(nixBin, tofuArgs(tfDestroyArgs), {
     cwd: opentofuDir,
     env: tofuEnvWithFlakes,
-    dryRun: params.dryRun,
-    redact,
-  });
-}
-
-export async function applyOpenTofu(params: OpenTofuApplyParams): Promise<void> {
-  const resolvedServerType = params.serverType?.trim() || params.loaded.env.SERVER_TYPE || "";
-  const vars: OpenTofuApplyVars = {
-    hcloudToken: params.loaded.env.HCLOUD_TOKEN,
-    adminCidr: params.loaded.env.ADMIN_CIDR,
-    sshPubkeyFile: params.loaded.env.SSH_PUBKEY_FILE,
-    serverType: resolvedServerType || undefined,
-    publicSsh: params.publicSsh,
-  };
-  const redact = [params.loaded.env.HCLOUD_TOKEN, params.loaded.env.GITHUB_TOKEN].filter(
-    (value): value is string => Boolean(value && value.trim()),
-  );
-  await applyOpenTofuVars({
-    repoRoot: params.loaded.repoRoot,
-    vars,
-    nixBin: params.loaded.env.NIX_BIN || "nix",
     dryRun: params.dryRun,
     redact,
   });

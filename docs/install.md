@@ -142,14 +142,18 @@ To rotate later: update the sops value + redeploy (don’t run `passwd` on-host;
 ## 1) Provision + install
 
 ```bash
+clawdlets env init
 clawdlets secrets init
 clawdlets doctor --scope deploy
 clawdlets bootstrap
 ```
 
-Set required env vars before running live actions:
-- `HCLOUD_TOKEN` (required for provisioning)
-- `GITHUB_TOKEN` (optional; only if `baseFlake` points at a private GitHub repo)
+Before running live actions, set deploy creds:
+
+- Recommended: edit `.clawdlets/env` (created by `clawdlets env init`)
+  - `HCLOUD_TOKEN` (required for provisioning)
+  - `GITHUB_TOKEN` (optional; only if `baseFlake` points at a private GitHub repo)
+- Alternative: set normal environment variables (CI-friendly)
 
 Local dev note (working inside this monorepo): install a local wrapper into `~/bin`:
 
@@ -261,7 +265,7 @@ Fix (pick one):
 
 - Reduce closure size: don’t enable `"coding-agent"` / Codex during bootstrap (it pulls in heavy Node deps).
   Example: `clawdlets config set --path fleet.botOverrides.maren.skills.allowBundled --value-json '["github","brave-search"]'`
-- Use a bigger Hetzner server type for bootstrap (`SERVER_TYPE=...` in `.env`).
+- Use a bigger Hetzner server type for bootstrap (`clawdlets host set --server-type ...`).
 - Add swap on the target (best long-term anyway). If you want swap during install/bootstrap, add a swap
   partition in `infra/disko/example.nix` (so it’s available in the installer environment too).
 

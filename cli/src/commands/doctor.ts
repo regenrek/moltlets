@@ -11,6 +11,7 @@ export const doctor = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     scope: {
       type: "string",
@@ -33,6 +34,7 @@ export const doctor = defineCommand({
     const checks = await collectDoctorChecks({
       cwd: process.cwd(),
       runtimeDir: (args as any).runtimeDir,
+      envFile: (args as any).envFile,
       host: hostName,
       scope,
     });
