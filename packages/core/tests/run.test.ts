@@ -17,6 +17,11 @@ describe("run helpers", () => {
     expect(out).toBe("ok");
   });
 
+  it("captures stdout output with inherited stdin", async () => {
+    const out = await capture(process.execPath, ["-e", "process.stdout.write('ok')"], { stdin: "inherit" });
+    expect(out).toBe("ok");
+  });
+
   it("returns empty string on dry-run capture", async () => {
     const out = await capture("echo", ["hi"], { dryRun: true });
     expect(out).toBe("");

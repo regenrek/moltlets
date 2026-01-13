@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const runState: { cmd: string | null; args: string[] | null } = { cmd: null, args: null };
-const captureState: { cmd: string | null; args: string[] | null } = { cmd: null, args: null };
+const captureState: { cmd: string | null; args: string[] | null; opts: unknown | null } = { cmd: null, args: null, opts: null };
 
 vi.mock("../src/lib/run", () => ({
   run: vi.fn(async (cmd: string, args: string[]) => {
     runState.cmd = cmd;
     runState.args = args;
   }),
-  capture: vi.fn(async (cmd: string, args: string[]) => {
+  capture: vi.fn(async (cmd: string, args: string[], opts?: unknown) => {
     captureState.cmd = cmd;
     captureState.args = args;
+    captureState.opts = opts ?? null;
     return "out";
   }),
 }));
@@ -24,6 +25,7 @@ beforeEach(() => {
   runState.args = null;
   captureState.cmd = null;
   captureState.args = null;
+  captureState.opts = null;
 });
 
 describe("ssh target host validation", () => {
@@ -74,5 +76,12 @@ describe("ssh helpers", () => {
     expect(out).toBe("out");
     expect(captureState.cmd).toBe("ssh");
     expect(captureState.args).toEqual(["--", "botsmj", "whoami"]);
+  });
+
+  it("sshCapture passes inherited stdin when tty is requested", async () => {
+    const { sshCapture } = await loadSshRemote();
+    await sshCapture("botsmj", "whoami", { tty: true });
+    expect(captureState.args).toEqual(["-t", "--", "botsmj", "whoami"]);
+    expect(captureState.opts).toMatchObject({ stdin: "inherit" });
   });
 });
