@@ -12,7 +12,7 @@ let
     then config.clawdlets.secrets.hostDir
     else defaultHostSecretsDir;
 
-  sopsSecrets = import ../../../../lib/sops-secrets.nix { };
+  sopsSecrets = import ../../../lib/sops-secrets.nix { };
   mkSopsSecretFor = sopsSecrets.mkSopsSecretFor { hostDir = resolvedSopsDir; };
 
   resticPaths =

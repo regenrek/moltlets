@@ -108,7 +108,14 @@ export const secretsInit = defineCommand({
     const defaultSecretsJsonPath = path.join(layout.runtimeDir, "secrets.json");
     const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
 
-    let fromJson = args.fromJson ? String(args.fromJson) : undefined;
+    let fromJson: string | undefined;
+    if ((args as any).fromJson === true) {
+      // citty parses `--from-json -` as a boolean flag; accept stdin only when piped/heredoc.
+      if (hasTty) throw new Error("missing --from-json value (use --from-json <path|-> or --from-json=-)");
+      fromJson = "-";
+    } else if (typeof (args as any).fromJson === "string" && String((args as any).fromJson).trim()) {
+      fromJson = String((args as any).fromJson).trim();
+    }
     if (!interactive && !fromJson) {
       if (fs.existsSync(defaultSecretsJsonPath)) {
         fromJson = defaultSecretsJsonPath;

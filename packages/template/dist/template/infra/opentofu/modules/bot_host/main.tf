@@ -50,9 +50,11 @@ resource "hcloud_firewall" "fw" {
 
   lifecycle {
     precondition {
-      condition = (!var.public_ssh)
-        || var.admin_cidr_is_world_open
-        || (var.admin_cidr != "0.0.0.0/0" && var.admin_cidr != "::/0")
+      condition = (
+        !var.public_ssh ||
+        var.admin_cidr_is_world_open ||
+        (var.admin_cidr != "0.0.0.0/0" && var.admin_cidr != "::/0")
+      )
       error_message = "refusing to open public SSH with admin_cidr=0.0.0.0/0 (or ::/0); set admin_cidr_is_world_open=true to override"
     }
   }
