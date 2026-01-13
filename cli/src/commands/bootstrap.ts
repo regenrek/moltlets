@@ -276,6 +276,7 @@ export const bootstrap = defineCommand({
 	      console.log("");
 	      console.log("Next (tailscale):");
 	      console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
+	      console.log("   tailscale status  # look for the 100.x address");
 	      console.log(`2) Set future SSH target to tailnet:`);
 	      console.log(`   clawdlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
 	      console.log("3) Verify access:");
