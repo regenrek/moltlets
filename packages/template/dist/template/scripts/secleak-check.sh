@@ -13,6 +13,6 @@ need() {
 need gitleaks
 need trivy
 
-gitleaks git --no-banner --redact=100 .
+gitleaks git --no-banner --redact=100 --config .gitleaks.toml .
 trivy fs --scanners secret,misconfig --exit-code 1 .
 trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .

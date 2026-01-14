@@ -6,6 +6,9 @@ export type RunOpts = {
   dryRun?: boolean;
   redact?: string[];
   stdin?: "inherit" | "ignore";
+  timeoutMs?: number;
+  maxOutputBytes?: number;
+  redactOutput?: boolean;
 };
 
 function redactLine(line: string, values?: string[]): string {
@@ -31,15 +34,29 @@ export async function run(
   }
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve();
+    };
     const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: opts.env,
       stdio: "inherit",
     });
-    child.on("error", reject);
+    const timeout = opts.timeoutMs
+      ? setTimeout(() => {
+          child.kill("SIGTERM");
+          finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
+        }, opts.timeoutMs)
+      : null;
+    child.on("error", (err) => finish(err as Error));
     child.on("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${cmd} exited with code ${code ?? "null"}`));
+      if (timeout) clearTimeout(timeout);
+      if (code === 0) finish();
+      else finish(new Error(`${cmd} exited with code ${code ?? "null"}`));
     });
   });
 }
@@ -52,7 +69,15 @@ export async function capture(
   if (opts.dryRun) return "";
 
   return await new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const finish = (err?: Error, value?: string) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve(value ?? "");
+    };
     const chunks: Buffer[] = [];
+    let totalBytes = 0;
     const stdinMode = opts.stdin ?? "ignore";
     const stdio: ["inherit" | "ignore", "pipe", "inherit"] =
       stdinMode === "inherit" ? ["inherit", "pipe", "inherit"] : ["ignore", "pipe", "inherit"];
@@ -61,13 +86,32 @@ export async function capture(
       env: opts.env,
       stdio,
     });
+    const timeout = opts.timeoutMs
+      ? setTimeout(() => {
+          child.kill("SIGTERM");
+          finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
+        }, opts.timeoutMs)
+      : null;
     child.stdout.on("data", (buf) => {
-      chunks.push(buf);
+      if (opts.maxOutputBytes) {
+        totalBytes += buf.length;
+        if (totalBytes > opts.maxOutputBytes) {
+          child.kill("SIGTERM");
+          finish(new Error(`${cmd} output exceeded ${opts.maxOutputBytes} bytes`));
+          return;
+        }
+      }
+      chunks.push(Buffer.from(buf));
     });
-    child.on("error", reject);
+    child.on("error", (err) => finish(err as Error));
     child.on("exit", (code) => {
-      if (code === 0) resolve(Buffer.concat(chunks).toString("utf8").trim());
-      else reject(new Error(`${cmd} exited with code ${code ?? "null"}`));
+      if (timeout) clearTimeout(timeout);
+      if (code === 0) {
+        const output = Buffer.concat(chunks).toString("utf8").trim();
+        const finalOutput = opts.redactOutput ? redactLine(output, opts.redact) : output;
+        finish(undefined, finalOutput);
+      }
+      else finish(new Error(`${cmd} exited with code ${code ?? "null"}`));
     });
   });
 }
@@ -81,21 +125,48 @@ export async function captureWithInput(
   if (opts.dryRun) return "";
 
   return await new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const finish = (err?: Error, value?: string) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve(value ?? "");
+    };
     const chunks: Buffer[] = [];
+    let totalBytes = 0;
     const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: opts.env,
       stdio: ["pipe", "pipe", "inherit"],
     });
+    const timeout = opts.timeoutMs
+      ? setTimeout(() => {
+          child.kill("SIGTERM");
+          finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
+        }, opts.timeoutMs)
+      : null;
     child.stdout.on("data", (buf) => {
-      chunks.push(buf);
+      if (opts.maxOutputBytes) {
+        totalBytes += buf.length;
+        if (totalBytes > opts.maxOutputBytes) {
+          child.kill("SIGTERM");
+          finish(new Error(`${cmd} output exceeded ${opts.maxOutputBytes} bytes`));
+          return;
+        }
+      }
+      chunks.push(Buffer.from(buf));
     });
-    child.on("error", reject);
+    child.on("error", (err) => finish(err as Error));
     child.stdin.write(input);
     child.stdin.end();
     child.on("exit", (code) => {
-      if (code === 0) resolve(Buffer.concat(chunks).toString("utf8").trim());
-      else reject(new Error(`${cmd} exited with code ${code ?? "null"}`));
+      if (timeout) clearTimeout(timeout);
+      if (code === 0) {
+        const output = Buffer.concat(chunks).toString("utf8").trim();
+        const finalOutput = opts.redactOutput ? redactLine(output, opts.redact) : output;
+        finish(undefined, finalOutput);
+      }
+      else finish(new Error(`${cmd} exited with code ${code ?? "null"}`));
     });
   });
 }
