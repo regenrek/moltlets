@@ -25,7 +25,6 @@ Workspace docs (prompt/policy) live in:
 
 - `fleet/workspaces/common/` (shared)
 - `fleet/workspaces/bots/<bot>/` (overrides; overlay on top of common)
-  - example: `fleet/workspaces/bots/_example/` (copy to a real bot id)
 
 Fleet config points Nix at the workspace seed root:
 
@@ -38,15 +37,6 @@ On every bot service start:
 - if workspace empty: seed common then bot overlay
 - always: sync a managed allowlist (AGENTS/SOUL/IDENTITY/TOOLS/USER/HEARTBEAT) into the workspace
 - always: sync `skills/` into the workspace (custom/local skills)
-
-### Custom/local skills (clawdinator-style)
-
-Put skill definitions under:
-
-- shared: `fleet/workspaces/common/skills/<skill>/SKILL.md`
-- per-bot: `fleet/workspaces/bots/<bot>/skills/<skill>/SKILL.md`
-
-The bot config always includes `skills.load.extraDirs = ["<workspace>/skills"]`, so skills in that folder are discoverable without extra per-bot config.
 
 ## Identity (optional)
 
