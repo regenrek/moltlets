@@ -1,0 +1,11 @@
+[allowlist]
+description = "Allow SSH PEM headers in tests/helpers"
+paths = [
+  "packages/core/src/lib/ssh.ts",
+  "packages/core/tests/ssh.test.ts",
+]
+regexes = [
+  "-----BEGIN OPENSSH PRIVATE KEY-----",
+  "-----BEGIN RSA PRIVATE KEY-----",
+  "-----BEGIN PRIVATE KEY-----",
+]
