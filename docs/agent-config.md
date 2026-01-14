@@ -46,8 +46,6 @@ Put skill definitions under:
 - per-bot: `fleet/workspaces/bots/<bot>/skills/<skill>/SKILL.md`
 
 The bot config always includes `skills.load.extraDirs = ["<workspace>/skills"]`, so skills in that folder are discoverable without extra per-bot config.
-
-
 ## Identity (optional)
 
 Set a shared agent identity:
