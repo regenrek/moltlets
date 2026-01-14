@@ -62,7 +62,7 @@ clawdlets lockdown
 6) **Operate**
 - status: `clawdlets server status`
 - logs: `clawdlets server logs --unit clawdbot-melinda.service --follow`
-- rebuild pinned: `just server-rebuild-rev <host> HEAD`
+- deploy pinned: `just server-deploy <host> --toplevel /nix/store/... --rev HEAD`
 
 ## Secrets model (important)
 

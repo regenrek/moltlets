@@ -290,6 +290,19 @@ describe("doctor", () => {
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   });
 
+  it("warns when clawdlets config fails to load", async () => {
+    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+    const original = await readFile(configPath, "utf8");
+    await writeFile(configPath, "{", "utf8");
+
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "deploy" });
+    const check = checks.find((c) => c.label === "clawdlets config");
+    expect(check?.status).toBe("warn");
+
+    await writeFile(configPath, original, "utf8");
+  });
+
   it("requires discord routing config (guildId + channels)", async () => {
     const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
     const original = await readFile(configPath, "utf8");
@@ -456,5 +469,19 @@ describe("doctor", () => {
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
+  });
+
+  it("skips GitHub token checks when requested", async () => {
+    const git = await import("../src/lib/git");
+    const github = await import("../src/lib/github");
+    vi.mocked(git.tryGetOriginFlake).mockResolvedValue("github:acme/private-repo");
+    vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "private-or-missing" });
+
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", skipGithubTokenCheck: true });
+    const check = checks.find((c) => c.label === "GITHUB_TOKEN");
+    expect(check?.status).toBe("ok");
+    expect(String(check?.detail || "")).toContain("skipped");
+    expect(vi.mocked(github.checkGithubRepoVisibility)).not.toHaveBeenCalled();
   });
 });

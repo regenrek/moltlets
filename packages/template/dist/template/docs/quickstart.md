@@ -26,8 +26,8 @@ If you’re developing inside this monorepo, use the pnpm wrappers (example): `p
 - `clawdlets secrets init`: generates operator keys + host key, writes encrypted secrets under `secrets/hosts/<host>/`, and generates `.clawdlets/extra-files/<host>/...` for first install.
 - `clawdlets bootstrap`: runs OpenTofu + `nixos-anywhere` install (prints target IPv4; clears stale `known_hosts`).
 - `clawdlets infra apply`: opentofu apply only (bootstrap SSH toggle).
-- `clawdlets lockdown`: rebuild over VPN/tailnet and remove public SSH from Hetzner firewall.
-- `clawdlets server <cmd>`: run server-side operations over SSH (`status`, `logs`, `restart`, `rebuild`).
+- `clawdlets lockdown`: remove public SSH from Hetzner firewall (use `--skip-rebuild` if you deploy by store path).
+- `clawdlets server <cmd>`: run server-side operations over SSH (`status`, `logs`, `restart`, `deploy`).
 
 ## Recommended workflow (new host)
 
@@ -78,12 +78,12 @@ clawdlets host set --target-host admin@<tailscale-ip>
 clawdlets lockdown
 ```
 
-6) Rebuild (pinned to a full commit SHA):
+6) Deploy (pinned to a full commit SHA):
 ```bash
-clawdlets server rebuild --target-host admin@<ipv4> --rev HEAD
+clawdlets server deploy --target-host admin@<ipv4> --toplevel /nix/store/... --rev HEAD
 ```
 
-`--rev HEAD` resolves to the full SHA locally before the remote build.
+`--rev HEAD` resolves to the full SHA locally before the deploy.
 
 ## Server checks
 
@@ -94,11 +94,11 @@ clawdlets server logs --target-host admin@<ipv4> --unit clawdbot-maren.service -
 
 ## Common follow-ups
 
-- Change tokens/passwords: edit `secrets/hosts/<host>/*.yaml` with sops, sync, rebuild.
-- Add a bot: `clawdlets bot add --bot <id>` → re-run `clawdlets secrets init` → rebuild.
+- Change tokens/passwords: edit `secrets/hosts/<host>/*.yaml` with sops, then deploy.
+- Add a bot: `clawdlets bot add --bot <id>` → re-run `clawdlets secrets init` → deploy.
 - Add/enable a skill:
   - add it to `fleet/bundled-skills.json` (if bundled)
   - allow it per-bot via canonical config:
     - `clawdlets config set --path fleet.botOverrides.<bot>.skills.allowBundled --value-json '["github","brave-search"]'`
-  - if it needs secrets: add `secrets/hosts/<host>/<secret>.yaml`, then `clawdlets secrets sync` → rebuild
+  - if it needs secrets: add `secrets/hosts/<host>/<secret>.yaml`, then `clawdlets server deploy`
 - Add another operator machine: add their age public key to `secrets/.sops.yaml` recipients for that host and re-encrypt.

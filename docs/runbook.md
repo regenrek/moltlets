@@ -1,6 +1,6 @@
 # Runbook (Day 0 / Day 2)
 
-Goal: deterministic, rebuild-only ops. Repo + `.clawdlets/` are the only sources of truth.
+Goal: deterministic, deploy-only ops. Repo + `.clawdlets/` are the only sources of truth.
 
 ## Repo guardrails (one-time)
 
@@ -27,18 +27,18 @@ If/when you want required status checks, re-run with explicit contexts:
 7) Verify tailnet, then: `clawdlets doctor --scope deploy --strict`
 8) Switch admin access to VPN + close public SSH:
    - `clawdlets host set --target-host admin@<vpn-ip>`
-   - `clawdlets lockdown`
+   - `clawdlets lockdown --skip-rebuild`
 9) `clawdlets server audit --target-host admin@<vpn-ip>`
 
 ## Day 2 (routine ops)
 
-Pinned rebuilds:
+Pinned deploys:
 
-- `clawdlets server rebuild --target-host admin@<vpn-ip> --rev HEAD`
+- `clawdlets server deploy --target-host admin@<vpn-ip> --toplevel /nix/store/... --rev HEAD`
 
 Secrets rotation:
 
-- edit `secrets/hosts/<host>/*.yaml` → `clawdlets secrets sync` → rebuild pinned
+- edit `secrets/hosts/<host>/*.yaml` → `clawdlets server deploy` (or `clawdlets secrets sync` + deploy)
 
 ## Rollback (must exist before prod)
 
