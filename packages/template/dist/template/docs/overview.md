@@ -36,6 +36,7 @@ clawdlets bot add --bot <id>
 clawdlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub
 clawdlets host set --disk-device /dev/disk/by-id/...
 clawdlets host set --enable true
+clawdlets host set --ssh-exposure bootstrap
 ```
 
 2) **Create secrets (sops/age)**
@@ -56,6 +57,7 @@ clawdlets bootstrap
 5) **Lock down (after tailnet works)**
 ```bash
 clawdlets host set --target-host admin@<tailscale-ip>
+clawdlets host set --ssh-exposure tailnet
 clawdlets lockdown
 ```
 

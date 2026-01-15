@@ -23,6 +23,7 @@ Canonical inputs
   - `fleet.bots`
   - `fleet.envSecrets`
   - `hosts.<host>` (diskDevice, serverType, adminCidr, sshPubkeyFile, etc.)
+  - `hosts.<host>.sshExposure.mode = "bootstrap"`
 
 2) Deploy creds
 - `clawdlets env init`
@@ -45,6 +46,7 @@ Canonical inputs
 - join tailnet, then set:
   - `clawdlets host set --host <host> --target-host admin@<tailscale-ip>`
 - then:
+  - `clawdlets host set --host <host> --ssh-exposure tailnet`
   - `clawdlets lockdown --host <host>`
 
 ## Notes

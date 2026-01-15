@@ -109,7 +109,7 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawdletsConfig = {
-      schemaVersion: 4,
+      schemaVersion: 5,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
@@ -132,8 +132,7 @@ describe("doctor", () => {
           flakeHost: "",
           hetzner: { serverType: "cx43" },
           opentofu: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "id_ed25519.pub" },
-          publicSsh: { enable: false },
-          provisioning: { enable: false },
+          sshExposure: { mode: "tailnet" },
           tailnet: { mode: "none" },
           agentModelPrimary: "zai/glm-4.7",
         },
@@ -241,8 +240,7 @@ describe("doctor", () => {
         '  openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAATEST test" ];',
         "};",
         "users.users.breakglass = { extraGroups = [ \"wheel\" ]; };",
-        "clawdlets.publicSsh.enable = false;",
-        "clawdlets.provisioning.enable = false;",
+        "clawdlets.sshExposure.mode = \"tailnet\";",
         "",
       ].join("\n"),
       "utf8",
@@ -285,6 +283,7 @@ describe("doctor", () => {
 
   it("passes with a fully seeded repo", async () => {
     process.env.HCLOUD_TOKEN = "abc";
+    delete process.env.SOPS_AGE_KEY_FILE;
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
@@ -358,8 +357,7 @@ describe("doctor", () => {
         "users.users.admin = {",
         "  extraGroups = [ \"wheel\" ];",
         "};",
-        "clawdlets.publicSsh.enable = false;",
-        "clawdlets.provisioning.enable = false;",
+        "clawdlets.sshExposure.mode = \"tailnet\";",
         "",
       ].join("\n"),
       "utf8",

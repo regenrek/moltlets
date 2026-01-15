@@ -37,7 +37,8 @@ describe("opentofu", () => {
           adminCidr: "203.0.113.10/32",
           sshPubkeyFile,
           serverType: "cx43",
-          publicSsh: false,
+          sshExposureMode: "tailnet",
+          tailnetMode: "tailscale",
         },
         nixBin: "nix",
       });
@@ -58,7 +59,8 @@ describe("opentofu", () => {
       expect(args2).toContain("hcloud_token=token");
       expect(args2).toContain("admin_cidr=203.0.113.10/32");
       expect(args2).toContain("ssh_key_id=123");
-      expect(args2).toContain("public_ssh=false");
+      expect(args2).toContain("ssh_exposure_mode=tailnet");
+      expect(args2).toContain("tailnet_mode=tailscale");
       expect(args2).toContain("server_type=cx43");
 
       expect(ensureKeyMock).toHaveBeenCalledTimes(1);
@@ -68,4 +70,3 @@ describe("opentofu", () => {
     }
   });
 });
-

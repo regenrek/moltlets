@@ -14,7 +14,13 @@ import { validateHostSecretsYamlFiles } from "../lib/secrets-policy.js";
 import { buildFleetEnvSecretsPlan } from "../lib/fleet-env-secrets.js";
 import { capture } from "../lib/run.js";
 import { looksLikeSshKeyContents, normalizeSshPublicKey } from "../lib/ssh.js";
-import { loadClawdletsConfig, type ClawdletsConfig, type ClawdletsHostConfig } from "../lib/clawdlets-config.js";
+import {
+  getSshExposureMode,
+  isPublicSshExposure,
+  loadClawdletsConfig,
+  type ClawdletsConfig,
+  type ClawdletsHostConfig,
+} from "../lib/clawdlets-config.js";
 import { isPlaceholderSecretValue } from "../lib/secrets-init.js";
 import { getRecommendedSecretNameForEnvVar } from "../lib/llm-provider-env.js";
 import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "../lib/github.js";
@@ -141,22 +147,13 @@ export async function addDeployChecks(params: {
     });
 
     {
-      const publicSsh = Boolean(clawdletsHostCfg.publicSsh?.enable);
+      const mode = getSshExposureMode(clawdletsHostCfg);
+      const isPublic = isPublicSshExposure(mode);
       params.push({
         scope: "deploy",
-        status: publicSsh ? "missing" : "ok",
-        label: "publicSsh",
-        detail: publicSsh ? "(enabled; public SSH open)" : "(disabled)",
-      });
-    }
-
-    {
-      const provisioning = Boolean(clawdletsHostCfg.provisioning?.enable);
-      params.push({
-        scope: "deploy",
-        status: provisioning ? "warn" : "ok",
-        label: "provisioning",
-        detail: provisioning ? "(enabled)" : "(disabled)",
+        status: isPublic ? "warn" : "ok",
+        label: "sshExposure",
+        detail: isPublic ? `(mode=${mode}; public SSH allowed)` : "(mode=tailnet)",
       });
     }
 

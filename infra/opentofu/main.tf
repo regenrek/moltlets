@@ -34,12 +34,25 @@ variable "admin_cidr" {
 variable "admin_cidr_is_world_open" {
   type = bool
   default = false
-  description = "Explicitly allow 0.0.0.0/0 or ::/0 when public_ssh is enabled (not recommended)."
+  description = "Explicitly allow 0.0.0.0/0 or ::/0 when SSH exposure is enabled (not recommended)."
 }
 
-variable "public_ssh" {
-  type = bool
-  default = false
+variable "ssh_exposure_mode" {
+  type = string
+  default = "tailnet"
+  validation {
+    condition     = contains(["tailnet", "bootstrap", "public"], var.ssh_exposure_mode)
+    error_message = "ssh_exposure_mode must be one of: tailnet, bootstrap, public"
+  }
+}
+
+variable "tailnet_mode" {
+  type = string
+  default = "tailscale"
+  validation {
+    condition     = contains(["none", "tailscale"], var.tailnet_mode)
+    error_message = "tailnet_mode must be one of: none, tailscale"
+  }
 }
 
 variable "server_type" {
@@ -62,7 +75,8 @@ module "clawdbot_fleet_host" {
   admin_cidr    = var.admin_cidr
   admin_cidr_is_world_open = var.admin_cidr_is_world_open
   ssh_key_id    = var.ssh_key_id
-  public_ssh = var.public_ssh
+  ssh_exposure_mode = var.ssh_exposure_mode
+  tailnet_mode      = var.tailnet_mode
   server_type   = var.server_type
   location      = var.location
 }

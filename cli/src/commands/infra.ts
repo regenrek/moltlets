@@ -7,23 +7,18 @@ import { applyOpenTofuVars, destroyOpenTofuVars } from "@clawdbot/clawdlets-core
 import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
-import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { resolveHostNameOrExit } from "../lib/host-resolve.js";
 
 const infraApply = defineCommand({
   meta: {
     name: "apply",
-    description: "Apply Hetzner OpenTofu for a host (public SSH toggle lives in server/lockdown).",
+    description: "Apply Hetzner OpenTofu for a host (driven by fleet/clawdlets.json).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    "public-ssh": {
-      type: "boolean",
-      description: "Whether public SSH (22) is open in Hetzner firewall.",
-      default: false,
-    },
     dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
   },
   async run({ args }) {
@@ -60,7 +55,8 @@ const infraApply = defineCommand({
         adminCidr,
         sshPubkeyFile,
         serverType: hostCfg.hetzner.serverType,
-        publicSsh: Boolean((args as any)["public-ssh"]),
+        sshExposureMode: getSshExposureMode(hostCfg),
+        tailnetMode: getTailnetMode(hostCfg),
       },
       nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
@@ -133,7 +129,8 @@ const infraDestroy = defineCommand({
         adminCidr,
         sshPubkeyFile,
         serverType: hostCfg.hetzner.serverType,
-        publicSsh: false,
+        sshExposureMode: getSshExposureMode(hostCfg),
+        tailnetMode: getTailnetMode(hostCfg),
       },
       nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,

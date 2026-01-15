@@ -6,7 +6,7 @@ Goal: prove clawdlets can provision + operate a single Hetzner host end-to-end w
 
 ### Provision + install
 
-- `fleet/clawdlets.json` exists (schemaVersion 4) and is the single source of truth for fleet + hosts.
+- `fleet/clawdlets.json` exists (schemaVersion 5) and is the single source of truth for fleet + hosts.
 - `CLAWDLETS_INTERACTIVE=1 clawdlets secrets init` created/updated:
   - `secrets/.sops.yaml`
   - `secrets/keys/hosts/<host>.agekey.yaml` (encrypted host age key)
@@ -32,10 +32,10 @@ Goal: prove clawdlets can provision + operate a single Hetzner host end-to-end w
 
 - Tailnet works (WireGuard or Tailscale).
 - `clawdlets doctor --scope deploy --strict` passes.
-- `clawdlets host set --target-host admin@<tail-ip>` then `clawdlets lockdown --skip-rebuild` succeeds.
+- `clawdlets host set --target-host admin@<tail-ip>` + `clawdlets host set --ssh-exposure tailnet` then `clawdlets lockdown --skip-rebuild` succeeds.
 - Public SSH closed:
   - Hetzner firewall removes TCP/22 from internet
-  - NixOS only allows SSH via `tailscale0` when `publicSsh.enable=false`
+  - NixOS only allows SSH via `tailscale0` when `sshExposure.mode=tailnet`
 
 ### Day-2 ops
 

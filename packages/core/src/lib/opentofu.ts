@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureHcloudSshKeyId } from "./hcloud.js";
+import type { SshExposureMode, TailnetMode } from "./clawdlets-config.js";
 import { run } from "./run.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 
@@ -9,7 +10,8 @@ export type OpenTofuApplyVars = {
   adminCidr: string;
   sshPubkeyFile: string;
   serverType?: string;
-  publicSsh: boolean;
+  sshExposureMode: SshExposureMode;
+  tailnetMode: TailnetMode;
 };
 
 export async function applyOpenTofuVars(params: {
@@ -72,7 +74,9 @@ export async function applyOpenTofuVars(params: {
     "-var",
     `ssh_key_id=${sshKeyId}`,
     "-var",
-    `public_ssh=${params.vars.publicSsh ? "true" : "false"}`,
+    `ssh_exposure_mode=${params.vars.sshExposureMode}`,
+    "-var",
+    `tailnet_mode=${params.vars.tailnetMode}`,
   ];
   if (env.SERVER_TYPE) tfApplyArgs.push("-var", `server_type=${env.SERVER_TYPE}`);
 
@@ -144,7 +148,9 @@ export async function destroyOpenTofuVars(params: {
     "-var",
     `ssh_key_id=${sshKeyId}`,
     "-var",
-    `public_ssh=${params.vars.publicSsh ? "true" : "false"}`,
+    `ssh_exposure_mode=${params.vars.sshExposureMode}`,
+    "-var",
+    `tailnet_mode=${params.vars.tailnetMode}`,
   ];
   if (env.SERVER_TYPE) tfDestroyArgs.push("-var", `server_type=${env.SERVER_TYPE}`);
 

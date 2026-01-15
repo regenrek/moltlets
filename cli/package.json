@@ -16,6 +16,7 @@
     "dev": "tsc -w --preserveWatchOutput",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
     "help": "node dist/main.js --help",
     "bootstrap": "node dist/main.js bootstrap",
     "doctor": "node dist/main.js doctor",
@@ -34,7 +35,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.13"
   },
   "engines": {
     "node": ">=22"

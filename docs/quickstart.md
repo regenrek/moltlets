@@ -25,8 +25,8 @@ If you’re developing inside this monorepo, use the pnpm wrappers (example): `p
 - `clawdlets doctor --scope deploy --strict`: lockdown gate (fails on warn/missing).
 - `clawdlets secrets init`: generates operator keys + host key, writes encrypted secrets under `secrets/hosts/<host>/`, and generates `.clawdlets/extra-files/<host>/...` for first install.
 - `clawdlets bootstrap`: runs OpenTofu + `nixos-anywhere` install (prints target IPv4; clears stale `known_hosts`).
-- `clawdlets infra apply`: opentofu apply only (bootstrap SSH toggle).
-- `clawdlets lockdown`: remove public SSH from Hetzner firewall (use `--skip-rebuild` if you deploy by store path).
+- `clawdlets infra apply`: opentofu apply only (driven by `fleet/clawdlets.json`).
+- `clawdlets lockdown`: reconcile to tailnet-only SSH (use `--skip-rebuild` if you deploy by store path).
 - `clawdlets server <cmd>`: run server-side operations over SSH (`status`, `logs`, `restart`, `deploy`).
 
 ## Recommended workflow (new host)
@@ -48,6 +48,7 @@ Note: `project init` already includes `fleet/clawdlets.json`. Don’t run `clawd
   - set disk device: `clawdlets host set --disk-device /dev/disk/by-id/...`
   - enable fleet: `clawdlets host set --enable true`
   - tailnet defaults to Tailscale (change via `clawdlets host set --tailnet none|tailscale` if needed)
+  - set SSH exposure for bootstrap: `clawdlets host set --ssh-exposure bootstrap`
 
 Canonical config lives in `fleet/clawdlets.json` (don’t edit Nix files directly).
 
@@ -67,14 +68,13 @@ clawdlets bootstrap
 ```
 
 4) Verify access:
-- SSH: `ssh admin@<ipv4>`
+- SSH (when `sshExposure.mode=bootstrap|public`): `ssh admin@<ipv4>`
 - Console: `admin` login should work (sudo password exists; SSH stays key-only)
 
 5) Lock down after VPN/tailnet works:
-- ensure `publicSsh.enable=false`: `clawdlets host set --public-ssh false`
-- then:
 ```bash
 clawdlets host set --target-host admin@<tailscale-ip>
+clawdlets host set --ssh-exposure tailnet
 clawdlets lockdown
 ```
 

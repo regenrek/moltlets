@@ -13,9 +13,13 @@ Local hooks (recommended)
 Quickstart
 1) install `clawdlets` (global)
 2) set host basics: `clawdlets host set --admin-cidr <your-ip>/32 --disk-device /dev/sda --add-ssh-key-file $HOME/.ssh/id_ed25519.pub --enable true`
-3) `clawdlets secrets init`
-4) `clawdlets doctor --scope deploy`
-5) `clawdlets bootstrap`
-6) join tailnet, then: `clawdlets host set --target-host admin@<tailscale-ip>` and `clawdlets lockdown`
+3) set SSH exposure for bootstrap: `clawdlets host set --ssh-exposure bootstrap`
+4) `clawdlets secrets init`
+5) `clawdlets doctor --scope deploy`
+6) `clawdlets bootstrap`
+7) join tailnet, then:
+   - `clawdlets host set --target-host admin@<tailscale-ip>`
+   - `clawdlets host set --ssh-exposure tailnet`
+   - `clawdlets lockdown`
 
 Docs: `docs/README.md`

@@ -28,7 +28,7 @@ clawdlets-lockdown +args="":
   cd {{justfile_directory()}} && pnpm run clawdlets:lockdown -- {{args}}
 
 tofu-lockdown:
-  cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply --public-ssh=false
+  cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply
 
 config-validate:
   cd {{justfile_directory()}} && node cli/dist/main.js config validate
@@ -42,8 +42,8 @@ secrets-init host="clawdbot-fleet-host":
 secrets-sync host="clawdbot-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawdlets:secrets -- sync --host {{host}}
 
-infra-apply host="clawdbot-fleet-host" public_ssh="false":
-  cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply --host {{host}} --public-ssh={{public_ssh}}
+infra-apply host="clawdbot-fleet-host":
+  cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply --host {{host}}
 
 server-units target_host:
   cd {{justfile_directory()}} && pnpm run clawdlets:server -- status --target-host {{target_host}}

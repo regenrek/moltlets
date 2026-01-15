@@ -9,11 +9,13 @@ Canonical source: `clawdlets --help`.
 - set fleet guild id: `clawdlets fleet set --guild-id <id>`
 - add bots: `clawdlets bot add --bot <id>`
 - set host basics: `clawdlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub --disk-device /dev/disk/by-id/... --enable true`
+- set SSH exposure for bootstrap: `clawdlets host set --ssh-exposure bootstrap`
 - init secrets: `clawdlets secrets init` (TTY defaults to interactive; non-interactive uses `--from-json .clawdlets/secrets.json`)
 - preflight: `clawdlets doctor --scope deploy`
 - lockdown gate: `clawdlets doctor --scope deploy --strict`
 - bootstrap: `clawdlets bootstrap`
 - set target host: `clawdlets host set --target-host admin@<tailscale-ip>`
+- set SSH exposure to tailnet: `clawdlets host set --ssh-exposure tailnet`
 - lockdown: `clawdlets lockdown`
 
 ## Server ops
@@ -29,8 +31,7 @@ Canonical source: `clawdlets --help`.
 
 ## Infra ops
 
-- opentofu apply: `clawdlets infra apply --public-ssh=true`
-- opentofu lockdown: `clawdlets infra apply --public-ssh=false`
+- opentofu apply: `clawdlets infra apply`
 
 ## Justfile shortcuts
 
