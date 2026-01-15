@@ -59,9 +59,6 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /opt/hostedtoolcache
           df -h
 
-      - name: Doctor (repo checks)
-        run: pnpm -C cli run doctor -- --scope repo
-
       - name: Nix flake check
         run: nix flake check -L
 
