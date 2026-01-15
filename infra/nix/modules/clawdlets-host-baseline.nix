@@ -12,7 +12,8 @@ let
   sshExposureMode = cfg.sshExposure.mode;
   sshPublicIngressEnabled = sshExposureMode != "tailnet";
 
-  isTailscale = cfg.tailnet.mode == "tailscale";
+  allowMissingSecrets = cfg.bootstrap.allowMissingSecrets;
+  isTailscale = cfg.tailnet.mode == "tailscale" && !allowMissingSecrets;
   tailscaleCfg = cfg.tailnet.tailscale;
 
   egress = cfg.egress;
@@ -96,6 +97,14 @@ in
           default = false;
           description = "Allow admin to deploy via switch-system/install-secrets (sudo allowlist).";
         };
+      };
+    };
+
+    bootstrap = {
+      allowMissingSecrets = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Allow booting without secrets (image bootstrap only).";
       };
     };
 
@@ -240,7 +249,7 @@ in
         (lib.optionalAttrs (isTailscale && tailscaleCfg.authKeySecret != null && tailscaleCfg.authKeySecret != "") {
           "${tailscaleCfg.authKeySecret}" = mkSopsSecret tailscaleCfg.authKeySecret;
         })
-        (lib.optionalAttrs (cfg.cache.garnix.private.enable && cfg.cache.garnix.private.netrcSecret != null && cfg.cache.garnix.private.netrcSecret != "") {
+        (lib.optionalAttrs (cfg.cache.garnix.private.enable && !allowMissingSecrets && cfg.cache.garnix.private.netrcSecret != null && cfg.cache.garnix.private.netrcSecret != "") {
           "${cfg.cache.garnix.private.netrcSecret}" = {
             owner = "root";
             group = "root";

@@ -7,6 +7,9 @@
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
+    nixos-generators.url = "github:nix-community/nixos-generators";
+    nixos-generators.inputs.nixpkgs.follows = "nixpkgs";
+
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -14,7 +17,7 @@
     nix-clawdbot.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, disko, sops-nix, nix-clawdbot, ... }:
+  outputs = { self, nixpkgs, disko, nixos-generators, sops-nix, nix-clawdbot, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -46,6 +49,7 @@
           specialArgs = { inherit nix-clawdbot flakeInfo; };
           modules = [
             disko.nixosModules.disko
+            nixos-generators.nixosModules.all-formats
             sops-nix.nixosModules.sops
 
             ./infra/nix/modules/clawdlets-host-meta.nix
@@ -54,6 +58,7 @@
             })
 
             ./infra/disko/example.nix
+            ./infra/nix/modules/clawdlets-image-formats.nix
             ./infra/nix/hosts/clawdlets-host.nix
           ];
         });
@@ -66,10 +71,15 @@
               name = "${hostName}-system";
               value = self.nixosConfigurations.${hostName}.config.system.build.toplevel;
             }) hostNames);
+            byHostImages = builtins.listToAttrs (map (hostName: {
+              name = "${hostName}-image";
+              value = self.nixosConfigurations.${hostName}.config.formats.raw;
+            }) hostNames);
             first = builtins.elemAt hostNames 0;
           in
-            byHost // {
+            byHost // byHostImages // {
               default = byHost."${first}-system";
+              defaultImage = byHostImages."${first}-image";
             };
       };
     };

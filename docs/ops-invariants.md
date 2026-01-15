@@ -5,8 +5,13 @@ Goal: zero drift. Repo + `.clawdlets/` are the only sources of truth.
 ## Deploy-only
 
 - Any persistent change must be done by editing this repo (or `.clawdlets/`) and deploying.
-- Prefer pinned deploys: `clawdlets server deploy --rev <sha|HEAD> --toplevel /nix/store/...` (or `--manifest <deploy.json>`).
+- Prefer pinned deploys: `clawdlets server deploy --manifest deploy-manifest.<host>.json`.
 - Assume the box is disposable. Reinstall beats debugging a snowflake.
+
+## Cache-only
+
+- Hosts never evaluate flakes from GitHub.
+- Switching happens by `/nix/store/...` path + `nix copy` from trusted caches.
 
 ## No manual host edits
 

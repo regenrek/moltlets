@@ -6,11 +6,17 @@ let
   tailnet = (hostCfg.tailnet or { });
   tailnetMode = tailnet.mode or "none";
   sshExposureMode = ((hostCfg.sshExposure or { }).mode or "tailnet");
+  cacheCfg = (hostCfg.cache or { });
+  garnixCache = (cacheCfg.garnix or { });
+  garnixPrivate = (garnixCache.private or { });
+  selfUpdate = (hostCfg.selfUpdate or { });
+  allowMissingSecrets = config.clawdlets.bootstrap.allowMissingSecrets;
   fleet = import ../../configs/fleet.nix { inherit lib; };
   enableRootPassword = false;
 in {
   imports = [
     ../modules/clawdlets-host-baseline.nix
+    ../modules/clawdlets-self-update.nix
     ../modules/clawdbot-fleet.nix
     ../modules/clawdlets-host-meta.nix
   ];
@@ -23,7 +29,19 @@ in {
   clawdlets.tailnet.tailscale.authKeySecret =
     if tailnetMode == "tailscale" then "tailscale_auth_key" else null;
   clawdlets.operator.deploy.enable =
-    ((hostCfg.operator or { }).deploy or { }).enable or true;
+    ((hostCfg.operator or { }).deploy or { }).enable or false;
+  clawdlets.cache.garnix.private.enable = (garnixPrivate.enable or false);
+  clawdlets.cache.garnix.private.netrcSecret = (garnixPrivate.netrcSecret or "garnix_netrc");
+  clawdlets.cache.garnix.private.netrcPath = (garnixPrivate.netrcPath or "/etc/nix/netrc");
+  clawdlets.cache.garnix.private.narinfoCachePositiveTtl = (garnixPrivate.narinfoCachePositiveTtl or 3600);
+
+  clawdlets.selfUpdate.enable = (selfUpdate.enable or false);
+  clawdlets.selfUpdate.manifestUrl = (selfUpdate.manifestUrl or "");
+  clawdlets.selfUpdate.interval = (selfUpdate.interval or "30min");
+  clawdlets.selfUpdate.publicKey =
+    let v = (selfUpdate.publicKey or ""); in if v != "" then v else null;
+  clawdlets.selfUpdate.signatureUrl =
+    let v = (selfUpdate.signatureUrl or ""); in if v != "" then v else null;
 
   # Set these in your own repo (or via a host-specific module).
   # Defaults are provided for Hetzner, but hostName must be set.
@@ -46,7 +64,7 @@ in {
 
   users.mutableUsers = false;
 
-  sops.secrets.admin_password_hash = {
+  sops.secrets.admin_password_hash = lib.mkIf (!allowMissingSecrets) {
     owner = "root";
     group = "root";
     mode = "0400";
@@ -54,7 +72,7 @@ in {
     sopsFile = "${config.clawdlets.secrets.hostDir}/admin_password_hash.yaml";
   };
 
-  sops.secrets.root_password_hash = lib.mkIf enableRootPassword {
+  sops.secrets.root_password_hash = lib.mkIf (!allowMissingSecrets && enableRootPassword) {
     owner = "root";
     group = "root";
     mode = "0400";
@@ -65,8 +83,13 @@ in {
   users.users.admin = {
     isNormalUser = true;
     extraGroups = [ ];
-    hashedPasswordFile = config.sops.secrets.admin_password_hash.path;
     openssh.authorizedKeys.keys = hostCfg.sshAuthorizedKeys or [ ];
+  }
+  // lib.optionalAttrs (!allowMissingSecrets) {
+    hashedPasswordFile = config.sops.secrets.admin_password_hash.path;
+  }
+  // lib.optionalAttrs allowMissingSecrets {
+    hashedPassword = "!";
   };
 
   # Breakglass: console-only sudo/root access.
@@ -74,11 +97,16 @@ in {
   users.users.breakglass = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
+  }
+  // lib.optionalAttrs (!allowMissingSecrets) {
     hashedPasswordFile = config.sops.secrets.admin_password_hash.path;
+  }
+  // lib.optionalAttrs allowMissingSecrets {
+    hashedPassword = "!";
   };
 
   users.users.root.hashedPasswordFile =
-    lib.mkIf enableRootPassword config.sops.secrets.root_password_hash.path;
+    lib.mkIf (!allowMissingSecrets && enableRootPassword) config.sops.secrets.root_password_hash.path;
 
   security.sudo.extraConfig =
     let

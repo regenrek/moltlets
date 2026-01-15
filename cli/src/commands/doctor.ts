@@ -15,7 +15,7 @@ export const doctor = defineCommand({
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     scope: {
       type: "string",
-      description: "Which checks to run: repo | deploy | all (default: all).",
+      description: "Which checks to run: repo | bootstrap | server-deploy | all (default: all).",
       default: "all",
     },
     json: { type: "boolean", description: "Output JSON.", default: false },
@@ -26,10 +26,10 @@ export const doctor = defineCommand({
     const hostName = resolveHostNameOrExit({ cwd: process.cwd(), runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
     const scopeRaw = String(args.scope || "all").trim();
-    if (scopeRaw !== "repo" && scopeRaw !== "deploy" && scopeRaw !== "all") {
-      throw new Error(`invalid --scope: ${scopeRaw} (expected repo|deploy|all)`);
+    if (scopeRaw !== "repo" && scopeRaw !== "bootstrap" && scopeRaw !== "server-deploy" && scopeRaw !== "all") {
+      throw new Error(`invalid --scope: ${scopeRaw} (expected repo|bootstrap|server-deploy|all)`);
     }
-    const scope = scopeRaw as "repo" | "deploy" | "all";
+    const scope = scopeRaw as "repo" | "bootstrap" | "server-deploy" | "all";
 
     const checks = await collectDoctorChecks({
       cwd: process.cwd(),

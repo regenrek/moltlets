@@ -60,6 +60,11 @@ variable "server_type" {
   default = "cx43"
 }
 
+variable "image" {
+  type = string
+  default = "debian-12"
+}
+
 variable "location" {
   type = string
   default = "nbg1"
@@ -78,5 +83,6 @@ module "clawdbot_fleet_host" {
   ssh_exposure_mode = var.ssh_exposure_mode
   tailnet_mode      = var.tailnet_mode
   server_type   = var.server_type
+  image         = var.image
   location      = var.location
 }

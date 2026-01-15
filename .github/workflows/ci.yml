@@ -31,12 +31,6 @@ jobs:
       - name: Build
         run: pnpm -r build
 
-      - name: Build template dist
-        run: pnpm -C packages/template build
-
-      - name: Template build output check
-        run: git diff --exit-code -- packages/template/dist
-
       - name: Typecheck
         run: pnpm -r typecheck
 
@@ -75,3 +69,41 @@ jobs:
         env:
           CI: "1"
         run: pnpm -C packages/core run coverage
+
+  template-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm -C cli build
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31.9.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Project init from template repo
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          node "${GITHUB_WORKSPACE}/cli/dist/main.js" project init \
+            --dir "${tmpdir}/clawdlets-project" \
+            --git-init false \
+            --template "regenrek/clawdlets-template" \
+            --template-path "templates/default" \
+            --template-ref "main"
+          (cd "${tmpdir}/clawdlets-project" && node "${GITHUB_WORKSPACE}/cli/dist/main.js" doctor --scope repo)

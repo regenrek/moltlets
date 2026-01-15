@@ -1,0 +1,105 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["deploy-manifest"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        description: "Deploy environment (requires approval for prod)."
+        options:
+          - staging
+          - prod
+        default: staging
+      rev:
+        type: string
+        description: "Optional pinned 40-hex rev (deploys /deploy/<host>/<rev>.json)."
+        required: false
+      host:
+        type: string
+        description: "Optional single host to deploy (default: all)."
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s' "${DEPLOY_SSH_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          cat > ~/.ssh/config <<'EOF'
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Join tailnet
+        uses: tailscale/github-action@4e4c49acaa9818630ce0bd7a564372c17e33fb4d # v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          hostname: clawdlets-ci-${{ github.run_id }}
+
+      - name: Deploy
+        env:
+          HOST_FILTER: ${{ github.event_name == 'workflow_dispatch' && inputs.host || '' }}
+          REV_FILTER: ${{ github.event_name == 'workflow_dispatch' && inputs.rev || '' }}
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          owner="${repo%%/*}"
+          name="${repo##*/}"
+          pages_base="https://${owner}.github.io/${name}"
+
+          if [[ -n "${REV_FILTER}" && ! "${REV_FILTER}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "error: inputs.rev must be a full 40-hex sha"
+            exit 2
+          fi
+
+          hosts=$(jq -r '.hosts | keys[]' fleet/clawdlets.json)
+          for host in ${hosts}; do
+            if [[ -n "${HOST_FILTER}" && "${host}" != "${HOST_FILTER}" ]]; then
+              continue
+            fi
+            manifest="deploy-manifest.${host}.json"
+            if [[ -n "${REV_FILTER}" ]]; then
+              curl -fsSL --retry 3 --retry-delay 2 -o "${manifest}" "${pages_base}/deploy/${host}/${REV_FILTER}.json"
+            else
+              curl -fsSL --retry 3 --retry-delay 2 -o "${manifest}" "${pages_base}/deploy/${host}/latest.json"
+            fi
+            node cli/dist/main.js server deploy --host "${host}" --manifest "${manifest}" --ssh-tty false
+          done

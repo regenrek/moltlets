@@ -63,11 +63,22 @@ const add = defineCommand({
       sshAuthorizedKeys: [],
       flakeHost: "",
       targetHost: undefined,
-      hetzner: { serverType: "cx43" },
+      hetzner: { serverType: "cx43", image: "", location: "nbg1" },
       opentofu: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
       sshExposure: { mode: "tailnet" },
       tailnet: { mode: "tailscale" },
-      operator: { deploy: { enable: true } },
+      cache: {
+        garnix: {
+          private: {
+            enable: true,
+            netrcSecret: "garnix_netrc",
+            netrcPath: "/etc/nix/netrc",
+            narinfoCachePositiveTtl: 3600,
+          },
+        },
+      },
+      operator: { deploy: { enable: false } },
+      selfUpdate: { enable: false, manifestUrl: "", interval: "30min", publicKey: "", signatureUrl: "" },
       agentModelPrimary: "zai/glm-4.7",
     };
 
@@ -116,6 +127,8 @@ const set = defineCommand({
     "flake-host": { type: "string", description: "Flake output host name override (default: same as host name)." },
     "target-host": { type: "string", description: "SSH target (ssh config alias or user@host)." },
     "server-type": { type: "string", description: "Hetzner server type (e.g. cx43)." },
+    "hetzner-image": { type: "string", description: "Hetzner image ID/name (custom image or snapshot)." },
+    "hetzner-location": { type: "string", description: "Hetzner location (e.g. nbg1, fsn1)." },
     "admin-cidr": { type: "string", description: "ADMIN_CIDR (e.g. 1.2.3.4/32)." },
     "ssh-pubkey-file": { type: "string", description: "SSH_PUBKEY_FILE path (e.g. ~/.ssh/id_ed25519.pub)." },
     "clear-ssh-keys": { type: "boolean", description: "Clear sshAuthorizedKeys.", default: false },
@@ -167,6 +180,8 @@ const set = defineCommand({
     }
 
     if ((args as any)["server-type"] !== undefined) next.hetzner.serverType = String((args as any)["server-type"]).trim();
+    if ((args as any)["hetzner-image"] !== undefined) next.hetzner.image = String((args as any)["hetzner-image"]).trim();
+    if ((args as any)["hetzner-location"] !== undefined) next.hetzner.location = String((args as any)["hetzner-location"]).trim();
     if ((args as any)["admin-cidr"] !== undefined) next.opentofu.adminCidr = String((args as any)["admin-cidr"]).trim();
     if ((args as any)["ssh-pubkey-file"] !== undefined) next.opentofu.sshPubkeyFile = String((args as any)["ssh-pubkey-file"]).trim();
 

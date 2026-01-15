@@ -22,7 +22,8 @@ nix flake lock --update-input nix-clawdbot
 2) Deploy on a staging host (pinned):
 
 ```bash
-just server-deploy admin@<ipv4> --toplevel /nix/store/... --rev HEAD
+clawdlets server manifest --host <host> --out deploy-manifest.<host>.json
+clawdlets server deploy --manifest deploy-manifest.<host>.json
 ```
 
 3) Verify:

@@ -46,9 +46,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Regenerate template dist
-        run: pnpm -C packages/template run build
-
       - name: Create GitHub App token
         id: app-token
         uses: actions/create-github-app-token@26968a09c0ea4f3e233fdddbafd1166051a095f6 # v1

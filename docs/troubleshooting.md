@@ -50,3 +50,26 @@ Restart the unit:
 ```bash
 clawdlets server restart --target-host <host> --unit clawdbot-melinda.service
 ```
+
+## CI deploy can’t reach host (tailnet)
+
+- Verify `TAILSCALE_AUTHKEY` is valid and not expired.
+- Ensure the host is in the tailnet and MagicDNS resolves.
+- Confirm `fleet/clawdlets.json` has `targetHost` set (e.g. `admin@<magicdns-name>`).
+
+## CI deploy: SSH auth failed
+
+- Ensure the public key for `DEPLOY_SSH_KEY` is in `hosts.<host>.sshAuthorizedKeys`.
+- If the host was reprovisioned, re-add the key and redeploy.
+
+## Cache miss / toplevel not found
+
+- Confirm the manifest’s `toplevel` exists in the cache (Garnix).
+- Re-run the manifest workflow on `main` to republish.
+- Ensure the host has `https://cache.garnix.io` in substituters.
+
+## Self-update: minisign verification failed
+
+- Confirm `clawdlets.selfUpdate.publicKey` matches the key used in CI.
+- Ensure `.minisig` exists at `.../latest.json.minisig`.
+- Re-run the manifest workflow to republish signatures.

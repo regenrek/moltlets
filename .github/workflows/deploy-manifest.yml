@@ -1,0 +1,109 @@
+name: deploy-manifest
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-manifest
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r build
+
+      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31.9.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@b426b118b6dc86d6952988d396aa7c6b09776d08 # v5
+        with:
+          nix: false
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/flake.lock') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-
+          paths-linux: |
+            /nix/store
+
+      - name: Build deploy manifests
+        run: |
+          set -euo pipefail
+          hosts=$(jq -r '.hosts | keys[]' fleet/clawdlets.json)
+          mkdir -p deploy
+          for host in ${hosts}; do
+            node cli/dist/main.js server manifest --host "${host}" --out "deploy-manifest.${host}.json"
+            rev=$(jq -r '.rev' "deploy-manifest.${host}.json")
+            mkdir -p "deploy/${host}"
+            cp "deploy-manifest.${host}.json" "deploy/${host}/latest.json"
+            cp "deploy-manifest.${host}.json" "deploy/${host}/${rev}.json"
+          done
+
+      - name: Sign manifests (minisign)
+        env:
+          MINISIGN_PRIVATE_KEY: ${{ secrets.MINISIGN_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${MINISIGN_PRIVATE_KEY:-}" ]]; then
+            echo "warn: MINISIGN_PRIVATE_KEY not set; skipping manifest signing"
+            exit 0
+          fi
+          key="${RUNNER_TEMP}/minisign.key"
+          printf '%s' "${MINISIGN_PRIVATE_KEY}" > "${key}"
+          chmod 600 "${key}"
+          for f in deploy-manifest.*.json deploy/*/latest.json deploy/*/*.json; do
+            nix run nixpkgs#minisign -- -s "${key}" -m "${f}" -x "${f}.minisig"
+          done
+
+      - name: Upload manifests artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: deploy-manifests
+          path: |
+            deploy-manifest.*.json
+            deploy-manifest.*.json.minisig
+
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: deploy
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
