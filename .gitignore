@@ -33,3 +33,4 @@ packages/template/coverage/
 
 # packaging (generated)
 /dist/
+.plan
