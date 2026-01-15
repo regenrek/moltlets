@@ -40,7 +40,7 @@ Default breakglass path:
 ## Deploy privilege model
 
 - Default: `admin` cannot run `nixos-rebuild` (breakglass required).
-- Optional: enable `clawdlets.operator.deploy` to allow `admin` to run constrained deploy entrypoints.
+- Recommended: enable `clawdlets.operator.deploy.enable` to allow `admin` to run constrained deploy entrypoints (`/etc/clawdlets/bin/switch-system` + `install-secrets`).
 
 ## Egress posture (honesty)
 

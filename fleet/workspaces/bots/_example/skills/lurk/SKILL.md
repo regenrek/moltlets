@@ -1,6 +1,6 @@
 # lurk (example skill)
 
-This is an example custom/local skill file, shaped like clawdinator’s `workspace/skills/<skill>/SKILL.md`.
+Example for a custom/local skill file
 
 Put real skills here:
 - shared: `fleet/workspaces/common/skills/<skill>/SKILL.md`

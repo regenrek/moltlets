@@ -22,6 +22,8 @@ in {
   clawdlets.tailnet.mode = tailnetMode;
   clawdlets.tailnet.tailscale.authKeySecret =
     if tailnetMode == "tailscale" then "tailscale_auth_key" else null;
+  clawdlets.operator.deploy.enable =
+    ((hostCfg.operator or { }).deploy or { }).enable or true;
 
   # Set these in your own repo (or via a host-specific module).
   # Defaults are provided for Hetzner, but hostName must be set.

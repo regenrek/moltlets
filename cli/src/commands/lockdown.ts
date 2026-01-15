@@ -5,7 +5,7 @@ import { defineCommand } from "citty";
 import { applyOpenTofuVars } from "@clawdbot/clawdlets-core/lib/opentofu";
 import { resolveGitRev } from "@clawdbot/clawdlets-core/lib/git";
 import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
-import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
+import { shellQuote, sshCapture, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
@@ -90,26 +90,58 @@ export const lockdown = defineCommand({
       throw new Error("flake already includes ?rev/?ref; drop --rev/--ref");
     }
 
-    let flakePinned = flakeWithHost;
-    if (rev) {
-      const resolved = await resolveGitRev(layout.repoRoot, rev);
-      if (!resolved) throw new Error(`unable to resolve git rev: ${rev}`);
-      const sep = flakeBasePath.includes("?") ? "&" : "?";
-      flakePinned = `${flakeBasePath}${sep}rev=${resolved}${flakeFragment}`;
-    } else if (ref) {
-      const sep = flakeBasePath.includes("?") ? "&" : "?";
-      flakePinned = `${flakeBasePath}${sep}ref=${ref}${flakeFragment}`;
-    }
+    const revTarget = rev || ref || "HEAD";
+    const resolvedRev = await resolveGitRev(layout.repoRoot, revTarget);
+    if (!resolvedRev) throw new Error(`unable to resolve git rev: ${revTarget}`);
 
+    const sep = flakeBasePath.includes("?") ? "&" : "?";
+    const flakePinnedBase = rev
+      ? `${flakeBasePath}${sep}rev=${resolvedRev}`
+      : ref
+        ? `${flakeBasePath}${sep}ref=${ref}`
+        : flakeBasePath;
     if (!args.skipRebuild) {
       const sudo = needsSudo(targetHost);
-      const remoteArgs: string[] = [];
-      if (sudo) remoteArgs.push("sudo");
-      remoteArgs.push("env");
-      if (githubToken) remoteArgs.push(`NIX_CONFIG=access-tokens = github.com=${githubToken}`);
-      remoteArgs.push("nixos-rebuild", "switch", "--flake", flakePinned);
-      const remoteCmd = remoteArgs.map(shellQuote).join(" ");
-      await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty, dryRun: args.dryRun });
+      const buildAttr = `${flakePinnedBase}#nixosConfigurations.${requestedHost}.config.system.build.toplevel`;
+      const buildArgs = [
+        "env",
+        ...(githubToken ? [`NIX_CONFIG=access-tokens = github.com=${githubToken}`] : []),
+        "nix",
+        "build",
+        "--json",
+        "--no-link",
+        buildAttr,
+      ];
+      const buildCmd = buildArgs.map(shellQuote).join(" ");
+
+      let toplevel = "<toplevel>";
+      if (args.dryRun) {
+        await sshRun(targetHost, buildCmd, { dryRun: true });
+      } else {
+        const buildOut = await sshCapture(targetHost, buildCmd, { dryRun: false });
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(buildOut);
+        } catch (e) {
+          throw new Error(`invalid nix build JSON output (${String((e as Error)?.message || e)})`);
+        }
+        const outPath = (parsed as any)?.[0]?.outputs?.out;
+        if (!outPath || typeof outPath !== "string") {
+          throw new Error("nix build did not return a toplevel store path");
+        }
+        toplevel = outPath;
+      }
+
+      const switchArgs = [
+        ...(sudo ? ["sudo"] : []),
+        "/etc/clawdlets/bin/switch-system",
+        "--toplevel",
+        toplevel,
+        "--rev",
+        resolvedRev,
+      ];
+      const switchCmd = switchArgs.map(shellQuote).join(" ");
+      await sshRun(targetHost, switchCmd, { tty: sudo && args.sshTty, dryRun: args.dryRun });
     }
 
     if (!args.skipTofu) {

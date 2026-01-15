@@ -120,6 +120,15 @@ const HostSchema = z.object({
       mode: TailnetModeSchema.default("tailscale"),
     })
     .default({ mode: "tailscale" }),
+  operator: z
+    .object({
+      deploy: z
+        .object({
+          enable: z.boolean().default(true),
+        })
+        .default({ enable: true }),
+    })
+    .default({ deploy: { enable: true } }),
   agentModelPrimary: z.string().trim().default("zai/glm-4.7"),
 });
 
@@ -209,6 +218,7 @@ export function createDefaultClawdletsConfig(params: { host: string; bots?: stri
         opentofu: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
         sshExposure: { mode: "tailnet" },
         tailnet: { mode: "tailscale" },
+        operator: { deploy: { enable: true } },
         agentModelPrimary: "zai/glm-4.7",
       },
     },

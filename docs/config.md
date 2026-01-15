@@ -34,6 +34,7 @@ Host entry (`hosts.<host>`):
 - `hetzner.serverType`: e.g. `cx43`
 - `opentofu.adminCidr`: CIDR allowed to SSH during bootstrap (e.g. `203.0.113.10/32`)
 - `opentofu.sshPubkeyFile`: local path to `.pub` used for provisioning
+- `operator.deploy.enable`: allow `admin` to run constrained deploy entrypoints (switch-system/install-secrets)
 - `sshExposure.mode`: `tailnet|bootstrap|public` (single SSH exposure policy)
 - `tailnet.mode`: `tailscale` or `none` (tailscale mode opens UDP/41641 at the provider firewall for direct tailnet connectivity)
 
