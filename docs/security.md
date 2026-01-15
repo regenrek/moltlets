@@ -5,7 +5,7 @@
 - No tokens/keys committed to git.
 - No secrets copied into `/nix/store`.
 - SSH stays key-only; passwords for `sudo`/console only.
-- Public SSH is temporary (bootstrap only).
+- Public SSH is temporary (bootstrap only; controlled by `sshExposure.mode`).
 
 ## Boundaries
 
@@ -34,8 +34,9 @@ Therefore:
 ## Recommended hardening checks
 
 - Confirm Hetzner firewall no longer allows TCP/22 from the internet after lockdown.
-- Confirm NixOS firewall only allows SSH via `tailscale0` when `publicSsh.enable=false`.
+- Confirm NixOS firewall only allows SSH via `tailscale0` when `sshExposure.mode=tailnet`.
 - Keep `.clawdlets/` gitignored (required).
+- If `tailnet.mode=tailscale`, the Hetzner firewall allows inbound UDP/41641 for direct Tailscale connectivity. This is expected; disable Tailscale (tailnet.mode=none) or remove the rule if you need DERP-only.
 
 ## Egress policy (current)
 

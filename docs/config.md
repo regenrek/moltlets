@@ -16,7 +16,7 @@ This file is **committed to git**. Secrets are not stored here (see `docs/secret
 
 Top-level:
 
-- `schemaVersion`: currently `4`
+- `schemaVersion`: currently `5`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
   - if empty, CLI falls back to `git remote origin` (recommended)
@@ -34,14 +34,14 @@ Host entry (`hosts.<host>`):
 - `hetzner.serverType`: e.g. `cx43`
 - `opentofu.adminCidr`: CIDR allowed to SSH during bootstrap (e.g. `203.0.113.10/32`)
 - `opentofu.sshPubkeyFile`: local path to `.pub` used for provisioning
-- `publicSsh.enable`: temporary public SSH gate (bootstrap only; should be false after lockdown)
-- `tailnet.mode`: `tailscale` or `none`
+- `sshExposure.mode`: `tailnet|bootstrap|public` (single SSH exposure policy)
+- `tailnet.mode`: `tailscale` or `none` (tailscale mode opens UDP/41641 at the provider firewall for direct tailnet connectivity)
 
 ## Example
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "defaultHost": "clawdbot-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -61,8 +61,7 @@ Host entry (`hosts.<host>`):
       "flakeHost": "",
       "hetzner": { "serverType": "cx43" },
       "opentofu": { "adminCidr": "", "sshPubkeyFile": "~/.ssh/id_ed25519.pub" },
-      "publicSsh": { "enable": false },
-      "provisioning": { "enable": false },
+      "sshExposure": { "mode": "tailnet" },
       "tailnet": { "mode": "tailscale" },
       "agentModelPrimary": "zai/glm-4.7"
     }

@@ -5,6 +5,7 @@ let
   hostCfg = (cfg.hosts.${config.clawdlets.hostName} or { });
   tailnet = (hostCfg.tailnet or { });
   tailnetMode = tailnet.mode or "none";
+  sshExposureMode = ((hostCfg.sshExposure or { }).mode or "tailnet");
   fleet = import ../../configs/fleet.nix { inherit lib; };
   enableRootPassword = false;
 in {
@@ -16,8 +17,7 @@ in {
 
   clawdlets.diskDevice = hostCfg.diskDevice or "/dev/disk/by-id/CHANGE_ME";
 
-  clawdlets.publicSsh.enable = ((hostCfg.publicSsh or { }).enable or false);
-  clawdlets.provisioning.enable = ((hostCfg.provisioning or { }).enable or false);
+  clawdlets.sshExposure.mode = sshExposureMode;
 
   clawdlets.tailnet.mode = tailnetMode;
   clawdlets.tailnet.tailscale.authKeySecret =

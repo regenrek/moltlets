@@ -33,41 +33,72 @@ variable "admin_cidr" {
 variable "admin_cidr_is_world_open" {
   type = bool
   default = false
-  description = "Explicitly allow 0.0.0.0/0 or ::/0 when public_ssh is enabled (not recommended)."
+  description = "Explicitly allow 0.0.0.0/0 or ::/0 when SSH exposure is enabled (not recommended)."
 }
 
 variable "ssh_key_id" {
   type = string
 }
 
-variable "public_ssh" {
-  type = bool
-  default = false
+variable "ssh_exposure_mode" {
+  type = string
+  default = "tailnet"
+  validation {
+    condition     = contains(["tailnet", "bootstrap", "public"], var.ssh_exposure_mode)
+    error_message = "ssh_exposure_mode must be one of: tailnet, bootstrap, public"
+  }
 }
 
-resource "hcloud_firewall" "fw" {
-  name = "${var.name}-fw"
+variable "tailnet_mode" {
+  type = string
+  default = "none"
+  validation {
+    condition     = contains(["none", "tailscale"], var.tailnet_mode)
+    error_message = "tailnet_mode must be one of: none, tailscale"
+  }
+}
+
+locals {
+  ssh_ingress_enabled = var.ssh_exposure_mode != "tailnet"
+  tailscale_udp_enabled = var.tailnet_mode == "tailscale"
+}
+
+resource "hcloud_firewall" "base" {
+  name = "${var.name}-base-fw"
+
+  dynamic "rule" {
+    for_each = local.tailscale_udp_enabled ? [1] : []
+    content {
+      direction   = "in"
+      protocol    = "udp"
+      port        = "41641"
+      source_ips  = ["0.0.0.0/0", "::/0"]
+      description = "Tailscale WireGuard UDP (direct connections)"
+    }
+  }
+}
+
+resource "hcloud_firewall" "ssh" {
+  count = local.ssh_ingress_enabled ? 1 : 0
+  name  = "${var.name}-ssh-fw"
 
   lifecycle {
     precondition {
       condition = (
-        !var.public_ssh ||
+        !local.ssh_ingress_enabled ||
         var.admin_cidr_is_world_open ||
         (var.admin_cidr != "0.0.0.0/0" && var.admin_cidr != "::/0")
       )
-      error_message = "refusing to open public SSH with admin_cidr=0.0.0.0/0 (or ::/0); set admin_cidr_is_world_open=true to override"
+      error_message = "refusing to open SSH with admin_cidr=0.0.0.0/0 (or ::/0); set admin_cidr_is_world_open=true to override"
     }
   }
 
-  dynamic "rule" {
-    for_each = var.public_ssh ? [1] : []
-    content {
-      direction   = "in"
-      protocol    = "tcp"
-      port        = "22"
-      source_ips  = [var.admin_cidr]
-      description = "Public SSH from admin CIDR"
-    }
+  rule {
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "22"
+    source_ips  = [var.admin_cidr]
+    description = "SSH ${var.ssh_exposure_mode} from admin CIDR"
   }
 }
 
@@ -78,7 +109,10 @@ resource "hcloud_server" "vm" {
   image       = var.image
 
   ssh_keys     = [var.ssh_key_id]
-  firewall_ids = [hcloud_firewall.fw.id]
+  firewall_ids = concat(
+    [hcloud_firewall.base.id],
+    local.ssh_ingress_enabled ? [hcloud_firewall.ssh[0].id] : [],
+  )
 }
 
 output "ipv4" {

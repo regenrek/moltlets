@@ -7,6 +7,7 @@ import { validateTargetHost } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import {
   assertSafeHostName,
   ClawdletsConfigSchema,
+  SSH_EXPOSURE_MODES,
   loadClawdletsConfig,
   resolveHostName,
   writeClawdletsConfig,
@@ -64,8 +65,7 @@ const add = defineCommand({
       targetHost: undefined,
       hetzner: { serverType: "cx43" },
       opentofu: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
-      publicSsh: { enable: false },
-      provisioning: { enable: false },
+      sshExposure: { mode: "tailnet" },
       tailnet: { mode: "tailscale" },
       agentModelPrimary: "zai/glm-4.7",
     };
@@ -108,8 +108,7 @@ const set = defineCommand({
   args: {
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     enable: { type: "string", description: "Enable fleet services (true/false)." },
-    "public-ssh": { type: "string", description: "Public SSH (true/false; not recommended)." },
-    provisioning: { type: "string", description: "Provisioning mode (true/false; relaxes validation)." },
+    "ssh-exposure": { type: "string", description: "SSH exposure mode: tailnet|bootstrap|public." },
     "disk-device": { type: "string", description: "Disk device (e.g. /dev/disk/by-id/...).", },
     "agent-model-primary": { type: "string", description: "Primary agent model (e.g. zai/glm-4.7)." },
     tailnet: { type: "string", description: "Tailnet mode: none|tailscale." },
@@ -148,11 +147,13 @@ const set = defineCommand({
     const enable = parseBoolOrUndefined(args.enable);
     if (enable !== undefined) next.enable = enable;
 
-    const publicSsh = parseBoolOrUndefined((args as any)["public-ssh"]);
-    if (publicSsh !== undefined) next.publicSsh.enable = publicSsh;
-
-    const provisioning = parseBoolOrUndefined((args as any).provisioning);
-    if (provisioning !== undefined) next.provisioning.enable = provisioning;
+    if ((args as any)["ssh-exposure"] !== undefined) {
+      const mode = String((args as any)["ssh-exposure"]).trim();
+      if (!SSH_EXPOSURE_MODES.includes(mode as (typeof SSH_EXPOSURE_MODES)[number])) {
+        throw new Error("invalid --ssh-exposure (expected tailnet|bootstrap|public)");
+      }
+      next.sshExposure.mode = mode as (typeof SSH_EXPOSURE_MODES)[number];
+    }
 
     if ((args as any)["disk-device"] !== undefined) next.diskDevice = String((args as any)["disk-device"]).trim();
     if ((args as any)["agent-model-primary"] !== undefined) next.agentModelPrimary = String((args as any)["agent-model-primary"]).trim();

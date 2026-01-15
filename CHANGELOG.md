@@ -21,7 +21,8 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 ### Changed
 - Workflow automation: `nix-clawdbot` bump PRs are created using a GitHub App token (so normal PR checks run) and are compatible with strict branch protection.
 - Repo layout: runtime state is `.clawdlets/` (gitignored); repo-canonical secrets are sops-encrypted in `secrets/`.
-- Config schema bump: `fleet/clawdlets.json` schemaVersion `4` (adds `fleet.envSecrets` and removes baked-in provider keys).
+- Config schema bump: `fleet/clawdlets.json` schemaVersion `5` (replace `publicSsh/provisioning` with `sshExposure.mode` as the single SSH exposure policy).
+- OpenTofu firewall rules now follow `sshExposure.mode` and separate baseline vs SSH exposure firewalls.
 - CLI flag rename: `--stack-dir` → `--runtime-dir`.
 - Secrets init JSON: replaces `zAiApiKey` with `secrets.<secretName>` map.
 - Doctor UX: output grouped by scope/category with status coloring; add `clawdlets doctor --show-ok` to include ok checks.

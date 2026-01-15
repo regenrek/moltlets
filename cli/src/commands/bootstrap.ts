@@ -11,7 +11,7 @@ import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
 import { evalFleetConfig } from "@clawdbot/clawdlets-core/lib/fleet-nix-eval";
 import { withFlakesEnv } from "@clawdbot/clawdlets-core/lib/nix-flakes";
-import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { resolveBaseFlake } from "@clawdbot/clawdlets-core/lib/base-flake";
 import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir } from "@clawdbot/clawdlets-core/repo-layout";
 import { requireDeployGate } from "../lib/deploy-gate.js";
@@ -48,7 +48,6 @@ export const bootstrap = defineCommand({
 	    flake: { type: "string", description: "Override base flake (default: clawdlets.json baseFlake or git origin)." },
 	    rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
 	    ref: { type: "string", description: "Git ref to pin (branch or tag)." },
-	    "keep-public-ssh": { type: "boolean", description: "Keep public SSH open after install (not recommended).", default: false },
 	    force: { type: "boolean", description: "Skip doctor gate (not recommended).", default: false },
 	    dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
 	  },
@@ -60,6 +59,8 @@ export const bootstrap = defineCommand({
 	    const { layout, config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
 	    const hostCfg = clawdletsConfig.hosts[hostName];
 	    if (!hostCfg) throw new Error(`missing host in fleet/clawdlets.json: ${hostName}`);
+	    const sshExposureMode = getSshExposureMode(hostCfg);
+	    const tailnetMode = getTailnetMode(hostCfg);
 
 	    if (Boolean((args as any).force)) {
 	      console.error("warn: skipping doctor gate (--force)");
@@ -90,6 +91,10 @@ export const bootstrap = defineCommand({
 	    const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded) ? sshPubkeyFileExpanded : path.resolve(repoRoot, sshPubkeyFileExpanded);
 	    if (!fs.existsSync(sshPubkeyFile)) throw new Error(`ssh pubkey file not found: ${sshPubkeyFile}`);
 
+	    if (sshExposureMode === "tailnet") {
+	      throw new Error(`sshExposure.mode=tailnet; bootstrap requires public SSH. Set: clawdlets host set --host ${hostName} --ssh-exposure bootstrap`);
+	    }
+
 	    await applyOpenTofuVars({
 	      repoRoot,
 	      vars: {
@@ -97,7 +102,8 @@ export const bootstrap = defineCommand({
 	        adminCidr,
 	        sshPubkeyFile,
 	        serverType,
-	        publicSsh: true,
+	        sshExposureMode,
+	        tailnetMode,
 	      },
 	      nixBin,
 	      dryRun: args.dryRun,
@@ -179,11 +185,9 @@ export const bootstrap = defineCommand({
     const fleetPath = path.join(repoRoot, "infra", "configs", "fleet.nix");
     const bots = (await evalFleetConfig({ repoRoot, fleetFilePath: fleetPath, nixBin })).bots;
 
-	    const tailnetMode = String(hostCfg.tailnet?.mode || "none");
-
     const requiredSecrets = [
       ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
-      "admin_password_hash",
+	      "admin_password_hash",
       ...bots.map((b) => `discord_token_${b}`),
     ];
 
@@ -257,60 +261,44 @@ export const bootstrap = defineCommand({
       redact: [hcloudToken, githubToken].filter(Boolean) as string[],
     });
 
-	    if (!Boolean((args as any)["keep-public-ssh"])) {
-	      await applyOpenTofuVars({
-	        repoRoot,
-	        vars: {
-	          hcloudToken,
-	          adminCidr,
-	          sshPubkeyFile,
-	          serverType,
-	          publicSsh: false,
-	        },
-	        nixBin,
-	        dryRun: args.dryRun,
-        redact: [hcloudToken, githubToken].filter(Boolean) as string[],
-      });
-    }
-
 	    await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
 
-	    const keepPublicSsh = Boolean((args as any)["keep-public-ssh"]);
-	    const publicSshStatus = keepPublicSsh ? "OPEN" : "CLOSED";
+	    const publicSshStatus = sshExposureMode === "tailnet" ? "CLOSED" : "OPEN";
 
 	    console.log("🎉 Bootstrap complete.");
 	    console.log(`Host: ${hostName}`);
 	    console.log(`IPv4: ${ipv4}`);
-	    console.log(`Public SSH (22): ${publicSshStatus}`);
+    console.log(`SSH exposure: ${sshExposureMode}`);
+    console.log(`Public SSH (22): ${publicSshStatus}`);
 
-	    if (tailnetMode === "tailscale") {
-	      console.log("");
-	      console.log("Next (tailscale):");
-	      console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
-	      console.log("   tailscale status  # look for the 100.x address");
+    if (sshExposureMode !== "tailnet") {
+      console.log("");
+      console.log("⚠ SSH WILL REMAIN OPEN until you switch to tailnet and run lockdown:");
+      console.log(`  clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
+      console.log(`  clawdlets lockdown --host ${hostName}`);
+    }
+
+    if (tailnetMode === "tailscale") {
+      console.log("");
+      console.log("Next (tailscale):");
+      console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
+      console.log("   tailscale status  # look for the 100.x address");
 	      console.log(`2) Set future SSH target to tailnet:`);
 	      console.log(`   clawdlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
 	      console.log("3) Verify access:");
 	      console.log("   ssh admin@<tailscale-ip> 'hostname; uptime'");
-	      console.log("4) Optional checks:");
+	      console.log("4) Switch SSH exposure to tailnet and lock down:");
+	      console.log(`   clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
+	      console.log(`   clawdlets lockdown --host ${hostName}`);
+	      console.log("5) Optional checks:");
 	      console.log("   clawdlets server audit --host " + hostName);
-	    } else if (keepPublicSsh) {
-	      console.log("");
-	      console.log("Next:");
-	      console.log(`- You kept public SSH open (22). Verify: ssh admin@${ipv4}`);
-	      console.log("- After you have tailnet/targetHost working, close it again:");
-	      console.log("  clawdlets infra apply --host " + hostName + " --public-ssh false");
 	    } else {
-	      console.log("");
-	      console.log("Notes:");
-	      console.log("- This host does not use tailscale, and public SSH is closed. You may be locked out.");
-	      console.log("- If you need access: re-run bootstrap with --keep-public-ssh or temporarily open it:");
-	      console.log("  clawdlets infra apply --host " + hostName + " --public-ssh true");
-	    }
-
-	    if (!keepPublicSsh) {
-	      console.log("");
-	      console.log(`Info: ssh admin@${ipv4} timing out is expected when Public SSH (22) is CLOSED.`);
+      console.log("");
+      console.log("Notes:");
+      console.log(`- SSH exposure is ${sshExposureMode}.`);
+      console.log("- If you want tailnet-only SSH, set tailnet.mode=tailscale, verify access, then:");
+      console.log(`  clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
+	      console.log(`  clawdlets lockdown --host ${hostName}`);
 	    }
 	  },
 	});

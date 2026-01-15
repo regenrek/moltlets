@@ -302,19 +302,13 @@ Note: `clawdlets bootstrap` clears these entries automatically after install.
 
 After tailnet (Tailscale) works:
 
-1) Disable bootstrap SSH in canonical config:
+1) Set SSH exposure to tailnet in canonical config:
 
 ```bash
-clawdlets host set --public-ssh false
+clawdlets host set --ssh-exposure tailnet
 ```
 
-2) Remove public SSH rule from Hetzner firewall:
-
-```bash
-clawdlets infra apply --public-ssh=false
-```
-
-Optional: one-shot helper (opentofu apply; skip host rebuild if you deploy by store path):
+2) Apply (one-shot helper; skip host rebuild if you deploy by store path):
 
 ```bash
 clawdlets lockdown --target-host admin@10.44.0.1 --skip-rebuild

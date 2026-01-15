@@ -22,11 +22,12 @@ If/when you want required status checks, re-run with explicit contexts:
 2) `export CLAWDLETS_INTERACTIVE=1` (optional; forces prompts)
 3) `clawdlets secrets init`
 4) `clawdlets doctor --scope deploy`
-5) `clawdlets infra apply --public-ssh=true`
+5) `clawdlets host set --ssh-exposure bootstrap`
 6) `clawdlets bootstrap`
 7) Verify tailnet, then: `clawdlets doctor --scope deploy --strict`
 8) Switch admin access to VPN + close public SSH:
    - `clawdlets host set --target-host admin@<vpn-ip>`
+   - `clawdlets host set --ssh-exposure tailnet`
    - `clawdlets lockdown --skip-rebuild`
 9) `clawdlets server audit --target-host admin@<vpn-ip>`
 

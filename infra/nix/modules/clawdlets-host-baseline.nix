@@ -9,8 +9,8 @@ let
     then cfg.secrets.hostDir
     else defaultHostSecretsDir;
 
-  provisioningEnabled = cfg.provisioning.enable;
-  publicSshEnabled = cfg.publicSsh.enable;
+  sshExposureMode = cfg.sshExposure.mode;
+  sshPublicIngressEnabled = sshExposureMode != "tailnet";
 
   isTailscale = cfg.tailnet.mode == "tailscale";
   tailscaleCfg = cfg.tailnet.tailscale;
@@ -34,19 +34,11 @@ let
 in
 {
   options.clawdlets = {
-    provisioning = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Bootstrap/provisioning mode (relaxes validation).";
-      };
-    };
-
-    publicSsh = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Allow SSH on port 22 from the public internet (prefer tailnet).";
+    sshExposure = {
+      mode = lib.mkOption {
+        type = lib.types.enum [ "tailnet" "bootstrap" "public" ];
+        default = "tailnet";
+        description = "SSH exposure mode (tailnet-only is recommended).";
       };
     };
 
@@ -72,7 +64,7 @@ in
     tailnet = {
       mode = lib.mkOption {
         type = lib.types.enum [ "none" "tailscale" ];
-        default = "none";
+        default = "tailscale";
         description = "Admin access mode for this host.";
       };
 
@@ -232,8 +224,8 @@ in
 
     networking.firewall = {
       enable = true;
-      allowedTCPPorts = lib.mkIf publicSshEnabled [ 22 ];
-      interfaces.tailscale0.allowedTCPPorts = lib.mkIf (isTailscale && !publicSshEnabled) [ 22 ];
+      allowedTCPPorts = lib.mkIf sshPublicIngressEnabled [ 22 ];
+      interfaces.tailscale0.allowedTCPPorts = lib.mkIf (isTailscale && !sshPublicIngressEnabled) [ 22 ];
     };
 
     networking.nftables.enable = true;
@@ -271,10 +263,9 @@ in
       {
         assertion =
           (!isTailscale)
-          || provisioningEnabled
-          || publicSshEnabled
+          || sshPublicIngressEnabled
           || (tailscaleCfg.authKeySecret != null && tailscaleCfg.authKeySecret != "");
-        message = "clawdlets.tailnet.tailscale.authKeySecret must be set when tailnet mode is tailscale (or enable clawdlets.provisioning.enable / clawdlets.publicSsh.enable for first boot).";
+        message = "clawdlets.tailnet.tailscale.authKeySecret must be set when tailnet mode is tailscale (or set clawdlets.sshExposure.mode to bootstrap/public for first boot).";
       }
       {
         assertion =

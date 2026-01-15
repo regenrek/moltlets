@@ -18,15 +18,14 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         fleet: { bots: ["maren"] },
         hosts: {
           "../pwn": {
             enable: false,
             diskDevice: "/dev/disk/by-id/CHANGE_ME",
             sshAuthorizedKeys: [],
-            publicSsh: { enable: false },
-            provisioning: { enable: false },
+            sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
           },
@@ -39,15 +38,14 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         fleet: { bots: ["maren", "maren"] },
         hosts: {
           "clawdbot-fleet-host": {
             enable: false,
             diskDevice: "/dev/disk/by-id/CHANGE_ME",
             sshAuthorizedKeys: [],
-            publicSsh: { enable: false },
-            provisioning: { enable: false },
+            sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
           },
@@ -69,7 +67,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         defaultHost: "missing-host",
         fleet: { bots: ["maren"] },
         hosts: {
@@ -77,8 +75,7 @@ describe("clawdlets config schema", () => {
             enable: false,
             diskDevice: "/dev/disk/by-id/CHANGE_ME",
             sshAuthorizedKeys: [],
-            publicSsh: { enable: false },
-            provisioning: { enable: false },
+            sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
           },
@@ -93,39 +90,38 @@ describe("clawdlets config schema", () => {
       enable: false,
       diskDevice: "/dev/disk/by-id/CHANGE_ME",
       sshAuthorizedKeys: [],
-      publicSsh: { enable: false },
-      provisioning: { enable: false },
+      sshExposure: { mode: "tailnet" },
       tailnet: { mode: "none" },
       agentModelPrimary: "zai/glm-4.7",
     } as const;
 
     {
-      const config = { schemaVersion: 4, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 5, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r).toEqual({ ok: true, host: "a", source: "defaultHost" });
     }
 
     {
-      const config = { schemaVersion: 4, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 5, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: "a" });
       expect(r).toEqual({ ok: true, host: "a", source: "flag" });
     }
 
     {
-      const config = { schemaVersion: 4, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 5, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: "b" });
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.message).toMatch(/unknown host/i);
     }
 
     {
-      const config = { schemaVersion: 4, fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 5, fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r).toEqual({ ok: true, host: "a", source: "soleHost" });
     }
 
     {
-      const config = { schemaVersion: 4, fleet: {}, hosts: { a: baseHost, b: baseHost } } as any;
+      const config = { schemaVersion: 5, fleet: {}, hosts: { a: baseHost, b: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r.ok).toBe(false);
     }
@@ -137,13 +133,12 @@ describe("clawdlets config schema", () => {
       enable: false,
       diskDevice: "/dev/disk/by-id/CHANGE_ME",
       sshAuthorizedKeys: [],
-      publicSsh: { enable: false },
-      provisioning: { enable: false },
+      sshExposure: { mode: "tailnet" },
       tailnet: { mode: "none" },
       agentModelPrimary: "zai/glm-4.7",
     } as const;
 
-    const config = { schemaVersion: 4, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+    const config = { schemaVersion: 5, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
     const r = resolveHostName({ config, host: ";" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toMatch(/invalid host name/i);
@@ -171,11 +166,38 @@ describe("clawdlets config schema", () => {
     }
   });
 
+  it("loadClawdletsConfig rejects legacy publicSsh/provisioning keys", async () => {
+    const { loadClawdletsConfig } = await import("../src/lib/clawdlets-config");
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-config-legacy-"));
+    try {
+      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
+      const legacy = {
+        schemaVersion: 5,
+        fleet: { bots: ["maren"] },
+        hosts: {
+          "clawdbot-fleet-host": {
+            enable: false,
+            diskDevice: "/dev/disk/by-id/CHANGE_ME",
+            sshAuthorizedKeys: [],
+            publicSsh: { enable: false },
+            provisioning: { enable: false },
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      };
+      await writeFile(path.join(repoRoot, "fleet", "clawdlets.json"), JSON.stringify(legacy, null, 2), "utf8");
+      expect(() => loadClawdletsConfig({ repoRoot })).toThrow(/legacy host config key publicSsh/i);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects invalid botOverrides.<bot>.envSecrets shapes", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         fleet: {
           bots: ["maren"],
           botOverrides: {
@@ -195,7 +217,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         fleet: {
           bots: ["maren"],
           botOverrides: {
@@ -212,5 +234,13 @@ describe("clawdlets config schema", () => {
         },
       }),
     ).toThrow(/invalid (env var name|secret name)/i);
+  });
+
+  it("getTailnetMode normalizes to none/tailscale", async () => {
+    const { getTailnetMode } = await import("../src/lib/clawdlets-config");
+    expect(getTailnetMode({ tailnet: { mode: "tailscale" } } as any)).toBe("tailscale");
+    expect(getTailnetMode({ tailnet: { mode: "none" } } as any)).toBe("none");
+    expect(getTailnetMode({ tailnet: { mode: "weird" } } as any)).toBe("none");
+    expect(getTailnetMode(undefined)).toBe("none");
   });
 });

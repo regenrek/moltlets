@@ -180,10 +180,12 @@ const projectInit = defineCommand({
 	      "- create a git repo + set origin (recommended; enables blank base flake)",
 	      "- clawdlets env init  # set HCLOUD_TOKEN in .clawdlets/env (required for provisioning)",
 	      `- clawdlets host set --host ${host} --admin-cidr <your-ip>/32 --disk-device /dev/sda --add-ssh-key-file $HOME/.ssh/id_ed25519.pub`,
+	      `- clawdlets host set --host ${host} --ssh-exposure bootstrap`,
 	      `- clawdlets secrets init --host ${host}`,
 	      `- clawdlets doctor --host ${host}`,
 	      `- clawdlets bootstrap --host ${host}`,
 	      `- clawdlets host set --host ${host} --target-host <ssh-alias|user@host>`,
+	      `- clawdlets host set --host ${host} --ssh-exposure tailnet`,
 	      `- clawdlets lockdown --host ${host}`,
 	    ].join("\n");
     if (interactive) p.outro(next);

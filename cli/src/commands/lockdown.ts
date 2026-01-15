@@ -8,7 +8,7 @@ import { expandPath } from "@clawdbot/clawdlets-core/lib/path-expand";
 import { shellQuote, sshRun } from "@clawdbot/clawdlets-core/lib/ssh-remote";
 import { loadDeployCreds } from "@clawdbot/clawdlets-core/lib/deploy-creds";
 import { findRepoRoot } from "@clawdbot/clawdlets-core/lib/repo";
-import { loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
+import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdbot/clawdlets-core/lib/clawdlets-config";
 import { resolveBaseFlake } from "@clawdbot/clawdlets-core/lib/base-flake";
 import { requireDeployGate } from "../lib/deploy-gate.js";
 import { needsSudo, requireTargetHost } from "./ssh-target.js";
@@ -47,6 +47,10 @@ export const lockdown = defineCommand({
     const { layout, config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
     const hostCfg = clawdletsConfig.hosts[hostName];
     if (!hostCfg) throw new Error(`missing host in fleet/clawdlets.json: ${hostName}`);
+    const sshExposureMode = getSshExposureMode(hostCfg);
+    if (sshExposureMode !== "tailnet") {
+      throw new Error(`sshExposure.mode=${sshExposureMode}; set sshExposure.mode=tailnet before lockdown (clawdlets host set --host ${hostName} --ssh-exposure tailnet)`);
+    }
 
     await requireDeployGate({
       runtimeDir: (args as any).runtimeDir,
@@ -128,7 +132,8 @@ export const lockdown = defineCommand({
           adminCidr,
           sshPubkeyFile,
           serverType: hostCfg.hetzner.serverType,
-          publicSsh: false,
+          sshExposureMode,
+          tailnetMode: getTailnetMode(hostCfg),
         },
         nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
         dryRun: args.dryRun,

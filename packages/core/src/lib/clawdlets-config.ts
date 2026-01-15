@@ -6,7 +6,15 @@ import { getRepoLayout } from "../repo-layout.js";
 import { BotIdSchema, EnvVarNameSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "./identifiers.js";
 import { isValidTargetHost } from "./ssh-remote.js";
 
-export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 4 as const;
+export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 5 as const;
+
+export const SSH_EXPOSURE_MODES = ["tailnet", "bootstrap", "public"] as const;
+export const SshExposureModeSchema = z.enum(SSH_EXPOSURE_MODES);
+export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
+
+export const TAILNET_MODES = ["none", "tailscale"] as const;
+export const TailnetModeSchema = z.enum(TAILNET_MODES);
+export type TailnetMode = z.infer<typeof TailnetModeSchema>;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.any());
 
@@ -102,19 +110,14 @@ const HostSchema = z.object({
       sshPubkeyFile: z.string().trim().default("~/.ssh/id_ed25519.pub"),
     })
     .default({ adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" }),
-  publicSsh: z
+  sshExposure: z
     .object({
-      enable: z.boolean().default(false),
+      mode: SshExposureModeSchema.default("tailnet"),
     })
-    .default({ enable: false }),
-  provisioning: z
-    .object({
-      enable: z.boolean().default(false),
-    })
-    .default({ enable: false }),
+    .default({ mode: "tailnet" }),
   tailnet: z
     .object({
-      mode: z.enum(["none", "tailscale"]).default("tailscale"),
+      mode: TailnetModeSchema.default("tailscale"),
     })
     .default({ mode: "tailscale" }),
   agentModelPrimary: z.string().trim().default("zai/glm-4.7"),
@@ -161,6 +164,22 @@ export type ClawdletsHostConfig = z.infer<typeof HostSchema>;
 export const SafeHostNameSchema = HostNameSchema;
 export { assertSafeHostName };
 
+export function getSshExposureMode(hostCfg: ClawdletsHostConfig | null | undefined): SshExposureMode {
+  const mode = hostCfg?.sshExposure?.mode;
+  if (mode === "bootstrap" || mode === "public" || mode === "tailnet") return mode;
+  return "tailnet";
+}
+
+export function isPublicSshExposure(mode: SshExposureMode): boolean {
+  return mode === "bootstrap" || mode === "public";
+}
+
+export function getTailnetMode(hostCfg: ClawdletsHostConfig | null | undefined): TailnetMode {
+  const mode = hostCfg?.tailnet?.mode;
+  if (mode === "tailscale" || mode === "none") return mode;
+  return "none";
+}
+
 export function createDefaultClawdletsConfig(params: { host: string; bots?: string[] }): ClawdletsConfig {
   const host = params.host.trim() || "clawdbot-fleet-host";
   const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((b) => b.trim()).filter(Boolean);
@@ -188,13 +207,27 @@ export function createDefaultClawdletsConfig(params: { host: string; bots?: stri
         flakeHost: "",
         hetzner: { serverType: "cx43" },
         opentofu: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
-        publicSsh: { enable: false },
-        provisioning: { enable: false },
+        sshExposure: { mode: "tailnet" },
         tailnet: { mode: "tailscale" },
         agentModelPrimary: "zai/glm-4.7",
       },
     },
   });
+}
+
+function assertNoLegacyHostKeys(parsed: unknown): void {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+  const hostsRaw = (parsed as { hosts?: unknown }).hosts;
+  if (!hostsRaw || typeof hostsRaw !== "object" || Array.isArray(hostsRaw)) return;
+  for (const [host, hostCfg] of Object.entries(hostsRaw as Record<string, unknown>)) {
+    if (!hostCfg || typeof hostCfg !== "object" || Array.isArray(hostCfg)) continue;
+    if ("publicSsh" in hostCfg) {
+      throw new Error(`legacy host config key publicSsh found for ${host}; use sshExposure.mode`);
+    }
+    if ("provisioning" in hostCfg) {
+      throw new Error(`legacy host config key provisioning found for ${host}; use sshExposure.mode`);
+    }
+  }
 }
 
 export type ResolveHostNameResult =
@@ -270,6 +303,7 @@ export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: str
   } catch {
     throw new Error(`invalid JSON: ${configPath}`);
   }
+  assertNoLegacyHostKeys(parsed);
   const config = ClawdletsConfigSchema.parse(parsed);
   return { layout, configPath, config };
 }
