@@ -25,12 +25,11 @@ docs
 - index: docs/docs.yaml
 
 source of truth
-- cli/src and packages/core/src (not dist)
+- packages/cli/src and packages/core/src (not dist)
 - infra lives in clawdlets-template (project repos)
 - docs/*.md and docs/docs.yaml
 
 generated (do not edit)
-- cli/dist
 - packages/*/dist
 
 checks

@@ -101,7 +101,7 @@ function main() {
     }
   }
 
-  const cliPkgPath = path.resolve("cli/package.json");
+  const cliPkgPath = path.resolve("packages/cli/package.json");
   const corePkgPath = path.resolve("packages/core/package.json");
 
   for (const p of [cliPkgPath, corePkgPath]) {
@@ -110,7 +110,7 @@ function main() {
 
   const cliPkg = JSON.parse(fs.readFileSync(cliPkgPath, "utf8"));
   const current = String(cliPkg.version || "").trim();
-  if (!current) die("cli/package.json missing version");
+  if (!current) die("packages/cli/package.json missing version");
 
   const next = bumpSemver(current, bumpArg as any);
   const tag = `v${next}`;

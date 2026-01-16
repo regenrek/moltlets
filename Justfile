@@ -31,10 +31,10 @@ tofu-lockdown:
   cd {{justfile_directory()}} && pnpm run clawdlets:infra -- apply
 
 config-validate:
-  cd {{justfile_directory()}} && node cli/dist/main.js config validate
+  cd {{justfile_directory()}} && node packages/cli/dist/main.js config validate
 
 config-show:
-  cd {{justfile_directory()}} && node cli/dist/main.js config show
+  cd {{justfile_directory()}} && node packages/cli/dist/main.js config show
 
 secrets-init host="clawdbot-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawdlets:secrets -- init --host {{host}}

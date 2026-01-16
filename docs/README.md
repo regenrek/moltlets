@@ -20,7 +20,6 @@
 - `docs/publicing.md`: OSS-safe publishing checklist
 - `docs/upstream.md`: nix-clawdbot tracking notes
 
-## Template docs sync
+## Source of truth
 
-Template docs live in `regenrek/clawdlets-template` under `templates/default/docs`.
-Infra + template docs live in the template repo. If you change docs here, mirror the updates into the template repo.
+Docs live only in this repo. The template no longer includes a `docs/` copy.

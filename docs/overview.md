@@ -11,12 +11,12 @@ This repo (clawdlets CLI) = tooling + docs.
 - `fleet/`: bot roster + routing/skills + workspace docs (app layer)
 - `fleet/clawdlets.json`: canonical fleet/host config
 - `secrets/`: sops-encrypted secrets (safe to commit)
-- `docs/`: operating manual (template copy)
+- `docs/`: operating manual
 
 **CLI repo (in git)**
-- `cli/`: `clawdlets` (single entrypoint)
+- `packages/cli/`: `clawdlets` (single entrypoint)
 - `packages/core/`: shared logic (CLI + checks)
-- `docs/`: canonical docs (mirrored into template)
+- `docs/`: canonical docs (single source of truth)
 
 **Not in git (project repo `.clawdlets/`, runtime)**
 - `keys/operators/*.agekey`: local operator private keys (never commit)

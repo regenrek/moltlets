@@ -30,7 +30,7 @@ pnpm dlx tsx scripts/release.ts 0.1.0
 ```
 
 The script:
-- bumps versions (`cli/`, `packages/core/`)
+- bumps versions (`packages/cli/`, `packages/core/`)
 - runs gates (`pnpm -r test`, `pnpm -r build`, `pnpm -C packages/core run coverage`, `scripts/secleak-check.sh`)
 - commits `chore(release): vX.Y.Z`, tags `vX.Y.Z`, pushes
 

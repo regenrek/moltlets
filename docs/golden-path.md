@@ -46,7 +46,7 @@ Enable `.github/workflows/deploy.yml` with:
 CI joins tailnet and runs:
 
 ```bash
-node cli/dist/main.js server deploy --host <host> --manifest deploy-manifest.<host>.json --ssh-tty false
+node packages/cli/dist/main.js server deploy --host <host> --manifest deploy-manifest.<host>.json --ssh-tty false
 ```
 
 Promote to prod (manual approval):

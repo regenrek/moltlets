@@ -7,14 +7,14 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --if-present test",
     "template:smoke": "node scripts/template-smoke.mjs",
-    "clawdlets:build": "pnpm -C cli build",
-    "clawdlets:doctor": "node cli/dist/main.js doctor",
-    "clawdlets:bootstrap": "node cli/dist/main.js bootstrap",
-    "clawdlets:lockdown": "node cli/dist/main.js lockdown",
-    "clawdlets:server": "node cli/dist/main.js server",
-    "clawdlets:secrets": "node cli/dist/main.js secrets",
-    "clawdlets:infra": "node cli/dist/main.js infra",
-    "clawdlets:help": "node cli/dist/main.js --help"
+    "clawdlets:build": "pnpm -C packages/cli build",
+    "clawdlets:doctor": "node packages/cli/dist/main.js doctor",
+    "clawdlets:bootstrap": "node packages/cli/dist/main.js bootstrap",
+    "clawdlets:lockdown": "node packages/cli/dist/main.js lockdown",
+    "clawdlets:server": "node packages/cli/dist/main.js server",
+    "clawdlets:secrets": "node packages/cli/dist/main.js secrets",
+    "clawdlets:infra": "node packages/cli/dist/main.js infra",
+    "clawdlets:help": "node packages/cli/dist/main.js --help"
   },
   "packageManager": "pnpm@10.25.0"
 }

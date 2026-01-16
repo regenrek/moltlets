@@ -62,7 +62,7 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ### Removed
 - Legacy Nix template generation from the codebase (no more “render/ensure templates” path).
-- Legacy `@clawdbot/clawdlets-core` setup export + tests (unused).
+- Legacy `@clawdlets/core` setup export + tests (unused).
 
 ## [0.0.0] - 2026-01-10
 ### Added

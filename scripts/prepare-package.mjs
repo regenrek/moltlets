@@ -87,7 +87,7 @@ function main() {
     die(`unknown arg: ${a}`);
   }
 
-  const cliDir = path.join(repoRoot, "cli");
+  const cliDir = path.join(repoRoot, "packages", "cli");
   const cliPkgPath = path.join(cliDir, "package.json");
   if (!fs.existsSync(cliPkgPath)) die(`missing cli package.json at ${cliPkgPath}`);
 

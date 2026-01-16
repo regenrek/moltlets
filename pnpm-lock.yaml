@@ -8,14 +8,14 @@ importers:
 
   .: {}
 
-  cli:
+  packages/cli:
     dependencies:
       '@clack/prompts':
         specifier: ^0.11.0
         version: 0.11.0
-      '@clawdbot/clawdlets-core':
+      '@clawdlets/core':
         specifier: workspace:*
-        version: link:../packages/core
+        version: link:../core
       citty:
         specifier: ^0.1.6
         version: 0.1.6

@@ -1,21 +1,9 @@
-# local stack (never commit)
-.clawdlets/
-
-# local env vars
-.env
-
-# node
+.DS_Store
+dist/
 node_modules/
-cli/node_modules/
-cli/dist/
-cli/coverage/
-packages/core/node_modules/
-packages/core/dist/
-packages/core/coverage/
-packages/core/tests/.template/
-*.tsbuildinfo
-
-# packaging (generated)
-/dist/
-.plan
 .cache/
+.plan/
+packages/**/dist/
+packages/**/node_modules/
+packages/**/coverage/
+packages/core/tests/.template/
