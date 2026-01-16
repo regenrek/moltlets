@@ -369,7 +369,7 @@ describe("doctor", () => {
     await writeFile(hostPath, originalHost, "utf8");
   });
 
-	  it("flags opentofu ssh pubkey file contents as invalid", async () => {
+  it("flags opentofu ssh pubkey file contents as invalid", async () => {
 	    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
 	    const original = await readFile(configPath, "utf8");
 
@@ -388,6 +388,22 @@ describe("doctor", () => {
 	          String(c.detail || "").includes("must be a path"),
 	      ),
 	    ).toBe(true);
+
+    await writeFile(configPath, original, "utf8");
+  });
+
+  it("fails when diskDevice is left as CHANGE_ME placeholder", async () => {
+    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+    const original = await readFile(configPath, "utf8");
+
+    const raw = JSON.parse(original) as any;
+    raw.hosts["clawdbot-fleet-host"].diskDevice = "/dev/disk/by-id/CHANGE_ME";
+    await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+
+    process.env.HCLOUD_TOKEN = "abc";
+    const { collectDoctorChecks } = await import("../src/doctor");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    expect(checks.some((c) => c.label === "diskDevice" && c.status === "missing")).toBe(true);
 
     await writeFile(configPath, original, "utf8");
   });

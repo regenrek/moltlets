@@ -236,6 +236,19 @@ export async function addDeployChecks(params: {
         detail: serverType || "(unset)",
       });
 
+      {
+        const diskDevice = String((clawdletsHostCfg as any).diskDevice || "").trim();
+        if (!diskDevice) {
+          push({ status: "missing", label: "diskDevice", detail: "(unset; set via: clawdlets host set --disk-device /dev/sda)" });
+        } else if (!diskDevice.startsWith("/dev/")) {
+          push({ status: "missing", label: "diskDevice", detail: `(invalid: ${diskDevice}; expected /dev/... )` });
+        } else if (diskDevice.includes("CHANGE_ME")) {
+          push({ status: "missing", label: "diskDevice", detail: `(placeholder: ${diskDevice}; set via: clawdlets host set --disk-device /dev/sda)` });
+        } else {
+          push({ status: "ok", label: "diskDevice", detail: diskDevice });
+        }
+      }
+
       const adminCidr = String(clawdletsHostCfg.opentofu?.adminCidr || "").trim();
       push({
         status: adminCidr ? "ok" : "missing",
