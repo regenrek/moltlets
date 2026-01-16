@@ -70,7 +70,7 @@ Host entry (`hosts.<host>`):
   "hosts": {
     "clawdbot-fleet-host": {
       "enable": false,
-      "diskDevice": "/dev/disk/by-id/CHANGE_ME",
+      "diskDevice": "/dev/sda",
       "sshAuthorizedKeys": [],
       "sshKnownHosts": [],
       "flakeHost": "",

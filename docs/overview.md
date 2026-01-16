@@ -40,7 +40,7 @@ Note: `project init` already includes `fleet/clawdlets.json`. Don’t run `clawd
 clawdlets fleet set --guild-id <id>
 clawdlets bot add --bot <id>
 clawdlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub
-clawdlets host set --disk-device /dev/disk/by-id/...
+clawdlets host set --disk-device /dev/sda
 clawdlets host set --enable true
 clawdlets host set --ssh-exposure bootstrap
 ```
