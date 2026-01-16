@@ -19,6 +19,12 @@ describe("docs index integrity", () => {
     expect(r.errors.some((e) => e.includes("missing docs index"))).toBe(true);
   });
 
+  it("skips validation when docs/ is absent", async () => {
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const r = validateDocsIndexIntegrity({ repoRoot });
+    expect(r).toEqual({ ok: true, errors: [] });
+  });
+
   it("reports template mismatch when templateRoot is provided", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
     const templateRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-template-"));

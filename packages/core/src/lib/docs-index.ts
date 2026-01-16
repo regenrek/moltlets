@@ -65,21 +65,34 @@ export function validateDocsIndexIntegrity(params: {
 }): { ok: boolean; errors: string[] } {
   const repoRoot = params.repoRoot;
 
-  const repoIndexPath = path.join(repoRoot, "docs", "docs.yaml");
-  const templateIndexPath = params.templateRoot ? path.join(params.templateRoot, "docs", "docs.yaml") : null;
+  const repoDocsDir = path.join(repoRoot, "docs");
+  const repoIndexPath = path.join(repoDocsDir, "docs.yaml");
+
+  const templateDocsDir = params.templateRoot ? path.join(params.templateRoot, "docs") : null;
+  const templateIndexPath = templateDocsDir ? path.join(templateDocsDir, "docs.yaml") : null;
 
   const errors: string[] = [];
 
   let repoEntries: DocsIndexEntry[] = [];
   let templateEntries: DocsIndexEntry[] = [];
 
-  try {
-    repoEntries = readDocsIndex(repoIndexPath);
-  } catch (e) {
-    errors.push(String((e as Error)?.message || e));
+  const hasRepoDocs = fs.existsSync(repoDocsDir);
+  const hasRepoIndex = fs.existsSync(repoIndexPath);
+  const hasTemplateIndex = templateIndexPath ? fs.existsSync(templateIndexPath) : false;
+
+  if (!hasRepoDocs && !hasTemplateIndex) {
+    return { ok: true, errors: [] };
   }
 
-  if (templateIndexPath) {
+  if (hasRepoDocs) {
+    try {
+      repoEntries = readDocsIndex(repoIndexPath);
+    } catch (e) {
+      errors.push(String((e as Error)?.message || e));
+    }
+  }
+
+  if (templateIndexPath && hasTemplateIndex) {
     try {
       templateEntries = readDocsIndex(templateIndexPath);
     } catch (e) {
@@ -88,7 +101,7 @@ export function validateDocsIndexIntegrity(params: {
   }
 
   errors.push(...ensureUniquePaths(repoEntries, "docs/docs.yaml"));
-  if (templateIndexPath) {
+  if (templateIndexPath && hasTemplateIndex) {
     errors.push(...ensureUniquePaths(templateEntries, path.relative(repoRoot, templateIndexPath)));
   }
 
@@ -96,14 +109,14 @@ export function validateDocsIndexIntegrity(params: {
     const abs = path.join(repoRoot, e.path);
     if (!fs.existsSync(abs)) errors.push(`docs/docs.yaml references missing file: ${e.path}`);
   }
-  if (templateIndexPath) {
+  if (templateIndexPath && hasTemplateIndex) {
     for (const e of templateEntries) {
       const abs = path.join(params.templateRoot as string, e.path);
       if (!fs.existsSync(abs)) errors.push(`template docs.yaml references missing file: ${e.path}`);
     }
   }
 
-  if (templateIndexPath && repoEntries.length > 0 && templateEntries.length > 0 && !entriesEqual(repoEntries, templateEntries)) {
+  if (templateIndexPath && hasTemplateIndex && repoEntries.length > 0 && templateEntries.length > 0 && !entriesEqual(repoEntries, templateEntries)) {
     errors.push("docs index mismatch: docs/docs.yaml must match template docs/docs.yaml (paths + metadata + order)");
   }
 
