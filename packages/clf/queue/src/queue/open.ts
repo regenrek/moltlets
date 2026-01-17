@@ -2,7 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import { createRequire } from "node:module";
 import type { ClfQueue } from "./types.js";
-import { ensurePrivateDir, ensurePrivateFile } from "./fs.js";
+import { ensurePrivateDir, ensurePrivateFile } from "@clawdlets/core/lib/fs-private";
 import { migrateClfQueue } from "./migrate.js";
 import { createQueueJobOps } from "./jobs.js";
 import { createBootstrapTokenOps } from "./bootstrap-tokens.js";
@@ -31,4 +31,3 @@ export function openClfQueue(dbPath: string): ClfQueue {
     ...tokens,
   };
 }
-
