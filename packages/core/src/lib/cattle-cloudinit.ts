@@ -19,6 +19,8 @@ export type CattleCloudInitParams = {
   }>;
 };
 
+const SUPPORTED_PUBLIC_ENV_KEYS = new Set<string>(["CLAWDLETS_CATTLE_AUTO_SHUTDOWN"]);
+
 function normalizePublicEnv(env: Record<string, string> | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(env || {})) {
@@ -28,7 +30,14 @@ function normalizePublicEnv(env: Record<string, string> | undefined): Record<str
     if (!key.startsWith("CLAWDLETS_")) {
       throw new Error(`cloud-init env not allowed: ${key} (secrets must be fetched at runtime)`);
     }
+    if (!SUPPORTED_PUBLIC_ENV_KEYS.has(key)) {
+      throw new Error(`cloud-init env not supported: ${key}`);
+    }
     out[key] = String(v ?? "");
+  }
+
+  if ("CLAWDLETS_CATTLE_AUTO_SHUTDOWN" in out && out.CLAWDLETS_CATTLE_AUTO_SHUTDOWN !== "0" && out.CLAWDLETS_CATTLE_AUTO_SHUTDOWN !== "1") {
+    throw new Error(`cloud-init env invalid: CLAWDLETS_CATTLE_AUTO_SHUTDOWN must be 0|1`);
   }
   return out;
 }

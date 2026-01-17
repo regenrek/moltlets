@@ -150,4 +150,36 @@ describe("clf queue", () => {
       q.close();
     }
   });
+
+  it("rejects invalid env var names in cattle bootstrap tokens", async () => {
+    const { openClfQueue } = await import("../src/queue");
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-queue-"));
+    const dbPath = path.join(dir, "state.sqlite");
+
+    const q = openClfQueue(dbPath);
+    try {
+      expect(() =>
+        q.createCattleBootstrapToken({
+          jobId: "job-1",
+          requester: "maren",
+          cattleName: "cattle-rex-1",
+          envKeys: ["BAD-NAME"],
+          publicEnv: {},
+        }),
+      ).toThrow(/invalid env var name/i);
+
+      expect(() =>
+        q.createCattleBootstrapToken({
+          jobId: "job-1",
+          requester: "maren",
+          cattleName: "cattle-rex-1",
+          envKeys: ["OPENAI_API_KEY"],
+          publicEnv: { OPENAI_API_KEY: "nope" } as any,
+        }),
+      ).toThrow(/publicEnv not allowed/i);
+    } finally {
+      q.close();
+    }
+  });
 });

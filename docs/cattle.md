@@ -48,6 +48,7 @@ Notes
 - Cattle image uploaded to Hetzner as a custom image.
 - Host secrets include:
   - `tailscale_auth_key` (for the cattle VM to join tailnet)
+    - Recommended: tag-scoped + short-lived/ephemeral preauth key; rotate regularly (it’s a tailnet-join capability).
   - provider keys for the chosen model (`fleet.envSecrets` -> secret files under `secrets/hosts/<host>/`)
 
 Build + upload (Linux/CI recommended)

@@ -38,6 +38,20 @@ describe("cattle-cloudinit", () => {
     ).toThrow(/cloud-init env not allowed/i);
   });
 
+  it("rejects unsupported public env vars", async () => {
+    const { buildCattleCloudInitUserData } = await import("../src/lib/cattle-cloudinit");
+
+    expect(() =>
+      buildCattleCloudInitUserData({
+        hostname: "cattle-rex-1700000000",
+        adminAuthorizedKeys: ["ssh-ed25519 AAA"],
+        tailscaleAuthKey: "tskey-auth-123",
+        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        publicEnv: { CLAWDLETS_RANDOM: "1" } as any,
+      }),
+    ).toThrow(/cloud-init env not supported/i);
+  });
+
   it("rejects oversized user-data", async () => {
     const { buildCattleCloudInitUserData } = await import("../src/lib/cattle-cloudinit");
 
