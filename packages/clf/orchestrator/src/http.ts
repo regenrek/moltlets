@@ -16,7 +16,8 @@ import {
 import { parseClfJobPayload } from "@clawdlets/clf-queue";
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
-  const data = JSON.stringify(body);
+  const safeBody = body instanceof Error ? { error: { message: body.message } } : body;
+  const data = JSON.stringify(safeBody);
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Length", Buffer.byteLength(data));
@@ -25,6 +26,14 @@ function json(res: http.ServerResponse, status: number, body: unknown): void {
 
 function errorJson(res: http.ServerResponse, status: number, message: string): void {
   json(res, status, { protocolVersion: CLF_PROTOCOL_VERSION, error: { message } });
+}
+
+function sanitizeUserErrorMessage(value: unknown): string {
+  const raw = value instanceof Error ? value.message : String(value);
+  const firstLine = raw.split("\n", 1)[0]?.trim() ?? "";
+  if (!firstLine) return "bad request";
+  if (firstLine.length > 200) return `${firstLine.slice(0, 200)}…`;
+  return firstLine;
 }
 
 async function readJson(req: http.IncomingMessage, limitBytes = 256 * 1024): Promise<unknown> {
@@ -191,7 +200,7 @@ export function createOrchestratorHttpServer(params: {
 
       errorJson(res, 404, "not found");
     } catch (e) {
-      errorJson(res, 400, String((e as Error)?.message || e));
+      errorJson(res, 400, sanitizeUserErrorMessage(e));
     }
   });
 }

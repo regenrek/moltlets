@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   await listenTcpServer(cattleServer, cattleListenHost, cfg.cattle.secretsListenPort);
 
   const cattleSecretsBaseUrl = cfg.cattle.secretsBaseUrl || `http://${cattleListenHost}:${cfg.cattle.secretsListenPort}`;
-  console.log(`clf-orchestrator: cattle api listening (http=${cattleSecretsBaseUrl})`);
+  console.log("clf-orchestrator: cattle api listening");
 
   const adminAuthorizedKeys = loadAdminAuthorizedKeys({
     filePath: cfg.adminAuthorizedKeysFile,
@@ -182,7 +182,7 @@ async function main(): Promise<void> {
   console.log("clf-orchestrator: stopped");
 }
 
-main().catch((e) => {
-  console.error(String((e as Error)?.message || e));
+main().catch(() => {
+  console.error("clf-orchestrator: fatal error");
   process.exitCode = 1;
 });

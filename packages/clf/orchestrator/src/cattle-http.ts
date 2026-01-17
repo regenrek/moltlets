@@ -11,10 +11,23 @@ function json(res: http.ServerResponse, status: number, body: unknown): void {
   res.end(text);
 }
 
+function isHttpWhitespace(code: number): boolean {
+  // Header ABNF: OWS allows SP / HTAB.
+  return code === 0x20 || code === 0x09;
+}
+
 function readBearerToken(req: http.IncomingMessage): string {
   const h = String(req.headers.authorization || "").trim();
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? String(m[1] || "").trim() : "";
+  if (!h) return "";
+
+  const prefix = "bearer";
+  if (h.length <= prefix.length) return "";
+  if (h.slice(0, prefix.length).toLowerCase() !== prefix) return "";
+
+  let i = prefix.length;
+  if (i >= h.length || !isHttpWhitespace(h.charCodeAt(i))) return "";
+  while (i < h.length && isHttpWhitespace(h.charCodeAt(i))) i++;
+  return h.slice(i).trim();
 }
 
 function isSafeEnvVarName(value: string): boolean {
