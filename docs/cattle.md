@@ -9,7 +9,10 @@ This is separate from “Pet” hosts (long-running fleet servers).
 - Hetzner-only.
 - Tailnet-first: no public SSH by default.
 - TTL everywhere: every cattle instance has an expiry.
-- No secrets in Nix store: inject at runtime (cloud-init / tmpfs).
+- No secrets in Nix store.
+- No provider secrets in Hetzner `user_data`:
+  - cattle `user_data` contains only tailnet bootstrap + a one-time bootstrap token (short-lived).
+  - runtime env (LLM keys, optional `GITHUB_TOKEN`) is fetched over tailnet from `clf-orchestrator`.
 
 ## Config
 
@@ -39,9 +42,14 @@ Notes
 
 ## Prereqs (operator)
 
+- Run these commands on the **Pet host** (or in an SSH session on the Pet host).
+  - `clawdlets cattle *` talks to `clf-orchestrator` via Unix socket (`/run/clf/orchestrator.sock`).
+- `clf-orchestrator` deployed + running:
+  - `systemctl status clf-orchestrator`
+  - `systemctl status clf-orchestrator.socket`
+- Socket access:
+  - operator user is in group `clf-bots` (or run as root).
 - Tailscale installed + authenticated (used for SSH/logs): `tailscale status`
-- Hetzner token set in `.clawdlets/env`: `HCLOUD_TOKEN=...`
-- Age key available for decrypting host secrets (see `clawdlets secrets verify`)
 
 ## Prereqs (project repo)
 
@@ -51,6 +59,7 @@ Notes
     - Recommended: tag-scoped + short-lived/ephemeral preauth key; rotate regularly (it’s a tailnet-join capability).
     - Threat model: Hetzner `user_data` must be assumed readable by Hetzner project/API access; this key + the one-time bootstrap token live there briefly.
   - provider keys for the chosen model (`fleet.envSecrets` -> secret files under `secrets/hosts/<host>/`)
+    - These are consumed by `clf-orchestrator` (cattle fetches them at runtime; not embedded in `user_data`).
 
 Build + upload (Linux/CI recommended)
 - build from the project repo flake:
@@ -77,12 +86,18 @@ clawdlets identity add --name rex
 clawdlets identity list
 
 clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h
+clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h --with-github-token
+clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h --dry-run
 clawdlets cattle list
 clawdlets cattle logs <name-or-id> --follow
 clawdlets cattle ssh <name-or-id>
 clawdlets cattle destroy <name-or-id>
 clawdlets cattle reap --dry-run
 ```
+
+Notes
+- `clawdlets cattle spawn` enqueues a `cattle.spawn` job into `clf-orchestrator` (it does not talk to Hetzner directly).
+- Bots should use `clf jobs ...` directly; see `docs/orchestrator.md`.
 
 ## Access model (recommended)
 
@@ -101,6 +116,9 @@ Optional breakglass (not default): allow temporary public SSH from `adminCidr` (
 The cattle VM reads `task.json` and runs the configured task once, then exits.
 
 Treat `task.json` as non-secret input. Secrets come from sops-managed files in `secrets/` and are injected at runtime.
+
+Notes
+- `callbackUrl` is forced to `""` on enqueue (callbacks disabled until allowlist design).
 
 ## Identity registry
 
@@ -136,7 +154,7 @@ Notes
 ## Failure modes / debug
 
 Common errors
-- `cloud-init user_data too large`: reduce identity/task payload (or move to orchestrator in a later phase).
+- `cloud-init user_data too large`: reduce identity/task payload (user_data still carries task+identity + bootstrap bits; keep it small).
 - `missing envSecrets mapping for <ENV>`: set `fleet.envSecrets.<ENV>=<secretName>` and create that secret file.
 - `tailscale ip returned empty output`: the VM didn’t join tailnet (check `tailscale_auth_key`, then use Hetzner console for boot logs).
 

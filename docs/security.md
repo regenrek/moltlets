@@ -22,6 +22,8 @@
 - `/var/lib/sops-nix/key.txt`: host age key
 - `/var/lib/clawdlets/secrets/hosts/<host>/`: encrypted secrets files (sops)
 - `/run/secrets/**`: decrypted materialized secrets at runtime (owned by service users)
+- `/run/clf/orchestrator.sock`: bot-facing control-plane socket (group `clf-bots`)
+- `/var/lib/clf/orchestrator/state.sqlite`: orchestrator DB (job payloads/results + token hashes; should be `0600`/`0700` scoped)
 
 **Hetzner Cloud user_data (cattle)**
 - Cattle uses cloud-init `user_data` to bootstrap:
@@ -43,6 +45,7 @@ Therefore:
 
 - Confirm Hetzner firewall no longer allows TCP/22 from the internet after lockdown.
 - Confirm NixOS firewall only allows SSH via `tailscale0` when `sshExposure.mode=tailnet`.
+- Confirm `clf-orchestrator` socket + state dir perms are tight (`/run/clf`, `/var/lib/clf/orchestrator`).
 - Keep `.clawdlets/` gitignored (required).
 - If `tailnet.mode=tailscale`, the Hetzner firewall allows inbound UDP/41641 for direct Tailscale connectivity. This is expected; disable Tailscale (tailnet.mode=none) or remove the rule if you need DERP-only.
 
