@@ -165,11 +165,11 @@ const projectInit = defineCommand({
       }
     }
 
-    let enableGarnixPrivate = true;
+    let enableGarnixPrivate = false;
     if (interactive) {
       const v = await p.confirm({
-        message: "Enable private Garnix cache? (recommended; requires garnix_netrc secret)",
-        initialValue: true,
+        message: "Enable private Garnix cache? (optional; requires garnix_netrc secret)",
+        initialValue: false,
       });
       if (p.isCancel(v)) {
         const nav = await navOnCancel({ flow: "project init", canBack: false });
