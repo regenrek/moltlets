@@ -1,7 +1,7 @@
 { config, lib, defs }:
 
 let
-  inherit (defs) cfg mkChannels getBotProfile resolveBotWorkspace botGatewayPort;
+  inherit (defs) cfg getBotProfile resolveBotWorkspace botGatewayPort;
 
   mkSkillEntries = b:
     let
@@ -43,7 +43,6 @@ let
 
   mkBotConfig = b:
     let
-      route = cfg.routing.${b};
       profile = getBotProfile b;
       workspace = resolveBotWorkspace b;
       skipBootstrap =
@@ -54,21 +53,6 @@ let
         if cfg.agentModels != {}
         then cfg.agentModels
         else lib.optionalAttrs (modelPrimary != null) { "${modelPrimary}" = {}; };
-      discordBase = {
-        enabled = true;
-        token = config.sops.placeholder."discord_token_${b}";
-        dm = {
-          enabled = cfg.discord.dm.enabled;
-          policy = cfg.discord.dm.policy;
-        };
-        guilds = {
-          "${cfg.guildId}" = {
-            requireMention = route.requireMention;
-            channels = mkChannels route.channels route.requireMention;
-          };
-        };
-      };
-      discordConfig = discordBase;
       hooksTokenSecret = profile.hooks.tokenSecret or null;
       hooksGmailPushTokenSecret = profile.hooks.gmailPushTokenSecret or null;
       hooksEnabled = profile.hooks.enabled or null;
@@ -76,49 +60,48 @@ let
         lib.optionalAttrs (hooksEnabled != null) { enabled = hooksEnabled; }
         // lib.optionalAttrs (hooksTokenSecret != null) { token = config.sops.placeholder.${hooksTokenSecret}; }
         // lib.optionalAttrs (hooksGmailPushTokenSecret != null) { gmail.pushToken = config.sops.placeholder.${hooksGmailPushTokenSecret}; };
-      identityList =
-        if cfg.identity != null
-        then [
-          {
-            id = "main";
-            default = true;
-            identity = cfg.identity;
-          }
-        ]
-        else [];
+      seedDir = profile.workspace.seedDir or cfg.documentsDir or null;
+      includeCfg =
+        if seedDir != null && builtins.pathExists (seedDir + "/bots/${b}/clawdbot.json5")
+        then { "$include" = "/etc/clawdlets/bots/${b}/clawdbot.json5"; }
+        else { };
       gatewayPort =
         if (profile.gatewayPort or null) != null
         then profile.gatewayPort
         else botGatewayPort b;
-    in
-      lib.recursiveUpdate
-        ({
-          discord = discordConfig;
-          gateway = {
-            mode = "local";
-            bind = "loopback";
-            port = gatewayPort;
-          };
-          messages = {
-            queue = {
-              mode = cfg.routingQueue.mode;
-              byProvider = cfg.routingQueue.byProvider;
-            };
-          };
+      userCfg = lib.recursiveUpdate includeCfg (profile.passthrough or { });
+      baseCfg = (
+        {
           agents = {
-            defaults = {
-              workspace = workspace;
-              skipBootstrap = skipBootstrap;
-            }
+            defaults = { }
             // lib.optionalAttrs (modelPrimary != null) { model.primary = modelPrimary; }
             // lib.optionalAttrs (modelEntries != {}) { models = modelEntries; };
-          }
-          // lib.optionalAttrs (identityList != []) { list = identityList; };
+          };
         }
         // lib.optionalAttrs (hooksConfig != {}) { hooks = hooksConfig; }
         // lib.optionalAttrs ((mkSkillsConfig b) != {}) { skills = mkSkillsConfig b; }
-        )
-        (profile.passthrough or {});
+      );
+      invariants = {
+        gateway = {
+          mode = "local";
+          bind = "loopback";
+          port = gatewayPort;
+          auth = {
+            mode = "token";
+            token = "\${CLAWDBOT_GATEWAY_TOKEN}";
+          };
+        };
+        agents = {
+          defaults = {
+            workspace = workspace;
+            skipBootstrap = skipBootstrap;
+          };
+        };
+      };
+    in
+      lib.recursiveUpdate
+        (lib.recursiveUpdate baseCfg userCfg)
+        invariants;
 in
 {
   inherit mkSkillEntries mkSkillsConfig mkBotConfig;

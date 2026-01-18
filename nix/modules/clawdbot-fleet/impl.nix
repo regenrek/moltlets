@@ -8,6 +8,34 @@ let
   github = import ./impl/github.nix { inherit config lib pkgs defs; };
 
   cfg = defs.cfg;
+
+  mkEtcTree =
+    { srcDir, destPrefix }:
+    let
+      entries = builtins.readDir srcDir;
+      mkOne = name: type:
+        if type == "directory" then mkEtcTree { srcDir = srcDir + "/${name}"; destPrefix = "${destPrefix}/${name}"; }
+        else if type == "regular" then {
+          "${destPrefix}/${name}" = {
+            source = srcDir + "/${name}";
+            mode = "0444";
+          };
+        }
+        else { };
+    in
+      lib.mkMerge (lib.mapAttrsToList mkOne entries);
+
+  mkBotEtc = b:
+    if cfg.documentsDir == null
+    then { }
+    else
+      let
+        srcDir = cfg.documentsDir + "/bots/${b}";
+        cfgFile = srcDir + "/clawdbot.json5";
+      in
+        if builtins.pathExists cfgFile
+        then mkEtcTree { srcDir = srcDir; destPrefix = "clawdlets/bots/${b}"; }
+        else { };
 in
 {
   config = lib.mkIf cfg.enable {
@@ -19,14 +47,6 @@ in
       {
         assertion = builtins.isList defs.knownBundledSkills && lib.all builtins.isString defs.knownBundledSkills;
         message = "fleet/bundled-skills.json must be a JSON list of strings.";
-      }
-      {
-        assertion = cfg.guildId != "";
-        message = "services.clawdbotFleet.guildId must be set.";
-      }
-      {
-        assertion = lib.all (b: lib.hasAttr b cfg.routing) cfg.bots;
-        message = "services.clawdbotFleet.routing must define every bot in services.clawdbotFleet.bots.";
       }
       {
         assertion = lib.all (b: lib.elem b cfg.bots) (builtins.attrNames cfg.botProfiles);
@@ -102,7 +122,6 @@ in
     ];
 
     sops.secrets = lib.mkMerge [
-      runtime.perBotSecrets
       runtime.perBotSkillSecrets
       (lib.optionalAttrs (cfg.backups.restic.enable && cfg.backups.restic.passwordSecret != "") {
         "${cfg.backups.restic.passwordSecret}" = defs.mkSopsSecretFor cfg.backups.restic.passwordSecret;
@@ -122,6 +141,8 @@ in
       ++ lib.optionals cfg.opsSnapshot.enable [
         "d ${cfg.opsSnapshot.outDir} 0750 root root - -"
       ];
+
+    environment.etc = lib.mkMerge (map mkBotEtc cfg.bots);
 
     environment.etc."clawdlets/tools.md" = {
       source = defs.toolsInventoryMd;

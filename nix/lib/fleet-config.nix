@@ -3,8 +3,16 @@ let
   cfg = project.config;
   fleetCfg = (cfg.fleet or { });
 
-  # Single source of truth for bot instances.
-  bots = fleetCfg.bots or [ "maren" "sonja" "gunnar" "melinda" ];
+  botsById = fleetCfg.bots or { };
+
+  # Single source of truth for bot instances (deterministic order).
+  bots =
+    let
+      order = fleetCfg.botOrder or [ ];
+    in
+      if builtins.isList order && order != [] then order
+      else if builtins.isAttrs botsById then builtins.attrNames botsById
+      else [ "maren" "sonja" "gunnar" "melinda" ];
 
   baseBot = {
     envSecrets = fleetCfg.envSecrets or { };
@@ -17,27 +25,19 @@ let
     passthrough = { };
   };
 
-  mkBot = overrides: lib.recursiveUpdate baseBot overrides;
-
-  botOverrides = fleetCfg.botOverrides or { };
-
-  mkBotProfile = b: mkBot (botOverrides.${b} or { });
-
-  defaultRouting = {
-    channels = [ ];
-    requireMention = true;
-  };
-
-  routingOverrides = fleetCfg.routingOverrides or { };
+  mkBotProfile = b:
+    let
+      botCfg = botsById.${b} or { };
+      profile = botCfg.profile or { };
+      clawdbot = botCfg.clawdbot or { };
+      merged = lib.recursiveUpdate baseBot profile;
+    in
+      merged // { passthrough = lib.recursiveUpdate (merged.passthrough or { }) clawdbot; };
 in {
   inherit bots;
 
-  # set this to your Discord guild/server id
-  guildId = fleetCfg.guildId or "";
-
   # Workspace seed root (common + per-bot overlay). See fleet/workspaces/.
   documentsDir = project.root + "/fleet/workspaces";
-  identity = null;
 
   codex = {
     enable = (fleetCfg.codex or { }).enable or false;
@@ -54,8 +54,4 @@ in {
       environmentSecret = null;
     };
   };
-
-  routing = lib.recursiveUpdate
-    (lib.genAttrs bots (_: defaultRouting))
-    routingOverrides;
 }

@@ -49,12 +49,6 @@ in {
       description = "Bot instance names (also used for system users).";
     };
 
-    guildId = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = "Discord guild ID for routing.";
-    };
-
     gatewayPortBase = lib.mkOption {
       type = lib.types.int;
       default = 18789;
@@ -63,40 +57,8 @@ in {
 
     gatewayPortStride = lib.mkOption {
       type = lib.types.int;
-      default = 10;
+      default = 20;
       description = "Port stride per bot (port = base + bot index * stride).";
-    };
-
-    routing = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.submodule {
-        options = {
-          channels = lib.mkOption {
-            type = lib.types.listOf lib.types.str;
-            default = [];
-            description = "Allowed Discord channels for this bot (slugged names).";
-          };
-          requireMention = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Require mention in allowed channels.";
-          };
-        };
-      });
-      default = {};
-      description = "Per-bot routing rules.";
-    };
-
-    routingQueue = {
-      mode = lib.mkOption {
-        type = lib.types.enum [ "queue" "interrupt" ];
-        default = "interrupt";
-        description = "Queue mode when a run is active.";
-      };
-      byProvider = lib.mkOption {
-        type = lib.types.attrs;
-        default = { discord = "queue"; };
-        description = "Per-provider queue mode overrides.";
-      };
     };
 
     githubSync = {
@@ -176,27 +138,6 @@ in {
         - seeds empty workspaces (common then bot overlay)
         - syncs a managed allowlist (AGENTS.md, SOUL.md, IDENTITY.md, TOOLS.md, USER.md, HEARTBEAT.md) into the workspace
       '';
-    };
-
-    identity = lib.mkOption {
-      type = lib.types.nullOr lib.types.attrs;
-      default = null;
-      description = "Default agent identity injected into agents.list (name/emoji/etc).";
-    };
-
-    discord = {
-      dm = {
-        enabled = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Enable Discord DMs.";
-        };
-        policy = lib.mkOption {
-          type = lib.types.enum [ "pairing" "allowlist" "open" "disabled" ];
-          default = "disabled";
-          description = "Discord DM policy.";
-        };
-      };
     };
 
     disableBonjour = lib.mkOption {

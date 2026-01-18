@@ -168,12 +168,9 @@ in {
   services.clawdbotFleet = {
     enable = hostCfg.enable or false;
     bots = fleet.bots;
-    guildId = fleet.guildId;
-    routing = fleet.routing;
     botProfiles = fleet.botProfiles;
     backups = fleet.backups;
     documentsDir = fleet.documentsDir;
-    identity = fleet.identity;
     codex = fleet.codex;
     opsSnapshot.enable = true;
     disableBonjour = true;

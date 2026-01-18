@@ -10,12 +10,6 @@ let
 
   inherit (botConfig) mkBotConfig;
 
-  mkBotSecret = b: {
-    "discord_token_${b}" = {
-      inherit (mkSopsSecretFor "discord_token_${b}") owner group mode sopsFile;
-    };
-  };
-
   mkBotSkillSecrets = b:
     let
       profile = getBotProfile b;
@@ -229,7 +223,6 @@ let
         };
       };
 
-  perBotSecrets = lib.mkMerge (map mkBotSecret cfg.bots);
   perBotSkillSecrets = lib.mkMerge (map mkBotSkillSecrets cfg.bots);
   perBotTemplates = lib.mkMerge (map mkTemplate cfg.bots);
   perBotEnvTemplates = lib.mkMerge (map mkEnvTemplate cfg.bots);
@@ -240,7 +233,6 @@ in
     mkBotGroup
     mkStateDir
     mkService
-    perBotSecrets
     perBotSkillSecrets
     perBotTemplates
     perBotEnvTemplates;

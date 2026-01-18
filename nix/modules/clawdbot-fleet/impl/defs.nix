@@ -20,15 +20,6 @@ let
     then cfg.backups.restic.paths
     else [ cfg.stateDirBase ] ++ lib.optional cfg.opsSnapshot.enable cfg.opsSnapshot.outDir;
 
-  mkChannels = channels: requireMention:
-    lib.listToAttrs (map (ch: {
-      name = ch;
-      value = {
-        allow = true;
-        requireMention = requireMention;
-      };
-    }) channels);
-
   getBotProfile = b: cfg.botProfiles.${b} or {
     skipBootstrap = null;
     workspace = { dir = null; seedDir = null; };
@@ -135,7 +126,6 @@ in
     resolvedSopsDir
     mkSopsSecretFor
     resticPaths
-    mkChannels
     getBotProfile
     resolveBotWorkspace
     resolveBotCredsDir
