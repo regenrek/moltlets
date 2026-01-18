@@ -97,11 +97,11 @@ export const bootstrap = defineCommand({
 	      throw new Error(`missing hetzner.image for ${hostName} (set via: clawdlets host set --hetzner-image <image_id>)`);
 	    }
 
-	    const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
-	    if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+	    const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
+	    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
 
-	    const sshPubkeyFileRaw = String(hostCfg.opentofu.sshPubkeyFile || "").trim();
-	    if (!sshPubkeyFileRaw) throw new Error(`missing opentofu.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+	    const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
+	    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
 	    const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
 	    const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded) ? sshPubkeyFileExpanded : path.resolve(repoRoot, sshPubkeyFileExpanded);
 	    if (!fs.existsSync(sshPubkeyFile)) throw new Error(`ssh pubkey file not found: ${sshPubkeyFile}`);
@@ -111,7 +111,7 @@ export const bootstrap = defineCommand({
 	    }
 
 	    await applyOpenTofuVars({
-	      repoRoot,
+	      opentofuDir,
 	      vars: {
 	        hcloudToken,
 	        adminCidr,
@@ -217,8 +217,7 @@ export const bootstrap = defineCommand({
 	      throw new Error(`missing extra-files key: ${requiredKey} (run: clawdlets secrets init)`);
 	    }
 
-    const fleetPath = path.join(repoRoot, "infra", "configs", "fleet.nix");
-    const bots = (await evalFleetConfig({ repoRoot, fleetFilePath: fleetPath, nixBin })).bots;
+    const bots = (await evalFleetConfig({ repoRoot, nixBin })).bots;
 
     const requiredSecrets = [
       ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),

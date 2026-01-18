@@ -8,7 +8,7 @@ import { isValidTargetHost } from "./ssh-remote.js";
 import { TtlStringSchema } from "./ttl.js";
 import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "./hcloud-labels.js";
 
-export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 6 as const;
+export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 7 as const;
 
 export const SSH_EXPOSURE_MODES = ["tailnet", "bootstrap", "public"] as const;
 export const SshExposureModeSchema = z.enum(SSH_EXPOSURE_MODES);
@@ -109,7 +109,7 @@ const HostSchema = z.object({
       location: z.string().trim().default("nbg1"),
     })
     .default({ serverType: "cx43", image: "", location: "nbg1" }),
-  opentofu: z
+  provisioning: z
     .object({
       adminCidr: z.string().trim().default(""),
       sshPubkeyFile: z.string().trim().default("~/.ssh/id_ed25519.pub"),
@@ -336,7 +336,7 @@ export function createDefaultClawdletsConfig(params: { host: string; bots?: stri
         sshKnownHosts: [],
         flakeHost: "",
         hetzner: { serverType: "cx43", image: "", location: "nbg1" },
-        opentofu: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+        provisioning: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
         sshExposure: { mode: "tailnet" },
         tailnet: { mode: "tailscale" },
         cache: {
@@ -366,8 +366,8 @@ function assertNoLegacyHostKeys(parsed: unknown): void {
     if ("publicSsh" in hostCfg) {
       throw new Error(`legacy host config key publicSsh found for ${host}; use sshExposure.mode`);
     }
-    if ("provisioning" in hostCfg) {
-      throw new Error(`legacy host config key provisioning found for ${host}; use sshExposure.mode`);
+    if ("opentofu" in hostCfg) {
+      throw new Error(`legacy host config key opentofu found for ${host}; use provisioning`);
     }
   }
 }

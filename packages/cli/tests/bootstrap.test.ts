@@ -75,7 +75,7 @@ const baseHost = {
   sshAuthorizedKeys: [],
   flakeHost: "",
   hetzner: { serverType: "cx43" },
-  opentofu: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+  provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
   sshExposure: { mode: "bootstrap" },
   tailnet: { mode: "tailscale" },
   agentModelPrimary: "zai/glm-4.7",
@@ -86,7 +86,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawdlets.json",
     config: {
-      schemaVersion: 6,
+      schemaVersion: 7,
       fleet: {},
       hosts: {
         [hostName]: { ...baseHost, ...hostOverrides },

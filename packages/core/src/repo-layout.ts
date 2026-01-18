@@ -14,18 +14,14 @@ export type RepoLayout = {
   cattleDir: string;
   cattleDbPath: string;
 
-  infraDir: string;
+  // Local infra state (gitignored). Defaults to <runtimeDir>/infra.
+  runtimeInfraDir: string;
   opentofuDir: string;
 
   // Fleet (app layer): bot roster, routing, skills, workspace docs.
   fleetDir: string;
   clawdletsConfigPath: string;
-  fleetConfigPath: string;
   bundledSkillsPath: string;
-
-  nixDir: string;
-  nixHostsDir: string;
-  nixHostModulePath: string;
 
   // Canonical secrets dir (committed; encrypted-at-rest via sops).
   secretsDir: string;
@@ -45,15 +41,11 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
   const envFilePath = path.join(resolvedRuntimeDir, "env");
   const cattleDir = path.join(resolvedRuntimeDir, "cattle");
   const cattleDbPath = path.join(cattleDir, "state.sqlite");
-  const infraDir = path.join(repoRoot, "infra");
-  const opentofuDir = path.join(infraDir, "opentofu");
+  const runtimeInfraDir = path.join(resolvedRuntimeDir, "infra");
+  const opentofuDir = path.join(runtimeInfraDir, "opentofu");
   const fleetDir = path.join(repoRoot, "fleet");
   const clawdletsConfigPath = path.join(fleetDir, "clawdlets.json");
-  const fleetConfigPath = path.join(infraDir, "configs", "fleet.nix");
   const bundledSkillsPath = path.join(fleetDir, "bundled-skills.json");
-  const nixDir = path.join(infraDir, "nix");
-  const nixHostsDir = path.join(nixDir, "hosts");
-  const nixHostModulePath = path.join(nixHostsDir, "clawdlets-host.nix");
   const secretsDir = path.join(repoRoot, "secrets");
   const secretsHostsDir = path.join(secretsDir, "hosts");
   const extraFilesDir = path.join(resolvedRuntimeDir, "extra-files");
@@ -69,15 +61,11 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
     envFilePath,
     cattleDir,
     cattleDbPath,
-    infraDir,
+    runtimeInfraDir,
     opentofuDir,
     fleetDir,
     clawdletsConfigPath,
-    fleetConfigPath,
     bundledSkillsPath,
-    nixDir,
-    nixHostsDir,
-    nixHostModulePath,
     secretsDir,
     secretsHostsDir,
     secretsKeysDir,
@@ -87,11 +75,6 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
     localKeysDir,
     localOperatorKeysDir,
   };
-}
-
-export function getHostNixPath(layout: RepoLayout, host: string): string {
-  void host;
-  return layout.nixHostModulePath;
 }
 
 export function getHostSecretsDir(layout: RepoLayout, host: string): string {

@@ -1,9 +1,28 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { ensureHcloudSshKeyId } from "./hcloud.js";
 import type { SshExposureMode, TailnetMode } from "./clawdlets-config.js";
 import { run } from "./run.js";
 import { withFlakesEnv } from "./nix-flakes.js";
+
+function resolveBundledOpenTofuDir(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(here, "..", "assets", "opentofu");
+}
+
+function ensureOpenTofuWorkDir(opentofuDir: string): void {
+  const srcDir = resolveBundledOpenTofuDir();
+  if (!fs.existsSync(srcDir)) throw new Error(`missing bundled OpenTofu module dir: ${srcDir}`);
+
+  fs.mkdirSync(opentofuDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const e of entries) {
+    const src = path.join(srcDir, e.name);
+    const dest = path.join(opentofuDir, e.name);
+    fs.cpSync(src, dest, { recursive: true });
+  }
+}
 
 export type OpenTofuApplyVars = {
   hcloudToken: string;
@@ -17,14 +36,14 @@ export type OpenTofuApplyVars = {
 };
 
 export async function applyOpenTofuVars(params: {
-  repoRoot: string;
+  opentofuDir: string;
   vars: OpenTofuApplyVars;
   nixBin?: string;
   dryRun?: boolean;
   redact?: string[];
 }): Promise<void> {
-  const repoRoot = params.repoRoot;
-  const opentofuDir = path.join(repoRoot, "infra", "opentofu");
+  const opentofuDir = params.opentofuDir;
+  ensureOpenTofuWorkDir(opentofuDir);
 
   const resolvedServerType = params.vars.serverType?.trim() || "";
   const resolvedImage = params.vars.image?.trim() || "";
@@ -95,14 +114,14 @@ export async function applyOpenTofuVars(params: {
 }
 
 export async function destroyOpenTofuVars(params: {
-  repoRoot: string;
+  opentofuDir: string;
   vars: OpenTofuApplyVars;
   nixBin?: string;
   dryRun?: boolean;
   redact?: string[];
 }): Promise<void> {
-  const repoRoot = params.repoRoot;
-  const opentofuDir = path.join(repoRoot, "infra", "opentofu");
+  const opentofuDir = params.opentofuDir;
+  ensureOpenTofuWorkDir(opentofuDir);
 
   const resolvedServerType = params.vars.serverType?.trim() || "";
   const resolvedImage = params.vars.image?.trim() || "";

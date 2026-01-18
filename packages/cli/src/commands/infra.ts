@@ -37,11 +37,11 @@ const infraApply = defineCommand({
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
     if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
-    const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
-    if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+    const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
+    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
 
-    const sshPubkeyFileRaw = String(hostCfg.opentofu.sshPubkeyFile || "").trim();
-    if (!sshPubkeyFileRaw) throw new Error(`missing opentofu.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+    const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
+    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
     const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
     const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded)
       ? sshPubkeyFileExpanded
@@ -51,7 +51,7 @@ const infraApply = defineCommand({
     const location = String(hostCfg.hetzner.location || "").trim();
 
     await applyOpenTofuVars({
-      repoRoot: layout.repoRoot,
+      opentofuDir: layout.opentofuDir,
       vars: {
         hcloudToken,
         adminCidr,
@@ -67,7 +67,7 @@ const infraApply = defineCommand({
       redact: [hcloudToken, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
     });
 
-    console.log(`ok: opentofu applied for ${hostName}`);
+    console.log(`ok: provisioning applied for ${hostName}`);
     console.log(`hint: outputs in ${layout.opentofuDir}`);
   },
 });
@@ -100,11 +100,11 @@ const infraDestroy = defineCommand({
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
     if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
-    const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
-    if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+    const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
+    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
 
-    const sshPubkeyFileRaw = String(hostCfg.opentofu.sshPubkeyFile || "").trim();
-    if (!sshPubkeyFileRaw) throw new Error(`missing opentofu.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+    const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
+    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
     const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
     const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded)
       ? sshPubkeyFileExpanded
@@ -129,7 +129,7 @@ const infraDestroy = defineCommand({
     }
 
     await destroyOpenTofuVars({
-      repoRoot: layout.repoRoot,
+      opentofuDir: layout.opentofuDir,
       vars: {
         hcloudToken,
         adminCidr,
@@ -145,7 +145,7 @@ const infraDestroy = defineCommand({
       redact: [hcloudToken, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
     });
 
-    console.log(`ok: opentofu destroyed for ${hostName}`);
+    console.log(`ok: provisioning destroyed for ${hostName}`);
     console.log(`hint: state in ${layout.opentofuDir}`);
   },
 });

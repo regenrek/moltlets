@@ -69,7 +69,7 @@ const baseHost = {
   flakeHost: "",
   targetHost: "admin@100.64.0.10",
   hetzner: { serverType: "cx43" },
-  opentofu: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+  provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
   sshExposure: { mode: "tailnet" },
   tailnet: { mode: "tailscale" },
   operator: { deploy: { enable: true } },
@@ -81,7 +81,7 @@ function setConfig() {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawdlets.json",
     config: {
-      schemaVersion: 6,
+      schemaVersion: 7,
       defaultHost: hostName,
       fleet: { bots: ["maren"] },
       hosts: {
@@ -109,14 +109,14 @@ describe("lockdown command", () => {
       layout: getRepoLayout("/repo"),
       configPath: "/repo/fleet/clawdlets.json",
       config: {
-        schemaVersion: 6,
+        schemaVersion: 7,
         defaultHost: hostName,
         fleet: { bots: ["maren"] },
         hosts: {
           [hostName]: {
             ...baseHost,
-            opentofu: {
-              ...baseHost.opentofu,
+            provisioning: {
+              ...baseHost.provisioning,
               sshPubkeyFile: keyPath,
             },
           },

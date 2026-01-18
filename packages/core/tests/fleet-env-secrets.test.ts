@@ -6,7 +6,7 @@ describe("fleet envSecrets plan", () => {
     const { buildFleetEnvSecretsPlan } = await import("../src/lib/fleet-env-secrets");
 
     const cfg = ClawdletsConfigSchema.parse({
-      schemaVersion: 6,
+      schemaVersion: 7,
       fleet: {
         bots: ["maren"],
         envSecrets: {
@@ -31,7 +31,7 @@ describe("fleet envSecrets plan", () => {
     const { buildFleetEnvSecretsPlan } = await import("../src/lib/fleet-env-secrets");
 
     const cfg = ClawdletsConfigSchema.parse({
-      schemaVersion: 6,
+      schemaVersion: 7,
       fleet: {
         bots: ["maren"],
         envSecrets: {
@@ -53,7 +53,7 @@ describe("fleet envSecrets plan", () => {
     const { buildFleetEnvSecretsPlan } = await import("../src/lib/fleet-env-secrets");
 
     const cfg = ClawdletsConfigSchema.parse({
-      schemaVersion: 6,
+      schemaVersion: 7,
       fleet: {
         bots: ["alpha", "beta"],
         envSecrets: {

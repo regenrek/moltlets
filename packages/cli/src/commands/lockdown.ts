@@ -19,7 +19,7 @@ export const lockdown = defineCommand({
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    skipTofu: { type: "boolean", description: "Skip opentofu apply.", default: false },
+    skipTofu: { type: "boolean", description: "Skip provisioning apply.", default: false },
     dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
   },
   async run({ args }) {
@@ -54,11 +54,11 @@ export const lockdown = defineCommand({
     if (!args.skipTofu) {
       if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
-      const adminCidr = String(hostCfg.opentofu.adminCidr || "").trim();
-      if (!adminCidr) throw new Error(`missing opentofu.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+      const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
+      if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
 
-    const sshPubkeyFileRaw = String(hostCfg.opentofu.sshPubkeyFile || "").trim();
-    if (!sshPubkeyFileRaw) throw new Error(`missing opentofu.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+    const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
+    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
     const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
     const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded)
       ? sshPubkeyFileExpanded
@@ -67,7 +67,7 @@ export const lockdown = defineCommand({
     const image = String(hostCfg.hetzner.image || "").trim();
     const location = String(hostCfg.hetzner.location || "").trim();
       await applyOpenTofuVars({
-        repoRoot: layout.repoRoot,
+        opentofuDir: layout.opentofuDir,
         vars: {
         hcloudToken,
         adminCidr,
