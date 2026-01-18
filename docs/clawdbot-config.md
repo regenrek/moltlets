@@ -14,7 +14,7 @@ Large/file-based (recommended when it grows):
 
 If the JSON5 file exists, clawdlets-template:
 
-- installs `fleet/workspaces/bots/<bot>/` to `/etc/clawdlets/bots/<bot>/`
+- installs **only** `fleet/workspaces/bots/<bot>/clawdbot.json5` to `/etc/clawdlets/bots/<bot>/clawdbot.json5`
 - injects `"$include": "/etc/clawdlets/bots/<bot>/clawdbot.json5"` into the rendered config
 
 ## Merge order
@@ -28,7 +28,10 @@ If the JSON5 file exists, clawdlets-template:
 
 ## Secrets
 
-Never commit plaintext tokens into clawdbot.json5.
+Never commit plaintext tokens into clawdbot.json5 (or any `$include` it references).
+
+Files under `documentsDir` are copied into the Nix store during deploy. Treat them as public:
+do **not** place secrets in `fleet/workspaces/**` or `$include` trees. Use env vars + SOPS instead.
 
 Use env var substitution and map env vars → sops secrets:
 
@@ -57,13 +60,3 @@ Recommended channel env var names:
 - Discord: `DISCORD_BOT_TOKEN`
 - Telegram: `TELEGRAM_BOT_TOKEN`
 - Slack: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`
-
-## Migration
-
-Old v6 configs:
-
-```bash
-clawdlets config migrate-v6-to-v7
-```
-
-This is one-shot and writes a `*.bak` backup next to your config.

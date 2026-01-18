@@ -88,6 +88,9 @@ Fleet config points Nix at the workspace seed root:
 documentsDir = ./workspaces;
 ```
 
+Anything under `documentsDir` is copied into the Nix store. Treat it as public:
+do **not** place secrets in `fleet/workspaces/**` or any `$include` files.
+
 On every bot service start:
 
 - if workspace empty: seed common then bot overlay

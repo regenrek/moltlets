@@ -14,6 +14,29 @@ function readStringRecord(v: unknown): Record<string, string> {
   return out;
 }
 
+const ENV_VAR_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
+
+function extractEnvVarsFromString(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  const out: string[] = [];
+  for (const match of value.matchAll(ENV_VAR_PATTERN)) {
+    const name = String(match[1] || "").trim();
+    if (name) out.push(name);
+  }
+  return out;
+}
+
+function collectRequiredEnvVarsFromClawdbot(clawdbot: any): string[] {
+  const required = new Set<string>();
+  const discord = clawdbot?.channels?.discord;
+  if (discord && typeof discord === "object" && !Array.isArray(discord)) {
+    if (discord.enabled !== false) {
+      for (const envVar of extractEnvVarsFromString(discord.token)) required.add(envVar);
+    }
+  }
+  return Array.from(required);
+}
+
 function collectBotModels(params: { clawdbot: any; hostDefaultModel: string }): string[] {
   const models: string[] = [];
 
@@ -92,15 +115,27 @@ export function buildFleetEnvSecretsPlan(params: { config: ClawdletsConfig; host
     }
 
     const models = collectBotModels({ clawdbot: (botCfg as any)?.clawdbot || {}, hostDefaultModel: hostCfg.agentModelPrimary });
-    const requiredEnvVars = new Set<string>();
+    const modelEnvVars = new Set<string>();
     for (const model of models) {
-      for (const envVar of getModelRequiredEnvVars(model)) requiredEnvVars.add(envVar);
+      for (const envVar of getModelRequiredEnvVars(model)) modelEnvVars.add(envVar);
     }
+    const clawdbotEnvVars = new Set<string>(
+      collectRequiredEnvVarsFromClawdbot((botCfg as any)?.clawdbot || {}),
+    );
 
-    for (const envVar of Array.from(requiredEnvVars).sort()) {
+    for (const envVar of Array.from(modelEnvVars).sort()) {
       const secretName = botEnvSecrets[envVar];
       if (!secretName) {
         missingEnvSecretMappings.push({ bot, envVar, model: models[0] || String(hostCfg.agentModelPrimary || "").trim() });
+        continue;
+      }
+      secretNamesRequired.add(secretName);
+    }
+
+    for (const envVar of Array.from(clawdbotEnvVars).sort()) {
+      const secretName = botEnvSecrets[envVar];
+      if (!secretName) {
+        missingEnvSecretMappings.push({ bot, envVar, model: "clawdbot:discord" });
         continue;
       }
       secretNamesRequired.add(secretName);

@@ -12,7 +12,6 @@ import {
   loadClawdletsConfig,
   writeClawdletsConfig,
 } from "@clawdlets/core/lib/clawdlets-config";
-import { migrateClawdletsConfigV6ToV7 } from "@clawdlets/core/lib/clawdlets-config-migrate";
 
 function getAtPath(obj: any, parts: string[]): unknown {
   let cur: any = obj;
@@ -77,44 +76,6 @@ const init = defineCommand({
   },
 });
 
-const migrateV6ToV7 = defineCommand({
-  meta: { name: "migrate-v6-to-v7", description: "Migrate fleet/clawdlets.json schemaVersion 6 -> 7 (one-shot)." },
-  args: {
-    "dry-run": { type: "boolean", description: "Print migrated config without writing.", default: false },
-  },
-  async run({ args }) {
-    const repoRoot = findRepoRoot(process.cwd());
-    const configPath = getRepoLayout(repoRoot).clawdletsConfigPath;
-    if (!fs.existsSync(configPath)) throw new Error(`missing config: ${configPath}`);
-    const rawText = fs.readFileSync(configPath, "utf8");
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      throw new Error(`invalid JSON: ${configPath}`);
-    }
-
-    const schemaVersion = (parsed as any)?.schemaVersion;
-    if (schemaVersion === 7) {
-      console.log("ok: already schemaVersion=7");
-      return;
-    }
-    if (schemaVersion !== 6) throw new Error(`expected schemaVersion=6, got: ${schemaVersion}`);
-
-    const migrated = migrateClawdletsConfigV6ToV7(parsed);
-    const validated = ClawdletsConfigSchema.parse(migrated);
-
-    if ((args as any)["dry-run"]) {
-      console.log(JSON.stringify(validated, null, 2));
-      return;
-    }
-
-    const backupPath = `${configPath}.v6.${Date.now()}.bak`;
-    fs.writeFileSync(backupPath, rawText, { mode: 0o600 });
-    await writeClawdletsConfig({ configPath, config: validated });
-    console.log(`ok: migrated to schemaVersion=7 (backup: ${path.relative(repoRoot, backupPath)})`);
-  },
-});
 
 const show = defineCommand({
   meta: { name: "show", description: "Print fleet/clawdlets.json." },
@@ -194,5 +155,5 @@ const set = defineCommand({
 
 export const config = defineCommand({
   meta: { name: "config", description: "Canonical config (fleet/clawdlets.json)." },
-  subCommands: { init, show, validate, get, set, "migrate-v6-to-v7": migrateV6ToV7 },
+  subCommands: { init, show, validate, get, set },
 });

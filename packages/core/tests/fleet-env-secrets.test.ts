@@ -77,4 +77,63 @@ describe("fleet envSecrets plan", () => {
     expect(plan.missingEnvSecretMappings).toEqual([]);
     expect(plan.secretNamesRequired).toEqual(["anthropic_api_key", "z_ai_api_key"]);
   });
+
+  it("requires discord token env var when enabled", async () => {
+    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { buildFleetEnvSecretsPlan } = await import("../src/lib/fleet-env-secrets");
+
+    const cfg = ClawdletsConfigSchema.parse({
+      schemaVersion: 7,
+      fleet: {
+        botOrder: ["maren"],
+        bots: {
+          maren: {
+            clawdbot: {
+              channels: { discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" } },
+            },
+          },
+        },
+        envSecrets: {
+          DISCORD_BOT_TOKEN: "discord_token_maren",
+          ZAI_API_KEY: "z_ai_api_key",
+          Z_AI_API_KEY: "z_ai_api_key",
+        },
+      },
+      hosts: {
+        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+      },
+    });
+
+    const plan = buildFleetEnvSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    expect(plan.secretNamesRequired).toContain("discord_token_maren");
+  });
+
+  it("flags missing discord token mapping when enabled", async () => {
+    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { buildFleetEnvSecretsPlan } = await import("../src/lib/fleet-env-secrets");
+
+    const cfg = ClawdletsConfigSchema.parse({
+      schemaVersion: 7,
+      fleet: {
+        botOrder: ["maren"],
+        bots: {
+          maren: {
+            clawdbot: {
+              channels: { discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" } },
+            },
+          },
+        },
+        envSecrets: {
+          ZAI_API_KEY: "z_ai_api_key",
+          Z_AI_API_KEY: "z_ai_api_key",
+        },
+      },
+      hosts: {
+        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+      },
+    });
+
+    const plan = buildFleetEnvSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    expect(plan.missingEnvSecretMappings.some((m) => m.bot === "maren" && m.envVar === "DISCORD_BOT_TOKEN")).toBe(true);
+  });
 });

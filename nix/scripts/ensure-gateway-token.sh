@@ -15,7 +15,8 @@ if [[ -z "${bot_user}" || -z "${bot_group}" ]]; then
 fi
 
 umask 077
-mkdir -p "$(dirname "${out_env_file}")"
+out_dir="$(dirname "${out_env_file}")"
+mkdir -p "${out_dir}"
 
 if [[ -f "${out_env_file}" ]]; then
   chmod 0400 "${out_env_file}"
@@ -23,14 +24,23 @@ if [[ -f "${out_env_file}" ]]; then
   exit 0
 fi
 
+tmp=""
+cleanup() {
+  if [[ -n "${tmp}" && -f "${tmp}" ]]; then
+    rm -f "${tmp}"
+  fi
+}
+trap cleanup EXIT
+
 token="$(openssl rand -hex 32)"
 if [[ -z "${token}" ]]; then
   echo "error: failed to generate token" >&2
   exit 1
 fi
 
-tmp="$(mktemp)"
+tmp="$(mktemp --tmpdir="${out_dir}" ".clawdlets-gateway-token.XXXXXX")"
 printf 'CLAWDBOT_GATEWAY_TOKEN=%s\n' "${token}" >"${tmp}"
 chown "${bot_user}:${bot_group}" "${tmp}"
 chmod 0400 "${tmp}"
 mv "${tmp}" "${out_env_file}"
+tmp=""

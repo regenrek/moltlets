@@ -22,31 +22,31 @@ const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.any());
 
 const FleetBotProfileSchema = z
   .object({
-    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default({}),
+    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({})),
   })
   .passthrough()
-  .default({ envSecrets: {} });
+  .default(() => ({}));
 
 const FleetBotSchema = z
   .object({
-    profile: FleetBotProfileSchema.default({ envSecrets: {} }),
-    clawdbot: JsonObjectSchema.default({}),
-    clf: JsonObjectSchema.default({}),
+    profile: FleetBotProfileSchema,
+    clawdbot: JsonObjectSchema.default(() => ({})),
+    clf: JsonObjectSchema.default(() => ({})),
   })
   .passthrough()
-  .default({});
+  .default(() => ({}));
 
 const FleetSchema = z
   .object({
-    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default({}),
-    botOrder: z.array(BotIdSchema).default([]),
-    bots: z.record(BotIdSchema, FleetBotSchema).default({}),
+    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({})),
+    botOrder: z.array(BotIdSchema).default(() => []),
+    bots: z.record(BotIdSchema, FleetBotSchema).default(() => ({})),
     codex: z
       .object({
         enable: z.boolean().default(false),
-        bots: z.array(BotIdSchema).default([]),
+        bots: z.array(BotIdSchema).default(() => []),
       })
-      .default({ enable: false, bots: [] }),
+      .default(() => ({ enable: false, bots: [] })),
     backups: z
       .object({
         restic: z
@@ -54,9 +54,9 @@ const FleetSchema = z
             enable: z.boolean().default(false),
             repository: z.string().trim().default(""),
           })
-          .default({ enable: false, repository: "" }),
+          .default(() => ({ enable: false, repository: "" })),
       })
-      .default({ restic: { enable: false, repository: "" } }),
+      .default(() => ({ restic: { enable: false, repository: "" } })),
   })
   .superRefine((fleet, ctx) => {
     const botIds = Object.keys(fleet.bots || {});
@@ -97,8 +97,8 @@ const FleetSchema = z
 const HostSchema = z.object({
   enable: z.boolean().default(false),
   diskDevice: z.string().trim().default("/dev/sda"),
-  sshAuthorizedKeys: z.array(z.string().trim().min(1)).default([]),
-  sshKnownHosts: z.array(z.string().trim().min(1)).default([]),
+  sshAuthorizedKeys: z.array(z.string().trim().min(1)).default(() => []),
+  sshKnownHosts: z.array(z.string().trim().min(1)).default(() => []),
   flakeHost: z.string().trim().default(""),
   targetHost: z
     .string()
@@ -114,23 +114,23 @@ const HostSchema = z.object({
       image: z.string().trim().default(""),
       location: z.string().trim().default("nbg1"),
     })
-    .default({ serverType: "cx43", image: "", location: "nbg1" }),
+    .default(() => ({ serverType: "cx43", image: "", location: "nbg1" })),
   provisioning: z
     .object({
       adminCidr: z.string().trim().default(""),
       sshPubkeyFile: z.string().trim().default("~/.ssh/id_ed25519.pub"),
     })
-    .default({ adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" }),
+    .default(() => ({ adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" })),
   sshExposure: z
     .object({
       mode: SshExposureModeSchema.default("tailnet"),
     })
-    .default({ mode: "tailnet" }),
+    .default(() => ({ mode: "tailnet" as const })),
   tailnet: z
     .object({
       mode: TailnetModeSchema.default("tailscale"),
     })
-    .default({ mode: "tailscale" }),
+    .default(() => ({ mode: "tailscale" as const })),
   cache: z
     .object({
       garnix: z
@@ -142,23 +142,23 @@ const HostSchema = z.object({
               netrcPath: z.string().trim().default("/etc/nix/netrc"),
               narinfoCachePositiveTtl: z.number().int().positive().default(3600),
             })
-            .default({
+            .default(() => ({
               enable: false,
               netrcSecret: "garnix_netrc",
               netrcPath: "/etc/nix/netrc",
               narinfoCachePositiveTtl: 3600,
-            }),
+            })),
         })
-        .default({
+        .default(() => ({
           private: {
             enable: false,
             netrcSecret: "garnix_netrc",
             netrcPath: "/etc/nix/netrc",
             narinfoCachePositiveTtl: 3600,
           },
-        }),
+        })),
     })
-    .default({
+    .default(() => ({
       garnix: {
         private: {
           enable: false,
@@ -167,16 +167,16 @@ const HostSchema = z.object({
           narinfoCachePositiveTtl: 3600,
         },
       },
-    }),
+    })),
   operator: z
     .object({
       deploy: z
         .object({
           enable: z.boolean().default(false),
         })
-        .default({ enable: false }),
+        .default(() => ({ enable: false })),
     })
-    .default({ deploy: { enable: false } }),
+    .default(() => ({ deploy: { enable: false } })),
   selfUpdate: z
     .object({
       enable: z.boolean().default(false),
@@ -185,7 +185,7 @@ const HostSchema = z.object({
       publicKey: z.string().trim().default(""),
       signatureUrl: z.string().trim().default(""),
     })
-    .default({ enable: false, manifestUrl: "", interval: "30min", publicKey: "", signatureUrl: "" }),
+    .default(() => ({ enable: false, manifestUrl: "", interval: "30min", publicKey: "", signatureUrl: "" })),
   agentModelPrimary: z.string().trim().default("zai/glm-4.7"),
 });
 
@@ -199,24 +199,24 @@ const CattleSchema = z
         location: z.string().trim().min(1).default("nbg1"),
         maxInstances: z.number().int().positive().default(10),
         defaultTtl: TtlStringSchema.default("2h"),
-        labels: HcloudLabelsSchema.default({ "managed-by": "clawdlets" }),
+        labels: HcloudLabelsSchema.default(() => ({ "managed-by": "clawdlets" })),
       })
-      .default({
+      .default(() => ({
         image: "",
         serverType: "cx22",
         location: "nbg1",
         maxInstances: 10,
         defaultTtl: "2h",
         labels: { "managed-by": "clawdlets" },
-      }),
+      })),
     defaults: z
       .object({
         autoShutdown: z.boolean().default(true),
         callbackUrl: z.string().trim().default(""),
       })
-      .default({ autoShutdown: true, callbackUrl: "" }),
+      .default(() => ({ autoShutdown: true, callbackUrl: "" })),
   })
-  .default({
+  .default(() => ({
     enabled: false,
     hetzner: {
       image: "",
@@ -227,13 +227,13 @@ const CattleSchema = z
       labels: { "managed-by": "clawdlets" },
     },
     defaults: { autoShutdown: true, callbackUrl: "" },
-  });
+  }));
 
 export const ClawdletsConfigSchema = z.object({
   schemaVersion: z.literal(CLAWDLETS_CONFIG_SCHEMA_VERSION),
   defaultHost: HostNameSchema.optional(),
   baseFlake: z.string().trim().default(""),
-  fleet: FleetSchema.default({}),
+  fleet: FleetSchema.default(() => ({})),
   cattle: CattleSchema,
   hosts: z.record(HostNameSchema, HostSchema).refine((v) => Object.keys(v).length > 0, {
     message: "hosts must not be empty",

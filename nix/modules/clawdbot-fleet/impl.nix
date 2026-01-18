@@ -9,22 +9,6 @@ let
 
   cfg = defs.cfg;
 
-  mkEtcTree =
-    { srcDir, destPrefix }:
-    let
-      entries = builtins.readDir srcDir;
-      mkOne = name: type:
-        if type == "directory" then mkEtcTree { srcDir = srcDir + "/${name}"; destPrefix = "${destPrefix}/${name}"; }
-        else if type == "regular" then {
-          "${destPrefix}/${name}" = {
-            source = srcDir + "/${name}";
-            mode = "0444";
-          };
-        }
-        else { };
-    in
-      lib.mkMerge (lib.mapAttrsToList mkOne entries);
-
   mkBotEtc = b:
     if cfg.documentsDir == null
     then { }
@@ -34,7 +18,13 @@ let
         cfgFile = srcDir + "/clawdbot.json5";
       in
         if builtins.pathExists cfgFile
-        then mkEtcTree { srcDir = srcDir; destPrefix = "clawdlets/bots/${b}"; }
+        then {
+          "clawdlets/bots/${b}/clawdbot.json5" = {
+            source = cfgFile;
+            group = "bot-${b}";
+            mode = "0440";
+          };
+        }
         else { };
 in
 {
