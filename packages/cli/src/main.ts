@@ -14,6 +14,7 @@ import { lockdown } from "./commands/lockdown.js";
 import { project } from "./commands/project.js";
 import { secrets } from "./commands/secrets.js";
 import { server } from "./commands/server.js";
+import { readCliVersion } from "./lib/version.js";
 
 const main = defineCommand({
   meta: {
@@ -40,7 +41,12 @@ const main = defineCommand({
 
 {
   const [nodeBin, script, ...rest] = process.argv;
-  process.argv = [nodeBin!, script!, ...rest.filter((a) => a !== "--")];
+  const normalized = rest.filter((a) => a !== "--");
+  if (normalized.includes("--version") || normalized.includes("-v")) {
+    console.log(readCliVersion());
+    process.exit(0);
+  }
+  process.argv = [nodeBin!, script!, ...normalized];
 }
 
 runMain(main);
