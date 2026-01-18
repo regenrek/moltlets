@@ -80,13 +80,13 @@ const add = defineCommand({
       flakeHost: "",
       targetHost: undefined,
       hetzner: { serverType: "cx43", image: "", location: "nbg1" },
-      provisioning: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
-      sshExposure: { mode: "tailnet" },
+      provisioning: { adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+      sshExposure: { mode: "bootstrap" },
       tailnet: { mode: "tailscale" },
       cache: {
         garnix: {
           private: {
-            enable: true,
+            enable: false,
             netrcSecret: "garnix_netrc",
             netrcPath: "/etc/nix/netrc",
             narinfoCachePositiveTtl: 3600,
