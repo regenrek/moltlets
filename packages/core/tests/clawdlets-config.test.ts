@@ -394,7 +394,7 @@ describe("clawdlets config schema", () => {
           "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
-    ).toThrow(/expected object/i);
+    ).toThrow(/expected (object|record)/i);
   });
 
   it("rejects invalid fleet.bots.<bot>.profile.envSecrets entries", async () => {
