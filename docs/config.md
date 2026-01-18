@@ -75,16 +75,6 @@ Cattle (`cattle.*`):
 - `cattle.defaults.autoShutdown`: power off after task completes (recommended)
 - `cattle.defaults.callbackUrl`: optional callback URL for task results
 
-## Migration (schema v6 -> v7)
-
-If you still have a v6 config, migrate once:
-
-```bash
-clawdlets config migrate-v6-to-v7
-```
-
-Writes a `*.v6.<timestamp>.bak` next to your config.
-
 ## Example
 
 ```json
