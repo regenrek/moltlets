@@ -5,7 +5,7 @@ import { withFlakesEnv } from "./nix-flakes.js";
 
 const FleetConfigSchema = z.object({
   bots: z.array(z.string()).default([]),
-  botProfiles: z.record(z.any()).default({}),
+  botProfiles: z.record(z.string(), z.any()).default(() => ({})),
 });
 
 export async function evalFleetConfig(params: {

@@ -19,7 +19,7 @@ export type TailnetMode = z.infer<typeof TailnetModeSchema>;
 
 export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 7 as const;
 
-const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.any());
+const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
 
 function parseCidr(value: string): { ip: string; prefix: number; family: 4 | 6 } | null {
   const trimmed = value.trim();
@@ -44,7 +44,7 @@ const FleetBotProfileSchema = z
     envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({})),
   })
   .passthrough()
-  .default(() => ({}));
+  .default(() => ({ envSecrets: {} }));
 
 const FleetBotSchema = z
   .object({
@@ -53,7 +53,7 @@ const FleetBotSchema = z
     clf: JsonObjectSchema.default(() => ({})),
   })
   .passthrough()
-  .default(() => ({}));
+  .default(() => ({ profile: { envSecrets: {} }, clawdbot: {}, clf: {} }));
 
 const FleetSchema = z
   .object({
@@ -273,7 +273,13 @@ export const ClawdletsConfigSchema = z.object({
   schemaVersion: z.literal(CLAWDLETS_CONFIG_SCHEMA_VERSION),
   defaultHost: HostNameSchema.optional(),
   baseFlake: z.string().trim().default(""),
-  fleet: FleetSchema.default(() => ({})),
+  fleet: FleetSchema.default(() => ({
+    envSecrets: {},
+    botOrder: [],
+    bots: {},
+    codex: { enable: false, bots: [] },
+    backups: { restic: { enable: false, repository: "" } },
+  })),
   cattle: CattleSchema,
   hosts: z.record(HostNameSchema, HostSchema).refine((v) => Object.keys(v).length > 0, {
     message: "hosts must not be empty",
