@@ -47,7 +47,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/clawdbot/clawdlets.git"
+    "url": "git+https://github.com/regenrek/clawdlets.git"
   },
   "license": "MIT",
   "packageManager": "pnpm@10.25.0",
