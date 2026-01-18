@@ -12,12 +12,13 @@ This file is **committed to git**. Secrets are not stored here (see `docs/secret
   - local operator age keys (`.clawdlets/keys/operators/`)
   - `nixos-anywhere --extra-files` payload (`.clawdlets/extra-files/<host>/...`)
   - image builds (`.clawdlets/images/<host>/...`)
+  - provisioning state (gitignored): `.clawdlets/infra/opentofu/<host>/...`
 
 ## Schema overview
 
 Top-level:
 
-- `schemaVersion`: currently `6`
+- `schemaVersion`: currently `7`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
   - if empty, CLI falls back to `git remote origin` (recommended)
@@ -36,9 +37,9 @@ Host entry (`hosts.<host>`):
 - `targetHost` (optional): SSH target for server ops (ssh config alias or `user@host`)
 - `hetzner.serverType`: e.g. `cx43`
 - `hetzner.image`: custom image ID/name (optional; used for image-based bootstrap)
-- `hetzner.location`: e.g. `nbg1` (used by OpenTofu + image upload helpers)
-- `opentofu.adminCidr`: CIDR allowed to SSH during bootstrap (e.g. `203.0.113.10/32`)
-- `opentofu.sshPubkeyFile`: local path to `.pub` used for provisioning
+- `hetzner.location`: e.g. `nbg1` (used by provisioning + image upload helpers)
+- `provisioning.adminCidr`: CIDR allowed to SSH during bootstrap (e.g. `203.0.113.10/32`)
+- `provisioning.sshPubkeyFile`: local path to `.pub` used for provisioning
 - `operator.deploy.enable`: allow `admin` to run constrained deploy entrypoints (switch-system/install-secrets). Default: `false`.
 - `sshExposure.mode`: `tailnet|bootstrap|public` (single SSH exposure policy)
 - `tailnet.mode`: `tailscale` or `none` (tailscale mode opens UDP/41641 at the provider firewall for direct tailnet connectivity)
@@ -68,7 +69,7 @@ Cattle (`cattle.*`):
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "defaultHost": "clawdbot-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -100,7 +101,7 @@ Cattle (`cattle.*`):
       "sshKnownHosts": [],
       "flakeHost": "",
       "hetzner": { "serverType": "cx43", "image": "", "location": "nbg1" },
-      "opentofu": { "adminCidr": "", "sshPubkeyFile": "~/.ssh/id_ed25519.pub" },
+      "provisioning": { "adminCidr": "", "sshPubkeyFile": "~/.ssh/id_ed25519.pub" },
       "cache": {
         "garnix": {
           "private": {
