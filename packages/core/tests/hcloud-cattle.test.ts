@@ -105,7 +105,7 @@ describe("createCattleServer", () => {
       name: "cattle-rex-1",
       status: "running",
       created: new Date("2026-01-01T00:00:00Z").toISOString(),
-      labels: { "created-at": "1", "expires-at": "2", "managed-by": "clawdlets", cattle: "true", identity: "rex", "task-id": "t" },
+      labels: { "created-at": "1", "expires-at": "2", "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t" },
       public_net: { ipv4: { ip: "1.2.3.4" } },
     }));
 
@@ -116,7 +116,7 @@ describe("createCattleServer", () => {
       serverType: "cx22",
       location: "nbg1",
       userData: "#cloud-config\n",
-      labels: { "managed-by": "clawdlets", cattle: "true", identity: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
+      labels: { "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
     });
 
     await createCattleServer({
@@ -126,7 +126,7 @@ describe("createCattleServer", () => {
       serverType: "cx22",
       location: "nbg1",
       userData: "#cloud-config\n",
-      labels: { "managed-by": "clawdlets", cattle: "true", identity: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
+      labels: { "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
     });
 
     expect(ensureHcloudFirewallIdMock).toHaveBeenCalledTimes(1);

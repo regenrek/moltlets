@@ -10,21 +10,15 @@ let
       mkEntry = _: entry:
         let
           env = entry.env or {};
-          envSecrets = entry.envSecrets or {};
-          envDupes = lib.intersectLists (builtins.attrNames env) (builtins.attrNames envSecrets);
-          secretEnv = builtins.mapAttrs (_: secretName: config.sops.placeholder.${secretName}) envSecrets;
           apiKey =
             if (entry.apiKeySecret or null) != null
             then config.sops.placeholder.${entry.apiKeySecret}
             else entry.apiKey or null;
           base = lib.optionalAttrs ((entry.enabled or null) != null) { enabled = entry.enabled; }
             // lib.optionalAttrs (apiKey != null) { apiKey = apiKey; }
-            // lib.optionalAttrs ((env != {}) || (envSecrets != {})) { env = env // secretEnv; };
+            // lib.optionalAttrs (env != {}) { env = env; };
         in
-          if envDupes != [] then
-            throw "services.clawdbotFleet.botProfiles.${b}.skills.entries has duplicate env keys: ${lib.concatStringsSep "," envDupes}"
-          else
-            lib.recursiveUpdate base (entry.passthrough or {});
+          lib.recursiveUpdate base (entry.passthrough or {});
     in
       if entries == {} then null else builtins.mapAttrs mkEntry entries;
 
@@ -60,16 +54,25 @@ let
         lib.optionalAttrs (hooksEnabled != null) { enabled = hooksEnabled; }
         // lib.optionalAttrs (hooksTokenSecret != null) { token = config.sops.placeholder.${hooksTokenSecret}; }
         // lib.optionalAttrs (hooksGmailPushTokenSecret != null) { gmail.pushToken = config.sops.placeholder.${hooksGmailPushTokenSecret}; };
-      seedDir = profile.workspace.seedDir or cfg.documentsDir or null;
-      includeCfg =
-        if seedDir != null && builtins.pathExists (seedDir + "/bots/${b}/clawdbot.json5")
-        then { "$include" = "/etc/clawdlets/bots/${b}/clawdbot.json5"; }
-        else { };
+      discordTokenSecret = profile.discordTokenSecret or null;
       gatewayPort =
         if (profile.gatewayPort or null) != null
         then profile.gatewayPort
         else botGatewayPort b;
-      userCfg = lib.recursiveUpdate includeCfg (profile.passthrough or { });
+      userCfg = profile.passthrough or { };
+      userDiscordToken =
+        let
+          channels = (userCfg.channels or {});
+          discord = (channels.discord or {});
+        in discord.token or null;
+      secretCfg =
+        if discordTokenSecret != null && discordTokenSecret != ""
+        then (
+          if userDiscordToken != null && userDiscordToken != ""
+          then throw "clawdbot config sets channels.discord.token while profile.discordTokenSecret is set; remove the inline token"
+          else { channels = { discord = { token = config.sops.placeholder.${discordTokenSecret}; }; }; }
+        )
+        else { };
       baseCfg = (
         {
           agents = {
@@ -100,7 +103,7 @@ let
       };
     in
       lib.recursiveUpdate
-        (lib.recursiveUpdate baseCfg userCfg)
+        (lib.recursiveUpdate (lib.recursiveUpdate baseCfg userCfg) secretCfg)
         invariants;
 in
 {

@@ -197,10 +197,16 @@ in {
             description = "Per-bot service env vars (non-secret).";
           };
 
-          envSecrets = lib.mkOption {
+          discordTokenSecret = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Sops secret name containing the Discord bot token.";
+          };
+
+          modelSecrets = lib.mkOption {
             type = lib.types.attrsOf lib.types.str;
             default = {};
-            description = "Map of env var name -> sops secret name for bot service env.";
+            description = "Map of model provider -> sops secret name (e.g. zai/openai/anthropic).";
           };
 
           workspace = {
@@ -251,11 +257,6 @@ in {
                     type = lib.types.attrsOf lib.types.str;
                     default = {};
                     description = "Inline env vars merged into skills.entries.<skill>.env.";
-                  };
-                  envSecrets = lib.mkOption {
-                    type = lib.types.attrsOf lib.types.str;
-                    default = {};
-                    description = "Map of env var name -> sops secret name (injected into skills.entries.<skill>.env).";
                   };
                   passthrough = lib.mkOption {
                     type = lib.types.attrs;

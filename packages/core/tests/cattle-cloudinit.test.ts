@@ -11,7 +11,7 @@ describe("cattle-cloudinit", () => {
       task: { schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
       publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
       secretsBootstrap: { baseUrl: "http://clawdlets-pet:18337", token: "bootstrap-token" },
-      extraWriteFiles: [{ path: "/var/lib/clawdlets/identity/SOUL.md", permissions: "0600", owner: "root:root", content: "# Rex\n" }],
+      extraWriteFiles: [{ path: "/var/lib/clawdlets/cattle/persona/SOUL.md", permissions: "0600", owner: "root:root", content: "# Rex\n" }],
     });
 
     expect(userData.startsWith("#cloud-config\n")).toBe(true);
@@ -19,7 +19,7 @@ describe("cattle-cloudinit", () => {
     expect(userData).toMatch(/tailscale_auth_key/);
     expect(userData).toMatch(/bootstrap\.json/);
     expect(userData).toMatch(/env\.public/);
-    expect(userData).toMatch(/identity\/SOUL\.md/);
+    expect(userData).toMatch(/cattle\/persona\/SOUL\.md/);
     expect(userData).toMatch(/hostname:\s*cattle-rex-1700000000/);
   });
 

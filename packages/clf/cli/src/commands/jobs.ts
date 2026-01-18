@@ -82,7 +82,7 @@ const jobsEnqueue = defineCommand({
     json: { type: "boolean", description: "JSON output.", default: false },
 
     // cattle.spawn
-    identity: { type: "string", description: "Identity name." },
+    persona: { type: "string", description: "Persona name." },
     taskFile: { type: "string", description: "Task JSON file (schemaVersion 1)." },
     taskId: { type: "string", description: "Task id (when not using --task-file)." },
     message: { type: "string", description: "Task message (when not using --task-file)." },
@@ -114,7 +114,7 @@ const jobsEnqueue = defineCommand({
 
       let payload: unknown;
       if (kind === "cattle.spawn") {
-        const identity = requireString((args as any).identity, "--identity");
+        const persona = requireString((args as any).persona, "--persona");
         const task = parseCattleTask({
           cwd,
           taskFile: (args as any).taskFile,
@@ -123,7 +123,7 @@ const jobsEnqueue = defineCommand({
           callbackUrl: (args as any).callbackUrl,
         });
         payload = {
-          identity,
+          persona,
           task,
           ttl: String((args as any).ttl || "").trim(),
           image: String((args as any).image || "").trim(),
@@ -266,4 +266,3 @@ export const jobs = defineCommand({
     cancel: jobsCancel,
   },
 });
-

@@ -16,7 +16,7 @@ describe("cattle-state", () => {
       st.upsertServer({
         id: "123",
         name: "cattle-rex-123",
-        identity: "rex",
+        persona: "rex",
         task: "fix-issue-42",
         taskId: "issue-42",
         ttlSeconds: 7200,
@@ -31,7 +31,7 @@ describe("cattle-state", () => {
       expect(active.length).toBe(1);
       expect(active[0]?.id).toBe("123");
       expect(active[0]?.name).toBe("cattle-rex-123");
-      expect(active[0]?.identity).toBe("rex");
+      expect(active[0]?.persona).toBe("rex");
     } finally {
       st.close();
     }
@@ -48,7 +48,7 @@ describe("cattle-state", () => {
       st.upsertServer({
         id: "555",
         name: "cattle-rex-555",
-        identity: "rex",
+        persona: "rex",
         task: "smoke",
         taskId: "smoke-1",
         ttlSeconds: 60,

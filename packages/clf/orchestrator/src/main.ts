@@ -147,7 +147,7 @@ async function main(): Promise<void> {
       secretsBaseUrl: cattleSecretsBaseUrl,
       bootstrapTtlMs: cfg.cattle.bootstrapTtlMs,
     },
-    identitiesRoot: cfg.identitiesRoot,
+    personasRoot: cfg.personasRoot,
     adminAuthorizedKeys,
     tailscaleAuthKey: cfg.tailscaleAuthKey,
     env: process.env,

@@ -53,8 +53,8 @@ describe("cattle command", () => {
   } as any;
 
   const config = {
-    schemaVersion: 7,
-    fleet: { envSecrets: { ZAI_API_KEY: "z_ai_api_key", Z_AI_API_KEY: "z_ai_api_key" } },
+    schemaVersion: 8,
+    fleet: { modelSecrets: { zai: "z_ai_api_key" }, botOrder: [], bots: {} },
     cattle: {
       enabled: true,
       hetzner: { image: "img-1", serverType: "cx22", location: "nbg1", maxInstances: 10, defaultTtl: "2h", labels: { "managed-by": "clawdlets" } },
@@ -103,13 +103,13 @@ describe("cattle command", () => {
 
     const { cattle } = await import("../src/commands/cattle");
     await cattle.subCommands.spawn.run({
-      args: { host: hostName, identity: "rex", taskFile, ttl: "2h", dryRun: true } as any,
+      args: { host: hostName, persona: "rex", taskFile, ttl: "2h", dryRun: true } as any,
     });
 
     const obj = JSON.parse(logs.join("\n"));
     expect(obj.action).toBe("clf.jobs.enqueue");
     expect(obj.request.kind).toBe("cattle.spawn");
-    expect(obj.request.payload.identity).toBe("rex");
+    expect(obj.request.payload.persona).toBe("rex");
     expect(obj.request.payload.ttl).toBe("2h");
     expect(obj.request.payload.task.taskId).toBe("issue-42");
   });
@@ -136,7 +136,7 @@ describe("cattle command", () => {
 
     const { cattle } = await import("../src/commands/cattle");
     await cattle.subCommands.spawn.run({
-      args: { host: hostName, identity: "rex", taskFile, ttl: "2h", wait: false } as any,
+      args: { host: hostName, persona: "rex", taskFile, ttl: "2h", wait: false } as any,
     });
 
     expect(enqueueMock).toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe("cattle command", () => {
       {
         id: "1",
         name: "cattle-rex-1",
-        identity: "rex",
+        persona: "rex",
         taskId: "a",
         ttlSeconds: 60,
         createdAt: new Date(1_699_999_000_000),
@@ -165,7 +165,7 @@ describe("cattle command", () => {
       {
         id: "2",
         name: "cattle-rex-2",
-        identity: "rex",
+        persona: "rex",
         taskId: "b",
         ttlSeconds: 60,
         createdAt: new Date(1_700_000_000_000),
@@ -192,7 +192,7 @@ describe("cattle command", () => {
       {
         id: "10",
         name: "cattle-rex-10",
-        identity: "rex",
+        persona: "rex",
         taskId: "t",
         ttlSeconds: 60,
         createdAt: new Date(1_700_000_000_000),
@@ -221,7 +221,7 @@ describe("cattle command", () => {
       {
         id: "11",
         name: "cattle-rex-11",
-        identity: "rex",
+        persona: "rex",
         taskId: "t",
         ttlSeconds: 60,
         createdAt: new Date(1_700_000_000_000),

@@ -45,8 +45,8 @@ export const cattleReap = defineCommand({
 
     console.log(
       formatTable([
-        ["ID", "NAME", "IDENTITY", "TASK", "EXPIRES", "STATUS"],
-        ...expired.map((s) => [s.id, s.name, s.identity || "-", s.taskId || "-", String(Math.floor(s.expiresAt.getTime() / 1000)), s.status]),
+        ["ID", "NAME", "PERSONA", "TASK", "EXPIRES", "STATUS"],
+        ...expired.map((s) => [s.id, s.name, s.persona || "-", s.taskId || "-", String(Math.floor(s.expiresAt.getTime() / 1000)), s.status]),
       ]),
     );
 
@@ -64,4 +64,3 @@ export const cattleReap = defineCommand({
     console.log(`ok: reaped ${res.deletedIds.length} cattle server(s)`);
   },
 });
-

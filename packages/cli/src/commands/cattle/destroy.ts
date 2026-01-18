@@ -4,7 +4,7 @@ import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
 import { safeCattleLabelValue } from "@clawdlets/core/lib/cattle-planner";
 import { openCattleState } from "@clawdlets/core/lib/cattle-state";
 import {
-  CATTLE_LABEL_IDENTITY,
+  CATTLE_LABEL_PERSONA,
   buildCattleLabelSelector,
   destroyCattleServer,
   listCattleServers,
@@ -21,7 +21,7 @@ export const cattleDestroy = defineCommand({
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
     idOrName: { type: "string", description: "Cattle server id or name." },
     all: { type: "boolean", description: "Destroy all cattle servers.", default: false },
-    identity: { type: "string", description: "Filter by identity (with --all)." },
+    persona: { type: "string", description: "Filter by persona (with --all)." },
     dryRun: { type: "boolean", description: "Print plan without deleting.", default: false },
   },
   async run({ args }) {
@@ -39,12 +39,12 @@ export const cattleDestroy = defineCommand({
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
     if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
 
-    const identityFilterRaw = String(args.identity || "").trim();
-    const identityFilter = identityFilterRaw ? safeCattleLabelValue(identityFilterRaw, "id") : "";
+    const personaFilterRaw = String((args as any).persona || "").trim();
+    const personaFilter = personaFilterRaw ? safeCattleLabelValue(personaFilterRaw, "persona") : "";
 
     const servers = await listCattleServers({
       token: hcloudToken,
-      labelSelector: buildCattleLabelSelector(identityFilter ? { [CATTLE_LABEL_IDENTITY]: identityFilter } : {}),
+      labelSelector: buildCattleLabelSelector(personaFilter ? { [CATTLE_LABEL_PERSONA]: personaFilter } : {}),
     });
 
     const targets: CattleServer[] = [];
@@ -64,7 +64,7 @@ export const cattleDestroy = defineCommand({
     const st = openCattleState(layout.cattleDbPath);
     try {
       if (args.dryRun) {
-        console.log(formatTable([["ID", "NAME", "IDENTITY", "TASK", "STATUS"], ...targets.map((s) => [s.id, s.name, s.identity || "-", s.taskId || "-", s.status])]));
+        console.log(formatTable([["ID", "NAME", "PERSONA", "TASK", "STATUS"], ...targets.map((s) => [s.id, s.name, s.persona || "-", s.taskId || "-", s.status])]));
         return;
       }
 
@@ -80,4 +80,3 @@ export const cattleDestroy = defineCommand({
     console.log(`ok: destroyed ${targets.length} cattle server(s)`);
   },
 });
-

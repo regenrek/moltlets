@@ -23,14 +23,14 @@ Host-wide secrets/tools:
 - API socket: `/run/clf/orchestrator.sock` (systemd socket `0660`, group `clf-bots`)
 - state dir: `/var/lib/clf/orchestrator/`
 - DB: `/var/lib/clf/orchestrator/state.sqlite` (SQLite WAL; contains job payloads/results + token hashes)
-- identities snapshot: `/etc/clf/identities/<name>/{SOUL.md,config.json}` (read-only)
+- cattle personas snapshot: `/etc/clf/cattle-personas/<name>/{SOUL.md,config.json}` (read-only)
 - admin SSH keys (cattle debug): `/etc/clf/admin_authorized_keys` (read-only)
 
 ## Cattle VM (ephemeral)
 
 - injected (disk):
   - task: `/var/lib/clawdlets/cattle/task.json`
-  - identity: `/var/lib/clawdlets/identity/{SOUL.md,config.json}`
+  - persona: `/var/lib/clawdlets/cattle/persona/{SOUL.md,config.json}`
 - runtime (tmpfs):
   - bootstrap token: `/run/clawdlets/cattle/bootstrap.json` (deleted after first use)
   - env overrides (public): `/run/clawdlets/cattle/env.public` (JSON)

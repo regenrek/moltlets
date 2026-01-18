@@ -14,7 +14,7 @@ export type CattleServerStatus = "running" | "starting" | "stopping" | "off" | "
 export interface CattleServer {
   id: string;
   name: string;
-  identity: string;
+  persona: string;
   taskId: string;
   ttlSeconds: number;
   createdAt: Date;
@@ -28,7 +28,7 @@ export const CATTLE_LABEL_MANAGED_BY = "managed-by";
 export const CATTLE_LABEL_MANAGED_BY_VALUE = "clawdlets";
 export const CATTLE_LABEL_CATTLE = "cattle";
 export const CATTLE_LABEL_CATTLE_VALUE = "true";
-export const CATTLE_LABEL_IDENTITY = "identity";
+export const CATTLE_LABEL_PERSONA = "persona";
 export const CATTLE_LABEL_TASK_ID = "task-id";
 export const CATTLE_LABEL_EXPIRES_AT = "expires-at";
 export const CATTLE_LABEL_CREATED_AT = "created-at";
@@ -128,7 +128,7 @@ function toCattleServer(server: HcloudServer): CattleServer {
   return {
     id: String(server.id),
     name: server.name,
-    identity: String(labels[CATTLE_LABEL_IDENTITY] || ""),
+    persona: String(labels[CATTLE_LABEL_PERSONA] || ""),
     taskId: String(labels[CATTLE_LABEL_TASK_ID] || ""),
     ttlSeconds,
     createdAt,

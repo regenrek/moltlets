@@ -18,7 +18,8 @@ let
       else derived;
 
   baseBot = {
-    envSecrets = fleetCfg.envSecrets or { };
+    discordTokenSecret = null;
+    modelSecrets = fleetCfg.modelSecrets or { };
     skills = {
       # Explicit allowlist required on servers. Avoid null (typically means “allow all bundled skills”).
       allowBundled = [ ];

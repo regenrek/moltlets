@@ -4,7 +4,7 @@ import { parseClfJobPayload } from "@clawdlets/clf-queue";
 import { buildCattleCloudInitUserData } from "@clawdlets/core/lib/cattle-cloudinit";
 import { parseTtlToSeconds } from "@clawdlets/core/lib/ttl";
 import { getModelRequiredEnvVars } from "@clawdlets/core/lib/llm-provider-env";
-import { loadIdentity } from "@clawdlets/core/lib/identity-loader";
+import { loadPersona } from "@clawdlets/core/lib/persona-loader";
 import {
   createCattleServer,
   listCattleServers,
@@ -14,7 +14,7 @@ import {
   CATTLE_LABEL_CATTLE_VALUE,
   CATTLE_LABEL_CREATED_AT,
   CATTLE_LABEL_EXPIRES_AT,
-  CATTLE_LABEL_IDENTITY,
+  CATTLE_LABEL_PERSONA,
   CATTLE_LABEL_MANAGED_BY,
   CATTLE_LABEL_MANAGED_BY_VALUE,
   CATTLE_LABEL_TASK_ID,
@@ -34,7 +34,7 @@ export type ClfWorkerRuntime = {
     secretsBaseUrl: string;
     bootstrapTtlMs: number;
   };
-  identitiesRoot: string;
+  personasRoot: string;
   adminAuthorizedKeys: string[];
   tailscaleAuthKey: string;
   env: NodeJS.ProcessEnv;
@@ -104,9 +104,9 @@ async function handleCattleSpawn(params: {
 }): Promise<{ server: CattleServer }> {
   const p = parseClfJobPayload("cattle.spawn", params.payload);
 
-  const identity = loadIdentity({ identityName: p.identity, identitiesRoot: params.rt.identitiesRoot });
-  const model = String(identity.config.model.primary || "").trim();
-  if (!model) throw new Error(`identity missing model.primary: ${identity.name}`);
+  const persona = loadPersona({ personaName: p.persona, personasRoot: params.rt.personasRoot });
+  const model = String(persona.config.model.primary || "").trim();
+  if (!model) throw new Error(`persona missing model.primary: ${persona.name}`);
 
   const ttlSeconds = requireTtlSeconds(String(p.ttl || params.rt.cattle.defaultTtl || "").trim());
   const createdAt = unixSecondsNow();
@@ -122,7 +122,7 @@ async function handleCattleSpawn(params: {
       throw new Error(`maxInstances reached (${existing.length}/${params.rt.cattle.maxInstances})`);
     }
 
-    const name = buildCattleServerName(identity.name, createdAt);
+    const name = buildCattleServerName(persona.name, createdAt);
 
     const envKeys = requiredEnvKeysForModel({ env: params.rt.env, model });
     if (p.withGithubToken) {
@@ -147,14 +147,14 @@ async function handleCattleSpawn(params: {
       task: p.task,
       publicEnv,
       secretsBootstrap: { baseUrl: params.rt.cattle.secretsBaseUrl, token: bootstrap.token },
-      extraWriteFiles: identity.cloudInitFiles,
+      extraWriteFiles: persona.cloudInitFiles,
     });
 
     const labels: Record<string, string> = {
       ...params.rt.cattle.labels,
       [CATTLE_LABEL_MANAGED_BY]: CATTLE_LABEL_MANAGED_BY_VALUE,
       [CATTLE_LABEL_CATTLE]: CATTLE_LABEL_CATTLE_VALUE,
-      [CATTLE_LABEL_IDENTITY]: safeCattleLabelValue(identity.name, "id"),
+      [CATTLE_LABEL_PERSONA]: safeCattleLabelValue(persona.name, "persona"),
       [CATTLE_LABEL_TASK_ID]: safeCattleLabelValue(p.task.taskId, "task"),
       [CATTLE_LABEL_CREATED_AT]: String(createdAt),
       [CATTLE_LABEL_EXPIRES_AT]: String(expiresAt),

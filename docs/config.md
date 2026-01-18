@@ -18,7 +18,7 @@ This file is **committed to git**. Secrets are not stored here (see `docs/secret
 
 Top-level:
 
-- `schemaVersion`: currently `7`
+- `schemaVersion`: currently `8`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
   - if empty, CLI falls back to `git remote origin` (recommended)
@@ -28,11 +28,12 @@ Top-level:
 
 Fleet (`fleet.*`):
 
-- `fleet.envSecrets`: default env var -> sops secret name (merged into every bot profile)
+- `fleet.modelSecrets`: model provider -> sops secret name (e.g. `zai`, `openai`, `anthropic`)
 - `fleet.botOrder`: ordered bot ids (deterministic ports/services)
 - `fleet.bots.<bot>`: per-bot config object
   - `profile`: clawdlets/template infra knobs (systemd/env/secrets/limits)
-    - `profile.envSecrets`: per-bot env var -> sops secret name (overrides/extends `fleet.envSecrets`)
+    - `profile.discordTokenSecret`: sops secret name for the bot’s Discord token
+    - `profile.modelSecrets`: per-bot provider -> secret overrides (optional)
     - other keys are forwarded into Nix `services.clawdbotFleet.botProfiles.<bot>` (forward compatible)
   - `clawdbot`: raw clawdbot config (canonical; channels/routing/agents/tools/etc)
   - `clf`: clawdlets/clf policy (bot access to orchestrator/queue)
@@ -80,20 +81,19 @@ Cattle (`cattle.*`):
 
 ```json
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "defaultHost": "clawdbot-fleet-host",
   "baseFlake": "",
   "fleet": {
-    "envSecrets": { "ZAI_API_KEY": "z_ai_api_key", "Z_AI_API_KEY": "z_ai_api_key" },
+    "modelSecrets": { "zai": "z_ai_api_key" },
     "botOrder": ["maren"],
     "bots": {
       "maren": {
-        "profile": { "envSecrets": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
+        "profile": { "discordTokenSecret": "discord_token_maren" },
         "clawdbot": {
           "channels": {
             "discord": {
               "enabled": true,
-              "token": "${DISCORD_BOT_TOKEN}",
               "dm": { "enabled": true, "policy": "pairing" }
             }
           }

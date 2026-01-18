@@ -59,9 +59,9 @@ go install github.com/apricote/hcloud-upload-image@latest
 
 - `fleet/clawdlets.json`
   - `fleet.botOrder`
-  - `fleet.bots.<bot>.profile` (skills, github, envSecrets, ...)
+  - `fleet.bots.<bot>.profile` (skills, github, discordTokenSecret, modelSecrets, ...)
   - `fleet.bots.<bot>.clawdbot` (raw clawdbot config; routing/channels live here)
-  - optional (recommended for large configs): `fleet/workspaces/bots/<bot>/clawdbot.json5`
+  - optional: `fleet/workspaces/bots/<bot>/` (workspace docs + custom skills)
   - `hosts.<host>.sshAuthorizedKeys`
   - `hosts.<host>.diskDevice`
   - `hosts.<host>.tailnet`
@@ -72,7 +72,7 @@ go install github.com/apricote/hcloud-upload-image@latest
 - `secrets/hosts/clawdbot-fleet-host/`
   - `tailscale_auth_key.yaml` (required when `hosts.<host>.tailnet.mode = "tailscale"`)
   - `admin_password_hash.yaml` (required; for `sudo` on admin user)
-  - per-bot channel tokens referenced via `fleet.bots.<bot>.profile.envSecrets` (template uses `discord_token_<bot>`)
+  - per-bot channel tokens referenced via `fleet.bots.<bot>.profile.discordTokenSecret` (template uses `discord_token_<bot>`)
   - optional: skill secrets / hook tokens / GitHub App key / restic secrets
   - optional: `root_password_hash` (console-only; keep root SSH disabled; requires `enableRootPassword = true`)
 - `.clawdlets/extra-files/clawdbot-fleet-host/var/lib/sops-nix/key.txt`

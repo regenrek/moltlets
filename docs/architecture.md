@@ -6,7 +6,7 @@ This document describes the end-to-end lifecycle of a Clawdlets project, from in
 
 - **clawdlets (CLI repo):** `clawdlets` + `clf` + docs (no project secrets).
 - **clawdlets-template:** scaffold + workflows used by `project init`.
-- **Project repo:** `flake.nix`, `fleet/`, `secrets/`, identities (public-safe).
+- **Project repo:** `flake.nix`, `fleet/`, `secrets/`, `cattle/personas/` (public-safe).
 - **Runtime (`.clawdlets/`):** gitignored state + keys + provisioning artifacts.
 
 Rules of thumb:
@@ -42,7 +42,7 @@ Rules of thumb:
 │   Inputs:                                                    │  ├── fleet/clawdlets.json   │         │
 │   - template repo (regenrek/clawdlets-template)              │  ├── secrets/               │         │
 │   - host name                                                │  ├── .clawdlets/            │         │
-│                                                              │  ├── identities/            │         │
+│                                                              │  ├── cattle/personas/       │         │
 │                                                              │  └── .github/workflows/     │         │
 │                                                              └─────────────────────────────┘         │
 │                                                                                                      │
@@ -196,7 +196,7 @@ Rules of thumb:
 │  │   │ Runtime Cattle Operations (via clf-orchestrator on host)                                 │   │ │
 │  │   │ ─────────────────────────────────────────────────────────                                │   │ │
 │  │   │                                                                                          │   │ │
-│  │   │   clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h                 │   │ │
+│  │   │   clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h                  │   │ │
 │  │   │         │                                                                                │   │ │
 │  │   │         ▼                                                                                │   │ │
 │  │   │   ┌─────────────┐        ┌─────────────┐        ┌─────────────┐                          │   │ │
@@ -271,7 +271,7 @@ Rules of thumb:
 | **Configuration** | `fleet/clawdlets.json` | Central fleet configuration (hosts, bots, secrets mapping) |
 | | `flake.nix` / `flake.lock` | NixOS configurations for hosts and cattle images |
 | | `.clawdlets/env` | Local deploy credentials (gitignored) |
-| | `identities/registry.json` | Cattle identity registry |
+| | `cattle/personas/<name>/` | Cattle persona registry |
 | **Secrets** | `secrets/.sops.yaml` | SOPS encryption rules |
 | | `secrets/hosts/<host>/*.yaml` | Encrypted secrets per host |
 | | `.clawdlets/extra-files/` | nixos-anywhere injection payload |

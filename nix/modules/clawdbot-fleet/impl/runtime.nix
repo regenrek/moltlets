@@ -14,7 +14,8 @@ let
     let
       profile = getBotProfile b;
       entries = profile.skills.entries or {};
-      botEnvSecrets = builtins.attrValues (profile.envSecrets or {});
+      botDiscordSecret = profile.discordTokenSecret or null;
+      botModelSecrets = builtins.attrValues (profile.modelSecrets or {});
       hooksSecrets =
         (lib.optional ((profile.hooks.tokenSecret or null) != null) profile.hooks.tokenSecret)
         ++ (lib.optional ((profile.hooks.gmailPushTokenSecret or null) != null) profile.hooks.gmailPushTokenSecret);
@@ -22,9 +23,14 @@ let
         lib.optional ((profile.github.privateKeySecret or null) != null) profile.github.privateKeySecret;
       perEntrySecrets = lib.concatLists (lib.mapAttrsToList (_: entry:
         (lib.optional ((entry.apiKeySecret or null) != null) entry.apiKeySecret)
-        ++ (builtins.attrValues (entry.envSecrets or {}))
       ) entries);
-      allSecrets = lib.unique (lib.filter (s: s != null && s != "") (hooksSecrets ++ githubSecrets ++ perEntrySecrets ++ botEnvSecrets));
+      allSecrets = lib.unique (lib.filter (s: s != null && s != "") (
+        hooksSecrets
+        ++ githubSecrets
+        ++ perEntrySecrets
+        ++ botModelSecrets
+        ++ (lib.optional (botDiscordSecret != null) botDiscordSecret)
+      ));
     in
       builtins.listToAttrs (map (secretName: { name = secretName; value = mkSopsSecretFor secretName; }) allSecrets);
 
@@ -41,21 +47,24 @@ let
       };
     };
 
-  mkEnvTemplate = b:
+  mkModelEnv = modelSecrets:
     let
-      profile = getBotProfile b;
-      envSecrets = profile.envSecrets or {};
-      secretEnv = builtins.mapAttrs (_: secretName: config.sops.placeholder.${secretName}) envSecrets;
-      lines = lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "${k}=${v}") secretEnv);
-    in
-      lib.optionalAttrs (secretEnv != {}) {
-        "clawdbot-${b}.env" = {
-          owner = "bot-${b}";
-          group = "bot-${b}";
-          mode = "0400";
-          content = lines + "\n";
-        };
+      providers = {
+        anthropic = [ "ANTHROPIC_API_KEY" ];
+        openai = [ "OPENAI_API_KEY" "OPEN_AI_APIKEY" ];
+        zai = [ "ZAI_API_KEY" "Z_AI_API_KEY" ];
       };
+      pairs = lib.concatLists (lib.mapAttrsToList (provider: secretName:
+        let
+          s = toString secretName;
+          keys = providers.${lib.toLower provider} or [];
+        in
+          if s == "" || keys == []
+          then [ ]
+          else map (k: { name = k; value = config.sops.placeholder.${s}; }) keys
+      ) (modelSecrets or {}));
+    in
+      builtins.listToAttrs pairs;
 
   mkBotUser = b: {
     name = "bot-${b}";
@@ -95,8 +104,8 @@ let
       credsDir = resolveBotCredsDir b;
       gatewayEnvFile = "${credsDir}/gateway.env";
       env = profile.env or {};
-      envSecrets = profile.envSecrets or {};
-      envDupes = lib.intersectLists (builtins.attrNames env) (builtins.attrNames envSecrets);
+      modelEnv = mkModelEnv (profile.modelSecrets or {});
+      modelEnvDupes = lib.intersectLists (builtins.attrNames env) (builtins.attrNames modelEnv);
       botResources = profile.resources or {};
       memoryMax =
         if (botResources.memoryMax or null) != null
@@ -129,10 +138,6 @@ let
         && (gh.installationId or null) != null
         && (gh.privateKeySecret or null) != null;
       ghEnvFile = "${credsDir}/gh.env";
-      envSecretsFile =
-        if envSecrets == {}
-        then null
-        else "/run/secrets/rendered/clawdbot-${b}.env";
     in
       {
         name = "clawdbot-${b}";
@@ -149,8 +154,8 @@ let
             ++ lib.optional proxyEnabled "clawdlets-egress-proxy.service";
 
           environment =
-            if envDupes != []
-            then throw "services.clawdbotFleet.botProfiles.${b}.envSecrets has duplicate env keys: ${lib.concatStringsSep "," envDupes}"
+            if modelEnvDupes != []
+            then throw "services.clawdbotFleet.botProfiles.${b}.env has keys that conflict with modelSecrets: ${lib.concatStringsSep "," modelEnvDupes}"
             else {
               CLAWDBOT_NIX_MODE = "1";
               CLAWDBOT_STATE_DIR = stateDir;
@@ -175,7 +180,8 @@ let
               NO_PROXY = "localhost,127.0.0.1,::1";
               no_proxy = "localhost,127.0.0.1,::1";
             }
-            // env;
+            // env
+            // modelEnv;
 
           serviceConfig = {
             User = "bot-${b}";
@@ -193,7 +199,6 @@ let
 
             EnvironmentFile = lib.flatten [
               gatewayEnvFile
-              (lib.optional (envSecretsFile != null) "-${envSecretsFile}")
               (lib.optional ghEnabled "-${ghEnvFile}")
             ];
 
@@ -225,7 +230,6 @@ let
 
   perBotSkillSecrets = lib.mkMerge (map mkBotSkillSecrets cfg.bots);
   perBotTemplates = lib.mkMerge (map mkTemplate cfg.bots);
-  perBotEnvTemplates = lib.mkMerge (map mkEnvTemplate cfg.bots);
 in
 {
   inherit
@@ -234,6 +238,5 @@ in
     mkStateDir
     mkService
     perBotSkillSecrets
-    perBotTemplates
-    perBotEnvTemplates;
+    perBotTemplates;
 }

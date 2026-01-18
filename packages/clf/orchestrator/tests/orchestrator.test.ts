@@ -79,7 +79,7 @@ describe("clf-orchestrator worker", () => {
         createCattleServer: vi.fn(async (opts: any) => ({
           id: "1",
           name: String(opts.name),
-          identity: String(opts.labels?.identity || ""),
+          persona: String(opts.labels?.persona || ""),
           taskId: String(opts.labels?.["task-id"] || ""),
           ttlSeconds: 60,
           createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -97,11 +97,11 @@ describe("clf-orchestrator worker", () => {
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-orchestrator-"));
     const dbPath = path.join(dir, "state.sqlite");
-    const identitiesRoot = path.join(dir, "identities");
-    fs.mkdirSync(path.join(identitiesRoot, "rex"), { recursive: true });
-    fs.writeFileSync(path.join(identitiesRoot, "rex", "SOUL.md"), "hi\n");
+    const personasRoot = path.join(dir, "cattle-personas");
+    fs.mkdirSync(path.join(personasRoot, "rex"), { recursive: true });
+    fs.writeFileSync(path.join(personasRoot, "rex", "SOUL.md"), "hi\n");
     fs.writeFileSync(
-      path.join(identitiesRoot, "rex", "config.json"),
+      path.join(personasRoot, "rex", "config.json"),
       JSON.stringify({ schemaVersion: 1, model: { primary: "openai/gpt-4o", fallbacks: [] } }, null, 2),
     );
 
@@ -111,7 +111,7 @@ describe("clf-orchestrator worker", () => {
         kind: "cattle.spawn",
         requester: "maren",
         payload: {
-          identity: "rex",
+          persona: "rex",
           ttl: "1m",
           task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
         },
@@ -137,7 +137,7 @@ describe("clf-orchestrator worker", () => {
             secretsBaseUrl: "http://clawdlets-pet:18337",
             bootstrapTtlMs: 60_000,
           },
-          identitiesRoot,
+          personasRoot,
           adminAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey"],
           tailscaleAuthKey: "tskey-auth-123",
           env: { OPENAI_API_KEY: "x", OPEN_AI_APIKEY: "x" },

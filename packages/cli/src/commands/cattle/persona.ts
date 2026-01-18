@@ -3,26 +3,26 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import { ensureDir, writeFileAtomic } from "@clawdlets/core/lib/fs-safe";
-import { IdentityNameSchema } from "@clawdlets/core/lib/identifiers";
+import { PersonaNameSchema } from "@clawdlets/core/lib/identifiers";
 import { findRepoRoot } from "@clawdlets/core/lib/repo";
 
-function getIdentitiesDir(repoRoot: string): string {
-  return path.join(repoRoot, "identities");
+function getPersonasDir(repoRoot: string): string {
+  return path.join(repoRoot, "cattle", "personas");
 }
 
-const identityAdd = defineCommand({
-  meta: { name: "add", description: "Create an identity skeleton under identities/<name>/." },
+const personaAdd = defineCommand({
+  meta: { name: "add", description: "Create a cattle persona skeleton under cattle/personas/<name>/." },
   args: {
-    name: { type: "string", description: "Identity name (safe: [a-z][a-z0-9_-]*).", required: true },
+    name: { type: "string", description: "Persona name (safe: [a-z][a-z0-9_-]*).", required: true },
     force: { type: "boolean", description: "Overwrite existing files.", default: false },
     dryRun: { type: "boolean", description: "Print planned writes without writing.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const name = IdentityNameSchema.parse(String(args.name || "").trim());
+    const name = PersonaNameSchema.parse(String(args.name || "").trim());
 
-    const identitiesDir = getIdentitiesDir(repoRoot);
-    const dir = path.join(identitiesDir, name);
+    const personasDir = getPersonasDir(repoRoot);
+    const dir = path.join(personasDir, name);
     const soulPath = path.join(dir, "SOUL.md");
     const configPath = path.join(dir, "config.json");
     const skillsDir = path.join(dir, "skills");
@@ -53,37 +53,36 @@ const identityAdd = defineCommand({
     await writeFileAtomic(soulPath, soulText.endsWith("\n") ? soulText : `${soulText}\n`);
     await writeFileAtomic(configPath, `${JSON.stringify(configJson, null, 2)}\n`);
 
-    console.log(`ok: created identities/${name}`);
+    console.log(`ok: created cattle/personas/${name}`);
   },
 });
 
-const identityList = defineCommand({
-  meta: { name: "list", description: "List identities under identities/." },
+const personaList = defineCommand({
+  meta: { name: "list", description: "List cattle personas under cattle/personas/." },
   args: {
     json: { type: "boolean", description: "Output JSON.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const identitiesDir = getIdentitiesDir(repoRoot);
+    const personasDir = getPersonasDir(repoRoot);
     const out: string[] = [];
-    if (fs.existsSync(identitiesDir)) {
-      for (const ent of fs.readdirSync(identitiesDir, { withFileTypes: true })) {
+    if (fs.existsSync(personasDir)) {
+      for (const ent of fs.readdirSync(personasDir, { withFileTypes: true })) {
         if (!ent.isDirectory()) continue;
         const name = ent.name;
-        const ok = IdentityNameSchema.safeParse(name);
+        const ok = PersonaNameSchema.safeParse(name);
         if (!ok.success) continue;
         out.push(name);
       }
     }
     out.sort();
 
-    if (args.json) console.log(JSON.stringify({ identities: out }, null, 2));
+    if (args.json) console.log(JSON.stringify({ personas: out }, null, 2));
     else for (const n of out) console.log(n);
   },
 });
 
-export const identity = defineCommand({
-  meta: { name: "identity", description: "Identity registry helpers (identities/<name>/)." },
-  subCommands: { add: identityAdd, list: identityList },
+export const cattlePersona = defineCommand({
+  meta: { name: "persona", description: "Cattle persona registry helpers (cattle/personas/<name>/)." },
+  subCommands: { add: personaAdd, list: personaList },
 });
-

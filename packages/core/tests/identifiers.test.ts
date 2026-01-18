@@ -16,10 +16,10 @@ describe("identifiers", () => {
     expect(() => assertSafeSecretName("../pwn")).toThrow(/invalid secret name/i);
   });
 
-  it("assertSafeIdentityName accepts safe identity", async () => {
-    const { assertSafeIdentityName } = await import("../src/lib/identifiers");
-    expect(() => assertSafeIdentityName("rex")).not.toThrow();
-    expect(() => assertSafeIdentityName("../pwn")).toThrow(/invalid identity name/i);
+  it("assertSafePersonaName accepts safe persona", async () => {
+    const { assertSafePersonaName } = await import("../src/lib/identifiers");
+    expect(() => assertSafePersonaName("rex")).not.toThrow();
+    expect(() => assertSafePersonaName("../pwn")).toThrow(/invalid persona name/i);
   });
 
   it("sanitizeOperatorId strips unsafe chars", async () => {

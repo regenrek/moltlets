@@ -10,7 +10,6 @@ import { host } from "./commands/host.js";
 import { fleet } from "./commands/fleet.js";
 import { image } from "./commands/image.js";
 import { infra } from "./commands/infra.js";
-import { identity } from "./commands/identity.js";
 import { lockdown } from "./commands/lockdown.js";
 import { project } from "./commands/project.js";
 import { secrets } from "./commands/secrets.js";
@@ -31,7 +30,6 @@ const main = defineCommand({
     host,
     fleet,
     image,
-    identity,
     infra,
     lockdown,
     project,

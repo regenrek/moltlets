@@ -11,7 +11,7 @@ This repo (clawdlets) = CLI + infra framework + docs.
 - `fleet/`: bot roster + routing/skills + workspace docs (app layer)
 - `fleet/clawdlets.json`: canonical fleet/host config
 - `secrets/`: sops-encrypted secrets (safe to commit)
-- `identities/`: identity registry (SOUL/config/skills/memory)
+- `cattle/personas/`: cattle persona registry (SOUL/config/skills/memory)
 - `agent-playbooks/`: “how to run” playbooks for bots/operators
 
 Notes

@@ -45,7 +45,7 @@ export type ClfOrchestratorConfig = {
     bootstrapTtlMs: number;
   };
 
-  identitiesRoot: string;
+  personasRoot: string;
   adminAuthorizedKeysFile: string;
   adminAuthorizedKeysInline: string;
   tailscaleAuthKey: string;
@@ -69,7 +69,7 @@ export function loadClfOrchestratorConfigFromEnv(env: NodeJS.ProcessEnv): ClfOrc
   const image = String(env.CLF_CATTLE_IMAGE || "").trim();
   if (!image) throw new Error("missing CLF_CATTLE_IMAGE");
 
-  const identitiesRoot = parseStringEnv(env.CLF_IDENTITIES_ROOT, "/var/lib/clf/identities");
+  const personasRoot = parseStringEnv(env.CLF_CATTLE_PERSONAS_ROOT, "/var/lib/clf/cattle-personas");
   const adminAuthorizedKeysFile = parseStringEnv(env.CLF_ADMIN_AUTHORIZED_KEYS_FILE, "");
   const adminAuthorizedKeysInline = parseStringEnv(env.CLF_ADMIN_AUTHORIZED_KEYS, "");
 
@@ -103,7 +103,7 @@ export function loadClfOrchestratorConfigFromEnv(env: NodeJS.ProcessEnv): ClfOrc
       bootstrapTtlMs: Math.max(30_000, Math.min(60 * 60_000, parseIntEnv(env.CLF_CATTLE_BOOTSTRAP_TTL_MS, 5 * 60_000))),
     },
 
-    identitiesRoot,
+    personasRoot,
     adminAuthorizedKeysFile,
     adminAuthorizedKeysInline,
     tailscaleAuthKey,

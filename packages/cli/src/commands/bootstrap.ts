@@ -9,7 +9,7 @@ import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawdlets/co
 import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
 import { expandPath } from "@clawdlets/core/lib/path-expand";
 import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { evalFleetConfig } from "@clawdlets/core/lib/fleet-nix-eval";
+import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets";
 import { withFlakesEnv } from "@clawdlets/core/lib/nix-flakes";
 import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
 import { resolveBaseFlake } from "@clawdlets/core/lib/base-flake";
@@ -219,12 +219,12 @@ export const bootstrap = defineCommand({
 	      throw new Error(`missing extra-files key: ${requiredKey} (run: clawdlets secrets init)`);
 	    }
 
-    const bots = (await evalFleetConfig({ repoRoot, nixBin })).bots;
+    const secretsPlan = buildFleetSecretsPlan({ config: clawdletsConfig, hostName });
 
     const requiredSecrets = [
       ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
-	      "admin_password_hash",
-      ...bots.map((b) => `discord_token_${b}`),
+      "admin_password_hash",
+      ...secretsPlan.secretNamesRequired,
     ];
 
 	    const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, hostName);

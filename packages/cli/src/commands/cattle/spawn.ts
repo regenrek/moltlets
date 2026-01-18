@@ -13,7 +13,7 @@ export const cattleSpawn = defineCommand({
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
     host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    identity: { type: "string", description: "Identity name.", required: true },
+    persona: { type: "string", description: "Persona name.", required: true },
     taskFile: { type: "string", description: "Task JSON file (schemaVersion 1).", required: true },
     ttl: { type: "string", description: "TTL override (default: cattle.hetzner.defaultTtl)." },
     image: { type: "string", description: "Hetzner image override (default: cattle.hetzner.image)." },
@@ -39,8 +39,8 @@ export const cattleSpawn = defineCommand({
       hint: "cattle is disabled (set cattle.enabled=true in fleet/clawdlets.json)",
     });
 
-    const identity = String(args.identity || "").trim();
-    if (!identity) throw new Error("missing --identity");
+    const persona = String((args as any).persona || "").trim();
+    if (!persona) throw new Error("missing --persona");
 
     const taskFileRaw = String((args as any).taskFile || "").trim();
     if (!taskFileRaw) throw new Error("missing --task-file");
@@ -54,7 +54,7 @@ export const cattleSpawn = defineCommand({
     if (ttlRaw) requireTtlSeconds(ttlRaw);
 
     const payload = {
-      identity,
+      persona,
       task,
       ttl: ttlRaw,
       image: String(args.image || config.cattle?.hetzner?.image || "").trim(),
@@ -141,7 +141,7 @@ export const cattleSpawn = defineCommand({
           st.upsertServer({
             id,
             name,
-            identity: String((server as any).identity || identity),
+            persona: String((server as any).persona || persona),
             task: String((server as any).taskId || task.taskId),
             taskId: String((server as any).taskId || task.taskId),
             ttlSeconds,
@@ -163,4 +163,3 @@ export const cattleSpawn = defineCommand({
     console.log(`ok: spawn completed (job=${res.jobId})`);
   },
 });
-

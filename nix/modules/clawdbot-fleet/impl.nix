@@ -9,23 +9,6 @@ let
 
   cfg = defs.cfg;
 
-  mkBotEtc = b:
-    if cfg.documentsDir == null
-    then { }
-    else
-      let
-        srcDir = cfg.documentsDir + "/bots/${b}";
-        cfgFile = srcDir + "/clawdbot.json5";
-      in
-        if builtins.pathExists cfgFile
-        then {
-          "clawdlets/bots/${b}/clawdbot.json5" = {
-            source = cfgFile;
-            group = "bot-${b}";
-            mode = "0440";
-          };
-        }
-        else { };
 in
 {
   config = lib.mkIf cfg.enable {
@@ -96,12 +79,11 @@ in
               allow = (defs.getBotProfile b).skills.allowBundled or null;
               brave = (defs.getBotProfile b).skills.entries."brave-search" or {};
               apiKeySecret = brave.apiKeySecret or null;
-              envSecrets = brave.envSecrets or {};
             in
               !(allow != null && lib.elem "brave-search" allow)
-              || ((apiKeySecret != null && apiKeySecret != "") || envSecrets != {})
+              || ((apiKeySecret != null && apiKeySecret != ""))
           ) cfg.bots;
-        message = "bundled skill \"brave-search\" requires botProfiles.<bot>.skills.entries.\"brave-search\".{ apiKeySecret or envSecrets }.";
+        message = "bundled skill \"brave-search\" requires botProfiles.<bot>.skills.entries.\"brave-search\".apiKeySecret.";
       }
       {
         assertion =
@@ -121,7 +103,7 @@ in
       })
     ];
 
-    sops.templates = lib.mkMerge [ runtime.perBotTemplates runtime.perBotEnvTemplates ];
+    sops.templates = lib.mkMerge [ runtime.perBotTemplates ];
 
     users.users = builtins.listToAttrs (map runtime.mkBotUser cfg.bots);
     users.groups = builtins.listToAttrs (map runtime.mkBotGroup cfg.bots);
@@ -132,13 +114,11 @@ in
         "d ${cfg.opsSnapshot.outDir} 0750 root root - -"
       ];
 
-    environment.etc = lib.mkMerge [
-      (lib.mkMerge (map mkBotEtc cfg.bots))
-      {
-        "clawdlets/tools.md" = {
-          source = defs.toolsInventoryMd;
-          mode = "0444";
-        };
+    environment.etc = {
+      "clawdlets/tools.md" = {
+        source = defs.toolsInventoryMd;
+        mode = "0444";
+      };
 
         "clawdlets/build-info.json" = {
           source = defs.buildInfoJson;
@@ -179,8 +159,7 @@ in
           source = ../../scripts/sync-managed-docs.sh;
           mode = "0755";
         };
-      }
-    ];
+    };
 
     environment.systemPackages =
       [ cfg.package pkgs.git pkgs.jq ]

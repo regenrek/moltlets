@@ -8,7 +8,7 @@ const BetterSqlite3 = require("better-sqlite3") as typeof import("better-sqlite3
 export type CattleStateServer = {
   id: string;
   name: string;
-  identity: string;
+  persona: string;
   task: string;
   taskId: string;
   ttlSeconds: number;
@@ -23,7 +23,7 @@ export type CattleStateServer = {
 type ServerRow = {
   id: string;
   name: string;
-  identity: string;
+  persona: string;
   task: string;
   task_id: string;
   ttl_seconds: number;
@@ -55,7 +55,7 @@ function rowToServer(row: ServerRow): CattleStateServer {
   return {
     id: row.id,
     name: row.name,
-    identity: row.identity,
+    persona: row.persona,
     task: row.task,
     taskId: row.task_id,
     ttlSeconds: row.ttl_seconds,
@@ -76,7 +76,7 @@ function migrate(db: import("better-sqlite3").Database): void {
       create table servers (
         id text primary key,
         name text not null,
-        identity text not null,
+        persona text not null,
         task text not null,
         task_id text not null,
         ttl_seconds integer not null,
@@ -90,11 +90,17 @@ function migrate(db: import("better-sqlite3").Database): void {
       create index servers_by_name on servers(name);
       create index servers_by_deleted_at on servers(deleted_at);
     `);
-    db.pragma("user_version = 1");
+    db.pragma("user_version = 2");
     return;
   }
 
-  if (version !== 1) {
+  if (version === 1) {
+    db.exec(`alter table servers rename column identity to persona;`);
+    db.pragma("user_version = 2");
+    return;
+  }
+
+  if (version !== 2) {
     throw new Error(`unsupported cattle state schema version: ${version}`);
   }
 }
@@ -112,18 +118,18 @@ export function openCattleState(dbPath: string): CattleState {
 
   const upsert = db.prepare(`
     insert into servers (
-      id, name, identity, task, task_id,
+      id, name, persona, task, task_id,
       ttl_seconds, created_at, expires_at,
       labels_json, last_status, last_ipv4, deleted_at
     )
     values (
-      @id, @name, @identity, @task, @task_id,
+      @id, @name, @persona, @task, @task_id,
       @ttl_seconds, @created_at, @expires_at,
       @labels_json, @last_status, @last_ipv4, @deleted_at
     )
     on conflict(id) do update set
       name = excluded.name,
-      identity = excluded.identity,
+      persona = excluded.persona,
       task = excluded.task,
       task_id = excluded.task_id,
       ttl_seconds = excluded.ttl_seconds,
@@ -148,7 +154,7 @@ export function openCattleState(dbPath: string): CattleState {
       upsert.run({
         id: server.id,
         name: server.name,
-        identity: server.identity,
+        persona: server.persona,
         task: server.task,
         task_id: server.taskId,
         ttl_seconds: server.ttlSeconds,

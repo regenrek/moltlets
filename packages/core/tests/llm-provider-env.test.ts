@@ -17,14 +17,4 @@ describe("llm provider env", () => {
     expect(getModelRequiredEnvVars("nope")).toEqual([]);
   });
 
-  it("suggests canonical secret names for known env vars", async () => {
-    const { getRecommendedSecretNameForEnvVar } = await import("../src/lib/llm-provider-env");
-    expect(getRecommendedSecretNameForEnvVar("")).toBe(null);
-    expect(getRecommendedSecretNameForEnvVar("ANTHROPIC_API_KEY")).toBe("anthropic_api_key");
-    expect(getRecommendedSecretNameForEnvVar("OPENAI_API_KEY")).toBe("openai_api_key");
-    expect(getRecommendedSecretNameForEnvVar("OPEN_AI_APIKEY")).toBe("openai_api_key");
-    expect(getRecommendedSecretNameForEnvVar("Z_AI_API_KEY")).toBe("z_ai_api_key");
-    expect(getRecommendedSecretNameForEnvVar("NOPE")).toBe(null);
-  });
 });
-

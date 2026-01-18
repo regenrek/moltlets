@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { cattleDestroy } from "./cattle/destroy.js";
 import { cattleList } from "./cattle/list.js";
 import { cattleLogs } from "./cattle/logs.js";
+import { cattlePersona } from "./cattle/persona.js";
 import { cattleReap } from "./cattle/reap.js";
 import { cattleSpawn } from "./cattle/spawn.js";
 import { cattleSsh } from "./cattle/ssh.js";
@@ -15,5 +16,6 @@ export const cattle = defineCommand({
     reap: cattleReap,
     logs: cattleLogs,
     ssh: cattleSsh,
+    persona: cattlePersona,
   },
 });

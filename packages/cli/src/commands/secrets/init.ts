@@ -11,8 +11,7 @@ import { upsertSopsCreationRule } from "@clawdlets/core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdlets/core/lib/sops";
 import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdlets/core/lib/sops-rules";
 import { sanitizeOperatorId } from "@clawdlets/core/lib/identifiers";
-import { buildFleetEnvSecretsPlan } from "@clawdlets/core/lib/fleet-env-secrets";
-import { getRecommendedSecretNameForEnvVar } from "@clawdlets/core/lib/llm-provider-env";
+import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets";
 import { buildSecretsInitTemplate, isPlaceholderSecretValue, listSecretsInitPlaceholders, parseSecretsInitJson, resolveSecretsInitFromJsonArg, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdlets/core/lib/secrets-init";
 import { readYamlScalarFromMapping } from "@clawdlets/core/lib/yaml-scalar";
 import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout";
@@ -107,25 +106,32 @@ export const secretsInit = defineCommand({
     const garnixNetrcPath = garnixPrivateEnabled ? String(garnixPrivate?.netrcPath || "/etc/nix/netrc").trim() : "";
     if (garnixPrivateEnabled && !garnixNetrcSecretName) throw new Error("cache.garnix.private.netrcSecret must be set when private cache is enabled");
 
-    const envPlan = buildFleetEnvSecretsPlan({ config: clawdletsConfig, hostName });
-    if (envPlan.missingEnvSecretMappings.length > 0) {
-      const first = envPlan.missingEnvSecretMappings[0]!;
-      const rec = getRecommendedSecretNameForEnvVar(first.envVar);
-      throw new Error(
-        `missing envSecrets mapping for ${first.envVar} (bot=${first.bot}); set: clawdlets config set --path fleet.envSecrets.${first.envVar} --value ${rec || "<secret_name>"} (or per-bot override under fleet.bots.${first.bot}.profile.envSecrets.${first.envVar})`,
-      );
+    const secretsPlan = buildFleetSecretsPlan({ config: clawdletsConfig, hostName });
+    if (secretsPlan.missingSecretConfig.length > 0) {
+      const first = secretsPlan.missingSecretConfig[0]!;
+      if (first.kind === "discord") {
+        throw new Error(`missing discordTokenSecret for bot=${first.bot} (set fleet.bots.${first.bot}.profile.discordTokenSecret)`);
+      }
+      throw new Error(`missing modelSecrets entry for provider=${first.provider} (bot=${first.bot}, model=${first.model}); set fleet.modelSecrets.${first.provider}`);
     }
 
-    const requiredEnvSecretNames = new Set<string>(envPlan.secretNamesRequired);
-    const envVarsBySecretName = envPlan.envVarsBySecretName;
+    const requiredSecretNames = new Set<string>(secretsPlan.secretNamesRequired);
+    const discordSecretByName = new Map<string, string>();
+    for (const [bot, secretName] of Object.entries(secretsPlan.discordSecretsByBot)) {
+      if (secretName) discordSecretByName.set(secretName, bot);
+    }
+    const discordBotsRequired = bots.filter((b) => {
+      const secretName = secretsPlan.discordSecretsByBot[b] || "";
+      return secretName && requiredSecretNames.has(secretName);
+    });
     const requiredExtraSecretNames = new Set<string>([
-      ...requiredEnvSecretNames,
+      ...requiredSecretNames,
       ...(garnixPrivateEnabled ? [garnixNetrcSecretName] : []),
     ]);
 
     const templateExtraSecrets: Record<string, string> = {};
-    for (const secretName of envPlan.secretNamesAll) {
-      templateExtraSecrets[secretName] = requiredEnvSecretNames.has(secretName) ? "<REPLACE_WITH_API_KEY>" : "<OPTIONAL>";
+    for (const secretName of secretsPlan.secretNamesAll) {
+      templateExtraSecrets[secretName] = requiredSecretNames.has(secretName) ? "<REPLACE_WITH_SECRET>" : "<OPTIONAL>";
     }
     if (garnixPrivateEnabled) {
       templateExtraSecrets[garnixNetrcSecretName] = "<REPLACE_WITH_NETRC>";
@@ -145,7 +151,7 @@ export const secretsInit = defineCommand({
         if (!a.allowPlaceholders) {
           const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
           const parsed = parseSecretsInitJson(raw);
-          const placeholders = listSecretsInitPlaceholders({ input: parsed, bots, requiresTailscaleAuthKey });
+          const placeholders = listSecretsInitPlaceholders({ input: parsed, bots, discordBots: discordBotsRequired, requiresTailscaleAuthKey });
           if (placeholders.length > 0) {
             console.error(`error: placeholders found in ${defaultSecretsJsonDisplay} (fill it or pass --allow-placeholders)`);
             for (const p0 of placeholders) console.error(`- ${p0}`);
@@ -154,7 +160,7 @@ export const secretsInit = defineCommand({
           }
         }
       } else {
-        const template = buildSecretsInitTemplate({ bots, requiresTailscaleAuthKey, secrets: templateExtraSecrets });
+        const template = buildSecretsInitTemplate({ bots, discordBots: discordBotsRequired, requiresTailscaleAuthKey, secrets: templateExtraSecrets });
 
         if (!a.dryRun) {
           await ensureDir(path.dirname(defaultSecretsJsonPath));
@@ -298,9 +304,20 @@ export const secretsInit = defineCommand({
         | { kind: "tailscaleAuthKey" }
         | { kind: "garnixNetrcFile"; secretName: string; netrcPath: string }
         | { kind: "secret"; secretName: string }
-        | { kind: "discordToken"; bot: string };
+        | { kind: "discordToken"; bot: string; secretName: string };
 
-      const requiredExtraSecrets = Array.from(requiredExtraSecretNames).sort();
+      const discordSecretNames = new Set<string>(Object.values(secretsPlan.discordSecretsByBot).filter(Boolean));
+      const requiredExtraSecrets = Array.from(requiredExtraSecretNames).filter((s) => !discordSecretNames.has(s)).sort();
+      const discordTokenBots: Array<{ bot: string; secretName: string }> = [];
+      const seenDiscordSecrets = new Set<string>();
+      for (const bot of bots) {
+        const secretName = secretsPlan.discordSecretsByBot[bot] || "";
+        if (!secretName) continue;
+        if (!requiredSecretNames.has(secretName)) continue;
+        if (seenDiscordSecrets.has(secretName)) continue;
+        seenDiscordSecrets.add(secretName);
+        discordTokenBots.push({ bot, secretName });
+      }
 
       const allSteps: Step[] = [
         { kind: "adminPassword" },
@@ -310,7 +327,7 @@ export const secretsInit = defineCommand({
             ? ({ kind: "garnixNetrcFile", secretName, netrcPath: garnixNetrcPath || "/etc/nix/netrc" } as const)
             : ({ kind: "secret", secretName } as const),
         ),
-        ...bots.map((b) => ({ kind: "discordToken", bot: b }) as const),
+        ...discordTokenBots.map((b) => ({ kind: "discordToken", bot: b.bot, secretName: b.secretName }) as const),
       ];
 
       for (let i = 0; i < allSteps.length;) {
@@ -328,11 +345,9 @@ export const secretsInit = defineCommand({
             placeholder: `${layout.runtimeDir}/garnix.netrc`,
           });
         } else if (step.kind === "secret") {
-          const envVars = envVarsBySecretName[step.secretName] || [];
-          const hint = envVars.length > 0 ? ` (env: ${envVars.join(", ")})` : "";
-          v = await p.password({ message: `Secret value (${step.secretName})${hint} (required by configured models)` });
+          v = await p.password({ message: `Secret value (${step.secretName}) (required)` });
         } else {
-          v = await p.password({ message: `Discord token for ${step.bot} (discord_token_${step.bot}) (optional now, required to run)` });
+          v = await p.password({ message: `Discord token for ${step.bot} (${step.secretName}) (required)` });
         }
 
         if (p.isCancel(v)) {
@@ -363,7 +378,10 @@ export const secretsInit = defineCommand({
           }
         }
         else if (step.kind === "secret") values.secrets[step.secretName] = s;
-        else values.discordTokens[step.bot] = s;
+        else {
+          values.discordTokens[step.bot] = s;
+          values.secrets[step.secretName] = s;
+        }
         i += 1;
       }
     } else {
@@ -374,13 +392,12 @@ export const secretsInit = defineCommand({
       values.discordTokens = input.discordTokens || {};
     }
 
-    const envSecretsToWrite = envPlan.secretNamesAll;
+    const secretsToWrite = secretsPlan.secretNamesAll;
     const requiredSecrets = Array.from(new Set([
       ...(requiresTailscaleAuthKey ? ["tailscale_auth_key"] : []),
       "admin_password_hash",
       ...(garnixPrivateEnabled ? [garnixNetrcSecretName] : []),
-      ...envSecretsToWrite,
-      ...bots.map((b) => `discord_token_${b}`),
+      ...secretsToWrite,
     ]));
 
     const isOptionalMarker = (v: string): boolean => String(v || "").trim() === "<OPTIONAL>";
@@ -407,13 +424,15 @@ export const secretsInit = defineCommand({
         continue;
       }
 
-      if (secretName.startsWith("discord_token_")) {
-        const bot = secretName.slice("discord_token_".length);
-        const vv = values.discordTokens[bot]?.trim() || "";
+      if (discordSecretByName.has(secretName)) {
+        const bot = discordSecretByName.get(secretName) || "";
+        const required = requiredSecretNames.has(secretName);
+        const vv = (bot ? values.discordTokens[bot]?.trim() : "") || values.secrets?.[secretName]?.trim() || "";
         if (vv) resolvedValues[secretName] = vv;
         else if (existing) resolvedValues[secretName] = existing;
+        else if (!required) resolvedValues[secretName] = "<OPTIONAL>";
         else if (a.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
-        else throw new Error(`missing discord token for ${bot} (provide it in --from-json.discordTokens or pass --allow-placeholders)`);
+        else throw new Error(`missing discord token for ${bot || secretName} (provide it in --from-json.discordTokens or pass --allow-placeholders)`);
         continue;
       }
 
@@ -428,10 +447,8 @@ export const secretsInit = defineCommand({
         continue;
       }
       if (required) {
-        const envVars = envVarsBySecretName[secretName] || [];
-        const envHint = envVars.length > 0 ? ` (env: ${envVars.join(", ")})` : "";
         if (a.allowPlaceholders) resolvedValues[secretName] = "<FILL_ME>";
-        else throw new Error(`missing required secret: ${secretName}${envHint} (set it in --from-json.secrets or via interactive prompts)`);
+        else throw new Error(`missing required secret: ${secretName} (set it in --from-json.secrets or via interactive prompts)`);
         continue;
       }
       resolvedValues[secretName] = "<OPTIONAL>";

@@ -48,7 +48,7 @@ export const cattleList = defineCommand({
         st.upsertServer({
           id: s.id,
           name: s.name,
-          identity: s.identity || existing?.identity || "",
+          persona: s.persona || existing?.persona || "",
           task: existing?.task || s.taskId || "",
           taskId: s.taskId || existing?.taskId || "",
           ttlSeconds: s.ttlSeconds,
@@ -71,14 +71,13 @@ export const cattleList = defineCommand({
     }
 
     const rows: string[][] = [
-      ["ID", "NAME", "IDENTITY", "TASK", "STATUS", "TTL"],
+      ["ID", "NAME", "PERSONA", "TASK", "STATUS", "TTL"],
       ...sorted.map((s) => {
         const ttlLeft = Math.max(0, Math.floor(s.expiresAt.getTime() / 1000) - now);
-        return [s.id, s.name, s.identity || "-", s.taskId || "-", s.status, formatAgeSeconds(ttlLeft)];
+        return [s.id, s.name, s.persona || "-", s.taskId || "-", s.status, formatAgeSeconds(ttlLeft)];
       }),
     ];
 
     console.log(formatTable(rows));
   },
 });
-

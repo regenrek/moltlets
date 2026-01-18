@@ -57,7 +57,7 @@ describe("clf jobs", () => {
       args: {
         _: ["cattle.spawn"],
         requester: "maren",
-        identity: "rex",
+        persona: "rex",
         taskId: "t1",
         message: "do it",
         ttl: "2h",
@@ -66,7 +66,7 @@ describe("clf jobs", () => {
     } as any);
 
     expect((lastEnqueue.value as any)?.kind).toBe("cattle.spawn");
-    expect((lastEnqueue.value as any)?.payload?.identity).toBe("rex");
+    expect((lastEnqueue.value as any)?.payload?.persona).toBe("rex");
     expect((lastEnqueue.value as any)?.payload?.task?.taskId).toBe("t1");
   });
 });

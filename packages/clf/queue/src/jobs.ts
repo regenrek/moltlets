@@ -3,7 +3,7 @@ import { CattleTaskSchema, type CattleTask } from "@clawdlets/core/lib/cattle-ta
 import { type ClfJobKind } from "./protocol.js";
 
 export const ClfCattleSpawnPayloadSchema = z.object({
-  identity: z.string().trim().min(1),
+  persona: z.string().trim().min(1),
   task: CattleTaskSchema,
   ttl: z.string().trim().optional().default(""),
   image: z.string().trim().optional().default(""),
