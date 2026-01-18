@@ -47,6 +47,22 @@ jobs:
       - name: Test
         run: pnpm gate
 
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          version="8.30.0"
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Install trivy
+        run: |
+          set -euo pipefail
+          version="0.68.2"
+          curl -sSL "https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh" | sudo sh -s -- -b /usr/local/bin "v${version}"
+          trivy --version
+
       - name: Secleak gate
         run: scripts/secleak-check.sh
 
