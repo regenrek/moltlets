@@ -74,6 +74,7 @@ export function isPlaceholderSecretValue(value: string): boolean {
 export function listSecretsInitPlaceholders(params: {
   input: SecretsInitJson;
   bots: string[];
+  discordBots?: string[];
   requiresTailscaleAuthKey: boolean;
 }): string[] {
   const out = new Set<string>();
@@ -92,7 +93,8 @@ export function listSecretsInitPlaceholders(params: {
   }
 
   const bots = Array.from(new Set(params.bots.map((b) => String(b).trim()).filter(Boolean)));
-  for (const b of bots) {
+  const discordBots = Array.from(new Set((params.discordBots ?? bots).map((b) => String(b).trim()).filter(Boolean)));
+  for (const b of discordBots) {
     const v = params.input.discordTokens?.[b];
     if (v && isPlaceholderSecretValue(v)) out.add(`discordTokens.${b}`);
   }
@@ -102,16 +104,18 @@ export function listSecretsInitPlaceholders(params: {
 
 export function buildSecretsInitTemplate(params: {
   bots: string[];
+  discordBots?: string[];
   requiresTailscaleAuthKey: boolean;
   secrets?: Record<string, string>;
 }): SecretsInitJson {
   const bots = Array.from(new Set(params.bots.map((b) => String(b).trim()).filter(Boolean)));
+  const discordBots = Array.from(new Set((params.discordBots ?? bots).map((b) => String(b).trim()).filter(Boolean)));
   const secrets = params.secrets && typeof params.secrets === "object" ? params.secrets : undefined;
   const hasSecrets = secrets && Object.keys(secrets).length > 0;
   return {
     adminPasswordHash: "<REPLACE_WITH_YESCRYPT_HASH>",
     ...(params.requiresTailscaleAuthKey ? { tailscaleAuthKey: "<REPLACE_WITH_TSKEY_AUTH>" } : {}),
-    discordTokens: Object.fromEntries(bots.map((b) => [b, "<REPLACE_WITH_DISCORD_TOKEN>"])),
+    discordTokens: Object.fromEntries(discordBots.map((b) => [b, "<REPLACE_WITH_DISCORD_TOKEN>"])),
     ...(hasSecrets ? { secrets } : {}),
   };
 }

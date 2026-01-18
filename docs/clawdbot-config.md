@@ -4,39 +4,25 @@ Clawdlets does not invent a second routing/channels schema. Use clawdbot’s con
 
 ## Where to put config
 
-Small/inline:
-
 - `fleet/clawdlets.json` → `fleet.bots.<bot>.clawdbot` (raw clawdbot config object)
 
-Large/file-based (recommended when it grows):
+Clawdlets invariants always win:
 
-- `fleet/workspaces/bots/<bot>/clawdbot.json5`
-
-If the JSON5 file exists, clawdlets-template:
-
-- installs **only** `fleet/workspaces/bots/<bot>/clawdbot.json5` to `/etc/clawdlets/bots/<bot>/clawdbot.json5`
-- injects `"$include": "/etc/clawdlets/bots/<bot>/clawdbot.json5"` into the rendered config
-
-## Merge order
-
-1. file-based config (`$include`)
-2. inline config (`fleet.bots.<bot>.clawdbot`) overrides file
-3. clawdlets invariants override both:
-   - `gateway.bind` / `gateway.port`
-   - `gateway.auth` (always enabled)
-   - `agents.defaults.workspace`
+- `gateway.bind` / `gateway.port`
+- `gateway.auth` (always enabled)
+- `agents.defaults.workspace`
 
 ## Secrets
 
-Never commit plaintext tokens into clawdbot.json5 (or any `$include` it references).
+Never commit plaintext tokens into config.
 
 Files under `documentsDir` are copied into the Nix store during deploy. Treat them as public:
-do **not** place secrets in `fleet/workspaces/**` or `$include` trees. Use env vars + SOPS instead.
+do **not** place secrets in `fleet/workspaces/**`.
 
-Use env var substitution and map env vars → sops secrets:
+Use explicit secret names in `fleet/clawdlets.json` and let Nix inject them:
 
-- `fleet.envSecrets.<ENV_VAR> = "<secretName>"` (default for all bots)
-- `fleet.bots.<bot>.profile.envSecrets.<ENV_VAR> = "<secretName>"` (per bot)
+- Discord: `fleet.bots.<bot>.profile.discordTokenSecret = "<secretName>"`
+- Model providers: `fleet.modelSecrets.<provider> = "<secretName>"`
 
 Example (Discord token):
 
@@ -45,18 +31,12 @@ Example (Discord token):
   "fleet": {
     "bots": {
       "maren": {
-        "profile": { "envSecrets": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
+        "profile": { "discordTokenSecret": "discord_token_maren" },
         "clawdbot": {
-          "channels": { "discord": { "token": "${DISCORD_BOT_TOKEN}" } }
+          "channels": { "discord": { "enabled": true } }
         }
       }
     }
   }
 }
 ```
-
-Recommended channel env var names:
-
-- Discord: `DISCORD_BOT_TOKEN`
-- Telegram: `TELEGRAM_BOT_TOKEN`
-- Slack: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`

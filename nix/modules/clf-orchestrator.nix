@@ -11,29 +11,46 @@ let
   cattleHetzner = cattleCfg.hetzner or { };
   cattleDefaults = cattleCfg.defaults or { };
 
-  envSecrets = fleetCfg.fleet.envSecrets or { };
-  envSecretsKeys = builtins.attrNames envSecrets;
-  envSecretsSecretNames =
-    builtins.filter (s: s != null && s != "") (builtins.attrValues envSecrets);
+  modelSecrets = fleetCfg.fleet.modelSecrets or { };
+  modelSecretNames =
+    builtins.filter (s: s != null && s != "") (builtins.attrValues modelSecrets);
+  modelEnv =
+    let
+      providers = {
+        anthropic = [ "ANTHROPIC_API_KEY" ];
+        openai = [ "OPENAI_API_KEY" "OPEN_AI_APIKEY" ];
+        zai = [ "ZAI_API_KEY" "Z_AI_API_KEY" ];
+      };
+      pairs = lib.concatLists (lib.mapAttrsToList (provider: secretName:
+        let
+          s = toString secretName;
+          keys = providers.${lib.toLower provider} or [];
+        in
+          if s == "" || keys == []
+          then [ ]
+          else map (k: { name = k; value = config.sops.placeholder.${s}; }) keys
+      ) modelSecrets);
+    in
+      builtins.listToAttrs pairs;
 
   tailscaleSecret = config.clawdlets.tailnet.tailscale.authKeySecret or null;
 
-  identitiesDir = project.root + "/identities";
-  identitiesExists = builtins.pathExists identitiesDir;
-  identityNames =
-    if !identitiesExists
+  personasDir = project.root + "/cattle/personas";
+  personasExists = builtins.pathExists personasDir;
+  personaNames =
+    if !personasExists
     then [ ]
     else
       builtins.filter (n:
-        let t = (builtins.readDir identitiesDir).${n} or null;
+        let t = (builtins.readDir personasDir).${n} or null;
         in t == "directory"
-      ) (builtins.attrNames (builtins.readDir identitiesDir));
+      ) (builtins.attrNames (builtins.readDir personasDir));
 
-  mkIdentityEtc = name:
+  mkPersonaEtc = name:
     let
-      base = "clf/identities/${name}";
-      soul = "${identitiesDir}/${name}/SOUL.md";
-      cfg = "${identitiesDir}/${name}/config.json";
+      base = "clf/cattle-personas/${name}";
+      soul = "${personasDir}/${name}/SOUL.md";
+      cfg = "${personasDir}/${name}/config.json";
     in
       lib.optionalAttrs (builtins.pathExists soul) {
         "${base}/SOUL.md" = { source = soul; mode = "0444"; };
@@ -42,9 +59,7 @@ let
         "${base}/config.json" = { source = cfg; mode = "0444"; };
       };
 
-  mkEnvLine = envVar:
-    let secretName = envSecrets.${envVar} or "";
-    in lib.optionalString (secretName != "") "${envVar}=${config.sops.placeholder.${secretName}}";
+  mkEnvLine = envVar: value: "${envVar}=${value}";
 
   cfg = config.services.clfOrchestrator;
 in
@@ -184,7 +199,7 @@ in
           };
         }
       ]
-      ++ (map mkIdentityEtc identityNames)
+      ++ (map mkPersonaEtc personaNames)
     );
 
     systemd.tmpfiles.rules = [
@@ -210,7 +225,7 @@ in
           mode = "0400";
           sopsFile = "${config.clawdlets.secrets.hostDir}/${secretName}.yaml";
         };
-      }) envSecretsSecretNames))
+      }) modelSecretNames))
     ];
 
     sops.templates."clf-orchestrator.env" = {
@@ -223,7 +238,7 @@ in
             "HCLOUD_TOKEN=${config.sops.placeholder.${cfg.hcloudTokenSecret}}"
             "TAILSCALE_AUTH_KEY=${config.sops.placeholder.${tailscaleSecret}}"
           ]
-          ++ (map mkEnvLine envSecretsKeys)
+          ++ (lib.mapAttrsToList mkEnvLine modelEnv)
           ++ [ "" ]
         );
     };
@@ -264,7 +279,7 @@ in
         CLF_CATTLE_SECRETS_BASE_URL = cfg.cattle.secretsBaseUrl;
         CLF_CATTLE_BOOTSTRAP_TTL_MS = toString cfg.cattle.bootstrapTtlMs;
 
-        CLF_IDENTITIES_ROOT = "/etc/clf/identities";
+        CLF_CATTLE_PERSONAS_ROOT = "/etc/clf/cattle-personas";
         CLF_ADMIN_AUTHORIZED_KEYS_FILE = "/etc/clf/admin_authorized_keys";
       };
 

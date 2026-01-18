@@ -5,7 +5,7 @@ import { defineCommand } from "citty";
 import YAML from "yaml";
 import { sopsDecryptYamlFile } from "@clawdlets/core/lib/sops";
 import { sanitizeOperatorId } from "@clawdlets/core/lib/identifiers";
-import { buildFleetEnvSecretsPlan } from "@clawdlets/core/lib/fleet-env-secrets";
+import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets";
 import { isPlaceholderSecretValue } from "@clawdlets/core/lib/secrets-init";
 import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
 import { getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout";
@@ -48,15 +48,15 @@ export const secretsVerify = defineCommand({
     const nix = { nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: false } as const;
 
     const localDir = getHostSecretsDir(layout, hostName);
-    const envPlan = buildFleetEnvSecretsPlan({ config, hostName });
-    const requiredEnvSecretNames = new Set<string>(envPlan.secretNamesRequired);
+    const secretsPlan = buildFleetSecretsPlan({ config, hostName });
+    const requiredSecretNames = new Set<string>(secretsPlan.secretNamesRequired);
 
     const tailnetMode = String(hostCfg.tailnet?.mode || "none");
     const requiredSecrets = Array.from(new Set([
       ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
       "admin_password_hash",
     ]));
-    const envSecrets = envPlan.secretNamesAll;
+    const secretNames = secretsPlan.secretNamesAll;
     const optionalSecrets = ["root_password_hash"];
 
     type Result = { secret: string; status: "ok" | "missing" | "warn"; detail?: string };
@@ -108,7 +108,7 @@ export const secretsVerify = defineCommand({
       results.push({ secret: "secrets.localDir", status: "missing", detail: localDir });
     } else {
       for (const s of requiredSecrets) await verifyOne(s, false, false);
-      for (const s of envSecrets) await verifyOne(s, false, !requiredEnvSecretNames.has(s));
+      for (const s of secretNames) await verifyOne(s, false, !requiredSecretNames.has(s));
       for (const s of optionalSecrets) await verifyOne(s, true, true);
     }
 

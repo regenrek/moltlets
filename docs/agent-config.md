@@ -4,7 +4,7 @@ Single source of truth:
 
 - `fleet/clawdlets.json` (canonical fleet + host config)
 - `fleet/bundled-skills.json` (canonical allowlist for Nix assertions + doctor)
-- `fleet/workspaces/**` (prompt policy + optional clawdbot.json5)
+- `fleet/workspaces/**` (prompt/policy docs + skills)
 
 Rendered per-bot clawdbot config:
 
@@ -12,18 +12,13 @@ Rendered per-bot clawdbot config:
 
 ## Canonical bot config (clawdbot schema)
 
-Two inputs:
+Single input:
 
 - inline: `fleet.bots.<bot>.clawdbot` (JSON object)
-- file: `fleet/workspaces/bots/<bot>/clawdbot.json5` (optional)
 
-Merge order:
+Clawdlets invariants override (gateway bind/port/auth; workspace path).
 
-1. file config (via `$include`)
-2. inline config overrides file
-3. clawdlets invariants override both (gateway bind/port/auth; workspace path)
-
-### Example: Discord token via env var
+### Example: Discord token via secret
 
 ```json
 {
@@ -31,15 +26,12 @@ Merge order:
     "bots": {
       "maren": {
         "profile": {
-          "envSecrets": {
-            "DISCORD_BOT_TOKEN": "discord_token_maren"
-          }
+          "discordTokenSecret": "discord_token_maren"
         },
         "clawdbot": {
           "channels": {
             "discord": {
-              "enabled": true,
-              "token": "${DISCORD_BOT_TOKEN}"
+              "enabled": true
             }
           }
         }
@@ -66,14 +58,16 @@ Ports:
 - base: `18789`
 - stride: `20` (derived ports won’t collide)
 
-## Secrets -> env vars
+## Secrets
 
-Map env vars to sops secret names:
+Model provider secrets:
 
-- global defaults: `fleet.envSecrets.<ENV_VAR> = "<secretName>"`
-- per bot: `fleet.bots.<bot>.profile.envSecrets.<ENV_VAR> = "<secretName>"`
+- global defaults: `fleet.modelSecrets.<provider> = "<secretName>"`
+- optional per-bot overrides: `fleet.bots.<bot>.profile.modelSecrets.<provider> = "<secretName>"`
 
-Clawdbot config should reference env vars via `${ENV_VAR}` (never plaintext secrets in git).
+Discord token secrets:
+
+- per bot: `fleet.bots.<bot>.profile.discordTokenSecret = "<secretName>"`
 
 ## Documents (AGENTS / SOUL / TOOLS / IDENTITY)
 
@@ -89,7 +83,7 @@ documentsDir = ./workspaces;
 ```
 
 Anything under `documentsDir` is copied into the Nix store. Treat it as public:
-do **not** place secrets in `fleet/workspaces/**` or any `$include` files.
+do **not** place secrets in `fleet/workspaces/**`.
 
 On every bot service start:
 
@@ -136,19 +130,15 @@ Per-bot override:
 clawdlets config set --path fleet.bots.melinda.clawdbot.agents.defaults.model.primary --value zai/glm-4.7
 ```
 
-Provider API keys (env var -> sops secret name):
+Provider API keys (provider -> sops secret name):
 
 ```bash
-clawdlets config set --path fleet.envSecrets.ZAI_API_KEY --value z_ai_api_key
-clawdlets config set --path fleet.envSecrets.Z_AI_API_KEY --value z_ai_api_key
-
-clawdlets config set --path fleet.envSecrets.ANTHROPIC_API_KEY --value anthropic_api_key
-
-clawdlets config set --path fleet.envSecrets.OPENAI_API_KEY --value openai_api_key
-clawdlets config set --path fleet.envSecrets.OPEN_AI_APIKEY --value openai_api_key
+clawdlets config set --path fleet.modelSecrets.zai --value z_ai_api_key
+clawdlets config set --path fleet.modelSecrets.anthropic --value anthropic_api_key
+clawdlets config set --path fleet.modelSecrets.openai --value openai_api_key
 ```
 
-This renders into a per-bot env file and is loaded by systemd.
+These are injected into the systemd environment.
 
 ## Codex CLI (server)
 
@@ -226,14 +216,13 @@ Treat `allowBundled` as required on servers. Avoid `null` (typically means “al
 
 Per-skill secrets (recommended):
 
-- `fleet.bots.<bot>.profile.skills.entries."<skill>".envSecrets.<ENV_VAR> = "<sops_secret_name>"`
 - `fleet.bots.<bot>.profile.skills.entries."<skill>".apiKeySecret = "<sops_secret_name>"`
 
-### Per-bot service env (provider API keys)
+### Per-bot model secret overrides
 
-Use this for model provider API keys (e.g. ZAI, OpenAI, etc.).
+Use this to override provider keys per bot (rare).
 
-- `fleet.bots.<bot>.profile.envSecrets.<ENV_VAR> = "<sops_secret_name>"`
+- `fleet.bots.<bot>.profile.modelSecrets.<provider> = "<sops_secret_name>"`
 
 Note: enabling `"coding-agent"` pulls large packages (Codex CLI + deps) into the NixOS closure and can
 OOM small remote build machines during bootstrap. Prefer enabling it only after the host is up (swap

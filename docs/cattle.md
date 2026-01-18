@@ -20,7 +20,7 @@ Enable + configure in `fleet/clawdlets.json`:
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 8,
   "cattle": {
     "enabled": true,
     "hetzner": {
@@ -58,7 +58,7 @@ Notes
   - `tailscale_auth_key` (for the cattle VM to join tailnet)
     - Recommended: tag-scoped + short-lived/ephemeral preauth key; rotate regularly (it’s a tailnet-join capability).
     - Threat model: Hetzner `user_data` must be assumed readable by Hetzner project/API access; this key + the one-time bootstrap token live there briefly.
-  - provider keys for the chosen model (`fleet.envSecrets` -> secret files under `secrets/hosts/<host>/`)
+  - provider keys for the chosen model (`fleet.modelSecrets` -> secret files under `secrets/hosts/<host>/`)
     - These are consumed by `clf-orchestrator` (cattle fetches them at runtime; not embedded in `user_data`).
 
 Build + upload (Linux/CI recommended)
@@ -82,12 +82,12 @@ Then set `fleet/clawdlets.json`:
 ## Commands
 
 ```bash
-clawdlets identity add --name rex
-clawdlets identity list
+clawdlets cattle persona add --name rex
+clawdlets cattle persona list
 
-clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h
-clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h --with-github-token
-clawdlets cattle spawn --identity rex --task-file ./task.json --ttl 2h --dry-run
+clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h
+clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --with-github-token
+clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --dry-run
 clawdlets cattle list
 clawdlets cattle logs <name-or-id> --follow
 clawdlets cattle ssh <name-or-id>
@@ -120,12 +120,12 @@ Treat `task.json` as non-secret input. Secrets come from sops-managed files in `
 Notes
 - `callbackUrl` is forced to `""` on enqueue (callbacks disabled until allowlist design).
 
-## Identity registry
+## Persona registry
 
 Project repo structure:
 
 ```
-identities/
+cattle/personas/
   rex/
     SOUL.md
     config.json
@@ -133,17 +133,18 @@ identities/
     memory/
 ```
 
-`clawdlets cattle spawn --identity <name>` loads:
-- `identities/<name>/SOUL.md`
-- `identities/<name>/config.json` (`schemaVersion: 1`, `model.primary` optional)
+`clawdlets cattle spawn --persona <name>` loads:
+- `cattle/personas/<name>/SOUL.md`
+- `cattle/personas/<name>/config.json` (`schemaVersion: 1`, `model.primary` optional)
 
 Injected into the VM:
-- `/var/lib/clawdlets/identity/SOUL.md`
-- `/var/lib/clawdlets/identity/config.json`
+- `/var/lib/clawdlets/cattle/persona/SOUL.md`
+- `/var/lib/clawdlets/cattle/persona/config.json`
 
 Notes
+- Cattle personas are separate from fleet bot workspaces (and clawdbot `IDENTITY.md`).
 - Size limits enforced (cloud-init `user_data` max 32KiB): keep SOUL + config small.
-- Model selection order: `--model` > `identities/<name>/config.json model.primary` > `hosts.<host>.agentModelPrimary`.
+- Model selection order: `--model` > `cattle/personas/<name>/config.json model.primary` > `hosts.<host>.agentModelPrimary`.
 
 ## Cost + safety controls
 
@@ -154,8 +155,8 @@ Notes
 ## Failure modes / debug
 
 Common errors
-- `cloud-init user_data too large`: reduce identity/task payload (user_data still carries task+identity + bootstrap bits; keep it small).
-- `missing envSecrets mapping for <ENV>`: set `fleet.envSecrets.<ENV>=<secretName>` and create that secret file.
+- `cloud-init user_data too large`: reduce persona/task payload (user_data still carries task+persona + bootstrap bits; keep it small).
+- `missing modelSecrets entry for <provider>`: set `fleet.modelSecrets.<provider>=<secretName>` and create that secret file.
 - `tailscale ip returned empty output`: the VM didn’t join tailnet (check `tailscale_auth_key`, then use Hetzner console for boot logs).
 
 Debug commands

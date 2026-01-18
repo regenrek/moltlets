@@ -23,12 +23,3 @@ export function getModelRequiredEnvVars(modelId: string): string[] {
   const provider = getLlmProviderFromModelId(modelId);
   return provider ? getProviderRequiredEnvVars(provider) : [];
 }
-
-export function getRecommendedSecretNameForEnvVar(envVar: string): string | null {
-  const k = String(envVar || "").trim();
-  if (!k) return null;
-  if (k === "ANTHROPIC_API_KEY") return "anthropic_api_key";
-  if (k === "OPENAI_API_KEY" || k === "OPEN_AI_APIKEY") return "openai_api_key";
-  if (k === "ZAI_API_KEY" || k === "Z_AI_API_KEY") return "z_ai_api_key";
-  return null;
-}

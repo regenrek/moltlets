@@ -11,7 +11,7 @@ import {
 } from "../repo-layout.js";
 import { getHostAgeKeySopsCreationRulePathRegex, getHostAgeKeySopsCreationRulePathSuffix, getHostSecretsSopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathSuffix } from "../lib/sops-rules.js";
 import { validateHostSecretsYamlFiles } from "../lib/secrets-policy.js";
-import { buildFleetEnvSecretsPlan } from "../lib/fleet-env-secrets.js";
+import { buildFleetSecretsPlan } from "../lib/fleet-secrets.js";
 import { capture } from "../lib/run.js";
 import { looksLikeSshKeyContents, normalizeSshPublicKey } from "../lib/ssh.js";
 import type { DoctorCheck } from "./types.js";
@@ -23,7 +23,6 @@ import {
   type ClawdletsHostConfig,
 } from "../lib/clawdlets-config.js";
 import { isPlaceholderSecretValue } from "../lib/secrets-init.js";
-import { getRecommendedSecretNameForEnvVar } from "../lib/llm-provider-env.js";
 import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "../lib/github.js";
 import { tryGetOriginFlake } from "../lib/git.js";
 import { expandPath } from "../lib/path-expand.js";
@@ -275,34 +274,37 @@ export async function addDeployChecks(params: {
       }
     }
 
-    let envPlan: ReturnType<typeof buildFleetEnvSecretsPlan> | null = null;
+    let secretsPlan: ReturnType<typeof buildFleetSecretsPlan> | null = null;
     try {
-      if (clawdletsCfg) envPlan = buildFleetEnvSecretsPlan({ config: clawdletsCfg as any, hostName: host });
+      if (clawdletsCfg) secretsPlan = buildFleetSecretsPlan({ config: clawdletsCfg as any, hostName: host });
     } catch (e) {
-      push({ status: "warn", label: "envSecrets plan", detail: String((e as Error)?.message || e) });
-      envPlan = null;
+      push({ status: "warn", label: "fleet secrets plan", detail: String((e as Error)?.message || e) });
+      secretsPlan = null;
     }
 
-    if (envPlan && envPlan.missingEnvSecretMappings.length > 0) {
-      for (const m of envPlan.missingEnvSecretMappings.slice(0, 10)) {
-        const rec = getRecommendedSecretNameForEnvVar(m.envVar);
+    if (secretsPlan && secretsPlan.missingSecretConfig.length > 0) {
+      for (const m of secretsPlan.missingSecretConfig.slice(0, 10)) {
+        const detail =
+          m.kind === "discord"
+            ? `missing for bot=${m.bot} (set fleet.bots.${m.bot}.profile.discordTokenSecret)`
+            : `missing for bot=${m.bot} (provider=${m.provider}, model=${m.model}); set fleet.modelSecrets.${m.provider}`;
         push({
           status: "missing",
-          label: `envSecrets mapping: ${m.envVar}`,
-          detail: `missing for bot=${m.bot} (model=${m.model}); set: clawdlets config set --path fleet.envSecrets.${m.envVar} --value ${rec || "<secret_name>"}`,
+          label: "fleet secrets",
+          detail,
         });
       }
-      if (envPlan.missingEnvSecretMappings.length > 10) {
+      if (secretsPlan.missingSecretConfig.length > 10) {
         push({
           status: "missing",
-          label: "envSecrets mapping",
-          detail: `(+${envPlan.missingEnvSecretMappings.length - 10} more missing mappings)`,
+          label: "fleet secrets",
+          detail: `(+${secretsPlan.missingSecretConfig.length - 10} more missing entries)`,
         });
       }
     }
 
-    const botsForSecrets = envPlan?.bots?.length ? envPlan.bots : params.fleetBots || [];
-    const envSecretsForHost = envPlan?.secretNamesAll || [];
+    const botsForSecrets = secretsPlan?.bots?.length ? secretsPlan.bots : params.fleetBots || [];
+    const envSecretsForHost = secretsPlan?.secretNamesAll || [];
 
     if (botsForSecrets.length > 0) {
       const tailnetMode = String(clawdletsHostCfg?.tailnet?.mode || "none");
@@ -310,7 +312,6 @@ export async function addDeployChecks(params: {
         ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
         "admin_password_hash",
         ...envSecretsForHost,
-        ...botsForSecrets.map((b) => `discord_token_${b}`),
       ]));
       for (const secretName of required) {
         const f = path.join(secretsLocalDir, `${secretName}.yaml`);
@@ -321,12 +322,12 @@ export async function addDeployChecks(params: {
         });
       }
     } else {
-      push({ status: "warn", label: "required secrets", detail: "(fleet bots list missing; cannot validate discord_token_<bot> secrets)" });
+      push({ status: "warn", label: "required secrets", detail: "(fleet bots list missing; cannot validate per-bot secrets)" });
     }
 
-    if (envPlan && envPlan.secretNamesRequired.length > 0 && params.sopsAgeKeyFile && fs.existsSync(params.sopsAgeKeyFile)) {
+    if (secretsPlan && secretsPlan.secretNamesRequired.length > 0 && params.sopsAgeKeyFile && fs.existsSync(params.sopsAgeKeyFile)) {
       const nix = { nixBin: params.nixBin, cwd: params.repoRoot, dryRun: false, env: process.env } as const;
-      for (const secretName of envPlan.secretNamesRequired) {
+      for (const secretName of secretsPlan.secretNamesRequired) {
         const filePath = path.join(secretsLocalDir, `${secretName}.yaml`);
         if (!fs.existsSync(filePath)) continue;
         try {
@@ -351,10 +352,10 @@ export async function addDeployChecks(params: {
           push({ status: "warn", label: `secret value: ${secretName}`, detail: String((e as Error)?.message || e) });
         }
       }
-    } else if (envPlan && envPlan.secretNamesRequired.length > 0) {
+    } else if (secretsPlan && secretsPlan.secretNamesRequired.length > 0) {
       push({
         status: "warn",
-        label: "LLM API keys",
+        label: "required secrets",
         detail: "(set SOPS_AGE_KEY_FILE to verify required key values are not placeholders)",
       });
     }

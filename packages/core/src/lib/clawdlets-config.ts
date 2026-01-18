@@ -4,7 +4,7 @@ import { z } from "zod";
 import { writeFileAtomic } from "./fs-safe.js";
 import type { RepoLayout } from "../repo-layout.js";
 import { getRepoLayout } from "../repo-layout.js";
-import { BotIdSchema, EnvVarNameSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "./identifiers.js";
+import { BotIdSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "./identifiers.js";
 import { isValidTargetHost } from "./ssh-remote.js";
 import { TtlStringSchema } from "./ttl.js";
 import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "./hcloud-labels.js";
@@ -17,7 +17,7 @@ export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
 
-export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 7 as const;
+export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 8 as const;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
 
@@ -39,12 +39,21 @@ function isWorldOpenCidr(parsed: { ip: string; prefix: number; family: 4 | 6 }):
   return (parsed.ip === "::" || parsed.ip === "0:0:0:0:0:0:0:0") && parsed.prefix === 0;
 }
 
+const ProviderKeySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(/^[a-z0-9_-]+$/, { message: "invalid provider key (use [a-z0-9_-]+)" });
+const ModelSecretsSchema = z.record(ProviderKeySchema, SecretNameSchema).default(() => ({}));
+const OptionalSecretNameSchema = z.union([SecretNameSchema, z.literal("")]).default("");
+
 const FleetBotProfileSchema = z
   .object({
-    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({})),
+    discordTokenSecret: OptionalSecretNameSchema,
+    modelSecrets: ModelSecretsSchema,
   })
   .passthrough()
-  .default(() => ({ envSecrets: {} }));
+  .default(() => ({ discordTokenSecret: "", modelSecrets: {} }));
 
 const FleetBotSchema = z
   .object({
@@ -53,11 +62,11 @@ const FleetBotSchema = z
     clf: JsonObjectSchema.default(() => ({})),
   })
   .passthrough()
-  .default(() => ({ profile: { envSecrets: {} }, clawdbot: {}, clf: {} }));
+  .default(() => ({ profile: { discordTokenSecret: "", modelSecrets: {} }, clawdbot: {}, clf: {} }));
 
 const FleetSchema = z
   .object({
-    envSecrets: z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({})),
+    modelSecrets: ModelSecretsSchema,
     guildId: z.string().trim().default(""),
     botOrder: z.array(BotIdSchema).default(() => []),
     bots: z.record(BotIdSchema, FleetBotSchema).default(() => ({})),
@@ -275,7 +284,7 @@ export const ClawdletsConfigSchema = z.object({
   defaultHost: HostNameSchema.optional(),
   baseFlake: z.string().trim().default(""),
   fleet: FleetSchema.default(() => ({
-    envSecrets: {},
+    modelSecrets: {},
     guildId: "",
     botOrder: [],
     bots: {},
@@ -337,15 +346,16 @@ export function getTailnetMode(hostCfg: ClawdletsHostConfig | null | undefined):
 export function createDefaultClawdletsConfig(params: { host: string; bots?: string[] }): ClawdletsConfig {
   const host = params.host.trim() || "clawdbot-fleet-host";
   const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((b) => b.trim()).filter(Boolean);
-  const botsRecord = Object.fromEntries(bots.map((b) => [b, {}]));
+  const botsRecord = Object.fromEntries(
+    bots.map((b) => [b, { profile: { discordTokenSecret: `discord_token_${b}` } }]),
+  );
   return ClawdletsConfigSchema.parse({
     schemaVersion: CLAWDLETS_CONFIG_SCHEMA_VERSION,
     defaultHost: host,
     baseFlake: "",
     fleet: {
-      envSecrets: {
-        ZAI_API_KEY: "z_ai_api_key",
-        Z_AI_API_KEY: "z_ai_api_key",
+      modelSecrets: {
+        zai: "z_ai_api_key",
       },
       guildId: "",
       botOrder: bots,
@@ -405,6 +415,38 @@ function assertNoLegacyHostKeys(parsed: unknown): void {
     }
     if ("opentofu" in hostCfg) {
       throw new Error(`legacy host config key opentofu found for ${host}; use provisioning`);
+    }
+  }
+}
+
+function assertNoLegacyEnvSecrets(parsed: unknown): void {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+  const fleet = (parsed as { fleet?: unknown }).fleet as any;
+  if (fleet && typeof fleet === "object" && !Array.isArray(fleet)) {
+    if ("envSecrets" in fleet) {
+      throw new Error("fleet.envSecrets was removed; set fleet.modelSecrets + per-bot profile.discordTokenSecret instead");
+    }
+    const bots = fleet.bots;
+    if (bots && typeof bots === "object" && !Array.isArray(bots)) {
+      for (const [bot, botCfg] of Object.entries(bots as Record<string, unknown>)) {
+        if (!botCfg || typeof botCfg !== "object" || Array.isArray(botCfg)) continue;
+        const profile = (botCfg as any).profile;
+        if (profile && typeof profile === "object" && !Array.isArray(profile)) {
+          if ("envSecrets" in profile) {
+            throw new Error(`fleet.bots.${bot}.profile.envSecrets was removed; set profile.discordTokenSecret or profile.modelSecrets instead`);
+          }
+          const skills = (profile as any).skills;
+          const entries = skills?.entries;
+          if (entries && typeof entries === "object" && !Array.isArray(entries)) {
+            for (const [skill, entry] of Object.entries(entries as Record<string, unknown>)) {
+              if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+              if ("envSecrets" in (entry as any)) {
+                throw new Error(`fleet.bots.${bot}.profile.skills.entries.${skill}.envSecrets was removed; use apiKeySecret or inline config`);
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -483,6 +525,7 @@ export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: str
     throw new Error(`invalid JSON: ${configPath}`);
   }
   assertNoLegacyHostKeys(parsed);
+  assertNoLegacyEnvSecrets(parsed);
   const config = ClawdletsConfigSchema.parse(parsed);
   return { layout, configPath, config };
 }

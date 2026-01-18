@@ -4,9 +4,8 @@
 
 Clawdlets does not own routing. Configure routing/channels via clawdbot config:
 
-Options:
-- file-based (recommended): edit `fleet/workspaces/bots/<bot>/clawdbot.json5`
-- inline (small): edit `fleet/clawdlets.json` → `fleet.bots.<bot>.clawdbot`
+Option:
+- inline: edit `fleet/clawdlets.json` → `fleet.bots.<bot>.clawdbot`
 
 Then deploy (pinned):
 
@@ -36,9 +35,9 @@ clawdlets server deploy --manifest deploy-manifest.<host>.json
 clawdlets bot add --bot <id>
 ```
 
-2) Add env/secret mappings + config:
-   - `fleet.bots.<id>.profile.envSecrets.DISCORD_BOT_TOKEN = "discord_token_<id>"`
-   - clawdbot config (`fleet.bots.<id>.clawdbot` or `fleet/workspaces/bots/<id>/clawdbot.json5`) uses `${DISCORD_BOT_TOKEN}`
+2) Add secret + config:
+   - `fleet.bots.<id>.profile.discordTokenSecret = "discord_token_<id>"`
+   - clawdbot config: `fleet.bots.<id>.clawdbot.channels.discord.enabled = true`
 
 Then:
 ```bash
@@ -53,7 +52,7 @@ clawdlets server deploy --manifest deploy-manifest.<host>.json
 ```bash
 clawdlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search"]'
 ```
-3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.profile.skills.entries.\"<skill>\".*Secret/envSecrets`
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.profile.skills.entries.\"<skill>\".*Secret`
 4) Sync + deploy:
 ```bash
 clawdlets secrets sync

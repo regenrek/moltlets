@@ -18,7 +18,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "../pwn": {
@@ -38,7 +38,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren", "maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -58,7 +58,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: [], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -78,7 +78,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren", "ghost"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -98,7 +98,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {}, sonja: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -118,7 +118,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -139,7 +139,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -160,7 +160,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -188,7 +188,8 @@ describe("clawdlets config schema", () => {
     expect(cfg.defaultHost).toBe("clawdbot-fleet-host");
     expect(cfg.fleet.botOrder).toEqual(["maren", "sonja"]);
     expect(Object.keys(cfg.fleet.bots)).toEqual(["maren", "sonja"]);
-    expect(cfg.fleet.envSecrets.ZAI_API_KEY).toBe("z_ai_api_key");
+    expect(cfg.fleet.modelSecrets.zai).toBe("z_ai_api_key");
+    expect(cfg.fleet.bots.maren.profile.discordTokenSecret).toBe("discord_token_maren");
     expect(cfg.cattle.enabled).toBe(false);
     expect(cfg.cattle.hetzner.defaultTtl).toBe("2h");
     expect(cfg.hosts["clawdbot-fleet-host"].sshExposure?.mode).toBe("bootstrap");
@@ -208,29 +209,29 @@ describe("clawdlets config schema", () => {
     } as const;
 
     const cfgA = ClawdletsConfigSchema.parse({
-      schemaVersion: 7,
+      schemaVersion: 8,
       fleet: { botOrder: ["maren"], bots: { maren: {} } },
       hosts: { "clawdbot-fleet-host": baseHost },
     }) as any;
 
-    cfgA.fleet.envSecrets.NEW = "value";
-    cfgA.fleet.bots.maren.profile.envSecrets.LOCAL = "secret";
+    cfgA.fleet.modelSecrets.new = "value";
+    cfgA.fleet.bots.maren.profile.modelSecrets.local = "secret";
 
     const cfgB = ClawdletsConfigSchema.parse({
-      schemaVersion: 7,
+      schemaVersion: 8,
       fleet: { botOrder: ["maren"], bots: { maren: {} } },
       hosts: { "clawdbot-fleet-host": baseHost },
     }) as any;
 
-    expect(cfgB.fleet.envSecrets.NEW).toBeUndefined();
-    expect(cfgB.fleet.bots.maren.profile.envSecrets.LOCAL).toBeUndefined();
+    expect(cfgB.fleet.modelSecrets.new).toBeUndefined();
+    expect(cfgB.fleet.bots.maren.profile.modelSecrets.local).toBeUndefined();
   });
 
   it("rejects defaultHost not present in hosts", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         defaultHost: "missing-host",
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
@@ -259,32 +260,32 @@ describe("clawdlets config schema", () => {
     } as const;
 
     {
-      const config = { schemaVersion: 7, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 8, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r).toEqual({ ok: true, host: "a", source: "defaultHost" });
     }
 
     {
-      const config = { schemaVersion: 7, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 8, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: "a" });
       expect(r).toEqual({ ok: true, host: "a", source: "flag" });
     }
 
     {
-      const config = { schemaVersion: 7, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 8, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: "b" });
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.message).toMatch(/unknown host/i);
     }
 
     {
-      const config = { schemaVersion: 7, fleet: {}, hosts: { a: baseHost } } as any;
+      const config = { schemaVersion: 8, fleet: {}, hosts: { a: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r).toEqual({ ok: true, host: "a", source: "soleHost" });
     }
 
     {
-      const config = { schemaVersion: 7, fleet: {}, hosts: { a: baseHost, b: baseHost } } as any;
+      const config = { schemaVersion: 8, fleet: {}, hosts: { a: baseHost, b: baseHost } } as any;
       const r = resolveHostName({ config, host: undefined });
       expect(r.ok).toBe(false);
     }
@@ -301,7 +302,7 @@ describe("clawdlets config schema", () => {
       agentModelPrimary: "zai/glm-4.7",
     } as const;
 
-    const config = { schemaVersion: 7, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
+    const config = { schemaVersion: 8, defaultHost: "a", fleet: {}, hosts: { a: baseHost } } as any;
     const r = resolveHostName({ config, host: ";" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toMatch(/invalid host name/i);
@@ -335,7 +336,7 @@ describe("clawdlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -361,7 +362,7 @@ describe("clawdlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "clawdbot-fleet-host": {
@@ -381,39 +382,17 @@ describe("clawdlets config schema", () => {
     }
   });
 
-  it("rejects invalid fleet.bots.<bot>.profile.envSecrets shapes", async () => {
+  it("rejects invalid fleet.modelSecrets entries", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         fleet: {
           botOrder: ["maren"],
-          bots: { maren: { profile: { envSecrets: "nope" } } },
-        },
-        hosts: {
-          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
-        },
-      }),
-    ).toThrow(/expected (object|record)/i);
-  });
-
-  it("rejects invalid fleet.bots.<bot>.profile.envSecrets entries", async () => {
-    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
-    expect(() =>
-      ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
-        fleet: {
-          botOrder: ["maren"],
-          bots: {
-            maren: {
-              profile: {
-                envSecrets: {
-                  "bad-key": "openai_api_key",
-                  OPENAI_API_KEY: "../pwn",
-                },
-              },
-            },
+          modelSecrets: {
+            "bad-key": "../pwn",
           },
+          bots: { maren: {} },
         },
         hosts: {
           "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
@@ -422,11 +401,36 @@ describe("clawdlets config schema", () => {
     ).toThrow(/invalid (env var name|secret name)/i);
   });
 
+  it("loadClawdletsConfig rejects legacy envSecrets keys", async () => {
+    const { loadClawdletsConfig } = await import("../src/lib/clawdlets-config");
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-config-envsecrets-"));
+    try {
+      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
+      const legacy = {
+        schemaVersion: 8,
+        fleet: { botOrder: ["maren"], bots: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } } },
+        hosts: {
+          "clawdbot-fleet-host": {
+            enable: false,
+            diskDevice: "/dev/sda",
+            sshAuthorizedKeys: [],
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      };
+      await writeFile(path.join(repoRoot, "fleet", "clawdlets.json"), JSON.stringify(legacy, null, 2), "utf8");
+      expect(() => loadClawdletsConfig({ repoRoot })).toThrow(/envSecrets was removed/i);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects invalid cattle ttl strings", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         cattle: { enabled: true, hetzner: { image: "img-1", defaultTtl: "2 hours" } },
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
@@ -440,7 +444,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         cattle: { enabled: true, hetzner: { image: "" } },
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
@@ -454,7 +458,7 @@ describe("clawdlets config schema", () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     expect(() =>
       ClawdletsConfigSchema.parse({
-        schemaVersion: 7,
+        schemaVersion: 8,
         cattle: { enabled: false, hetzner: { labels: { "bad key": "x" } } },
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {

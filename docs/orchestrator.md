@@ -38,7 +38,7 @@ services.clfOrchestrator.enable = true;
 Required secrets (sops, per host)
 - `hcloud_token` (Hetzner API)
 - `tailscale_auth_key` (cattle tailnet join key; tag-scoped + ephemeral recommended)
-- provider keys mapped via `fleet.envSecrets` (e.g. `ZAI_API_KEY`)
+- provider keys mapped via `fleet.modelSecrets` (e.g. `zai`)
 
 After deploy:
 
@@ -56,7 +56,7 @@ Enqueue a cattle spawn:
 clf jobs enqueue cattle.spawn \
   --requester maren \
   --idempotency-key <discord-message-id> \
-  --identity rex \
+  --persona rex \
   --task-file ./task.json \
   --ttl 2h \
   --json
@@ -81,7 +81,7 @@ Notes
 
 ## Job kinds (v1)
 
-- `cattle.spawn`: create Hetzner server from cattle image; inject identity + task; cattle fetches secrets env at runtime.
+- `cattle.spawn`: create Hetzner server from cattle image; inject persona + task; cattle fetches secrets env at runtime.
 - `cattle.reap`: delete expired cattle servers (TTL label).
 
 ## Troubleshooting

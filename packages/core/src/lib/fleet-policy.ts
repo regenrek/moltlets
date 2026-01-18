@@ -89,14 +89,11 @@ export function validateFleetPolicy(params: {
       const entries = profile.skills?.entries || {};
       const brave = entries["brave-search"] || {};
       const apiKeySecret = brave.apiKeySecret;
-      const envSecrets = brave.envSecrets;
-      const ok =
-        (typeof apiKeySecret === "string" && apiKeySecret.trim().length > 0) ||
-        (envSecrets && typeof envSecrets === "object" && Object.keys(envSecrets).length > 0);
+      const ok = typeof apiKeySecret === "string" && apiKeySecret.trim().length > 0;
       if (!ok) {
         violations.push({
           filePath,
-          message: `bundled skill "brave-search" enabled for ${b} but missing skills.entries."brave-search".apiKeySecret (or envSecrets)`,
+          message: `bundled skill "brave-search" enabled for ${b} but missing skills.entries."brave-search".apiKeySecret`,
         });
       }
     }
