@@ -509,10 +509,10 @@ export function resolveHostName(params: { config: ClawdletsConfig; host?: unknow
   };
 }
 
-export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: string }): {
+export function loadClawdletsConfigRaw(params: { repoRoot: string; runtimeDir?: string }): {
   layout: RepoLayout;
   configPath: string;
-  config: ClawdletsConfig;
+  config: unknown;
 } {
   const layout = getRepoLayout(params.repoRoot, params.runtimeDir);
   const configPath = layout.clawdletsConfigPath;
@@ -526,7 +526,16 @@ export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: str
   }
   assertNoLegacyHostKeys(parsed);
   assertNoLegacyEnvSecrets(parsed);
-  const config = ClawdletsConfigSchema.parse(parsed);
+  return { layout, configPath, config: parsed };
+}
+
+export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: string }): {
+  layout: RepoLayout;
+  configPath: string;
+  config: ClawdletsConfig;
+} {
+  const { layout, configPath, config: raw } = loadClawdletsConfigRaw(params);
+  const config = ClawdletsConfigSchema.parse(raw);
   return { layout, configPath, config };
 }
 

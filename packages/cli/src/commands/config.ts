@@ -10,6 +10,7 @@ import {
   createDefaultClawdletsConfig,
   ClawdletsConfigSchema,
   loadClawdletsConfig,
+  loadClawdletsConfigRaw,
   writeClawdletsConfig,
 } from "@clawdlets/core/lib/clawdlets-config";
 
@@ -125,7 +126,7 @@ const set = defineCommand({
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawdletsConfigRaw({ repoRoot });
     const parts = splitDotPath(String(args.path || ""));
 
     const next = structuredClone(config) as any;
@@ -147,9 +148,23 @@ const set = defineCommand({
       throw new Error("set requires --value or --value-json (or --delete)");
     }
 
-    const validated = ClawdletsConfigSchema.parse(next);
-    await writeClawdletsConfig({ configPath, config: validated });
-    console.log("ok");
+    try {
+      const validated = ClawdletsConfigSchema.parse(next);
+      await writeClawdletsConfig({ configPath, config: validated });
+      console.log("ok");
+    } catch (err: any) {
+      let details = "";
+      if (Array.isArray(err?.errors)) {
+        details = err.errors
+          .map((e: any) => (Array.isArray(e.path) ? e.path.join(".") : "") || e.message)
+          .filter(Boolean)
+          .join(", ");
+      }
+      const msg = details
+        ? `config update failed; revert or fix validation errors: ${details}`
+        : "config update failed; revert or fix validation errors";
+      throw new Error(msg);
+    }
   },
 });
 
