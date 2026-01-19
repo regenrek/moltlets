@@ -5,6 +5,10 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.2.2] - 2026-01-19
+### Fixed
+- Allow `clawdlets config set` to repair invalid configs by applying the change before validation.
+
 ## [0.2.1] - 2026-01-19
 ### Fixed
 - Handle null `fleet.modelSecrets` in Nix runtime env wiring (prevents eval failure during bootstrap).
