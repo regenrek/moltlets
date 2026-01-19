@@ -5,6 +5,10 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.2.5] - 2026-01-19
+### Fixed
+- Allow npm CLI builds (bundled dist) to locate the template-source config.
+
 ## [0.2.4] - 2026-01-19
 ### Fixed
 - Resolve CLI package root so `clawdlets --version` works after global installs.

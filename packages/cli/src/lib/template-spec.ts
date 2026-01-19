@@ -19,6 +19,9 @@ function firstNonEmpty(...values: Array<string | undefined>): string | undefined
 
 function resolveTemplateSourcePath(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const packagedDistPath = path.resolve(moduleDir, "config", "template-source.json");
+  if (fs.existsSync(packagedDistPath)) return packagedDistPath;
+
   const packagedPath = path.resolve(moduleDir, "..", "config", "template-source.json");
   if (fs.existsSync(packagedPath)) return packagedPath;
 
