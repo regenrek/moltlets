@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import YAML from "yaml";
+import { agePublicKeyFromIdentityFile } from "@clawdlets/core/lib/age-keygen";
 import { sopsDecryptYamlFile } from "@clawdlets/core/lib/sops";
 import { sanitizeOperatorId } from "@clawdlets/core/lib/identifiers";
 import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets";
@@ -10,6 +11,8 @@ import { isPlaceholderSecretValue } from "@clawdlets/core/lib/secrets-init";
 import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
 import { getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout";
 import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdlets/core/lib/sops-rules";
+import { getSopsCreationRuleAgeRecipients } from "@clawdlets/core/lib/sops-config";
 
 export const secretsVerify = defineCommand({
   meta: {
@@ -60,11 +63,60 @@ export const secretsVerify = defineCommand({
     const optionalSecrets = ["root_password_hash"];
 
     type Result = { secret: string; status: "ok" | "missing" | "warn"; detail?: string };
-    const results: Result[] = [];
+    const preflight: Result[] = [];
 
     if (!fs.existsSync(operatorKeyPath)) {
-      results.push({ secret: "SOPS_AGE_KEY_FILE", status: "missing", detail: operatorKeyPath });
+      preflight.push({ secret: "SOPS_AGE_KEY_FILE", status: "missing", detail: operatorKeyPath });
     }
+
+    const formatRecipients = (recipients: string[]) => (recipients.length ? recipients.join(", ") : "(none)");
+    let operatorPublicKey = "";
+    if (fs.existsSync(operatorKeyPath)) {
+      try {
+        operatorPublicKey = await agePublicKeyFromIdentityFile(operatorKeyPath, nix);
+      } catch (e) {
+        preflight.push({
+          secret: "SOPS_AGE_KEY_FILE",
+          status: "missing",
+          detail: `failed to derive operator public key: ${String((e as Error)?.message || e)}`,
+        });
+      }
+    }
+
+    if (operatorPublicKey && fs.existsSync(layout.sopsConfigPath)) {
+      const sopsText = fs.readFileSync(layout.sopsConfigPath, "utf8");
+      const hostSecretsRule = getHostSecretsSopsCreationRulePathRegex(layout, hostName);
+      const hostKeyRule = getHostAgeKeySopsCreationRulePathRegex(layout, hostName);
+      const hostSecretsRecipients = getSopsCreationRuleAgeRecipients({ existingYaml: sopsText, pathRegex: hostSecretsRule });
+      const hostKeyRecipients = getSopsCreationRuleAgeRecipients({ existingYaml: sopsText, pathRegex: hostKeyRule });
+
+      if (hostSecretsRecipients.length > 0 && !hostSecretsRecipients.includes(operatorPublicKey)) {
+        preflight.push({
+          secret: "sops recipients (host secrets)",
+          status: "missing",
+          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+        });
+      }
+      if (hostKeyRecipients.length > 0 && !hostKeyRecipients.includes(operatorPublicKey)) {
+        preflight.push({
+          secret: "sops recipients (host age key)",
+          status: "missing",
+          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+        });
+      }
+    }
+
+    if (preflight.length > 0) {
+      if (args.json) {
+        console.log(JSON.stringify({ host: hostName, localDir, results: preflight }, null, 2));
+      } else {
+        for (const r of preflight) console.log(`${r.status}: ${r.secret}${r.detail ? ` (${r.detail})` : ""}`);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    const results: Result[] = [];
 
     const verifyOne = async (secretName: string, optional: boolean, allowOptionalMarker: boolean) => {
       const filePath = path.join(localDir, `${secretName}.yaml`);

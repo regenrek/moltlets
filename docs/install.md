@@ -143,6 +143,8 @@ nix shell nixpkgs#mkpasswd -c mkpasswd -m yescrypt
 SOPS_AGE_KEY_FILE=.clawdlets/keys/operators/<you>.agekey EDITOR=vim sops edit secrets/hosts/clawdbot-fleet-host/admin_password_hash.yaml
 ```
 
+Note: run `clawdlets secrets init` first (it generates `.clawdlets/keys/operators/<you>.agekey` and `secrets/.sops.yaml`). If sops fails with “no identity matched any of the recipients”, re-run `clawdlets secrets init --yes`.
+
 Set:
 
 - `admin_password_hash: '$y$j9T$...'`

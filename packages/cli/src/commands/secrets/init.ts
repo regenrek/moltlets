@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
-import { ageKeygen } from "@clawdlets/core/lib/age-keygen";
+import { ageKeygen, agePublicKeyFromIdentityFile } from "@clawdlets/core/lib/age-keygen";
 import { parseAgeKeyFile } from "@clawdlets/core/lib/age";
 import { ensureDir, writeFileAtomic } from "@clawdlets/core/lib/fs-safe";
 import { mkpasswdYescryptHash } from "@clawdlets/core/lib/mkpasswd";
@@ -196,14 +196,29 @@ export const secretsInit = defineCommand({
     const nix = { nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: Boolean(a.dryRun) } as const;
 
     const ensureAgePair = async (keyPath: string, pubPath: string) => {
-      if (fs.existsSync(keyPath) && fs.existsSync(pubPath)) {
+      if (fs.existsSync(keyPath)) {
         const keyText = fs.readFileSync(keyPath, "utf8");
         const parsed = parseAgeKeyFile(keyText);
-        const publicKey = fs.readFileSync(pubPath, "utf8").trim();
         if (!parsed.secretKey) throw new Error(`invalid age key: ${keyPath}`);
-        if (!publicKey) throw new Error(`invalid age public key: ${pubPath}`);
+
+        const publicKey =
+          (a.dryRun ? parsed.publicKey?.trim() : await agePublicKeyFromIdentityFile(keyPath, nix)) ||
+          (fs.existsSync(pubPath) ? fs.readFileSync(pubPath, "utf8").trim() : "");
+        if (!publicKey) throw new Error(`invalid age key: ${keyPath} (missing public key)`);
+
+        const existingPub = fs.existsSync(pubPath) ? fs.readFileSync(pubPath, "utf8").trim() : "";
+        if (existingPub && existingPub !== publicKey) {
+          console.error(`warn: operator public key mismatch; rewriting ${pubPath}`);
+        }
+
+        if (!a.dryRun && (!existingPub || existingPub !== publicKey)) {
+          await ensureDir(path.dirname(pubPath));
+          await writeFileAtomic(pubPath, `${publicKey}\n`, { mode: 0o644 });
+        }
+
         return { secretKey: parsed.secretKey, publicKey };
       }
+
       const pair = await ageKeygen(nix);
       if (!a.dryRun) {
         await ensureDir(path.dirname(keyPath));
@@ -224,7 +239,15 @@ export const secretsInit = defineCommand({
       ageRecipients: [operatorKeys.publicKey],
     });
 
+    const renderHostKeyYaml = (keys: { publicKey: string; secretKey: string }): string =>
+      upsertYamlScalarLine({
+        text: upsertYamlScalarLine({ text: "\n", key: "age_public_key", value: keys.publicKey }),
+        key: "age_secret_key",
+        value: keys.secretKey,
+      }) + "\n";
+
     let hostKeys: { secretKey: string; publicKey: string };
+    let shouldRewriteHostKeyFile = false;
     if (fs.existsSync(hostKeyFile)) {
       if (a.dryRun) {
         hostKeys = {
@@ -232,31 +255,42 @@ export const secretsInit = defineCommand({
           secretKey: "AGE-SECRET-KEY-DRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUNDRYRUN",
         };
       } else {
-        const decrypted = await sopsDecryptYamlFile({
-          filePath: hostKeyFile,
-          ageKeyFile: operatorKeyPath,
-          nix,
-        });
-        const secretKey = readYamlScalarFromMapping({ yamlText: decrypted, key: "age_secret_key" })?.trim() || "";
-        const publicKey = readYamlScalarFromMapping({ yamlText: decrypted, key: "age_public_key" })?.trim() || "";
-        if (!secretKey || !publicKey) throw new Error(`invalid host age key file: ${hostKeyFile}`);
-        hostKeys = { secretKey, publicKey };
+        try {
+          const decrypted = await sopsDecryptYamlFile({
+            filePath: hostKeyFile,
+            ageKeyFile: operatorKeyPath,
+            nix,
+          });
+          const secretKey = readYamlScalarFromMapping({ yamlText: decrypted, key: "age_secret_key" })?.trim() || "";
+          const publicKey = readYamlScalarFromMapping({ yamlText: decrypted, key: "age_public_key" })?.trim() || "";
+          if (!secretKey || !publicKey) throw new Error(`invalid host age key file: ${hostKeyFile}`);
+          hostKeys = { secretKey, publicKey };
+        } catch (e) {
+          if (fs.existsSync(extraFilesKeyPath)) {
+            const keyText = fs.readFileSync(extraFilesKeyPath, "utf8");
+            const parsed = parseAgeKeyFile(keyText);
+            if (!parsed.secretKey) throw new Error(`invalid extra-files key: ${extraFilesKeyPath}`);
+            const publicKey = await agePublicKeyFromIdentityFile(extraFilesKeyPath, nix);
+            hostKeys = { secretKey: parsed.secretKey, publicKey };
+            shouldRewriteHostKeyFile = true;
+            console.error(`warn: host age key file not decryptable; recovered from ${extraFilesKeyPath}`);
+          } else {
+            const pair = await ageKeygen(nix);
+            hostKeys = { secretKey: pair.secretKey, publicKey: pair.publicKey };
+            shouldRewriteHostKeyFile = true;
+            console.error("warn: host age key file not decryptable; generated new host key");
+          }
+        }
       }
     } else {
       const pair = await ageKeygen(nix);
       hostKeys = { secretKey: pair.secretKey, publicKey: pair.publicKey };
-
-      const plaintextYaml =
-        upsertYamlScalarLine({
-          text: upsertYamlScalarLine({ text: "\n", key: "age_public_key", value: pair.publicKey }),
-          key: "age_secret_key",
-          value: pair.secretKey,
-        }) + "\n";
+      shouldRewriteHostKeyFile = true;
 
       if (!a.dryRun) {
         await ensureDir(path.dirname(sopsConfigPath));
         await writeFileAtomic(sopsConfigPath, withHostKeyRule, { mode: 0o644 });
-        await sopsEncryptYamlToFile({ plaintextYaml, outPath: hostKeyFile, configPath: sopsConfigPath, nix });
+        await sopsEncryptYamlToFile({ plaintextYaml: renderHostKeyYaml(pair), outPath: hostKeyFile, configPath: sopsConfigPath, nix });
       }
     }
 
@@ -272,6 +306,9 @@ export const secretsInit = defineCommand({
       await writeFileAtomic(sopsConfigPath, nextSops, { mode: 0o644 });
       await ensureDir(path.dirname(extraFilesKeyPath));
       await writeFileAtomic(extraFilesKeyPath, `${hostKeys.secretKey}\n`, { mode: 0o600 });
+      if (shouldRewriteHostKeyFile) {
+        await sopsEncryptYamlToFile({ plaintextYaml: renderHostKeyYaml(hostKeys), outPath: hostKeyFile, configPath: sopsConfigPath, nix });
+      }
     }
 
     const readExistingScalar = async (secretName: string): Promise<string | null> => {

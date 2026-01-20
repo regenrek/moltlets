@@ -27,7 +27,9 @@ import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "../lib/github
 import { tryGetOriginFlake } from "../lib/git.js";
 import { expandPath } from "../lib/path-expand.js";
 import { resolveBaseFlake } from "../lib/base-flake.js";
+import { agePublicKeyFromIdentityFile } from "../lib/age-keygen.js";
 import { sopsDecryptYamlFile } from "../lib/sops.js";
+import { getSopsCreationRuleAgeRecipients } from "../lib/sops-config.js";
 import { readYamlScalarFromMapping } from "../lib/yaml-scalar.js";
 import type { DoctorPush } from "./types.js";
 
@@ -374,6 +376,39 @@ export async function addDeployChecks(params: {
         const rules = Array.isArray((parsed as { creation_rules?: unknown }).creation_rules)
           ? ((parsed as { creation_rules: unknown[] }).creation_rules as Array<{ path_regex?: unknown }>)
           : [];
+
+        if (params.sopsAgeKeyFile && fs.existsSync(params.sopsAgeKeyFile)) {
+          const nix = { nixBin: params.nixBin, cwd: params.repoRoot, dryRun: false, env: process.env } as const;
+          try {
+            const operatorPub = await agePublicKeyFromIdentityFile(params.sopsAgeKeyFile, nix);
+            const hostSecretsRule = getHostSecretsSopsCreationRulePathRegex(params.layout, host);
+            const hostKeyRule = getHostAgeKeySopsCreationRulePathRegex(params.layout, host);
+            const hostSecretsRecipients = getSopsCreationRuleAgeRecipients({ existingYaml: sopsText, pathRegex: hostSecretsRule });
+            const hostKeyRecipients = getSopsCreationRuleAgeRecipients({ existingYaml: sopsText, pathRegex: hostKeyRule });
+            const formatRecipients = (recipients: string[]) => (recipients.length ? recipients.join(", ") : "(none)");
+
+            if (hostSecretsRecipients.length > 0 && !hostSecretsRecipients.includes(operatorPub)) {
+              push({
+                status: "missing",
+                label: "sops recipients (host secrets)",
+                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+              });
+            }
+            if (hostKeyRecipients.length > 0 && !hostKeyRecipients.includes(operatorPub)) {
+              push({
+                status: "missing",
+                label: "sops recipients (host age key)",
+                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+              });
+            }
+          } catch (e) {
+            push({
+              status: "warn",
+              label: "sops recipients (operator key)",
+              detail: `failed to derive operator public key: ${String((e as Error)?.message || e)}`,
+            });
+          }
+        }
 
         const checkRule = (label: string, expected: string, detail: string) => {
           const hasRule = rules.some((r) => String(r?.path_regex || "") === expected);

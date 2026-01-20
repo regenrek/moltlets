@@ -52,6 +52,30 @@ error loading config: no matching creation rules found
 Your `secrets/.sops.yaml` rule did not match the file path you are encrypting.
 Fast fix: re-run `clawdlets secrets init` (it regenerates/upgrades `.sops.yaml`).
 
+If you see:
+
+```text
+Failed to get the data key required to decrypt the SOPS file.
+... no identity matched any of the recipients ...
+```
+
+This means your age identity cannot decrypt the file (wrong key or wrong recipients).
+
+Fast fix:
+
+```bash
+clawdlets secrets init --yes
+```
+
+Sanity check your local operator keypair:
+
+```bash
+age-keygen -y .clawdlets/keys/operators/<you>.agekey
+cat .clawdlets/keys/operators/<you>.age.pub
+```
+
+The two public keys must match. If they don’t, `clawdlets secrets init` rewrites the `.age.pub` file from the private key and re-encrypts secrets with the correct recipients.
+
 ## Common keys
 
 - `tailscale_auth_key` (required when using Tailscale auto-join)
