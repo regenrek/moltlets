@@ -5,6 +5,13 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.3.0] - 2026-01-20
+### Breaking
+- Move cattle commands into the `@clawdlets/plugin-cattle` plugin. Install via `clawdlets plugin add cattle`.
+
+### Added
+- Plugin system with `clawdlets plugin add|list|rm` and runtime dispatch.
+
 ## [0.2.5] - 2026-01-19
 ### Fixed
 - Allow npm CLI builds (bundled dist) to locate the template-source config.
