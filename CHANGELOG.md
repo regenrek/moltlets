@@ -5,6 +5,10 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.3.2] - 2026-01-20
+### Fixed
+- Add repository metadata to the cattle plugin so npm OIDC provenance publish succeeds.
+
 ## [0.3.1] - 2026-01-20
 ### Fixed
 - Auto-repair stale operator age public keys during `clawdlets secrets init` to prevent recipient drift.
