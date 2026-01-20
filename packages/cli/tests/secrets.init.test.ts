@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getLocalOperatorAgeKeyPath, getRepoLayout } from "@clawdlets/core/repo-layout";
 import { makeConfig, baseHost } from "./fixtures.js";
 
 const promptPasswordMock = vi.fn();
@@ -18,6 +18,7 @@ vi.mock("@clack/prompts", () => ({
 
 const loadHostContextMock = vi.fn();
 const ageKeygenMock = vi.fn();
+const agePublicKeyFromIdentityFileMock = vi.fn();
 const mkpasswdMock = vi.fn();
 const sopsEncryptMock = vi.fn();
 const sopsDecryptMock = vi.fn();
@@ -27,6 +28,7 @@ const validateSecretsInitNonInteractiveMock = vi.fn();
 
 vi.mock("@clawdlets/core/lib/age-keygen", () => ({
   ageKeygen: ageKeygenMock,
+  agePublicKeyFromIdentityFile: agePublicKeyFromIdentityFileMock,
 }));
 
 vi.mock("@clawdlets/core/lib/mkpasswd", () => ({
@@ -357,5 +359,130 @@ describe("secrets init", () => {
 
     const localSecret = path.join(layout.secretsHostsDir, "alpha", "discord_token_maren.yaml");
     expect(fs.existsSync(localSecret)).toBe(true);
+  });
+
+  it("rewrites stale operator .age.pub from private key", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-init-"));
+    const layout = getRepoLayout(repoRoot);
+    const config = makeConfig({
+      hostName: "alpha",
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
+      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+    });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
+
+    buildFleetSecretsPlanMock.mockReturnValue({
+      secretNamesAll: ["discord_token_maren"],
+      secretNamesRequired: ["discord_token_maren"],
+      discordSecretsByBot: { maren: "discord_token_maren" },
+      missingSecretConfig: [],
+    });
+
+    agePublicKeyFromIdentityFileMock.mockResolvedValue("age1correct");
+    ageKeygenMock.mockResolvedValue({
+      secretKey: "AGE-SECRET-KEY-1",
+      publicKey: "age1publickey",
+      fileText: "AGE-SECRET-KEY-1",
+    });
+    mkpasswdMock.mockResolvedValue("hash");
+    upsertSopsCreationRuleMock.mockReturnValue("sops");
+
+    sopsEncryptMock.mockImplementation(async ({ plaintextYaml, outPath }: { plaintextYaml: string; outPath: string }) => {
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, plaintextYaml, "utf8");
+    });
+    sopsDecryptMock.mockResolvedValue("secret: value\n");
+
+    const operatorId = "me";
+    const operatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
+    const operatorPubPath = path.join(layout.localOperatorKeysDir, `${operatorId}.age.pub`);
+    fs.mkdirSync(path.dirname(operatorKeyPath), { recursive: true });
+    fs.writeFileSync(operatorKeyPath, "AGE-SECRET-KEY-ABCDEF\n", "utf8");
+    fs.writeFileSync(operatorPubPath, "age1wrong\n", "utf8");
+
+    const secretsJson = {
+      adminPasswordHash: "hash",
+      secrets: { discord_token_maren: "token" },
+      discordTokens: { maren: "token" },
+    };
+    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+    fs.writeFileSync(jsonPath, JSON.stringify(secretsJson), "utf8");
+
+    const { secretsInit } = await import("../src/commands/secrets/init.js");
+    await secretsInit.run({ args: { host: "alpha", operator: operatorId, fromJson: jsonPath, yes: true } } as any);
+
+    expect(fs.readFileSync(operatorPubPath, "utf8")).toBe("age1correct\n");
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringMatching(/operator public key mismatch/i));
+    errorSpy.mockRestore();
+  });
+
+  it("recovers host age key from extra-files when encrypted key is not decryptable", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-init-"));
+    const layout = getRepoLayout(repoRoot);
+    const config = makeConfig({
+      hostName: "alpha",
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
+      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+    });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
+
+    buildFleetSecretsPlanMock.mockReturnValue({
+      secretNamesAll: ["discord_token_maren"],
+      secretNamesRequired: ["discord_token_maren"],
+      discordSecretsByBot: { maren: "discord_token_maren" },
+      missingSecretConfig: [],
+    });
+
+    agePublicKeyFromIdentityFileMock.mockImplementation(async (p: string) => (p.includes("extra-files") ? "age1host" : "age1operator"));
+    ageKeygenMock.mockResolvedValue({
+      secretKey: "AGE-SECRET-KEY-NEW",
+      publicKey: "age1new",
+      fileText: "AGE-SECRET-KEY-NEW",
+    });
+    mkpasswdMock.mockResolvedValue("hash");
+    upsertSopsCreationRuleMock.mockReturnValue("sops");
+
+    const hostKeyFile = getHostEncryptedAgeKeyFile(layout, "alpha");
+    fs.mkdirSync(path.dirname(hostKeyFile), { recursive: true });
+    fs.writeFileSync(hostKeyFile, "encrypted", "utf8");
+    sopsDecryptMock.mockImplementation(async ({ filePath }: { filePath: string }) => {
+      if (filePath === hostKeyFile) throw new Error("decrypt failed");
+      return "secret: value\n";
+    });
+
+    sopsEncryptMock.mockImplementation(async ({ plaintextYaml, outPath }: { plaintextYaml: string; outPath: string }) => {
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, plaintextYaml, "utf8");
+    });
+
+    const operatorId = "me";
+    const operatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
+    fs.mkdirSync(path.dirname(operatorKeyPath), { recursive: true });
+    fs.writeFileSync(operatorKeyPath, "AGE-SECRET-KEY-OP", "utf8");
+
+    const extraFilesKeyPath = getHostExtraFilesKeyPath(layout, "alpha");
+    fs.mkdirSync(path.dirname(extraFilesKeyPath), { recursive: true });
+    fs.writeFileSync(extraFilesKeyPath, "AGE-SECRET-KEY-HOST", "utf8");
+
+    const secretsJson = {
+      adminPasswordHash: "hash",
+      secrets: { discord_token_maren: "token" },
+      discordTokens: { maren: "token" },
+    };
+    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+    fs.writeFileSync(jsonPath, JSON.stringify(secretsJson), "utf8");
+
+    const { secretsInit } = await import("../src/commands/secrets/init.js");
+    await secretsInit.run({ args: { host: "alpha", operator: operatorId, fromJson: jsonPath, yes: true } } as any);
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringMatching(/recovered from/));
+    expect(fs.existsSync(hostKeyFile)).toBe(true);
+    errorSpy.mockRestore();
   });
 });

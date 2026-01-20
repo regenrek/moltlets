@@ -155,3 +155,25 @@ export function removeSopsCreationRule(params: { existingYaml?: string; pathRege
   const next: SopsConfig = { ...cfg, creation_rules: nextRules };
   return YAML.stringify(next);
 }
+
+export function getSopsCreationRuleAgeRecipients(params: {
+  existingYaml?: string;
+  pathRegex: string;
+}): string[] {
+  if (!params.existingYaml || !params.existingYaml.trim()) return [];
+  let cfg: SopsConfig | null = null;
+  try {
+    cfg = (YAML.parse(params.existingYaml) as SopsConfig) || {};
+  } catch {
+    return [];
+  }
+  const existingRulesRaw = cfg.creation_rules;
+  const parsedRules: SopsCreationRule[] = Array.isArray(existingRulesRaw)
+    ? (existingRulesRaw as SopsCreationRule[]).filter(
+        (r): r is SopsCreationRule => Boolean(r && typeof r === "object"),
+      )
+    : [];
+  const rule = parsedRules.find((r) => String(r?.path_regex || "") === params.pathRegex);
+  if (!rule) return [];
+  return extractAgeRecipients(rule);
+}

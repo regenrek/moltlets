@@ -19,12 +19,16 @@ beforeEach(() => {
 describe("tool helpers", () => {
   it("supports dryRun", async () => {
     const { ageKeygen } = await import("../src/lib/age-keygen");
+    const { agePublicKeyFromIdentityFile } = await import("../src/lib/age-keygen");
     const { mkpasswdYescryptHash } = await import("../src/lib/mkpasswd");
     const { looksLikeSshKeyContents, normalizeSshPublicKey } = await import("../src/lib/ssh");
 
     const pair = await ageKeygen({ nixBin: "nix", dryRun: true });
     expect(pair.publicKey.startsWith("age1")).toBe(true);
     expect(pair.secretKey.startsWith("AGE-SECRET-KEY-")).toBe(true);
+
+    const pub = await agePublicKeyFromIdentityFile("/key.txt", { nixBin: "nix", dryRun: true });
+    expect(pub.startsWith("age1")).toBe(true);
 
     expect(await mkpasswdYescryptHash("pw", { nixBin: "nix", dryRun: true })).toBe(
       "<admin_password_hash>",
@@ -48,6 +52,12 @@ describe("tool helpers", () => {
     const pair = await ageKeygen({ nixBin: "nix", dryRun: false });
     expect(pair.publicKey).toBe("age1abc");
     expect(pair.secretKey).toBe("AGE-SECRET-KEY-ABCDEF");
+  });
+
+  it("derives public key from identity file (non-dryRun)", async () => {
+    nixToolsState.shellOutput = "age1abc\n";
+    const { agePublicKeyFromIdentityFile } = await import("../src/lib/age-keygen");
+    expect(await agePublicKeyFromIdentityFile("/key.txt", { nixBin: "nix", dryRun: false })).toBe("age1abc");
   });
 
   it("extracts yescrypt hash (non-dryRun)", async () => {
