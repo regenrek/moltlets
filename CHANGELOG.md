@@ -5,6 +5,10 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.3.4] - 2026-01-21
+### Fixed
+- Update the pinned `clawdlets-template` ref used by `clawdlets project init` so new projects start from the latest template.
+
 ## [0.3.3] - 2026-01-21
 ### Fixed
 - Ensure `/srv/clawdbot` (stateDirBase) is created via tmpfiles so gateway-token services can write credentials on fresh hosts under `ProtectSystem=strict`.
