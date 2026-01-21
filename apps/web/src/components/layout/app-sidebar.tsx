@@ -36,6 +36,7 @@ type NavItem = {
   to: string
   label: string
   icon?: React.ComponentType<React.ComponentProps<"svg">>
+  tooltip?: string
 }
 
 function useActiveProjectId(): string | null {
@@ -58,6 +59,18 @@ function NavLink({
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={isActive}
+        tooltip={
+          item.tooltip
+            ? {
+                children: (
+                  <div className="space-y-0.5">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="text-background/70">{item.tooltip}</div>
+                  </div>
+                ),
+              }
+            : undefined
+        }
         render={
           <Button
             variant="ghost"
@@ -83,36 +96,111 @@ function AppSidebarContent() {
   const projectId = useActiveProjectId()
 
   const base: NavItem[] = [
-    { to: "/projects", label: "Projects", icon: FolderIcon },
+    {
+      to: "/projects",
+      label: "Projects",
+      icon: FolderIcon,
+      tooltip: "Browse projects on this machine. Create new or import existing repos.",
+    },
   ]
 
   const projectBase = projectId ? `/projects/${projectId}` : null
   const setup: NavItem[] = projectBase
     ? [
-        { to: `${projectBase}/setup/fleet`, label: "Fleet", icon: Cog6ToothIcon },
-        { to: `${projectBase}/setup/hosts`, label: "Hosts", icon: ServerStackIcon },
-        { to: `${projectBase}/setup/bots`, label: "Bots", icon: CpuChipIcon },
-        { to: `${projectBase}/setup/providers`, label: "Providers", icon: PuzzlePieceIcon },
-        { to: `${projectBase}/setup/secrets`, label: "Secrets", icon: KeyIcon },
-        { to: `${projectBase}/setup/doctor`, label: "Doctor", icon: WrenchScrewdriverIcon },
-        { to: `${projectBase}/setup/bootstrap`, label: "Bootstrap", icon: RocketLaunchIcon },
+        {
+          to: `${projectBase}/setup/fleet`,
+          label: "Fleet",
+          icon: Cog6ToothIcon,
+          tooltip: "Edit fleet config (bots, providers, skills, workspaces).",
+        },
+        {
+          to: `${projectBase}/setup/hosts`,
+          label: "Hosts",
+          icon: ServerStackIcon,
+          tooltip: "Host settings: SSH target, admin CIDR, Hetzner params, tailnet, models.",
+        },
+        {
+          to: `${projectBase}/setup/bots`,
+          label: "Bots",
+          icon: CpuChipIcon,
+          tooltip: "Bot roster: add/remove bots and configure routing.",
+        },
+        {
+          to: `${projectBase}/setup/providers`,
+          label: "Providers",
+          icon: PuzzlePieceIcon,
+          tooltip: "Configure external providers (e.g. Discord) used by the fleet.",
+        },
+        {
+          to: `${projectBase}/setup/secrets`,
+          label: "Secrets",
+          icon: KeyIcon,
+          tooltip: "Generate + validate secrets, then sync into the project repo (no secrets stored in Convex).",
+        },
+        {
+          to: `${projectBase}/setup/doctor`,
+          label: "Doctor",
+          icon: WrenchScrewdriverIcon,
+          tooltip: "Run checks for config, repo health, and host readiness; follow fix links.",
+        },
+        {
+          to: `${projectBase}/setup/bootstrap`,
+          label: "Bootstrap",
+          icon: RocketLaunchIcon,
+          tooltip: "Provision + bootstrap a new host and deploy initial system state.",
+        },
       ]
     : []
 
   const operate: NavItem[] = projectBase
     ? [
-        { to: `${projectBase}/operate/deploy`, label: "Deploy", icon: CloudArrowUpIcon },
-        { to: `${projectBase}/operate/logs`, label: "Logs", icon: DocumentTextIcon },
-        { to: `${projectBase}/operate/audit`, label: "Audit", icon: ClipboardDocumentCheckIcon },
-        { to: `${projectBase}/operate/restart`, label: "Restart", icon: ArrowPathIcon },
+        {
+          to: `${projectBase}/operate/deploy`,
+          label: "Deploy",
+          icon: CloudArrowUpIcon,
+          tooltip: "Apply config changes to the host (build + switch).",
+        },
+        {
+          to: `${projectBase}/operate/logs`,
+          label: "Logs",
+          icon: DocumentTextIcon,
+          tooltip: "View recent run logs and command output for this project.",
+        },
+        {
+          to: `${projectBase}/operate/audit`,
+          label: "Audit",
+          icon: ClipboardDocumentCheckIcon,
+          tooltip: "Security/audit checks for config and infra state; review findings.",
+        },
+        {
+          to: `${projectBase}/operate/restart`,
+          label: "Restart",
+          icon: ArrowPathIcon,
+          tooltip: "Restart selected services/units with safety confirmation.",
+        },
       ]
     : []
 
   const advanced: NavItem[] = projectBase
     ? [
-        { to: `${projectBase}/advanced/editor`, label: "Raw Editor", icon: CodeBracketSquareIcon },
-        { to: `${projectBase}/advanced/commands`, label: "Command Runner", icon: CommandLineIcon },
-        { to: `${projectBase}/runs`, label: "Runs", icon: ClockIcon },
+        {
+          to: `${projectBase}/advanced/editor`,
+          label: "Raw Editor",
+          icon: CodeBracketSquareIcon,
+          tooltip: "Directly edit raw JSON config. Use only when you know what you’re changing.",
+        },
+        {
+          to: `${projectBase}/advanced/commands`,
+          label: "Command Runner",
+          icon: CommandLineIcon,
+          tooltip: "Run clawdlets CLI commands with structured logs captured as runs.",
+        },
+        {
+          to: `${projectBase}/runs`,
+          label: "Runs",
+          icon: ClockIcon,
+          tooltip: "Run history + event timeline. Debug failures and review actions.",
+        },
       ]
     : []
 
