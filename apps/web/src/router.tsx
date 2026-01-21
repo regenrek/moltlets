@@ -7,10 +7,16 @@ import {
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import toast from 'react-hot-toast'
 import { ConvexQueryClient } from '@convex-dev/react-query'
-import { ConvexProvider } from 'convex/react'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
+
+function isAuthDisabled(): boolean {
+  const raw = String((import.meta as any).env.VITE_CLAWDLETS_AUTH_DISABLED || '')
+    .trim()
+    .toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'yes'
+}
 
 export function getRouter() {
   if (typeof document !== 'undefined') {
@@ -21,7 +27,9 @@ export function getRouter() {
   if (!CONVEX_URL) {
     console.error('missing envar CONVEX_URL')
   }
-  const convexQueryClient = new ConvexQueryClient(CONVEX_URL)
+  const convexQueryClient = new ConvexQueryClient(CONVEX_URL, {
+    expectAuth: !isAuthDisabled(),
+  })
 
   const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
@@ -43,12 +51,7 @@ export function getRouter() {
     defaultPreload: 'intent',
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
-    context: { queryClient },
-    Wrap: ({ children }) => (
-      <ConvexProvider client={convexQueryClient.convexClient}>
-        {children}
-      </ConvexProvider>
-    ),
+    context: { queryClient, convexQueryClient },
     scrollRestoration: true,
   })
   setupRouterSsrQueryIntegration({

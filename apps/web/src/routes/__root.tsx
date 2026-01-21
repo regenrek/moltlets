@@ -1,31 +1,54 @@
 /// <reference types="vite/client" />
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools/production"
 import {
-  Link,
   Outlet,
   createRootRouteWithContext,
-  useRouterState,
   HeadContent,
   Scripts,
+  redirect,
+  useRouter,
+  useRouterState,
 } from "@tanstack/react-router"
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import * as React from "react"
-import { Toaster } from "sonner"
 import type { QueryClient } from "@tanstack/react-query"
+import type { ConvexQueryClient } from "@convex-dev/react-query"
+import { useConvexMutation } from "@convex-dev/react-query"
+import { ConvexProvider, useConvexAuth } from "convex/react"
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary"
-import { IconLink } from "~/components/IconLink"
 import { NotFound } from "~/components/NotFound"
 import { ThemeInitScript } from "~/components/theme-init-script"
 import { ThemeProvider } from "~/components/theme-provider"
-import { ModeToggle } from "~/components/mode-toggle"
 import { getTheme, type Theme } from "~/lib/theme"
 import appCss from "~/styles/app.css?url"
 import { seo } from "~/utils/seo"
-import { Loader } from "~/components/Loader"
+import { AppShell } from "~/components/layout/app-shell"
+import { Toaster } from "~/components/ui/sonner"
+import { api } from "../../convex/_generated/api"
+import { getAuthBootstrap } from "~/sdk/auth"
+import { authClient } from "~/lib/auth-client"
+import { AuthStateProvider } from "~/lib/auth-state"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
+  convexQueryClient: ConvexQueryClient
 }>()({
+  beforeLoad: async ({ location, context }) => {
+    const { authDisabled, token } = await getAuthBootstrap()
+
+    if (token && context.convexQueryClient.serverHttpClient) {
+      context.convexQueryClient.serverHttpClient.setAuth(token)
+    }
+
+    if (!authDisabled) {
+      const pathname = location.pathname
+      const isAuthRoute = pathname === "/sign-in" || pathname.startsWith("/api/auth/")
+      if (!isAuthRoute && !token) {
+        throw redirect({ to: "/sign-in" })
+      }
+    }
+
+    return { authDisabled, token }
+  },
   loader: () => getTheme(),
   head: () => ({
     meta: [
@@ -37,9 +60,8 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       ...seo({
-        title:
-          "TanStack Start | Type-Safe, Client-First, Full-Stack React Framework",
-        description: `TanStack Start is a type-safe, client-first, full-stack React framework. `,
+        title: "Clawdlets",
+        description: "Self-hosted web UI for managing Clawdbot fleets.",
       }),
     ],
     links: [
@@ -90,9 +112,41 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
-  return (
-    <RootDocument>
+  const { authDisabled, token } = Route.useRouteContext()
+  const router = useRouter()
+  const convexQueryClient = router.options.context.convexQueryClient
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const showShell = pathname !== "/sign-in"
+
+  const app = showShell ? (
+    <AppShell>
       <Outlet />
+    </AppShell>
+  ) : (
+    <Outlet />
+  )
+
+  return authDisabled ? (
+    <RootDocument>
+      <ConvexProvider client={convexQueryClient.convexClient}>
+        <AuthStateProvider value={{ authDisabled: true }}>
+          <EnsureDevUser />
+          {app}
+        </AuthStateProvider>
+      </ConvexProvider>
+    </RootDocument>
+  ) : (
+    <RootDocument>
+      <ConvexBetterAuthProvider
+        client={convexQueryClient.convexClient}
+        authClient={authClient}
+        initialToken={token}
+      >
+        <AuthStateProvider value={{ authDisabled: false }}>
+          <EnsureAuthedUser />
+          {app}
+        </AuthStateProvider>
+      </ConvexBetterAuthProvider>
     </RootDocument>
   )
 }
@@ -107,47 +161,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ThemeProvider initial={initial}>
-          <div className="h-screen flex flex-col min-h-0">
-            <div className="bg-primary border-b border-primary/80 flex items-center justify-between py-4 px-8 box-border">
-              <div className="flex items-center gap-4">
-                <div>
-                  <Link to="/" className="block leading-tight">
-                    <div className="font-black text-2xl text-primary-foreground">
-                      Trellaux
-                    </div>
-                    <div className="text-primary-foreground/60">
-                      a TanStack Demo
-                    </div>
-                  </Link>
-                </div>
-                <LoadingIndicator />
-              </div>
-              <div className="flex items-center gap-6">
-                <ModeToggle />
-                <IconLink
-                  href="https://github.com/TanStack/router/tree/main/examples/react/start-trellaux"
-                  label="Source"
-                  icon="/github-mark-white.png"
-                />
-                <IconLink
-                  href="https://tanstack.com"
-                  icon="/tanstack.png"
-                  label="TanStack"
-                />
-              </div>
-            </div>
-
-            <div className="grow min-h-0 h-full flex flex-col">
-              {children}
-              <Toaster />
-            </div>
-          </div>
-          {import.meta.env.DEV ? (
-            <>
-              <ReactQueryDevtools buttonPosition="bottom-right" />
-              <TanStackRouterDevtools position="bottom-right" />
-            </>
-          ) : null}
+          {children}
+          <Toaster />
         </ThemeProvider>
         <Scripts />
       </body>
@@ -155,15 +170,22 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
-function LoadingIndicator() {
-  const isLoading = useRouterState({ select: (s) => s.isLoading })
-  return (
-    <div
-      className={`h-12 transition-all duration-300 ${
-        isLoading ? `opacity-100 delay-300` : `opacity-0 delay-0`
-      }`}
-    >
-      <Loader />
-    </div>
-  )
+function EnsureDevUser() {
+  const ensureCurrent = useConvexMutation(api.users.ensureCurrent)
+  React.useEffect(() => {
+    void ensureCurrent({})
+  }, [ensureCurrent])
+  return null
+}
+
+function EnsureAuthedUser() {
+  const ensureCurrent = useConvexMutation(api.users.ensureCurrent)
+  const { isAuthenticated, isLoading } = useConvexAuth()
+
+  React.useEffect(() => {
+    if (isLoading || !isAuthenticated) return
+    void ensureCurrent({})
+  }, [ensureCurrent, isAuthenticated, isLoading])
+
+  return null
 }

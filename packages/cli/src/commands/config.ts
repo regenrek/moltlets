@@ -4,6 +4,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import { ensureDir } from "@clawdlets/core/lib/fs-safe";
 import { splitDotPath } from "@clawdlets/core/lib/dot-path";
+import { deleteAtPath, getAtPath, setAtPath } from "@clawdlets/core/lib/object-path";
 import { findRepoRoot } from "@clawdlets/core/lib/repo";
 import { getRepoLayout } from "@clawdlets/core/repo-layout";
 import {
@@ -13,40 +14,6 @@ import {
   loadClawdletsConfigRaw,
   writeClawdletsConfig,
 } from "@clawdlets/core/lib/clawdlets-config";
-
-function getAtPath(obj: any, parts: string[]): unknown {
-  let cur: any = obj;
-  for (const k of parts) {
-    if (cur == null || typeof cur !== "object") return undefined;
-    cur = cur[k];
-  }
-  return cur;
-}
-
-function setAtPath(obj: any, parts: string[], value: unknown): void {
-  let cur: any = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const k = parts[i]!;
-    if (cur[k] == null || typeof cur[k] !== "object" || Array.isArray(cur[k])) cur[k] = {};
-    cur = cur[k];
-  }
-  cur[parts[parts.length - 1]!] = value;
-}
-
-function deleteAtPath(obj: any, parts: string[]): boolean {
-  let cur: any = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const k = parts[i]!;
-    if (cur == null || typeof cur !== "object") return false;
-    cur = cur[k];
-  }
-  const last = parts[parts.length - 1]!;
-  if (cur && typeof cur === "object" && Object.prototype.hasOwnProperty.call(cur, last)) {
-    delete cur[last];
-    return true;
-  }
-  return false;
-}
 
 const init = defineCommand({
   meta: { name: "init", description: "Initialize fleet/clawdlets.json (canonical config)." },

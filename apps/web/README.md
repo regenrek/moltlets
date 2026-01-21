@@ -1,52 +1,44 @@
-# Trello-like example using Convex DB
+# Clawdlets Web (TanStack Start + Convex)
 
-This is a TanStack Start demo using Convex as the database.
-It is similar to the [start-trellaux](https://github.com/TanStack/router/tree/main/examples/react/start-trellaux) example but uses a cloud Convex deployment instead of an in-memory database.
+Self-hosted web UI for bootstrapping + operating Clawdlets projects.
 
-- [TanStack Router Docs](https://tanstack.com/router)
-- [Convex Documentation](https://docs.convex.dev)
+## Dev
 
-## Start a new project based on this example
-
-To start a new project based on this example, run:
-
-```sh
-npx gitpick TanStack/router/tree/main/examples/react/start-convex-trellaux start-convex-trellaux
-```
-
-## Convex
-
-Convex is an open-source, reactive backend made by [convex.dev](https://convex.dev/?utm_source=tanstack), a sponsor of TanStack Start.
-
-This example uses Convex with TanStack Query and TanStack Start to provide:
-
-- Typesafe TanStack Query options factories like `convexQuery` for use with `useQuery`, `useSuspenseQuery` etc.
-- Live-updating queries: updates come in over a WebSocket instead of requiring polling
-- Automatic query invalidation: when a mutation succeeds all queries it affects update automatically
-- Selective optimistic update rollback: when a mutation succeeds only its update will be rolled back, with other optimistic updates reapplied
-- Consistent snapshot reads of database state: /messages will never return a foreign key for a /user that doesn't exist until the next fetch
-
-## Getting Started
-
-To run this example:
+1) Install deps (repo root):
 
 ```sh
 pnpm install
+```
+
+2) Create `apps/web/.env.local` from `apps/web/.env.local.example` and run Convex dev once:
+
+```sh
+cd apps/web
+npx convex dev --once
+```
+
+3) Set Convex env vars for Better Auth (local dev deployment):
+
+```sh
+cd apps/web
+npx convex env set SITE_URL http://localhost:3000
+npx convex env set BETTER_AUTH_SECRET "<generate-a-random-secret>"
+```
+
+4) Run:
+
+```sh
+cd apps/web
 pnpm dev
 ```
 
+### Dev mode (no auth)
+
+Set `VITE_CLAWDLETS_AUTH_DISABLED=true` (and optionally `CLAWDLETS_AUTH_DISABLED=true`) in `apps/web/.env.local`.
+
 ## Build
 
-Build for production:
-
 ```sh
+cd apps/web
 pnpm build
 ```
-
-## About This Example
-
-This example demonstrates:
-
-- Convex database integration
-- Real-time updates
-- Complex UI state management
