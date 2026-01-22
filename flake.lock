@@ -69,11 +69,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1768984365,
-        "narHash": "sha256-1/I4xlqw0BIWNlheznS2Z5d8Hii6ULVHoJuLrZ0Dvts=",
+        "lastModified": 1769021046,
+        "narHash": "sha256-k81ueunTsK+kkmgn4AgVrkC3lT5ZWu4AmJ5EY/e4X3E=",
         "owner": "clawdbot",
         "repo": "nix-clawdbot",
-        "rev": "219a7a0d705e8b28a2dfb1398dcf6b0e1bc3eb0c",
+        "rev": "6a98c0db24336be7d9f754b2cc08e2d1775087eb",
         "type": "github"
       },
       "original": {
