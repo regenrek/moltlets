@@ -189,7 +189,7 @@ export function SecretsInputs(props: SecretsInputsProps) {
           Secrets
         </LabelWithHelp>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Advanced</span>
+          <span className="text-xs text-muted-foreground">Advanced (custom)</span>
           <Switch checked={props.advancedMode} onCheckedChange={props.setAdvancedMode} />
         </div>
       </div>
@@ -205,18 +205,12 @@ export function SecretsInputs(props: SecretsInputsProps) {
             {renderGroup("Channel", groupedRequired.channel)}
             {renderGroup("Model Provider", groupedRequired.model)}
             {renderGroup("Custom", groupedRequired.custom)}
+            {renderGroup("Optional", optionalSpecs)}
           </>
         )}
 
-        {optionalSpecs.length && !props.advancedMode ? (
-          <div className="text-xs text-muted-foreground">
-            Optional secrets available in Advanced mode.
-          </div>
-        ) : null}
-
         {props.advancedMode ? (
           <>
-            {renderGroup("Advanced", optionalSpecs)}
             {props.customSecretNames.length ? (
               <div className="space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom secrets</div>

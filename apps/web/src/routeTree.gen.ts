@@ -16,6 +16,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as ProjectsImportRouteImport } from './routes/projects/import'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdSecretsRouteImport } from './routes/projects/$projectId/secrets'
 import { Route as ProjectsProjectIdRunsRouteImport } from './routes/projects/$projectId/runs'
 import { Route as ProjectsProjectIdHostsRouteImport } from './routes/projects/$projectId/hosts'
 import { Route as ProjectsProjectIdDashboardRouteImport } from './routes/projects/$projectId/dashboard'
@@ -72,6 +73,12 @@ const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
   path: '/projects/$projectId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsProjectIdSecretsRoute =
+  ProjectsProjectIdSecretsRouteImport.update({
+    id: '/projects/$projectId/secrets',
+    path: '/projects/$projectId/secrets',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ProjectsProjectIdRunsRoute = ProjectsProjectIdRunsRouteImport.update({
   id: '/projects/$projectId/runs',
   path: '/projects/$projectId/runs',
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/dashboard': typeof ProjectsProjectIdDashboardRoute
   '/projects/$projectId/hosts': typeof ProjectsProjectIdHostsRouteWithChildren
   '/projects/$projectId/runs': typeof ProjectsProjectIdRunsRouteWithChildren
+  '/projects/$projectId/secrets': typeof ProjectsProjectIdSecretsRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/advanced/commands': typeof ProjectsProjectIdAdvancedCommandsRoute
   '/projects/$projectId/advanced/editor': typeof ProjectsProjectIdAdvancedEditorRoute
@@ -229,6 +237,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/projects/$projectId/dashboard': typeof ProjectsProjectIdDashboardRoute
   '/projects/$projectId/runs': typeof ProjectsProjectIdRunsRouteWithChildren
+  '/projects/$projectId/secrets': typeof ProjectsProjectIdSecretsRoute
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/advanced/commands': typeof ProjectsProjectIdAdvancedCommandsRoute
   '/projects/$projectId/advanced/editor': typeof ProjectsProjectIdAdvancedEditorRoute
@@ -259,6 +268,7 @@ export interface FileRoutesById {
   '/projects/$projectId/dashboard': typeof ProjectsProjectIdDashboardRoute
   '/projects/$projectId/hosts': typeof ProjectsProjectIdHostsRouteWithChildren
   '/projects/$projectId/runs': typeof ProjectsProjectIdRunsRouteWithChildren
+  '/projects/$projectId/secrets': typeof ProjectsProjectIdSecretsRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/projects/$projectId/advanced/commands': typeof ProjectsProjectIdAdvancedCommandsRoute
   '/projects/$projectId/advanced/editor': typeof ProjectsProjectIdAdvancedEditorRoute
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/dashboard'
     | '/projects/$projectId/hosts'
     | '/projects/$projectId/runs'
+    | '/projects/$projectId/secrets'
     | '/projects/$projectId/'
     | '/projects/$projectId/advanced/commands'
     | '/projects/$projectId/advanced/editor'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/projects/$projectId/dashboard'
     | '/projects/$projectId/runs'
+    | '/projects/$projectId/secrets'
     | '/projects/$projectId'
     | '/projects/$projectId/advanced/commands'
     | '/projects/$projectId/advanced/editor'
@@ -347,6 +359,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/dashboard'
     | '/projects/$projectId/hosts'
     | '/projects/$projectId/runs'
+    | '/projects/$projectId/secrets'
     | '/projects/$projectId/'
     | '/projects/$projectId/advanced/commands'
     | '/projects/$projectId/advanced/editor'
@@ -377,6 +390,7 @@ export interface RootRouteChildren {
   ProjectsProjectIdDashboardRoute: typeof ProjectsProjectIdDashboardRoute
   ProjectsProjectIdHostsRoute: typeof ProjectsProjectIdHostsRouteWithChildren
   ProjectsProjectIdRunsRoute: typeof ProjectsProjectIdRunsRouteWithChildren
+  ProjectsProjectIdSecretsRoute: typeof ProjectsProjectIdSecretsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
   ProjectsProjectIdAdvancedCommandsRoute: typeof ProjectsProjectIdAdvancedCommandsRoute
   ProjectsProjectIdAdvancedEditorRoute: typeof ProjectsProjectIdAdvancedEditorRoute
@@ -434,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId/'
       preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId/secrets': {
+      id: '/projects/$projectId/secrets'
+      path: '/projects/$projectId/secrets'
+      fullPath: '/projects/$projectId/secrets'
+      preLoaderRoute: typeof ProjectsProjectIdSecretsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId/runs': {
@@ -635,6 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdDashboardRoute: ProjectsProjectIdDashboardRoute,
   ProjectsProjectIdHostsRoute: ProjectsProjectIdHostsRouteWithChildren,
   ProjectsProjectIdRunsRoute: ProjectsProjectIdRunsRouteWithChildren,
+  ProjectsProjectIdSecretsRoute: ProjectsProjectIdSecretsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
   ProjectsProjectIdAdvancedCommandsRoute:
     ProjectsProjectIdAdvancedCommandsRoute,

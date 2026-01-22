@@ -57,6 +57,9 @@ function ProjectSettings() {
               <Button size="sm" variant="outline" nativeButton={false} render={<Link to="/projects/$projectId/setup/doctor" params={{ projectId }} />}>
                 Doctor
               </Button>
+              <Button size="sm" variant="outline" nativeButton={false} render={<Link to="/projects/$projectId/secrets" params={{ projectId }} />}>
+                Secrets
+              </Button>
               <Button size="sm" variant="outline" nativeButton={false} render={<Link to="/projects/$projectId/hosts/overview" params={{ projectId }} />}>
                 Hosts
               </Button>

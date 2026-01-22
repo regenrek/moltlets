@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
-import { Cog6ToothIcon, ServerStackIcon } from "@heroicons/react/24/outline"
+import { Cog6ToothIcon, KeyIcon, ServerStackIcon } from "@heroicons/react/24/outline"
 import {
   Sidebar,
   SidebarContent,
@@ -87,14 +87,21 @@ function AppSidebarContent() {
           to: `${projectBase}/hosts/overview`,
           label: "Hosts",
           icon: ServerStackIcon,
-          tooltip: "Host-specific overview, agents, secrets, deploy, and settings.",
+          tooltip: "Host-specific overview, agents, deploy, and settings.",
+          search: {},
+        },
+        {
+          to: `${projectBase}/secrets`,
+          label: "Secrets",
+          icon: KeyIcon,
+          tooltip: "Project-wide credentials + host secrets operations.",
           search: {},
         },
         {
           to: `${projectBase}/setup/settings`,
           label: "Project Settings",
           icon: Cog6ToothIcon,
-          tooltip: "Project-level credentials and operator settings.",
+          tooltip: "Project metadata and setup entry points.",
         },
       ]
     : []

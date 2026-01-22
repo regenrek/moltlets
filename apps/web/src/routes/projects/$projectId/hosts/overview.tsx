@@ -1,15 +1,20 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute, useRouter, useRouterState } from "@tanstack/react-router"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { PlusIcon } from "@heroicons/react/24/outline"
+import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
 import { KpiCard } from "~/components/dashboard/kpi-card"
 import { RecentRunsTable, type RunRow } from "~/components/dashboard/recent-runs-table"
 import { RunActivityChart } from "~/components/dashboard/run-activity-chart"
 import { useHostSelection } from "~/lib/host-selection"
-import { getClawdletsConfig } from "~/sdk/config"
+import { addHost, getClawdletsConfig } from "~/sdk/config"
 import { api } from "../../../../../convex/_generated/api"
 
 export const Route = createFileRoute("/projects/$projectId/hosts/overview")({
@@ -20,6 +25,7 @@ function HostsOverview() {
   const { projectId } = Route.useParams()
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
+  const queryClient = useQueryClient()
   const cfg = useQuery({
     queryKey: ["clawdletsConfig", projectId],
     queryFn: async () =>
@@ -43,6 +49,25 @@ function HostsOverview() {
     mode: hostParam ? "required" : "optional",
   })
   const hostCfg = host && config ? (config.hosts as any)?.[host] : null
+  const [newHostOpen, setNewHostOpen] = useState(false)
+  const [newHost, setNewHost] = useState("")
+  const addHostMutation = useMutation({
+    mutationFn: async () => {
+      const trimmed = newHost.trim()
+      if (!trimmed) throw new Error("Host name required")
+      if (hosts.includes(trimmed)) return { ok: true as const }
+      return await addHost({ data: { projectId: projectId as Id<"projects">, host: trimmed } })
+    },
+    onSuccess: () => {
+      toast.success("Host added")
+      setNewHost("")
+      setNewHostOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : String(err))
+    },
+  })
   const recentRuns = useQuery({
     queryKey: ["dashboardRecentRuns", projectId, hostParam],
     enabled: Boolean(projectId && hostParam),
@@ -62,13 +87,6 @@ function HostsOverview() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight">Hosts Overview</h1>
-        <p className="text-muted-foreground">
-          Fleet host summary, status, and defaults.
-        </p>
-      </div>
-
       {cfg.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
       ) : cfg.error ? (
@@ -223,6 +241,56 @@ function HostsOverview() {
         </div>
       ) : (
         <div className="space-y-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight">Hosts Overview</h1>
+              <p className="text-muted-foreground">
+                Fleet host summary, status, and defaults.
+              </p>
+            </div>
+            <Dialog open={newHostOpen} onOpenChange={setNewHostOpen}>
+              <Button size="sm" onClick={() => setNewHostOpen(true)}>
+                <PlusIcon className="size-4" />
+                New Host
+              </Button>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New host</DialogTitle>
+                  <DialogDescription>
+                    Add a host entry to your fleet config.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <Label htmlFor="new-host-name">Host name</Label>
+                  <Input
+                    id="new-host-name"
+                    placeholder="clawdlets-prod-01"
+                    value={newHost}
+                    onChange={(e) => setNewHost(e.target.value)}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Uses the same naming rules as config host IDs.
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setNewHostOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={addHostMutation.isPending || !newHost.trim()}
+                    onClick={() => addHostMutation.mutate()}
+                  >
+                    Add host
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
