@@ -75,6 +75,8 @@
 
           cp -r node_modules $out/lib/clf/node_modules
           cp -r packages $out/lib/clf/packages
+          mkdir -p $out/lib/clf/apps
+          cp -r apps/web $out/lib/clf/apps/web
 
           makeWrapper ${pkgs.nodejs_22}/bin/node $out/bin/clf \
             --add-flags "$out/lib/clf/packages/clf/cli/dist/main.js"
