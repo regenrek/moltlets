@@ -29,13 +29,21 @@
       dev = import ./devenv.nix { inherit pkgs; };
       clawdbotSourceInfo = import "${nix-clawdbot}/nix/sources/clawdbot-source.nix";
 
-      pnpmDeps = pkgs.fetchPnpmDeps {
-        pname = "clawdlets";
+      pnpmWorkspacesClf = [
+        "@clawdlets/core"
+        "@clawdlets/clf-queue"
+        "clf"
+        "clf-orchestrator"
+      ];
+
+      pnpmDepsClf = pkgs.fetchPnpmDeps {
+        pname = "clawdlets-clf";
         version = "0.1.0";
         src = self;
         pnpm = pkgs.pnpm_10;
-        fetcherVersion = 2;
-        hash = "sha256-/rdlAUPe6grGq3HdR6cYj04hhu3VThOAwezmwvvG+50=";
+        fetcherVersion = 3;
+        pnpmWorkspaces = pnpmWorkspacesClf;
+        hash = pkgs.lib.fakeHash;
       };
 
       clf = pkgs.buildNpmPackage {
@@ -46,9 +54,10 @@
         nodejs = pkgs.nodejs_22;
 
         npmDeps = null;
-        pnpmDeps = pnpmDeps;
+        pnpmDeps = pnpmDepsClf;
         nativeBuildInputs = [ pkgs.pnpm_10 pkgs.makeWrapper ];
         npmConfigHook = pkgs.pnpmConfigHook;
+        pnpmWorkspaces = pnpmWorkspacesClf;
 
         dontNpmBuild = true;
         dontNpmInstall = true;
@@ -57,10 +66,10 @@
         buildPhase = ''
           runHook preBuild
 
-          pnpm -C packages/core build
-          pnpm -C packages/clf/queue build
-          pnpm -C packages/clf/cli build
-          pnpm -C packages/clf/orchestrator build
+          pnpm --filter=@clawdlets/core build
+          pnpm --filter=@clawdlets/clf-queue build
+          pnpm --filter=clf build
+          pnpm --filter=clf-orchestrator build
 
           pnpm rebuild better-sqlite3
 
@@ -75,11 +84,6 @@
 
           cp -r node_modules $out/lib/clf/node_modules
           cp -r packages $out/lib/clf/packages
-
-          # pnpm workspace links can point into ./apps/*; we do not ship apps in this output.
-          if [ -d "$out/lib/clf/node_modules/.pnpm/node_modules" ]; then
-            find "$out/lib/clf/node_modules/.pnpm/node_modules" -maxdepth 2 -type l -lname '*apps/*' -delete
-          fi
 
           makeWrapper ${pkgs.nodejs_22}/bin/node $out/bin/clf \
             --add-flags "$out/lib/clf/packages/clf/cli/dist/main.js"
@@ -101,7 +105,7 @@
       };
 
       packages.${system} = {
-        inherit clf;
+        inherit clf pnpmDepsClf;
       };
 
       checks.${system} = {
