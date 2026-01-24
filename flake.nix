@@ -33,7 +33,7 @@
         pname = "clawdlets";
         version = "0.1.0";
         src = self;
-        pnpm = pkgs.pnpm_9;
+        pnpm = pkgs.pnpm_10;
         fetcherVersion = 2;
         hash = "sha256-/rdlAUPe6grGq3HdR6cYj04hhu3VThOAwezmwvvG+50=";
       };
@@ -47,7 +47,7 @@
 
         npmDeps = null;
         pnpmDeps = pnpmDeps;
-        nativeBuildInputs = [ pkgs.pnpm_9 pkgs.makeWrapper ];
+        nativeBuildInputs = [ pkgs.pnpm_10 pkgs.makeWrapper ];
         npmConfigHook = pkgs.pnpmConfigHook;
 
         dontNpmBuild = true;
