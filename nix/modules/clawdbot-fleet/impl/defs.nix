@@ -33,7 +33,7 @@ let
     resources = {};
   };
 
-  isNonEmptyString = v: (v or null) != null && toString v != "";
+  isNonEmptyString = v: v != null && toString v != "";
 
   normalizeEnvKey = name:
     let
