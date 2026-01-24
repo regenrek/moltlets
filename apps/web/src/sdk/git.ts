@@ -1,18 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
 import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { spawnCommandCapture } from "~/server/run-manager"
 import { capture } from "@clawdlets/core/lib/run"
-
-async function getRepoRoot(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
+import { getRepoRoot } from "~/sdk/repo-root"
 
 type GitRepoStatus = {
   branch: string | null

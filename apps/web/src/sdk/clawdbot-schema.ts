@@ -3,15 +3,9 @@ import type { ClawdbotSchemaArtifact } from "@clawdlets/core/lib/clawdbot-schema
 import { buildClawdbotBotConfig } from "@clawdlets/core/lib/clawdbot-config-invariants"
 import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
 import { shellQuote, sshCapture, validateTargetHost } from "@clawdlets/core/lib/ssh-remote"
-import type { Id } from "../../convex/_generated/dataModel"
-import { api } from "../../convex/_generated/api"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
+import { getRepoRoot } from "~/sdk/repo-root"
 import { parseProjectHostBotInput } from "~/sdk/serverfn-validators"
-
-async function getRepoRoot(client: ConvexClient, projectId: Id<"projects">) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
 
 function extractJsonBlock(raw: string): string {
   const start = raw.indexOf("{")

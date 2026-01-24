@@ -10,7 +10,6 @@ import {
   type SecretsInitJson,
 } from "@clawdlets/core/lib/secrets-init"
 import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { SecretNameSchema } from "@clawdlets/core/lib/identifiers"
 import {
   getRepoLayout,
   getHostRemoteSecretsDir,
@@ -23,43 +22,25 @@ import {
 import { writeFileAtomic } from "@clawdlets/core/lib/fs-safe"
 import { mkpasswdYescryptHash } from "@clawdlets/core/lib/mkpasswd"
 import { createSecretsTar } from "@clawdlets/core/lib/secrets-tar"
-import { assertSafeRecordKey, createNullProtoRecord } from "@clawdlets/core/lib/safe-record"
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdlets/core/lib/sops"
 import { readYamlScalarFromMapping, upsertYamlScalarLine } from "@clawdlets/core/lib/yaml-scalar"
 import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { runWithEvents, spawnCommand, spawnCommandCapture } from "~/server/run-manager"
 import { assertRunBoundToProject } from "~/sdk/run-binding"
-import { parseProjectHostInput, parseProjectRunHostInput } from "~/sdk/serverfn-validators"
+import { getRepoRoot } from "~/sdk/repo-root"
+import {
+  parseProjectHostInput,
+  parseProjectRunHostInput,
+  parseSecretsInitExecuteInput,
+  parseWriteHostSecretsInput,
+} from "~/sdk/serverfn-validators"
 import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawdlets/core/lib/secrets-allowlist"
-
-async function getRepoRoot(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
-
-function parseSecretValuesRecord(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return createNullProtoRecord<string>()
-  const out = createNullProtoRecord<string>()
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof v !== "string") continue
-    const key = String(k || "").trim()
-    const value = v.trim()
-    if (!key || !value) continue
-    assertSafeRecordKey({ key, context: "web secrets values" })
-    void SecretNameSchema.parse(key)
-    out[key] = value
-  }
-  return out
-}
 
 export const getSecretsTemplate = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostInput)
@@ -155,18 +136,7 @@ export const secretsInitStart = createServerFn({ method: "POST" })
   })
 
 export const secretsInitExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectRunHostInput(data)
-    const d = data as Record<string, unknown>
-    return {
-      ...base,
-      allowPlaceholders: Boolean(d["allowPlaceholders"]),
-      adminPassword: typeof d["adminPassword"] === "string" ? d["adminPassword"] : "",
-      adminPasswordHash: typeof d["adminPasswordHash"] === "string" ? d["adminPasswordHash"] : "",
-      tailscaleAuthKey: typeof d["tailscaleAuthKey"] === "string" ? d["tailscaleAuthKey"] : "",
-      secrets: parseSecretValuesRecord(d["secrets"]),
-    }
-  })
+  .inputValidator(parseSecretsInitExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
 
@@ -505,28 +475,7 @@ export const secretsSyncExecute = createServerFn({ method: "POST" })
   })
 
 export const writeHostSecrets = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    if (!d["secrets"] || typeof d["secrets"] !== "object" || Array.isArray(d["secrets"])) {
-      throw new Error("invalid secrets")
-    }
-    const secrets = createNullProtoRecord<string>()
-    for (const [k, v] of Object.entries(d["secrets"] as Record<string, unknown>)) {
-      if (typeof v !== "string") continue
-      const key = String(k || "").trim()
-      const value = v.trim()
-      if (!key || !value) continue
-      assertSafeRecordKey({ key, context: "web writeHostSecrets" })
-      void SecretNameSchema.parse(key)
-      secrets[key] = value
-    }
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      host: String(d["host"] || ""),
-      secrets,
-    }
-  })
+  .inputValidator(parseWriteHostSecretsInput)
   .handler(async ({ data }) => {
     const host = data.host.trim()
     if (!host) throw new Error("missing host")

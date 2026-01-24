@@ -4,18 +4,11 @@ import { collectDoctorChecks } from "@clawdlets/core/doctor"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { runWithEvents, spawnCommand } from "~/server/run-manager"
-
-async function getRepoRoot(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
+import { getRepoRoot } from "~/sdk/repo-root"
 
 function checkLevel(status: DoctorCheck["status"]): "info" | "warn" | "error" {
   if (status === "ok") return "info"

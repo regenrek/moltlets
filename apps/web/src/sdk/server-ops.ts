@@ -2,18 +2,23 @@ import { createServerFn } from "@tanstack/react-start"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { spawnCommand, spawnCommandCapture } from "~/server/run-manager"
-
-async function getRepoRoot(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-): Promise<string> {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
+import { getRepoRoot } from "~/sdk/repo-root"
+import {
+  parseServerAuditExecuteInput,
+  parseServerAuditStartInput,
+  parseServerDeployExecuteInput,
+  parseServerDeployStartInput,
+  parseServerLogsExecuteInput,
+  parseServerLogsStartInput,
+  parseServerRestartExecuteInput,
+  parseServerRestartStartInput,
+  parseServerStatusExecuteInput,
+  parseServerStatusStartInput,
+} from "~/sdk/serverfn-validators"
 
 function requireTypedConfirmation(params: {
   expected: string
@@ -43,15 +48,7 @@ async function setRunFailedOrCanceled(params: {
 }
 
 export const serverDeployStart = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      host: String(d["host"] || ""),
-      manifestPath: String(d["manifestPath"] || ""),
-    }
-  })
+  .inputValidator(parseServerDeployStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { runId } = await client.mutation(api.runs.create, {
@@ -69,19 +66,7 @@ export const serverDeployStart = createServerFn({ method: "POST" })
   })
 
 export const serverDeployExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      manifestPath: String(d["manifestPath"] || ""),
-      rev: typeof d["rev"] === "string" ? d["rev"] : "",
-      targetHost: typeof d["targetHost"] === "string" ? d["targetHost"] : "",
-      confirm: typeof d["confirm"] === "string" ? d["confirm"] : "",
-    }
-  })
+  .inputValidator(parseServerDeployExecuteInput)
   .handler(async ({ data }) => {
     const expected = `deploy ${data.host}`.trim()
     requireTypedConfirmation({ expected, received: data.confirm })
@@ -121,11 +106,7 @@ export const serverDeployExecute = createServerFn({ method: "POST" })
   })
 
 export const serverStatusStart = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return { projectId: d["projectId"] as Id<"projects">, host: String(d["host"] || "") }
-  })
+  .inputValidator(parseServerStatusStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { runId } = await client.mutation(api.runs.create, {
@@ -137,16 +118,7 @@ export const serverStatusStart = createServerFn({ method: "POST" })
   })
 
 export const serverStatusExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      targetHost: typeof d["targetHost"] === "string" ? d["targetHost"] : "",
-    }
-  })
+  .inputValidator(parseServerStatusExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
@@ -180,11 +152,7 @@ export const serverStatusExecute = createServerFn({ method: "POST" })
   })
 
 export const serverAuditStart = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return { projectId: d["projectId"] as Id<"projects">, host: String(d["host"] || "") }
-  })
+  .inputValidator(parseServerAuditStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { runId } = await client.mutation(api.runs.create, {
@@ -202,16 +170,7 @@ export const serverAuditStart = createServerFn({ method: "POST" })
   })
 
 export const serverAuditExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      targetHost: typeof d["targetHost"] === "string" ? d["targetHost"] : "",
-    }
-  })
+  .inputValidator(parseServerAuditExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
@@ -277,15 +236,7 @@ export const serverAuditExecute = createServerFn({ method: "POST" })
   })
 
 export const serverLogsStart = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      host: String(d["host"] || ""),
-      unit: typeof d["unit"] === "string" ? d["unit"] : "",
-    }
-  })
+  .inputValidator(parseServerLogsStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const unit = data.unit.trim() || "clawdbot-*.service"
@@ -298,20 +249,7 @@ export const serverLogsStart = createServerFn({ method: "POST" })
   })
 
 export const serverLogsExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      unit: typeof d["unit"] === "string" ? d["unit"] : "",
-      lines: typeof d["lines"] === "string" ? d["lines"] : "200",
-      since: typeof d["since"] === "string" ? d["since"] : "",
-      follow: Boolean(d["follow"]),
-      targetHost: typeof d["targetHost"] === "string" ? d["targetHost"] : "",
-    }
-  })
+  .inputValidator(parseServerLogsExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
@@ -320,7 +258,6 @@ export const serverLogsExecute = createServerFn({ method: "POST" })
 
     const unit = data.unit.trim() || "clawdbot-*.service"
     const lines = data.lines.trim() || "200"
-    if (!/^[0-9]+$/.test(lines)) throw new Error(`invalid lines: ${lines}`)
 
     try {
       const args = [
@@ -355,15 +292,7 @@ export const serverLogsExecute = createServerFn({ method: "POST" })
   })
 
 export const serverRestartStart = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      host: String(d["host"] || ""),
-      unit: typeof d["unit"] === "string" ? d["unit"] : "clawdbot-*.service",
-    }
-  })
+  .inputValidator(parseServerRestartStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const unit = data.unit.trim() || "clawdbot-*.service"
@@ -382,18 +311,7 @@ export const serverRestartStart = createServerFn({ method: "POST" })
   })
 
 export const serverRestartExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input")
-    const d = data as Record<string, unknown>
-    return {
-      projectId: d["projectId"] as Id<"projects">,
-      runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      unit: typeof d["unit"] === "string" ? d["unit"] : "clawdbot-*.service",
-      targetHost: typeof d["targetHost"] === "string" ? d["targetHost"] : "",
-      confirm: typeof d["confirm"] === "string" ? d["confirm"] : "",
-    }
-  })
+  .inputValidator(parseServerRestartExecuteInput)
   .handler(async ({ data }) => {
     const unit = data.unit.trim() || "clawdbot-*.service"
     const expected = `restart ${unit}`.trim()

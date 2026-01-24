@@ -3,17 +3,13 @@ import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { spawnCommand } from "~/server/run-manager"
 import { assertRunBoundToProject } from "~/sdk/run-binding"
+import { getRepoRoot } from "~/sdk/repo-root"
 import { parseServerChannelsExecuteInput, parseServerChannelsStartInput } from "~/sdk/serverfn-validators"
-
-async function getRepoRoot(client: ConvexClient, projectId: Id<"projects">) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
 
 export const serverChannelsStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerChannelsStartInput)

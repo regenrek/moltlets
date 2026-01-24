@@ -10,9 +10,10 @@ import {
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { runWithEvents } from "~/server/run-manager"
+import { getRepoRoot } from "~/sdk/repo-root"
 
 type ValidationIssue = { code: string; path: Array<string | number>; message: string }
 
@@ -25,11 +26,6 @@ function toIssues(issues: unknown[]): ValidationIssue[] {
       message: String(i.message ?? "Invalid"),
     }
   })
-}
-
-async function getRepoRoot(client: ConvexClient, projectId: Id<"projects">) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

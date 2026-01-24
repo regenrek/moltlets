@@ -14,15 +14,8 @@ import os from "node:os"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
-
-async function getRepoRoot(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-): Promise<string> {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
+import { createConvexClient } from "~/server/convex"
+import { getRepoRoot } from "~/sdk/repo-root"
 
 export type DeployCredsStatusKey = {
   key: string

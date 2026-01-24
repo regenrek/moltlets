@@ -9,9 +9,10 @@ import { isFleetWorkspaceEditableDoc, FLEET_WORKSPACE_EDITABLE_DOCS } from "@cla
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
+import { createConvexClient } from "~/server/convex"
 import { readClawdletsEnvTokens } from "~/server/redaction"
 import { runWithEvents } from "~/server/run-manager"
+import { getRepoRoot } from "~/sdk/repo-root"
 
 type WorkspaceDocScope = "common" | "bot" | "effective"
 
@@ -35,11 +36,6 @@ type WorkspaceDocWriteResult =
   | { ok: false; code: "invalid" | "conflict"; message: string }
 
 const MAX_DOC_BYTES = 256 * 1024
-
-async function getRepoRoot(client: ConvexClient, projectId: Id<"projects">) {
-  const { project } = await client.query(api.projects.get, { projectId })
-  return project.localPath
-}
 
 function sha256Hex(text: string): string {
   return crypto.createHash("sha256").update(text, "utf8").digest("hex")
