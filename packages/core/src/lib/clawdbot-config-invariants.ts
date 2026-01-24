@@ -4,6 +4,7 @@ import { getAtPath } from "./object-path.js";
 const DEFAULT_GATEWAY_PORT_BASE = 18789;
 const DEFAULT_GATEWAY_PORT_STRIDE = 20;
 const DEFAULT_STATE_DIR_BASE = "/srv/clawdbot";
+const DEFAULT_COMMANDS = { native: "auto", nativeSkills: "auto" };
 
 export type ClawdbotInvariantWarning = {
   bot: string;
@@ -111,6 +112,7 @@ export function buildClawdbotBotConfig(params: {
   const botCfgObj = isPlainObject(botCfg) ? botCfg : {};
   const profile = isPlainObject(botCfgObj["profile"]) ? (botCfgObj["profile"] as Record<string, unknown>) : {};
   const base = isPlainObject(botCfgObj["clawdbot"]) ? (botCfgObj["clawdbot"] as Record<string, unknown>) : {};
+  const baseWithDefaults = deepMerge({ commands: DEFAULT_COMMANDS }, base);
 
   const gatewayPort = resolveGatewayPort({ config: params.config, bot: params.bot, profile });
   const workspaceDir = resolveWorkspaceDir({ bot: params.bot, profile });
@@ -150,7 +152,7 @@ export function buildClawdbotBotConfig(params: {
   return {
     bot: params.bot,
     base,
-    merged: deepMerge(base, invariants),
+    merged: deepMerge(baseWithDefaults, invariants),
     invariants,
     warnings,
   };

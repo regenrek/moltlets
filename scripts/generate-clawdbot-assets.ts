@@ -156,6 +156,18 @@ const getGitRev = (repo: string): string => {
   }
 };
 
+const getGitCommitTimeIso = (repo: string, commit: string): string | null => {
+  try {
+    const out = execSync(
+      `git -C ${JSON.stringify(repo)} show -s --format=%cI ${JSON.stringify(commit)}`,
+      { encoding: "utf8" },
+    ).trim();
+    return out ? out : null;
+  } catch {
+    return null;
+  }
+};
+
 const getPinnedRevFromFlake = (): string | null => {
   try {
     const flakeLockPath = path.join(repoRoot, "flake.lock");
@@ -219,11 +231,14 @@ const main = async () => {
     process.exit(1);
   }
   const schemaRes = schemaMod.buildConfigSchema();
+  const schemaGeneratedAt =
+    typeof schemaRes.generatedAt === "string" && schemaRes.generatedAt.trim() ? schemaRes.generatedAt.trim() : "";
+  const generatedAt = schemaGeneratedAt || getGitCommitTimeIso(src, rev) || new Date(0).toISOString();
   const schemaPayload = {
     schema: schemaRes.schema ?? {},
     uiHints: schemaRes.uiHints ?? {},
     version: String(schemaRes.version || ""),
-    generatedAt: String(schemaRes.generatedAt || new Date().toISOString()),
+    generatedAt,
     clawdbotRev: rev,
   };
   writeJson(schemaOut, schemaPayload);

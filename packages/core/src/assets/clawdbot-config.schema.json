@@ -5207,6 +5207,72 @@
           },
           "removeAckAfterReply": {
             "type": "boolean"
+          },
+          "tts": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "final",
+                  "all"
+                ]
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "elevenlabs",
+                  "openai"
+                ]
+              },
+              "elevenlabs": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "voiceId": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "openai": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "voice": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "prefsPath": {
+                "type": "string"
+              },
+              "maxTextLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 120000
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -7801,6 +7867,6 @@
     }
   },
   "version": "2026.1.23",
-  "generatedAt": "2026-01-24T13:25:13.567Z",
-  "clawdbotRev": "975f5a52848fc89208f4c282e20537a40840b32a"
+  "generatedAt": "2026-01-24T13:53:24.304Z",
+  "clawdbotRev": "faa90fc206753981a5f323581de1c76112bbfbff"
 }
