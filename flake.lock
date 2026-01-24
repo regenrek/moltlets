@@ -3,17 +3,17 @@
     "clawdbot-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1768058740,
-        "narHash": "sha256-L1NJ3i1ehtENjKkDuix8sQ+Dkti+EbXV3WJn45Iz3S8=",
+        "lastModified": 1769230306,
+        "narHash": "sha256-TYr0Ou+WDiAZxfmIuuG+RDOnFgVVK1q38d3Igsz56Lg=",
         "owner": "clawdbot",
         "repo": "clawdbot",
-        "rev": "8b47368167ad062b86669dfa77ef7ebb4e0ad5f0",
+        "rev": "975f5a52848fc89208f4c282e20537a40840b32a",
         "type": "github"
       },
       "original": {
         "owner": "clawdbot",
         "repo": "clawdbot",
-        "rev": "8b47368167ad062b86669dfa77ef7ebb4e0ad5f0",
+        "rev": "975f5a52848fc89208f4c282e20537a40840b32a",
         "type": "github"
       }
     },

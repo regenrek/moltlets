@@ -17,7 +17,7 @@
     nix-clawdbot.inputs.nixpkgs.follows = "nixpkgs";
 
     clawdbot-src = {
-      url = "github:clawdbot/clawdbot?rev=8b47368167ad062b86669dfa77ef7ebb4e0ad5f0";
+      url = "github:clawdbot/clawdbot?rev=975f5a52848fc89208f4c282e20537a40840b32a";
       flake = false;
     };
   };
