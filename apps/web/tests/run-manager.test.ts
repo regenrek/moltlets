@@ -108,4 +108,25 @@ describe("run manager", () => {
 
     expect(events.some((e) => e.message.includes("supersecret"))).toBe(false)
   })
+
+  it("kills processes that ignore SIGTERM", async () => {
+    const { client } = createClient()
+    const runId = "run-sigkill" as RunId
+
+    await expect(
+      spawnCommand({
+        client,
+        runId,
+        cwd: process.cwd(),
+        cmd: "node",
+        args: [
+          "-e",
+          "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);",
+        ],
+        redactTokens: [],
+        timeoutMs: 200,
+        killGraceMs: 200,
+      }),
+    ).rejects.toThrow(/timed out/i)
+  })
 })

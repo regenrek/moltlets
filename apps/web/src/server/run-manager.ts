@@ -78,6 +78,34 @@ function resolveCommand(cmd: string): { exec: string; display: string } {
   return { exec: cmd, display: cmd };
 }
 
+function scheduleTermination(params: { child: ReturnType<typeof spawn>; timeoutMs: number; killAfterMs: number }) {
+  let killed = false;
+  let killTimer: NodeJS.Timeout | null = null;
+  const terminate = setTimeout(() => {
+    try {
+      params.child.kill("SIGTERM");
+    } catch {
+      // ignore
+    }
+    killTimer = setTimeout(() => {
+      if (killed) return;
+      try {
+        params.child.kill("SIGKILL");
+      } catch {
+        // ignore
+      }
+    }, params.killAfterMs);
+  }, params.timeoutMs);
+
+  const clear = () => {
+    killed = true;
+    clearTimeout(terminate);
+    if (killTimer) clearTimeout(killTimer);
+  };
+
+  return { clear };
+}
+
 type RunEventLimits = {
   maxEvents: number;
   maxBytes: number;
@@ -221,6 +249,7 @@ export async function spawnCommand(params: {
   cmd: string;
   args: string[];
   env?: NodeJS.ProcessEnv;
+  killGraceMs?: number;
   envAllowlist?: string[];
   redactTokens: string[];
   timeoutMs?: number;
@@ -245,13 +274,10 @@ export async function spawnCommand(params: {
       active.set(params.runId, { child, aborted: false });
       const timeoutMs = params.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
       let timedOut = false;
+      const killGraceMs = Math.max(250, params.killGraceMs ?? 5_000);
+      const termination = scheduleTermination({ child, timeoutMs, killAfterMs: killGraceMs });
       const timeout = setTimeout(() => {
         timedOut = true;
-        try {
-          child.kill("SIGTERM");
-        } catch {
-          // ignore
-        }
       }, timeoutMs);
 
       const onLine = async (level: RunEventLevel, line: string) => {
@@ -285,6 +311,7 @@ export async function spawnCommand(params: {
         if (exitCode !== 0) throw new Error(`${params.cmd} exited with code ${exitCode}`);
       } finally {
         clearTimeout(timeout);
+        termination.clear();
         active.delete(params.runId);
       }
     },
@@ -298,6 +325,7 @@ export async function spawnCommandCapture(params: {
   cmd: string;
   args: string[];
   env?: NodeJS.ProcessEnv;
+  killGraceMs?: number;
   envAllowlist?: string[];
   redactTokens: string[];
   maxCaptureBytes?: number;
@@ -341,13 +369,10 @@ export async function spawnCommandCapture(params: {
       active.set(params.runId, { child, aborted: false });
       const timeoutMs = params.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
       let timedOut = false;
+      const killGraceMs = Math.max(250, params.killGraceMs ?? 5_000);
+      const termination = scheduleTermination({ child, timeoutMs, killAfterMs: killGraceMs });
       const timeout = setTimeout(() => {
         timedOut = true;
-        try {
-          child.kill("SIGTERM");
-        } catch {
-          // ignore
-        }
       }, timeoutMs);
 
       const onLine = async (level: RunEventLevel, line: string) => {
@@ -393,6 +418,7 @@ export async function spawnCommandCapture(params: {
         }
       } finally {
         clearTimeout(timeout);
+        termination.clear();
         active.delete(params.runId);
       }
     },
