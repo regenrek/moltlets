@@ -16,6 +16,20 @@ export type RunManagerEvent = {
 };
 
 const active = new Map<string, { child: ReturnType<typeof spawn>; aborted: boolean }>();
+const DEFAULT_RUN_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_EVENT_LIMITS = {
+  maxEvents: 5000,
+  maxBytes: 512 * 1024,
+  maxBatchSize: 100,
+  flushIntervalMs: 1000,
+} as const;
+
+type RunEventLimits = {
+  maxEvents: number;
+  maxBytes: number;
+  maxBatchSize: number;
+  flushIntervalMs: number;
+};
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -61,18 +75,58 @@ export async function runWithEvents(params: {
   client: ConvexClient;
   runId: Id<"runs">;
   redactTokens: string[];
+  limits?: Partial<RunEventLimits>;
   fn: (emit: (e: Omit<RunManagerEvent, "ts"> & { ts?: number }) => Promise<void>) => Promise<void>;
 }): Promise<void> {
   let buffer: RunManagerEvent[] = [];
+  let bufferBytes = 0;
+  let totalEvents = 0;
+  let totalBytes = 0;
+  let truncated = false;
+  let lastFlush = Date.now();
+  let flushInFlight: Promise<void> | null = null;
+  const limits: RunEventLimits = { ...DEFAULT_EVENT_LIMITS, ...params.limits };
+
   const flush = async () => {
+    if (flushInFlight) {
+      await flushInFlight;
+    }
     const batch = buffer;
     buffer = [];
-    await appendEvents(params.client, params.runId, batch);
+    bufferBytes = 0;
+    if (batch.length === 0) return;
+    const promise = appendEvents(params.client, params.runId, batch);
+    flushInFlight = promise;
+    try {
+      await promise;
+    } finally {
+      if (flushInFlight === promise) flushInFlight = null;
+      lastFlush = Date.now();
+    }
   };
 
   const emit = async (e: Omit<RunManagerEvent, "ts"> & { ts?: number }) => {
+    if (truncated) return;
     const ts = e.ts ?? Date.now();
     const message = redactLine(e.message, params.redactTokens);
+    const messageBytes = Buffer.byteLength(message, "utf8");
+    if (totalEvents >= limits.maxEvents || totalBytes + messageBytes > limits.maxBytes) {
+      if (!truncated) {
+        truncated = true;
+        const warning = `log truncated after ${totalEvents} events (${Math.ceil(totalBytes / 1024)}KB).`;
+        const warningBytes = Buffer.byteLength(warning, "utf8");
+        buffer.push({
+          ts,
+          level: "warn",
+          message: warning,
+        });
+        totalEvents += 1;
+        totalBytes += warningBytes;
+        bufferBytes += warningBytes;
+      }
+      await flush();
+      return;
+    }
     buffer.push({
       ts,
       level: e.level,
@@ -80,7 +134,13 @@ export async function runWithEvents(params: {
       data: e.data,
       redacted: message !== e.message || e.redacted,
     });
-    if (buffer.length >= 50) await flush();
+    totalEvents += 1;
+    totalBytes += messageBytes;
+    bufferBytes += messageBytes;
+    const now = Date.now();
+    if (buffer.length >= limits.maxBatchSize || bufferBytes >= limits.maxBytes || now - lastFlush >= limits.flushIntervalMs) {
+      await flush();
+    }
   };
 
   try {
@@ -108,6 +168,7 @@ export async function spawnCommand(params: {
   args: string[];
   env?: NodeJS.ProcessEnv;
   redactTokens: string[];
+  timeoutMs?: number;
 }): Promise<void> {
   await runWithEvents({
     client: params.client,
@@ -126,6 +187,16 @@ export async function spawnCommand(params: {
         stdio: ["ignore", "pipe", "pipe"],
       });
       active.set(params.runId, { child, aborted: false });
+      const timeoutMs = params.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill("SIGTERM");
+        } catch {
+          // ignore
+        }
+      }, timeoutMs);
 
       const onLine = async (level: RunEventLevel, line: string) => {
         const msg = line.trimEnd();
@@ -133,26 +204,33 @@ export async function spawnCommand(params: {
         await emit({ level, message: msg });
       };
 
-      const stdout = readline.createInterface({ input: child.stdout });
-      const stderr = readline.createInterface({ input: child.stderr });
+      const stdout = child.stdout ? readline.createInterface({ input: child.stdout }) : null;
+      const stderr = child.stderr ? readline.createInterface({ input: child.stderr }) : null;
       const pumpStdout = (async () => {
+        if (!stdout) return;
         for await (const line of stdout) await onLine("info", line);
       })();
       const pumpStderr = (async () => {
+        if (!stderr) return;
         for await (const line of stderr) await onLine("warn", line);
       })();
 
-      const exitCode = await new Promise<number>((resolve, reject) => {
-        child.on("error", (e) => reject(e));
-        child.on("close", (code) => resolve(code ?? 0));
-      });
+      try {
+        const exitCode = await new Promise<number>((resolve, reject) => {
+          child.on("error", (e) => reject(e));
+          child.on("close", (code) => resolve(code ?? 0));
+        });
 
-      await Promise.allSettled([pumpStdout, pumpStderr]);
+        await Promise.allSettled([pumpStdout, pumpStderr]);
 
-      const entry = active.get(params.runId);
-      active.delete(params.runId);
-      if (entry?.aborted) throw new Error("run canceled");
-      if (exitCode !== 0) throw new Error(`${params.cmd} exited with code ${exitCode}`);
+        const entry = active.get(params.runId);
+        if (entry?.aborted) throw new Error("run canceled");
+        if (timedOut) throw new Error(`run timed out after ${Math.ceil(timeoutMs / 1000)}s`);
+        if (exitCode !== 0) throw new Error(`${params.cmd} exited with code ${exitCode}`);
+      } finally {
+        clearTimeout(timeout);
+        active.delete(params.runId);
+      }
     },
   });
 }
@@ -167,6 +245,7 @@ export async function spawnCommandCapture(params: {
   redactTokens: string[];
   maxCaptureBytes?: number;
   allowNonZeroExit?: boolean;
+  timeoutMs?: number;
 }): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   let exitCode = 0;
   const stdoutLines: string[] = [];
@@ -202,6 +281,16 @@ export async function spawnCommandCapture(params: {
         stdio: ["ignore", "pipe", "pipe"],
       });
       active.set(params.runId, { child, aborted: false });
+      const timeoutMs = params.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill("SIGTERM");
+        } catch {
+          // ignore
+        }
+      }, timeoutMs);
 
       const onLine = async (level: RunEventLevel, line: string) => {
         const msg = line.trimEnd();
@@ -209,37 +298,44 @@ export async function spawnCommandCapture(params: {
         await emit({ level, message: msg });
       };
 
-      const stdout = readline.createInterface({ input: child.stdout });
-      const stderr = readline.createInterface({ input: child.stderr });
+      const stdout = child.stdout ? readline.createInterface({ input: child.stdout }) : null;
+      const stderr = child.stderr ? readline.createInterface({ input: child.stderr }) : null;
       const pumpStdout = (async () => {
+        if (!stdout) return;
         for await (const line of stdout) {
           pushCaptured(stdoutLines, line);
           await onLine("info", line);
         }
       })();
       const pumpStderr = (async () => {
+        if (!stderr) return;
         for await (const line of stderr) {
           pushCaptured(stderrLines, line);
           await onLine("warn", line);
         }
       })();
 
-      exitCode = await new Promise<number>((resolve, reject) => {
-        child.on("error", (e) => reject(e));
-        child.on("close", (code) => resolve(code ?? 0));
-      });
+      try {
+        exitCode = await new Promise<number>((resolve, reject) => {
+          child.on("error", (e) => reject(e));
+          child.on("close", (code) => resolve(code ?? 0));
+        });
 
-      await Promise.allSettled([pumpStdout, pumpStderr]);
+        await Promise.allSettled([pumpStdout, pumpStderr]);
 
-      const entry = active.get(params.runId);
-      active.delete(params.runId);
-      if (entry?.aborted) throw new Error("run canceled");
+        const entry = active.get(params.runId);
+        if (entry?.aborted) throw new Error("run canceled");
+        if (timedOut) throw new Error(`run timed out after ${Math.ceil(timeoutMs / 1000)}s`);
 
-      if (exitCode !== 0 && !params.allowNonZeroExit) {
-        throw new Error(`${params.cmd} exited with code ${exitCode}`);
-      }
-      if (exitCode !== 0 && params.allowNonZeroExit) {
-        await emit({ level: "warn", message: `${params.cmd} exited with code ${exitCode}` });
+        if (exitCode !== 0 && !params.allowNonZeroExit) {
+          throw new Error(`${params.cmd} exited with code ${exitCode}`);
+        }
+        if (exitCode !== 0 && params.allowNonZeroExit) {
+          await emit({ level: "warn", message: `${params.cmd} exited with code ${exitCode}` });
+        }
+      } finally {
+        clearTimeout(timeout);
+        active.delete(params.runId);
       }
     },
   });

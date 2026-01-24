@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest"
+
+import type { Id } from "../../convex/_generated/dataModel"
+import type { ConvexClient } from "../src/server/convex"
+import type { RunManagerEvent } from "../src/server/run-manager"
+import { runWithEvents, spawnCommand } from "../src/server/run-manager"
+
+const createClient = () => {
+  const events: RunManagerEvent[] = []
+  const client = {
+    mutation: async (_mutation: unknown, payload: { runId: Id<"runs">; events: RunManagerEvent[] }) => {
+      events.push(...payload.events)
+    },
+  } as ConvexClient
+  return { client, events }
+}
+
+describe("run manager", () => {
+  it("caps events and appends truncation notice", async () => {
+    const { client, events } = createClient()
+    const runId = "run-cap" as Id<"runs">
+
+    await runWithEvents({
+      client,
+      runId,
+      redactTokens: [],
+      limits: { maxEvents: 3, maxBytes: 1024, maxBatchSize: 2, flushIntervalMs: 1 },
+      fn: async (emit) => {
+        for (let i = 0; i < 10; i += 1) {
+          await emit({ level: "info", message: `line-${i}` })
+        }
+      },
+    })
+
+    expect(events.length).toBe(4)
+    expect(events[events.length - 1]?.message).toMatch(/log truncated/i)
+  })
+
+  it("caps output by total bytes", async () => {
+    const { client, events } = createClient()
+    const runId = "run-bytes" as Id<"runs">
+
+    await runWithEvents({
+      client,
+      runId,
+      redactTokens: [],
+      limits: { maxEvents: 10, maxBytes: 10, maxBatchSize: 5, flushIntervalMs: 1 },
+      fn: async (emit) => {
+        await emit({ level: "info", message: "1234567890" })
+        await emit({ level: "info", message: "extra" })
+      },
+    })
+
+    expect(events.length).toBe(2)
+    expect(events[events.length - 1]?.message).toMatch(/log truncated/i)
+  })
+
+  it("cleans up active runs on spawn error", async () => {
+    const { client } = createClient()
+    const runId = "run-spawn-error" as Id<"runs">
+
+    await expect(
+      spawnCommand({
+        client,
+        runId,
+        cwd: process.cwd(),
+        cmd: "__missing_command__",
+        args: [],
+        redactTokens: [],
+        timeoutMs: 5000,
+      }),
+    ).rejects.toThrow()
+
+    await expect(
+      spawnCommand({
+        client,
+        runId,
+        cwd: process.cwd(),
+        cmd: process.execPath,
+        args: ["-e", "process.exit(0)"],
+        redactTokens: [],
+        timeoutMs: 5000,
+      }),
+    ).resolves.toBeUndefined()
+  })
+})
