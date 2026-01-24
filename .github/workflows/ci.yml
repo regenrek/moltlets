@@ -193,7 +193,8 @@ jobs:
           set -euo pipefail
           echo "repo=$(jq -r '.repo' config/template-source.json)" >> "$GITHUB_OUTPUT"
           echo "path=$(jq -r '.path' config/template-source.json)" >> "$GITHUB_OUTPUT"
-          echo "ref=$(jq -r '.ref' config/template-source.json)" >> "$GITHUB_OUTPUT"
+          # Use current commit SHA for CI to test the actual templates in this PR/push
+          echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Project init from template repo
         run: |
