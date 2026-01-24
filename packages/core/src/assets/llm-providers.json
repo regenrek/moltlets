@@ -27,6 +27,34 @@
       }
     ]
   },
+  "chutes": {
+    "auth": "mixed",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "CHUTES_API_KEY"
+        ]
+      },
+      {
+        "id": "oauth_token",
+        "anyOfEnv": [
+          "CHUTES_OAUTH_TOKEN"
+        ]
+      }
+    ]
+  },
+  "deepgram": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "DEEPGRAM_API_KEY"
+        ]
+      }
+    ]
+  },
   "github-copilot": {
     "auth": "mixed",
     "credentials": [
@@ -70,6 +98,17 @@
       }
     ]
   },
+  "kimi-code": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "KIMICODE_API_KEY"
+        ]
+      }
+    ]
+  },
   "minimax": {
     "auth": "apiKey",
     "credentials": [
@@ -92,6 +131,17 @@
       }
     ]
   },
+  "moonshot": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "MOONSHOT_API_KEY"
+        ]
+      }
+    ]
+  },
   "openai": {
     "auth": "apiKey",
     "credentials": [
@@ -107,15 +157,19 @@
     "auth": "oauth",
     "credentials": []
   },
-  "opencode-zen": {
+  "opencode": {
     "auth": "apiKey",
     "credentials": [
       {
         "id": "api_key",
         "anyOfEnv": [
+          "OPENCODE_API_KEY",
           "OPENCODE_ZEN_API_KEY"
         ]
       }
+    ],
+    "aliases": [
+      "opencode-zen"
     ]
   },
   "openrouter": {
@@ -125,6 +179,48 @@
         "id": "api_key",
         "anyOfEnv": [
           "OPENROUTER_API_KEY"
+        ]
+      }
+    ]
+  },
+  "qwen-portal": {
+    "auth": "mixed",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "QWEN_PORTAL_API_KEY"
+        ]
+      },
+      {
+        "id": "oauth_token",
+        "anyOfEnv": [
+          "QWEN_OAUTH_TOKEN"
+        ]
+      }
+    ],
+    "aliases": [
+      "qwen"
+    ]
+  },
+  "synthetic": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "SYNTHETIC_API_KEY"
+        ]
+      }
+    ]
+  },
+  "vercel-ai-gateway": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "AI_GATEWAY_API_KEY"
         ]
       }
     ]

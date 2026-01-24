@@ -257,27 +257,25 @@ describe("fleet secrets plan", () => {
     expect(plan.missing.some((m) => m.kind === "envVar" && m.bot === "maren" && m.envVar === "DISCORD_BOT_TOKEN")).toBe(true);
   });
 
-  it("flags invalid host secretFiles targetPath", async () => {
+  it("rejects host secretFiles targetPath outside /var/lib/clawdlets", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
-    const cfg = ClawdletsConfigSchema.parse({
-      schemaVersion: 9,
-      fleet: {
-        botOrder: ["maren"],
-        bots: { maren: {} },
-        secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
-        secretFiles: {
-          netrc: { secretName: "garnix_netrc", targetPath: "/srv/clawdbot/maren/credentials/netrc", mode: "0400" },
+    expect(() =>
+      ClawdletsConfigSchema.parse({
+        schemaVersion: 9,
+        fleet: {
+          botOrder: ["maren"],
+          bots: { maren: {} },
+          secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
+          secretFiles: {
+            netrc: { secretName: "garnix_netrc", targetPath: "/srv/clawdbot/maren/credentials/netrc", mode: "0400" },
+          },
         },
-      },
-      hosts: {
-        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
-      },
-    });
-
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
-    expect(plan.missing.some((m) => m.kind === "secretFile" && m.scope === "host" && m.fileId === "netrc")).toBe(true);
+        hosts: {
+          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+        },
+      }),
+    ).toThrow(/targetPath must be under/i);
   });
 
   it("flags host secretFiles targetPath traversal", async () => {

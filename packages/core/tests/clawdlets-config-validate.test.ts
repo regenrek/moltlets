@@ -13,6 +13,7 @@ describe("clawdlets config validate", () => {
         bots: {
           maren: {
             clawdbot: {
+              commands: { native: "auto", nativeSkills: "auto" },
               gateway: { port: 12345 },
             },
           },
@@ -44,6 +45,7 @@ describe("clawdlets config validate", () => {
           maren: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
             clawdbot: {
+              commands: { native: "auto", nativeSkills: "auto" },
               channels: { discord: { enabled: true, token: "inline-token" } },
             },
           },
@@ -74,6 +76,7 @@ describe("clawdlets config validate", () => {
               secretEnvAllowlist: ["SLACK_BOT_TOKEN"],
             },
             clawdbot: {
+              commands: { native: "auto", nativeSkills: "auto" },
               channels: { discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" } },
             },
           },
