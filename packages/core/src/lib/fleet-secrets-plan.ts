@@ -59,6 +59,9 @@ export type FleetSecretsPlan = {
   hostSecretFiles: Record<string, SecretFileSpec>;
 };
 
+const isUnsafeTargetPath = (targetPath: string) =>
+  targetPath.includes("/../") || targetPath.endsWith("/..") || targetPath.includes("\u0000");
+
 export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostName: string }): FleetSecretsPlan {
   const hostName = params.hostName.trim();
   const hostCfg = (params.config.hosts as any)?.[hostName];
@@ -114,12 +117,23 @@ export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostNam
       optional: false,
       fileId,
     });
-    if (!String(spec.targetPath || "").startsWith("/var/lib/clawdlets/")) {
+    const targetPath = String(spec.targetPath || "");
+    if (isUnsafeTargetPath(targetPath)) {
       missingSecretConfig.push({
         kind: "secretFile",
         scope: "host",
         fileId,
-        targetPath: String(spec.targetPath || ""),
+        targetPath,
+        message: "fleet.secretFiles targetPath must not contain /../, end with /.., or include NUL",
+      });
+      continue;
+    }
+    if (!targetPath.startsWith("/var/lib/clawdlets/")) {
+      missingSecretConfig.push({
+        kind: "secretFile",
+        scope: "host",
+        fileId,
+        targetPath,
         message: "fleet.secretFiles targetPath must be under /var/lib/clawdlets/",
       });
     }
@@ -359,13 +373,25 @@ export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostNam
         fileId,
       });
       const expectedPrefix = `/srv/clawdbot/${bot}/`;
-      if (!String(spec.targetPath || "").startsWith(expectedPrefix)) {
+      const targetPath = String(spec.targetPath || "");
+      if (isUnsafeTargetPath(targetPath)) {
         missingSecretConfig.push({
           kind: "secretFile",
           scope: "bot",
           bot,
           fileId,
-          targetPath: String(spec.targetPath || ""),
+          targetPath,
+          message: `fleet.bots.${bot}.profile.secretFiles targetPath must not contain /../, end with /.., or include NUL`,
+        });
+        continue;
+      }
+      if (!targetPath.startsWith(expectedPrefix)) {
+        missingSecretConfig.push({
+          kind: "secretFile",
+          scope: "bot",
+          bot,
+          fileId,
+          targetPath,
           message: `fleet.bots.${bot}.profile.secretFiles targetPath must be under ${expectedPrefix}`,
         });
       }

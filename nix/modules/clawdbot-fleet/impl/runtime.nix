@@ -254,6 +254,18 @@ let
         value = (mkSopsSecretFor secretName) // { inherit owner group mode; path = targetPath; };
       };
 
+  isUnsafeTargetPath = targetPath:
+    (lib.hasInfix "/../" targetPath)
+    || (lib.hasSuffix "/.." targetPath)
+    || (lib.hasInfix "\u0000" targetPath);
+
+  validateTargetPath = { context, prefix, targetPath }:
+    if isUnsafeTargetPath targetPath
+    then builtins.throw "${context}targetPath must not contain /../, end with /.., or include NUL"
+    else if lib.hasPrefix prefix targetPath
+    then null
+    else builtins.throw "${context}targetPath must be under ${prefix}";
+
   secretFileEntries =
     let
       fleetSpecs = cfg.secretFiles or {};
@@ -262,10 +274,11 @@ let
         let
           spec = fleetSpecs.${id};
           targetPath = toString (spec.targetPath or "");
-          _ =
-            if lib.hasPrefix "/var/lib/clawdlets/" targetPath
-            then null
-            else builtins.throw "services.clawdbotFleet.secretFiles.${id}.targetPath must be under /var/lib/clawdlets/";
+          _ = validateTargetPath {
+            context = "services.clawdbotFleet.secretFiles.${id}.";
+            prefix = "/var/lib/clawdlets/";
+            inherit targetPath;
+          };
           owner =
             if (spec.owner or null) != null then spec.owner else "root";
           group =
@@ -292,10 +305,10 @@ let
             let
               spec = botSpecs.${id};
               targetPath = toString (spec.targetPath or "");
-              _ =
-                if lib.hasPrefix prefix targetPath
-                then null
-                else builtins.throw "services.clawdbotFleet.botProfiles.${b}.secretFiles.${id}.targetPath must be under ${prefix}";
+              _ = validateTargetPath {
+                context = "services.clawdbotFleet.botProfiles.${b}.secretFiles.${id}.";
+                inherit prefix targetPath;
+              };
               owner =
                 if (spec.owner or null) != null then spec.owner else "bot-${b}";
               group =

@@ -280,6 +280,33 @@ describe("fleet secrets plan", () => {
     expect(plan.missing.some((m) => m.kind === "secretFile" && m.scope === "host" && m.fileId === "netrc")).toBe(true);
   });
 
+  it("flags host secretFiles targetPath traversal", async () => {
+    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+
+    const cfg = ClawdletsConfigSchema.parse({
+      schemaVersion: 9,
+      fleet: {
+        botOrder: ["maren"],
+        bots: { maren: {} },
+        secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
+        secretFiles: {
+          netrc: { secretName: "garnix_netrc", targetPath: "/var/lib/clawdlets/../etc/shadow", mode: "0400" },
+        },
+      },
+      hosts: {
+        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+      },
+    });
+
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    expect(
+      plan.missing.some(
+        (m) => m.kind === "secretFile" && m.scope === "host" && m.fileId === "netrc" && /must not contain/.test(m.message),
+      ),
+    ).toBe(true);
+  });
+
   it("flags invalid per-bot secretFiles targetPath", async () => {
     const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
@@ -307,6 +334,39 @@ describe("fleet secrets plan", () => {
 
     const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "secretFile" && m.scope === "bot" && m.bot === "maren" && m.fileId === "creds")).toBe(true);
+  });
+
+  it("flags per-bot secretFiles targetPath traversal", async () => {
+    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+
+    const cfg = ClawdletsConfigSchema.parse({
+      schemaVersion: 9,
+      fleet: {
+        botOrder: ["maren"],
+        bots: {
+          maren: {
+            profile: {
+              secretEnv: {},
+              secretFiles: {
+                creds: { secretName: "discord_token_maren", targetPath: "/srv/clawdbot/maren/../secrets/discord_token_maren", mode: "0400" },
+              },
+            },
+          },
+        },
+        secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
+      },
+      hosts: {
+        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+      },
+    });
+
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    expect(
+      plan.missing.some(
+        (m) => m.kind === "secretFile" && m.scope === "bot" && m.bot === "maren" && m.fileId === "creds" && /must not contain/.test(m.message),
+      ),
+    ).toBe(true);
   });
 
   it("does not mark whatsapp as stateful when explicitly disabled", async () => {

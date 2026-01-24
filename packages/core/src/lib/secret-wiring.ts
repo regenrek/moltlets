@@ -14,7 +14,13 @@ const AbsolutePathSchema = z
   .string()
   .trim()
   .min(1)
-  .refine((v) => v.startsWith("/"), { message: "targetPath must be an absolute path" });
+  .refine((v) => v.startsWith("/"), { message: "targetPath must be an absolute path" })
+  .refine(
+    (v) => !v.includes("/../") && !v.endsWith("/..") && !v.includes("\u0000"),
+    {
+      message: "targetPath must not contain /../, end with /.., or include NUL",
+    },
+  );
 
 const AllowedTargetPathSchema = AbsolutePathSchema.refine(
   (v) => v.startsWith("/srv/clawdbot/") || v.startsWith("/var/lib/clawdlets/"),
