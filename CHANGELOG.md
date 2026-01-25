@@ -5,6 +5,13 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 
+## [0.4.1] - 2026-01-25
+### Fixed
+- Ensure npm release fails fast if vendored workspace deps are missing (prevents broken `file:vendor/...` installs).
+
+### Docs
+- Document vendoring behavior and add a packaging sanity check for hotfix releases.
+
 ## [0.4.0] - 2026-01-25
 ### Breaking
 - Config schema bumped to v9: replace `guildId` / `discordTokenSecret` / `modelSecrets` with `secretEnv` + `secretFiles` (generic secret wiring).
