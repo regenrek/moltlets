@@ -47,11 +47,13 @@ jobs:
       - name: Tests
         env:
           CI: "1"
+          CLAWDLETS_TEMPLATE_REF: ${{ github.sha }}
         run: pnpm -C packages/core run test:run
 
       - name: Coverage
         env:
           CI: "1"
+          CLAWDLETS_TEMPLATE_REF: ${{ github.sha }}
         run: pnpm -C packages/core run coverage
 
       - name: Plugin coverage (cattle)
