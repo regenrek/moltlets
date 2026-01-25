@@ -12,37 +12,7 @@
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: lib.genAttrs systems (system: f system);
 
-      rootSrc = lib.cleanSourceWith {
-        src = clawdletsSrc;
-        filter = path: type:
-          let
-            full = toString path;
-            root = toString clawdletsSrc;
-            rel = lib.removePrefix (root + "/") full;
-            isRoot = full == root;
-            isRootFile =
-              rel == "package.json"
-              || rel == "pnpm-lock.yaml"
-              || rel == "pnpm-workspace.yaml"
-              || lib.hasSuffix "/package.json" full
-              || lib.hasSuffix "/pnpm-lock.yaml" full
-              || lib.hasSuffix "/pnpm-workspace.yaml" full;
-            isScripts =
-              rel == "scripts"
-              || lib.hasPrefix "scripts/" rel
-              || lib.hasSuffix "/scripts" full
-              || lib.hasInfix "/scripts/" full;
-            isPackages =
-              rel == "packages"
-              || lib.hasPrefix "packages/" rel
-              || lib.hasSuffix "/packages" full
-              || lib.hasInfix "/packages/" full;
-          in
-            isRoot
-            || isRootFile
-            || isScripts
-            || isPackages;
-      };
+      rootSrc = lib.cleanSource clawdletsSrc;
 
       pnpmWorkspacesClf = [
         "@clawdlets/shared"
