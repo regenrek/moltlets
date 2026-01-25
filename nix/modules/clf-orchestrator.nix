@@ -5,7 +5,7 @@ let
 
   # CLF package resolution:
   # 1. Try clawdlets.inputs.clf (subflake - recommended)
-  # 2. Fall back to clawdlets.packages.clf (re-exported)
+  # 2. Fall back to clawdlets.packages.clf (if provided)
   # 3. null if neither available
   clfSubflake =
     if clawdlets != null && (clawdlets ? inputs) && (clawdlets.inputs ? clf)
@@ -15,7 +15,7 @@ let
   defaultClfPackage =
     if clfSubflake != null
     then clfSubflake.packages.${system}.clf or null
-    else if clawdlets != null
+    else if clawdlets != null && (clawdlets ? packages) && (clawdlets.packages ? ${system})
     then clawdlets.packages.${system}.clf or null
     else null;
 

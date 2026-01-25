@@ -21,15 +21,9 @@
       flake = false;
     };
 
-    # CLF is a separate subflake with its own lock file (opt-in for cattle users)
-    # This avoids hash update pain for non-cattle users
-    clf = {
-      url = "git+file:./?dir=nix/subflakes/clf";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, nix-clawdbot, clawdbot-src, clf, ... }:
+  outputs = { self, nixpkgs, nix-clawdbot, clawdbot-src, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -38,13 +32,6 @@
     in {
       devShells.${system}.default = pkgs.mkShell {
         packages = dev.packages or [ ];
-      };
-
-      # CLF packages are provided by the clf subflake
-      # Access via: clawdlets.inputs.clf.packages.${system}.clf
-      packages.${system} = {
-        # Re-export clf for convenience (optional)
-        clf = clf.packages.${system}.clf or null;
       };
 
       checks.${system} = {

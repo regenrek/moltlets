@@ -16,28 +16,6 @@
         "type": "github"
       }
     },
-    "clf": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "dir": "nix/subflakes/clf",
-        "lastModified": 1769352537,
-        "narHash": "sha256-kwuCfF3xgTtsiQ0Z2O/kitz0a0m4y8vDgCyoJZEXD4E=",
-        "ref": "refs/heads/feat/schema-v9-secrets-channels",
-        "rev": "c4bac2caedc869a95e7c341e4dd97b50b2e45bb8",
-        "revCount": 200,
-        "type": "git",
-        "url": "file:./"
-      },
-      "original": {
-        "dir": "nix/subflakes/clf",
-        "type": "git",
-        "url": "file:./"
-      }
-    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -209,7 +187,6 @@
     "root": {
       "inputs": {
         "clawdbot-src": "clawdbot-src",
-        "clf": "clf",
         "disko": "disko",
         "nix-clawdbot": "nix-clawdbot",
         "nixos-generators": "nixos-generators",
