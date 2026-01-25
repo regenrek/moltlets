@@ -10,7 +10,6 @@ on:
       - 'packages/cattle-core/package.json'
       - 'packages/clf/**/package.json'
       - 'nix/subflakes/clf/flake.nix'
-      - 'nix/subflakes/clf/flake.lock'
 
 permissions:
   contents: write
@@ -39,7 +38,7 @@ jobs:
         uses: nix-community/cache-nix-action@b426b118b6dc86d6952988d396aa7c6b09776d08 # v5
         with:
           nix: false
-          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/subflakes/clf/flake.lock') }}
+          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
           restore-prefixes-first-match: |
             nix-clf-${{ runner.os }}-
           paths-linux: |
@@ -83,12 +82,6 @@ jobs:
           echo "Updated nix/subflakes/clf/flake.nix with hash: ${new_hash}"
           git diff nix/subflakes/clf/flake.nix
 
-      - name: Update clf flake.lock
-        if: steps.hash.outputs.needs_update == 'true'
-        working-directory: nix/subflakes/clf
-        run: |
-          nix flake lock --update-input nixpkgs || true
-
       - name: Commit and push
         if: steps.hash.outputs.needs_update == 'true'
         run: |
@@ -97,7 +90,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add nix/subflakes/clf/flake.nix nix/subflakes/clf/flake.lock
+          git add nix/subflakes/clf/flake.nix
           git commit -m "chore(clf): update pnpmDeps hash [skip ci]" || {
             echo "No changes to commit"
             exit 0
