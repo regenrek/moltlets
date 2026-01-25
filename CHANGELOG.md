@@ -4,6 +4,8 @@ All notable changes to this repository will be documented in this file.
 The format is based on Keep a Changelog and this project follows SemVer for npm releases.
 
 ## Unreleased
+
+## [0.4.0] - 2026-01-25
 ### Breaking
 - Config schema bumped to v9: replace `guildId` / `discordTokenSecret` / `modelSecrets` with `secretEnv` + `secretFiles` (generic secret wiring).
 - Package split: `@clawdlets/core` cattle-related modules moved to `@clawdlets/cattle-core`; shared utilities (identifiers, llm-provider-env) moved to `@clawdlets/shared`.
