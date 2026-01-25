@@ -2,6 +2,14 @@
 
 This repo publishes `clawdlets` to npm via GitHub Actions using npm Trusted Publishing (OIDC).
 
+## About `@clawdlets/*` packages (important)
+
+`clawdlets` depends on internal workspace packages like `@clawdlets/core`, `@clawdlets/shared`, and `@clawdlets/cattle-core`.
+
+These are **not required to exist on npm**. The publish workflow vendors them into the published tarball under `vendor/@clawdlets/*` and rewrites dependencies to `file:vendor/...` via `scripts/prepare-package.mjs`.
+
+If `vendor/` is missing from the published package, installs will fail (common symptom: `ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND ... vendor/@clawdlets/core`).
+
 ## Preconditions
 
 - Clean working tree on `main`
@@ -40,6 +48,20 @@ Dry-run (gates only):
 ```bash
 pnpm dlx tsx scripts/release.ts patch --dry-run
 ```
+
+## Packaging sanity check (do this for hotfixes like 0.4.1)
+
+Before tagging/publishing (or when fixing a broken npm release), verify the prepared package actually contains `vendor/`:
+
+```bash
+pnpm -r build
+node scripts/prepare-package.mjs --out dist/npm/clawdlets
+test -f dist/npm/clawdlets/vendor/@clawdlets/core/package.json
+cd dist/npm/clawdlets && npm pack --silent >/dev/null
+tar -tf clawdlets-*.tgz | rg "package/vendor/@clawdlets/core/package.json"
+```
+
+If any of these checks fail, **do not publish** (you will ship another broken `file:vendor/...` package).
 
 ## What happens on GitHub
 
