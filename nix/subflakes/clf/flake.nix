@@ -16,20 +16,29 @@
         src = clawdletsSrc;
         filter = path: type:
           let
-            rel = lib.removePrefix (toString clawdletsSrc + "/") (toString path);
+            full = toString path;
+            rel = lib.removePrefix (toString clawdletsSrc + "/") full;
+            isRootFile =
+              rel == "package.json"
+              || rel == "pnpm-lock.yaml"
+              || rel == "pnpm-workspace.yaml"
+              || lib.hasSuffix "/package.json" full
+              || lib.hasSuffix "/pnpm-lock.yaml" full
+              || lib.hasSuffix "/pnpm-workspace.yaml" full;
+            isScripts =
+              rel == "scripts"
+              || lib.hasPrefix "scripts/" rel
+              || lib.hasSuffix "/scripts" full
+              || lib.hasInfix "/scripts/" full;
+            isPackages =
+              rel == "packages"
+              || lib.hasPrefix "packages/" rel
+              || lib.hasSuffix "/packages" full
+              || lib.hasInfix "/packages/" full;
           in
-            rel == "package.json"
-            || rel == "pnpm-lock.yaml"
-            || rel == "pnpm-workspace.yaml"
-            || rel == "scripts"
-            || lib.hasPrefix "scripts/" rel
-            || rel == "packages"
-            || rel == "packages/shared"
-            || lib.hasPrefix "packages/shared/" rel
-            || rel == "packages/cattle-core"
-            || lib.hasPrefix "packages/cattle-core/" rel
-            || rel == "packages/clf"
-            || lib.hasPrefix "packages/clf/" rel;
+            isRootFile
+            || isScripts
+            || isPackages;
       };
 
       pnpmWorkspacesClf = [
