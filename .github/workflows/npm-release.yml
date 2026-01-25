@@ -79,7 +79,7 @@ jobs:
           set -euo pipefail
           test -f dist/npm/clawdlets/vendor/@clawdlets/core/package.json
           (cd dist/npm/clawdlets && npm pack --silent >/dev/null)
-          (cd dist/npm/clawdlets && tar -tf clawdlets-*.tgz | rg -q "package/vendor/@clawdlets/core/package.json")
+          (cd dist/npm/clawdlets && tar -tf clawdlets-*.tgz | grep -q "package/vendor/@clawdlets/core/package.json")
 
       - name: Publish to npm (OIDC)
         working-directory: dist/npm/clawdlets
