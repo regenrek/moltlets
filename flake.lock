@@ -24,10 +24,11 @@
       },
       "locked": {
         "dir": "nix/subflakes/clf",
-        "dirtyRev": "6672c3df2feccfa77b38a5385cd99f58c4074cfb-dirty",
-        "dirtyShortRev": "6672c3d-dirty",
-        "lastModified": 1769352315,
-        "narHash": "sha256-5oxZkzYqp67Qfg2Yuswkfm3TEOWwH3gNVzVFMoPuHtQ=",
+        "lastModified": 1769352537,
+        "narHash": "sha256-kwuCfF3xgTtsiQ0Z2O/kitz0a0m4y8vDgCyoJZEXD4E=",
+        "ref": "refs/heads/feat/schema-v9-secrets-channels",
+        "rev": "c4bac2caedc869a95e7c341e4dd97b50b2e45bb8",
+        "revCount": 200,
         "type": "git",
         "url": "file:./"
       },
