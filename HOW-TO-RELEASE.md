@@ -8,7 +8,7 @@ This repo uses workspace packages for code boundaries (`packages/core`, `package
 
 Instead:
 - `clawdlets` and `@clawdlets/plugin-cattle` are bundled (tsdown bundles workspace deps into `dist/`)
-- `scripts/prepare-package.mjs` drops all `workspace:*` deps and fails if any `@clawdlets/*` dependency remains
+- `scripts/prepare-package.mjs` drops all `workspace:*` deps and fails if any local protocol deps remain
 
 This keeps npm surface area small (only 2 packages) and avoids broken installs across package managers.
 
@@ -58,13 +58,13 @@ pnpm dlx tsx scripts/release.ts patch --dry-run
 
 ## Packaging sanity check (do this for hotfixes like 0.4.1)
 
-Before tagging/publishing (or when fixing a broken npm release), verify the prepared package has **no local protocol deps** and **no `@clawdlets/*` deps**:
+Before tagging/publishing (or when fixing a broken npm release), verify the prepared package has **no local protocol deps**:
 
 ```bash
 pnpm -r build
 node scripts/prepare-package.mjs --out dist/npm/clawdlets
 cd dist/npm/clawdlets
-node -e 'const pkg=require("./package.json");for(const s of ["dependencies","devDependencies","optionalDependencies","peerDependencies"]){for(const [k,v] of Object.entries(pkg[s]||{})){if(String(k).startsWith("@clawdlets/")){throw new Error(`bad dep: ${s}.${k} (internal dep)`);}const spec=String(v||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error(`bad dep: ${s}.${k}=${spec}`);}}}console.log("ok")'
+node -e 'const pkg=require("./package.json");for(const s of ["dependencies","devDependencies","optionalDependencies","peerDependencies"]){for(const [k,v] of Object.entries(pkg[s]||{})){const spec=String(v||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error(`bad dep: ${s}.${k}=${spec}`);}}}console.log("ok")'
 node dist/main.mjs --version
 ```
 
