@@ -71,74 +71,6 @@ jobs:
       - name: Build
         run: pnpm -r build
 
-      - name: Prepare publish dir (@clawdlets/shared)
-        run: node scripts/prepare-package.mjs --pkg packages/shared --out dist/npm/clawdlets-shared
-
-      - name: Publish @clawdlets/shared to npm (OIDC)
-        working-directory: dist/npm/clawdlets-shared
-        run: |
-          set -euo pipefail
-          pkg="$(node -p "require('./package.json').name")"
-          ver="$(node -p "require('./package.json').version")"
-          if npm view "${pkg}@${ver}" version >/dev/null 2>&1; then
-            echo "skip: already published ${pkg}@${ver}"
-            exit 0
-          fi
-          npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}
-        env:
-          NODE_AUTH_TOKEN: ""
-
-      - name: Prepare publish dir (@clawdlets/cattle-core)
-        run: node scripts/prepare-package.mjs --pkg packages/cattle-core --out dist/npm/clawdlets-cattle-core
-
-      - name: Publish @clawdlets/cattle-core to npm (OIDC)
-        working-directory: dist/npm/clawdlets-cattle-core
-        run: |
-          set -euo pipefail
-          pkg="$(node -p "require('./package.json').name")"
-          ver="$(node -p "require('./package.json').version")"
-          if npm view "${pkg}@${ver}" version >/dev/null 2>&1; then
-            echo "skip: already published ${pkg}@${ver}"
-            exit 0
-          fi
-          npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}
-        env:
-          NODE_AUTH_TOKEN: ""
-
-      - name: Prepare publish dir (@clawdlets/clf-queue)
-        run: node scripts/prepare-package.mjs --pkg packages/clf/queue --out dist/npm/clawdlets-clf-queue
-
-      - name: Publish @clawdlets/clf-queue to npm (OIDC)
-        working-directory: dist/npm/clawdlets-clf-queue
-        run: |
-          set -euo pipefail
-          pkg="$(node -p "require('./package.json').name")"
-          ver="$(node -p "require('./package.json').version")"
-          if npm view "${pkg}@${ver}" version >/dev/null 2>&1; then
-            echo "skip: already published ${pkg}@${ver}"
-            exit 0
-          fi
-          npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}
-        env:
-          NODE_AUTH_TOKEN: ""
-
-      - name: Prepare publish dir (@clawdlets/core)
-        run: node scripts/prepare-package.mjs --pkg packages/core --out dist/npm/clawdlets-core
-
-      - name: Publish @clawdlets/core to npm (OIDC)
-        working-directory: dist/npm/clawdlets-core
-        run: |
-          set -euo pipefail
-          pkg="$(node -p "require('./package.json').name")"
-          ver="$(node -p "require('./package.json').version")"
-          if npm view "${pkg}@${ver}" version >/dev/null 2>&1; then
-            echo "skip: already published ${pkg}@${ver}"
-            exit 0
-          fi
-          npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}
-        env:
-          NODE_AUTH_TOKEN: ""
-
       - name: Prepare publish dir (clawdlets)
         run: node scripts/prepare-package.mjs --out dist/npm/clawdlets
 
@@ -146,7 +78,7 @@ jobs:
         working-directory: dist/npm/clawdlets
         run: |
           set -euo pipefail
-          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
+          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){if(String(name).startsWith("@clawdlets/")){throw new Error("unexpected @clawdlets dependency in published package: "+s+"."+name);}const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish to npm (OIDC)
         working-directory: dist/npm/clawdlets
@@ -169,7 +101,7 @@ jobs:
         working-directory: dist/npm/clawdlets-plugin-cattle
         run: |
           set -euo pipefail
-          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
+          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){if(String(name).startsWith("@clawdlets/")){throw new Error("unexpected @clawdlets dependency in published package: "+s+"."+name);}const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish plugin to npm (OIDC)
         working-directory: dist/npm/clawdlets-plugin-cattle

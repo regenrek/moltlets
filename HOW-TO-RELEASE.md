@@ -2,14 +2,18 @@
 
 This repo publishes `clawdlets` to npm via GitHub Actions using npm Trusted Publishing (OIDC).
 
-## About `@clawdlets/*` packages (important)
+## About internal workspace packages (important)
 
-`clawdlets` depends on internal workspace packages like `@clawdlets/core`, `@clawdlets/shared`, and `@clawdlets/cattle-core`.
+This repo uses workspace packages for code boundaries (`packages/core`, `packages/shared`, `packages/cattle-core`, `packages/clf/queue`), but we intentionally **do not publish them to npm**.
 
-These **must exist on npm** for compatibility with `pnpm`/`yarn`. Published packages must not contain local dependency protocols (`workspace:`, `file:`, `link:`), otherwise installs fail (common symptom: `ERR_PNPM_LINKED_PKG_DIR_NOT_FOUND ... vendor/@clawdlets/core`).
+Instead:
+- `clawdlets` and `@clawdlets/plugin-cattle` are bundled (tsdown bundles workspace deps into `dist/`)
+- `scripts/prepare-package.mjs` drops all `workspace:*` deps and fails if any `@clawdlets/*` dependency remains
+
+This keeps npm surface area small (only 2 packages) and avoids broken installs across package managers.
 
 The publish workflow uses `scripts/prepare-package.mjs` to:
-- rewrite `workspace:*` deps to concrete versions
+- drop `workspace:*` deps (workspace code is bundled into `dist/`)
 - strip `.map` + `.tsbuildinfo` from `dist/`
 - copy `README.md` + `LICENSE`
 
@@ -54,13 +58,14 @@ pnpm dlx tsx scripts/release.ts patch --dry-run
 
 ## Packaging sanity check (do this for hotfixes like 0.4.1)
 
-Before tagging/publishing (or when fixing a broken npm release), verify the prepared package has **no local protocol deps**:
+Before tagging/publishing (or when fixing a broken npm release), verify the prepared package has **no local protocol deps** and **no `@clawdlets/*` deps**:
 
 ```bash
 pnpm -r build
 node scripts/prepare-package.mjs --out dist/npm/clawdlets
 cd dist/npm/clawdlets
-node -e 'const pkg=require("./package.json");for(const s of ["dependencies","devDependencies","optionalDependencies","peerDependencies"]){for(const [k,v] of Object.entries(pkg[s]||{})){const spec=String(v||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error(`bad dep: ${s}.${k}=${spec}`);}}}console.log("ok")'
+node -e 'const pkg=require("./package.json");for(const s of ["dependencies","devDependencies","optionalDependencies","peerDependencies"]){for(const [k,v] of Object.entries(pkg[s]||{})){if(String(k).startsWith("@clawdlets/")){throw new Error(`bad dep: ${s}.${k} (internal dep)`);}const spec=String(v||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error(`bad dep: ${s}.${k}=${spec}`);}}}console.log("ok")'
+node dist/main.mjs --version
 ```
 
 If any of these checks fail, **do not publish** (you will ship a package that cannot be installed by `pnpm`/`yarn`).

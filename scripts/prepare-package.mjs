@@ -79,7 +79,7 @@ function isWorkspaceProtocol(v) {
   return String(v || "").startsWith("workspace:");
 }
 
-function rewriteWorkspaceDepsToVersions(pkg, workspacePkgs) {
+function dropWorkspaceDeps(pkg) {
   const next = { ...pkg };
   const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
 
@@ -88,48 +88,13 @@ function rewriteWorkspaceDepsToVersions(pkg, workspacePkgs) {
     let changed = false;
     for (const [depName, depVersion] of Object.entries(deps)) {
       if (!isWorkspaceProtocol(depVersion)) continue;
-      const info = workspacePkgs.get(depName);
-      if (!info) die(`workspace dependency not found: ${String(pkg.name)} -> ${depName}`);
-      const resolved = String(info.pkg?.version || "").trim();
-      if (!resolved) die(`workspace dependency missing version: ${depName}`);
-
-      // Keep the common workspace protocol semantics while producing an npm-installable spec.
-      const spec = String(depVersion || "");
-      if (spec === "workspace:^") deps[depName] = `^${resolved}`;
-      else if (spec === "workspace:~") deps[depName] = `~${resolved}`;
-      else deps[depName] = resolved;
+      delete deps[depName];
       changed = true;
     }
     if (changed) next[section] = deps;
   }
 
   return next;
-}
-
-function collectWorkspacePackages(root) {
-  const out = new Map();
-  const ignore = new Set(["node_modules", "dist", "coverage", ".git", ".turbo"]);
-  const rootDir = path.join(root, "packages");
-  if (!fs.existsSync(rootDir)) return out;
-
-  const walk = (dir) => {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const ent of entries) {
-      if (!ent.isDirectory()) continue;
-      if (ignore.has(ent.name)) continue;
-      const next = path.join(dir, ent.name);
-      const pkgPath = path.join(next, "package.json");
-      if (fs.existsSync(pkgPath)) {
-        const pkg = readJson(pkgPath);
-        const name = String(pkg.name || "").trim();
-        if (name) out.set(name, { dir: next, pkg });
-      }
-      walk(next);
-    }
-  };
-
-  walk(rootDir);
-  return out;
 }
 
 function resolveDefaultOutDir(pkgDir, pkg) {
@@ -194,8 +159,6 @@ function main() {
   const distDir = path.join(pkgDir, "dist");
   if (!fs.existsSync(distDir)) die(`missing dist/ (run build): ${distDir}`);
 
-  const workspacePkgs = collectWorkspacePackages(repoRoot);
-
   const outPkgDir = outDir;
   rmForce(outPkgDir);
   ensureDir(outPkgDir);
@@ -218,8 +181,9 @@ function main() {
   const licenseSrc = path.join(repoRoot, "LICENSE");
   if (fs.existsSync(licenseSrc)) cpFile(licenseSrc, path.join(outPkgDir, "LICENSE"));
 
-  // Publishable package.json (no workspace: protocol).
-  const nextPkg = rewriteWorkspaceDepsToVersions(pkg, workspacePkgs);
+  // Publishable package.json: published artifacts must be installable without workspace-local deps.
+  // Internal workspace packages are bundled into the build output and removed from the manifest.
+  const nextPkg = dropWorkspaceDeps(pkg);
   nextPkg.private = false;
   nextPkg.publishConfig = { ...(nextPkg.publishConfig || {}), access: "public" };
   nextPkg.files = Array.from(
@@ -233,6 +197,9 @@ function main() {
   for (const section of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
     const deps = nextPkg[section] || {};
     for (const [k, v] of Object.entries(deps)) {
+      if (String(k).startsWith("@clawdlets/")) {
+        die(`output package.json contains unexpected @clawdlets dependency: ${section}.${k}`);
+      }
       const spec = String(v || "");
       if (spec.startsWith("workspace:")) die(`output package.json still contains workspace protocol: ${section}.${k}=${v}`);
       if (spec.startsWith("file:") || spec.startsWith("link:")) {
