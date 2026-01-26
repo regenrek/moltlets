@@ -61,8 +61,7 @@
           buildPhase = ''
             runHook preBuild
 
-            pnpm install --frozen-lockfile --offline --ignore-scripts
-
+            # Dependencies are installed by pnpmConfigHook (offline, workspace-scoped via pnpmWorkspacesClf).
             pnpm --filter=@clawdlets/shared build
             pnpm --filter=@clawdlets/cattle-core build
             pnpm --filter=@clawdlets/clf-queue build
