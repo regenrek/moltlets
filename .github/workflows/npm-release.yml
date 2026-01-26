@@ -78,7 +78,7 @@ jobs:
         working-directory: dist/npm/clawdlets
         run: |
           set -euo pipefail
-          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){if(String(name).startsWith("@clawdlets/")){throw new Error("unexpected @clawdlets dependency in published package: "+s+"."+name);}const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
+          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish to npm (OIDC)
         working-directory: dist/npm/clawdlets
@@ -101,7 +101,7 @@ jobs:
         working-directory: dist/npm/clawdlets-plugin-cattle
         run: |
           set -euo pipefail
-          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){if(String(name).startsWith("@clawdlets/")){throw new Error("unexpected @clawdlets dependency in published package: "+s+"."+name);}const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
+          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish plugin to npm (OIDC)
         working-directory: dist/npm/clawdlets-plugin-cattle

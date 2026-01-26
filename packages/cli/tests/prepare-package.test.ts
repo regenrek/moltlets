@@ -17,7 +17,7 @@ describe("prepare-package guardrails", () => {
     expect(res.stderr).toMatch(/--out must be under/i);
   });
 
-  it("prepares publish dir without node_modules (no local-protocol or internal workspace deps)", () => {
+  it("prepares publish dir without node_modules (no local-protocol deps)", () => {
     const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
     const script = path.join(repoRoot, "scripts", "prepare-package.mjs");
     const tmpParent = path.join(repoRoot, "packages", "cli", ".tmp");
@@ -38,8 +38,6 @@ describe("prepare-package guardrails", () => {
 
       const outPkg = JSON.parse(fs.readFileSync(path.join(tmpOut, "package.json"), "utf8"));
 
-      expect(outPkg.dependencies?.["@clawdlets/core"]).toBeUndefined();
-      expect(outPkg.dependencies?.["@clawdlets/shared"]).toBeUndefined();
       expect(outPkg.bundledDependencies).toBeUndefined();
 
       expect(fs.existsSync(path.join(tmpOut, "node_modules"))).toBe(false);

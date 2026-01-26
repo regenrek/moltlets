@@ -197,9 +197,6 @@ function main() {
   for (const section of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
     const deps = nextPkg[section] || {};
     for (const [k, v] of Object.entries(deps)) {
-      if (String(k).startsWith("@clawdlets/")) {
-        die(`output package.json contains unexpected @clawdlets dependency: ${section}.${k}`);
-      }
       const spec = String(v || "");
       if (spec.startsWith("workspace:")) die(`output package.json still contains workspace protocol: ${section}.${k}=${v}`);
       if (spec.startsWith("file:") || spec.startsWith("link:")) {

@@ -6,10 +6,6 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
-function rmForce(p) {
-  fs.rmSync(p, { recursive: true, force: true });
-}
-
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
 }
@@ -23,10 +19,8 @@ function main() {
     process.exit(1);
   }
 
-  rmForce(distDir);
-  ensureDir(path.dirname(distDir));
+  ensureDir(distDir);
   fs.cpSync(srcDir, distDir, { recursive: true });
 }
 
 main();
-
