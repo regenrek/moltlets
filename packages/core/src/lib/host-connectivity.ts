@@ -43,7 +43,10 @@ export function parseBootstrapIpv4FromLogs(lines: string[]): string | null {
 
 export function isTailscaleIpv4(ip: string): boolean {
   if (!isValidIpv4(ip)) return false;
-  const [a, b] = ip.split(".").map((v) => Number.parseInt(v, 10));
+  const parts = ip.split(".").map((v) => Number.parseInt(v, 10));
+  const a = parts[0];
+  const b = parts[1];
+  if (a === undefined || b === undefined) return false;
   if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
   return a === 100 && b >= 64 && b <= 127;
 }

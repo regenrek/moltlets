@@ -98,6 +98,8 @@ function DeployOperate() {
     refetchOnReconnect: false,
   })
 
+  const publicIpv4 = publicIpv4Query.data?.ok ? publicIpv4Query.data.ipv4 : ""
+
   const setTargetHostToPublic = useMutation({
     mutationFn: async (ipv4: string) =>
       await configDotSet({
@@ -144,16 +146,16 @@ function DeployOperate() {
                 <AlertTitle>targetHost required</AlertTitle>
                 <AlertDescription>
                   Deploys will fail without <code>hosts.{host}.targetHost</code>.
-                  {publicIpv4Query.data?.ok ? (
+                  {publicIpv4 ? (
                     <span className="ml-2">
                       <Button
                         type="button"
                         size="sm"
                         variant="destructive"
                         disabled={setTargetHostToPublic.isPending}
-                        onClick={() => setTargetHostToPublic.mutate(publicIpv4Query.data.ipv4)}
+                        onClick={() => setTargetHostToPublic.mutate(publicIpv4)}
                       >
-                        Use admin@{publicIpv4Query.data.ipv4}
+                        Use admin@{publicIpv4}
                       </Button>
                     </span>
                   ) : null}
