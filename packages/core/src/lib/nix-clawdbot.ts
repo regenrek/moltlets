@@ -63,7 +63,7 @@ export function getNixClawdbotRevFromFlakeLock(repoRoot: string): string | null 
 const SAFE_REF_RE = /^[A-Za-z0-9._/-]{1,128}$/;
 
 function buildSourceUrl(ref: string): string {
-  return `https://raw.githubusercontent.com/moltbot/nix-moltbot/${ref}/nix/sources/moltbot-source.nix`;
+  return `https://raw.githubusercontent.com/clawdbot/nix-clawdbot/${ref}/nix/sources/clawdbot-source.nix`;
 }
 
 export async function fetchNixClawdbotSourceInfo(params: {
