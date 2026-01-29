@@ -17,7 +17,7 @@
     nix-clawdbot.inputs.nixpkgs.follows = "nixpkgs";
 
     clawdbot-src = {
-      url = "github:clawdbot/clawdbot";
+      url = "github:moltbot/moltbot";
       flake = false;
     };
 
