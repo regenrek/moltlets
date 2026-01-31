@@ -116,6 +116,20 @@ minisign -G -n -p minisign.pub -s minisign.key
 2) Store `minisign.key` as `MINISIGN_PRIVATE_KEY` in GitHub Actions secrets.
 3) Copy the public key value into `fleet/clawdlets.json` (`hosts.<host>.selfUpdate.publicKeys = [ "<...>" ]`).
 
+Key management + rotation:
+
+- **Where keys live**
+  - CI signing key: GitHub Actions secret `MINISIGN_PRIVATE_KEY` (passwordless minisign secret key contents).
+  - Host trust roots: `hosts.<host>.selfUpdate.publicKeys` (supports multiple keys for rotation windows).
+- **Rotate (planned)**
+  1) Generate a new minisign keypair.
+  2) Add the new public key to `hosts.<host>.selfUpdate.publicKeys` **alongside** the old key.
+  3) Deploy so hosts trust both keys.
+  4) Switch CI to sign with the new key.
+  5) After a safe window, remove the old public key from `hosts.<host>.selfUpdate.publicKeys` and deploy again.
+- **Emergency revoke**
+  - If a signing key is compromised, treat update trust as compromised. You must replace the trusted key on hosts (manual access / out-of-band channel may be required) and re-issue manifests signed by the new key.
+
 ### Secrets only (optional)
 
 If you want to update secrets without switching:
