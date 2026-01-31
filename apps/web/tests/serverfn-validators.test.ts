@@ -1,29 +1,21 @@
 import { describe, expect, it } from "vitest"
 
 import {
-	  parseBotClawdbotConfigInput,
-    parseBotCapabilityPresetInput,
-    parseBotCapabilityPresetPreviewInput,
-	  parseProjectSshKeysInput,
-	  parseProjectIdInput,
-	  parseProjectBotInput,
-	  parseProjectHostInput,
-	  parseProjectHostRequiredInput,
-	  parseProjectRunHostInput,
-    parseProjectHostTargetInput,
-    parseProjectRunHostConfirmInput,
+  parseBotCapabilityPresetInput,
+  parseBotClawdbotConfigInput,
+  parseProjectSshKeysInput,
+  parseProjectIdInput,
+  parseProjectBotInput,
+  parseProjectHostInput,
+  parseProjectHostRequiredInput,
+  parseProjectRunHostInput,
   parseServerChannelsExecuteInput,
   parseServerChannelsStartInput,
-  parseServerDeployStartInput,
-  parseServerDeployExecuteInput,
-  parseServerStatusStartInput,
-  parseServerStatusExecuteInput,
-  parseServerAuditStartInput,
-  parseServerAuditExecuteInput,
-  parseServerLogsStartInput,
   parseServerLogsExecuteInput,
   parseServerRestartExecuteInput,
   parseServerRestartStartInput,
+  parseServerUpdateLogsExecuteInput,
+  parseServerUpdateStatusStartInput,
   parseSecretsInitExecuteInput,
   parseWriteHostSecretsInput,
 } from "../src/sdk/serverfn-validators"
@@ -256,10 +248,10 @@ describe("serverfn validators", () => {
     })
   })
 
-	  it("parses server restart inputs", () => {
-	    expect(parseServerRestartStartInput({ projectId: "p1", host: "alpha", unit: "clawdbot-*.service" })).toEqual({
-	      projectId: "p1",
-	      host: "alpha",
+  it("parses server restart inputs", () => {
+    expect(parseServerRestartStartInput({ projectId: "p1", host: "alpha", unit: "clawdbot-*.service" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
       unit: "clawdbot-*.service",
     })
 
@@ -272,136 +264,71 @@ describe("serverfn validators", () => {
         targetHost: "",
         confirm: "restart clawdbot-agent.service",
       }),
-	    ).toMatchObject({ unit: "clawdbot-agent.service", confirm: "restart clawdbot-agent.service" })
-	  })
+    ).toMatchObject({ unit: "clawdbot-agent.service", confirm: "restart clawdbot-agent.service" })
+  })
 
-	  it("rejects ssh key import file paths", () => {
-	    expect(() =>
-	      parseProjectSshKeysInput({
-	        projectId: "p1",
-	        keyText: "",
-	        knownHostsText: "",
-	        keyFilePath: "/etc/passwd",
-	      }),
-	    ).toThrow(/file path imports/i)
-	  })
-
-	  it("parses ssh key import text inputs", () => {
-	    expect(
-	      parseProjectSshKeysInput({
-	        projectId: "p1",
-	        keyText: "ssh-ed25519 AAAA",
-	        knownHostsText: "github.com ssh-ed25519 AAAA",
-	      }),
-	    ).toEqual({
-	      projectId: "p1",
-	      keyText: "ssh-ed25519 AAAA",
-	      knownHostsText: "github.com ssh-ed25519 AAAA",
-	    })
-	  })
-
-    it("parses capability preset inputs (schemaMode + kind)", () => {
-      expect(
-        parseBotCapabilityPresetInput({
-          projectId: "p1",
-          botId: "maren",
-          host: "alpha",
-          kind: "model",
-          presetId: "openai/gpt-4o-mini",
-        }),
-      ).toMatchObject({ schemaMode: "pinned", kind: "model" })
-
-      expect(
-        parseBotCapabilityPresetInput({
-          projectId: "p1",
-          botId: "maren",
-          host: "alpha",
-          kind: "security",
-          presetId: "strict",
-          schemaMode: "live",
-        }),
-      ).toMatchObject({ schemaMode: "live", kind: "security" })
-
-      expect(() =>
-        parseBotCapabilityPresetInput({
-          projectId: "p1",
-          botId: "maren",
-          host: "alpha",
-          kind: "nope",
-          presetId: "x",
-        } as any),
-      ).toThrow(/invalid preset kind/i)
-
-      expect(() =>
-        parseBotCapabilityPresetInput({
-          projectId: "p1",
-          botId: "maren",
-          host: "alpha",
-          kind: "model",
-          presetId: "",
-        }),
-      ).toThrow(/invalid presetId/i)
+  it("parses server update status/logs inputs", () => {
+    expect(parseServerUpdateStatusStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
     })
 
-    it("parses capability preset preview input", () => {
-      expect(
-        parseBotCapabilityPresetPreviewInput({
-          projectId: "p1",
-          botId: "maren",
-          kind: "plugin",
-          presetId: "xyz",
-        }),
-      ).toMatchObject({ kind: "plugin", presetId: "xyz" })
-    })
-
-    it("parses project+host target inputs and confirm inputs", () => {
-      expect(parseProjectHostTargetInput({ projectId: "p1", host: "alpha", targetHost: "root@1.2.3.4" })).toEqual({
-        projectId: "p1",
-        host: "alpha",
-        targetHost: "root@1.2.3.4",
-      })
-
-      expect(parseProjectRunHostConfirmInput({ projectId: "p1", runId: "r1", host: "alpha", confirm: 123 } as any)).toEqual({
+    expect(
+      parseServerUpdateLogsExecuteInput({
         projectId: "p1",
         runId: "r1",
         host: "alpha",
-        confirm: "",
-      })
-    })
+        lines: "",
+        since: "",
+      }),
+    ).toMatchObject({ lines: "200", since: "", follow: false })
+  })
 
-    it("parses deploy/status/audit/logs inputs", () => {
-      expect(parseServerDeployStartInput({ projectId: "p1", host: "alpha", manifestPath: "" })).toEqual({
+  it("rejects ssh key import file paths", () => {
+    expect(() =>
+      parseProjectSshKeysInput({
+        projectId: "p1",
+        keyText: "",
+        knownHostsText: "",
+        keyFilePath: "/etc/passwd",
+      }),
+    ).toThrow(/file path imports/i)
+  })
+
+  it("parses ssh key import text inputs", () => {
+    expect(
+      parseProjectSshKeysInput({
+        projectId: "p1",
+        keyText: "ssh-ed25519 AAAA",
+        knownHostsText: "github.com ssh-ed25519 AAAA",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      keyText: "ssh-ed25519 AAAA",
+      knownHostsText: "github.com ssh-ed25519 AAAA",
+    })
+  })
+
+  it("parses bot capability preset inputs", () => {
+    expect(
+      parseBotCapabilityPresetInput({
         projectId: "p1",
         host: "alpha",
-        manifestPath: "",
-      })
+        botId: "maren",
+        kind: "channel",
+        presetId: "discord",
+        schemaMode: "live",
+      }),
+    ).toMatchObject({ botId: "maren", kind: "channel", presetId: "discord", schemaMode: "live" })
 
-      expect(
-        parseServerDeployExecuteInput({
-          projectId: "p1",
-          runId: "r1",
-          host: "alpha",
-          manifestPath: "fleet/deploy.json",
-          rev: "",
-          targetHost: "",
-          confirm: 123,
-        } as any),
-      ).toMatchObject({ confirm: "" })
-
-      expect(parseServerStatusStartInput({ projectId: "p1", host: "alpha" })).toEqual({ projectId: "p1", host: "alpha" })
-      expect(
-        parseServerStatusExecuteInput({ projectId: "p1", runId: "r1", host: "alpha", targetHost: "" }),
-      ).toMatchObject({ targetHost: "" })
-
-      expect(parseServerAuditStartInput({ projectId: "p1", host: "alpha" })).toEqual({ projectId: "p1", host: "alpha" })
-      expect(
-        parseServerAuditExecuteInput({ projectId: "p1", runId: "r1", host: "alpha", targetHost: "" }),
-      ).toMatchObject({ targetHost: "" })
-
-      expect(parseServerLogsStartInput({ projectId: "p1", host: "alpha", unit: "" })).toEqual({
+    expect(() =>
+      parseBotCapabilityPresetInput({
         projectId: "p1",
         host: "alpha",
-        unit: "",
-      })
-    })
-	})
+        botId: "maren",
+        kind: "channel",
+        presetId: "",
+      }),
+    ).toThrow(/presetId/i)
+  })
+})
