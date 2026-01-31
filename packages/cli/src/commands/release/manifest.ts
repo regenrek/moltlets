@@ -37,6 +37,10 @@ function toPathFromCwd(cwd: string, p: string): string {
   return path.isAbsolute(p) ? p : path.resolve(cwd, p);
 }
 
+function expandDigestTemplate(template: string, digest: string): string {
+  return template.includes("{digest}") ? template.replaceAll("{digest}", digest) : template;
+}
+
 const manifestBuild = defineCommand({
   meta: {
     name: "build",
@@ -53,9 +57,9 @@ const manifestBuild = defineCommand({
     toplevel: { type: "string", description: "NixOS system toplevel store path (skip build)." },
     nixBin: { type: "string", description: "Override nix binary (default: nix)." },
     out: { type: "string", description: "Output manifest path (default: deploy/<host>/<channel>/<releaseId>.json)." },
-    secretsUrl: { type: "string", description: "Optional URL to encrypted secrets bundle." },
+    secretsUrl: { type: "string", description: "Optional URL/path to encrypted secrets bundle (supports {digest} template)." },
     secretsFormat: { type: "string", description: "Secrets bundle format (required if --secrets-url is set)." },
-    secretsBundleOut: { type: "string", description: "Optional output path for the encrypted secrets bundle (.tgz)." },
+    secretsBundleOut: { type: "string", description: "Optional output path for the encrypted secrets bundle (.tgz) (supports {digest} template)." },
     requiredFeature: { type: "string", description: "Required updater feature flag (repeatable).", array: true },
     minUpdaterVersion: { type: "string", description: "Minimum updater semver (exclusive with required features)." },
     cacheSubstituter: { type: "string", description: "Substituter URL (repeatable).", array: true },
@@ -99,8 +103,12 @@ const manifestBuild = defineCommand({
     const secretsDir = getHostSecretsDir(layout, hostName);
     const { tarPath: tarLocal, digest } = await createSecretsTar({ hostName, localDir: secretsDir });
 
+    const secretsUrlRaw = String(args.secretsUrl || "").trim();
+    const secretsUrl = secretsUrlRaw ? expandDigestTemplate(secretsUrlRaw, digest) : "";
+    const secretsFormat = String(args.secretsFormat || "").trim();
+
     const bundleOutRaw = String(args.secretsBundleOut || "").trim();
-    const bundleOut = bundleOutRaw ? toPathFromCwd(cwd, bundleOutRaw) : "";
+    const bundleOut = bundleOutRaw ? toPathFromCwd(cwd, expandDigestTemplate(bundleOutRaw, digest)) : "";
 
     try {
       if (bundleOut) {
@@ -121,8 +129,8 @@ const manifestBuild = defineCommand({
         toplevel,
         secrets: {
           digest,
-          ...(args.secretsUrl ? { url: String(args.secretsUrl).trim() } : {}),
-          ...(args.secretsFormat ? { format: String(args.secretsFormat).trim() } : {}),
+          ...(secretsUrl ? { url: secretsUrl } : {}),
+          ...(secretsFormat ? { format: secretsFormat } : {}),
         },
         cache:
           Array.isArray((args as any).cacheSubstituter) || Array.isArray((args as any).cacheTrustedKey) || (args as any).cacheNarinfoCachePositiveTtl

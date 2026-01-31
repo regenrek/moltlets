@@ -122,8 +122,9 @@ in {
       description = "Clawdlets update: apply desired state";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      path = [ pkgs.bash pkgs.jq pkgs.coreutils pkgs.minisign pkgs.util-linux pkgs.nix ];
+      path = [ pkgs.bash pkgs.curl pkgs.jq pkgs.coreutils pkgs.minisign pkgs.util-linux pkgs.nix ];
       environment = {
+        CLAWDLETS_UPDATER_BASE_URL = cfg.selfUpdate.baseUrl;
         CLAWDLETS_UPDATER_STATE_DIR = "/var/lib/clawdlets/updates";
         CLAWDLETS_UPDATER_KEYS_FILE = "/etc/clawdlets/updater/manifest.keys";
         CLAWDLETS_UPDATER_HOST_NAME = config.networking.hostName;

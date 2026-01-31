@@ -8,6 +8,7 @@ usage: update-apply
 Applies the signed desired-state release manifest from the updater state directory.
 
 Required env:
+- CLAWDLETS_UPDATER_BASE_URL
 - CLAWDLETS_UPDATER_STATE_DIR
 - CLAWDLETS_UPDATER_KEYS_FILE
 - CLAWDLETS_UPDATER_HOST_NAME
@@ -23,6 +24,7 @@ Optional env:
 USAGE
 }
 
+base_url="${CLAWDLETS_UPDATER_BASE_URL:-}"
 state_dir="${CLAWDLETS_UPDATER_STATE_DIR:-/var/lib/clawdlets/updates}"
 keys_file="${CLAWDLETS_UPDATER_KEYS_FILE:-}"
 host_name="${CLAWDLETS_UPDATER_HOST_NAME:-}"
@@ -34,7 +36,7 @@ health_unit="${CLAWDLETS_UPDATER_HEALTHCHECK_UNIT:-}"
 allowed_substituters="${CLAWDLETS_UPDATER_ALLOWED_SUBSTITUTERS:-}"
 allowed_trusted_keys="${CLAWDLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS:-}"
 
-if [[ -z "${keys_file}" || -z "${host_name}" || -z "${channel}" || -z "${secrets_dir}" ]]; then
+if [[ -z "${base_url}" || -z "${keys_file}" || -z "${host_name}" || -z "${channel}" || -z "${secrets_dir}" ]]; then
   usage
   exit 2
 fi
@@ -144,6 +146,18 @@ verify_with_keys() {
   return 1
 }
 
+is_allowed() {
+  local needle="$1"
+  local haystack="$2"
+  local item
+  for item in ${haystack}; do
+    if [[ "${item}" == "${needle}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 verified_key=""
 verified_key_sha256=""
 if [[ "${allow_unsigned}" == "false" ]]; then
@@ -161,7 +175,7 @@ if [[ "${schema_version}" != "1" ]]; then
 fi
 
 updater_version="1.0.0"
-supported_features="manifest-v1 anti-rollback cache-subset healthcheck-unit secrets-digest"
+supported_features="manifest-v1 anti-rollback cache-subset healthcheck-unit secrets-digest secrets-url"
 
 manifest_host="$(jq -r '.host // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 manifest_channel="$(jq -r '.channel // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
@@ -173,6 +187,8 @@ manifest_required_features="$(jq -r '.requiredFeatures[]? // empty' "${desired_j
 manifest_rev="$(jq -r '.rev // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 manifest_toplevel="$(jq -r '.toplevel // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 manifest_secrets_digest="$(jq -r '.secrets.digest // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
+manifest_secrets_url="$(jq -r '.secrets.url // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
+manifest_secrets_format="$(jq -r '.secrets.format // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 
 if [[ -z "${manifest_host}" || "${manifest_host}" != "${host_name}" ]]; then
   write_status "failed" "manifest host mismatch" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "host mismatch"
@@ -200,6 +216,22 @@ if [[ -z "${manifest_toplevel}" || "${manifest_toplevel}" =~ [[:space:]] || "${m
 fi
 if [[ ! "${manifest_secrets_digest}" =~ ^[0-9a-f]{64}$ ]]; then
   write_status "failed" "invalid secrets digest" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "invalid secrets.digest"
+  exit 2
+fi
+if [[ -n "${manifest_secrets_url}" && "${manifest_secrets_url}" =~ [[:space:]] ]]; then
+  write_status "failed" "invalid secrets url" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.url must not include whitespace"
+  exit 2
+fi
+if [[ -n "${manifest_secrets_url}" && -z "${manifest_secrets_format}" ]]; then
+  write_status "failed" "invalid secrets config" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.format is required when secrets.url is set"
+  exit 2
+fi
+if [[ -n "${manifest_secrets_format}" && -z "${manifest_secrets_url}" ]]; then
+  write_status "failed" "invalid secrets config" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.url is required when secrets.format is set"
+  exit 2
+fi
+if [[ -n "${manifest_secrets_format}" && "${manifest_secrets_format}" != "sops-tar" ]]; then
+  write_status "failed" "unsupported secrets format" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.format must be sops-tar"
   exit 2
 fi
 
@@ -275,25 +307,77 @@ if [[ -f "${installed_digest_file}" ]]; then
   installed_digest="$(cat "${installed_digest_file}" | tr -d '\r' | xargs || true)"
 fi
 if [[ -z "${installed_digest}" || "${installed_digest}" != "${manifest_secrets_digest}" ]]; then
-  write_status "failed" "secrets digest mismatch (install secrets first)" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "expected ${manifest_secrets_digest}, got ${installed_digest:-missing}"
-  exit 2
+  if [[ -z "${manifest_secrets_url}" ]]; then
+    write_status "failed" "secrets digest mismatch (no secrets.url; install secrets first)" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "expected ${manifest_secrets_digest}, got ${installed_digest:-missing}"
+    exit 2
+  fi
+
+  base_url="${base_url%/}"
+  if [[ -z "${base_url}" ]]; then
+    write_status "failed" "missing updater base URL" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "CLAWDLETS_UPDATER_BASE_URL is required"
+    exit 2
+  fi
+
+  secrets_url="$(echo "${manifest_secrets_url}" | tr -d '\r' | xargs)"
+  if [[ -z "${secrets_url}" || "${secrets_url}" =~ [[:space:]] ]]; then
+    write_status "failed" "invalid secrets url" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.url must not include whitespace"
+    exit 2
+  fi
+
+  secrets_fetch_url=""
+  if [[ "${secrets_url}" == *"://"* ]]; then
+    if [[ "${secrets_url}" != https://* ]]; then
+      write_status "failed" "invalid secrets url scheme" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.url must be https://... when absolute"
+      exit 2
+    fi
+    secrets_fetch_url="${secrets_url}"
+  else
+    if [[ "${secrets_url}" == /* || "${secrets_url}" == *".."* ]]; then
+      write_status "failed" "invalid secrets url path" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "secrets.url must be a safe relative path"
+      exit 2
+    fi
+    secrets_fetch_url="${base_url}/${secrets_url}"
+  fi
+
+  if [[ ! -x "/etc/clawdlets/bin/install-secrets" ]]; then
+    write_status "failed" "install-secrets missing" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "/etc/clawdlets/bin/install-secrets not found"
+    exit 2
+  fi
+
+  secrets_tmp="$(mktemp -p "${state_dir}" secrets.bundle.tmp.XXXXXX)"
+  chmod 0600 "${secrets_tmp}"
+  if ! curl --fail --location --silent --output "${secrets_tmp}" "${secrets_fetch_url}"; then
+    rm -f "${secrets_tmp}" 2>/dev/null || true
+    write_status "failed" "failed to download secrets bundle" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "download failed"
+    exit 2
+  fi
+
+  actual_digest="$(sha256sum "${secrets_tmp}" | awk '{print $1}')"
+  if [[ "${actual_digest}" != "${manifest_secrets_digest}" ]]; then
+    rm -f "${secrets_tmp}" 2>/dev/null || true
+    write_status "failed" "secrets bundle digest mismatch" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "expected ${manifest_secrets_digest}, got ${actual_digest}"
+    exit 2
+  fi
+
+  if ! /etc/clawdlets/bin/install-secrets --host "${host_name}" --tar "${secrets_tmp}" --rev "${manifest_rev}" --digest "${manifest_secrets_digest}"; then
+    rm -f "${secrets_tmp}" 2>/dev/null || true
+    write_status "failed" "secrets install failed" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "install-secrets failed"
+    exit 2
+  fi
+
+  installed_digest=""
+  if [[ -f "${installed_digest_file}" ]]; then
+    installed_digest="$(cat "${installed_digest_file}" | tr -d '\r' | xargs || true)"
+  fi
+  if [[ -z "${installed_digest}" || "${installed_digest}" != "${manifest_secrets_digest}" ]]; then
+    write_status "failed" "secrets digest still mismatched after install" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "expected ${manifest_secrets_digest}, got ${installed_digest:-missing}"
+    exit 2
+  fi
 fi
 
 cache_substituters="$(jq -r '.cache.substituters[]? // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 cache_keys="$(jq -r '.cache.trustedPublicKeys[]? // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
 cache_ttl="$(jq -r '.cache.narinfoCachePositiveTtl? // empty' "${desired_json}" | tr -d '\r' | xargs || true)"
-
-is_allowed() {
-  local needle="$1"
-  local haystack="$2"
-  local item
-  for item in ${haystack}; do
-    if [[ "${item}" == "${needle}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
 
 if [[ -n "${cache_substituters}" ]]; then
   for s in ${cache_substituters}; do

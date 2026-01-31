@@ -7,6 +7,7 @@ const CHANNEL_RE = /^[a-z][a-z0-9-]*$/;
 const REV_RE = /^[0-9a-f]{40}$/;
 const STORE_PATH_RE = /^\/nix\/store\/[^\s]+$/;
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+const SECRETS_FORMATS = ["sops-tar"] as const;
 
 export const RELEASE_MANIFEST_SCHEMA_VERSION = 1 as const;
 
@@ -94,7 +95,7 @@ export const ReleaseManifestV1Schema = z
     secrets: z
       .object({
         digest: Sha256HexSchema,
-        format: z.string().trim().min(1).optional(),
+        format: z.enum(SECRETS_FORMATS).optional(),
         url: z.string().trim().min(1).optional(),
       })
       .superRefine((v, ctx) => {
@@ -103,6 +104,13 @@ export const ReleaseManifestV1Schema = z
             code: z.ZodIssueCode.custom,
             path: ["format"],
             message: "secrets.format is required when secrets.url is set",
+          });
+        }
+        if (v.format && !v.url) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["url"],
+            message: "secrets.url is required when secrets.format is set",
           });
         }
       }),

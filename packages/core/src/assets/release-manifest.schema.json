@@ -72,7 +72,9 @@
         },
         "format": {
           "type": "string",
-          "minLength": 1
+          "enum": [
+            "sops-tar"
+          ]
         },
         "url": {
           "type": "string",
@@ -89,6 +91,18 @@
           "then": {
             "required": [
               "format"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "required": [
+              "url"
             ]
           }
         }
@@ -134,4 +148,3 @@
     }
   ]
 }
-

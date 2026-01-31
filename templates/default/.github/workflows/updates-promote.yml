@@ -102,6 +102,38 @@ jobs:
               exit 2
             fi
 
+            secrets_url="$(jq -r '.secrets.url // empty' "${from_manifest}" | tr -d '\r' | xargs || true)"
+            secrets_digest="$(jq -r '.secrets.digest // empty' "${from_manifest}" | tr -d '\r' | xargs || true)"
+            if [[ -n "${secrets_url}" && "${secrets_url}" != *"://"* ]]; then
+              if [[ ! "${secrets_digest}" =~ ^[0-9a-f]{64}$ ]]; then
+                echo "error: invalid secrets.digest in ${from_manifest}" >&2
+                exit 2
+              fi
+              if [[ "${secrets_url}" == /* || "${secrets_url}" == *".."* || "${secrets_url}" =~ [[:space:]] ]]; then
+                echo "error: invalid secrets.url in ${from_manifest}" >&2
+                exit 2
+              fi
+
+              from_secrets="_gh-pages/deploy/${host}/${from_channel}/${secrets_url}"
+              to_secrets="_gh-pages/deploy/${host}/${to_channel}/${secrets_url}"
+
+              if [[ ! -f "${from_secrets}" ]]; then
+                echo "error: missing source secrets bundle: ${from_secrets}" >&2
+                exit 2
+              fi
+
+              if [[ -f "${to_secrets}" ]]; then
+                actual="$(sha256sum "${to_secrets}" | awk '{print $1}')"
+                if [[ "${actual}" != "${secrets_digest}" ]]; then
+                  echo "error: refusing to overwrite secrets bundle with mismatched digest: ${to_secrets}" >&2
+                  exit 2
+                fi
+              else
+                mkdir -p "$(dirname "${to_secrets}")"
+                cp "${from_secrets}" "${to_secrets}"
+              fi
+            fi
+
             to_pointer="_gh-pages/deploy/${host}/${to_channel}/latest.json"
             prev=0
             if [[ -f "${to_pointer}" ]]; then

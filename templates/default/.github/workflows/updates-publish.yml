@@ -111,6 +111,9 @@ jobs:
               --rev "${GITHUB_SHA}" \
               --toplevel "${toplevel}" \
               --min-updater-version 1.0.0 \
+              --secrets-format sops-tar \
+              --secrets-url "secrets/{digest}.tgz" \
+              --secrets-bundle-out "_gh-pages/deploy/${host}/${channel}/secrets/{digest}.tgz" \
               --cache-substituter https://cache.nixos.org \
               --cache-substituter https://cache.garnix.io \
               --cache-trusted-key "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" \
