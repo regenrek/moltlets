@@ -1,6 +1,6 @@
 {
   "name": "clawlets",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "type": "module",
   "description": "CLI for clawlets (NixOS fleet + bot operations)",
