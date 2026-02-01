@@ -4,9 +4,12 @@ description: clf job queue and cattle spawner.
 ---
 
 The orchestrator is the bot-facing control plane. Bots request work through `clf jobs`
-without ever holding Hetzner credentials or long-lived provider keys. The separation
-between `clawlets` (operator/admin CLI) and `clf` (bot-facing CLI) keeps privileges
-clear and makes it easier to audit who can do what.
+without ever holding Hetzner credentials or long-lived provider keys.
+
+Clawlets keeps privileges clear by splitting responsibilities:
+
+- `clawlets`: operator/admin CLI (bootstrap, deploy, lockdown, server ops)
+- `clf`: bot-facing control plane (jobs queue)
 
 ## Components
 
@@ -33,10 +36,8 @@ No public ingress by default.
 
 ## Deployment (Pet host, NixOS)
 
-The Clawlets framework ships a NixOS module for the orchestrator. Enable it in your
-host config and wire the required secrets.
+The Clawlets framework ships a NixOS module for the orchestrator:
 
-Clawlets framework provides:
 - module: `nix/modules/clf-orchestrator.nix`
 
 Enable in your host config (project repo):
