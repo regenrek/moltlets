@@ -1,0 +1,48 @@
+---
+title: nix-openclaw integration
+description: How the Nix layer is pinned and updated.
+---
+
+Clawlets consumes OpenClaw via the **nix-clawdbot** flake input (repo often referenced
+as `nix-openclaw`). This keeps the runtime pinned to a specific OpenClaw revision so
+deploys are deterministic and reproducible.
+
+In the project repo created by `clawlets project init`, the lock file pins both
+Clawlets and OpenClaw:
+
+- `flake.lock` pins **clawlets** and **nix-clawdbot**
+- Nix modules read `nix-clawdbot.packages.${system}` directly (no shims)
+- Clawdbot source rev is checked for alignment in CI (`clawdbot-pin-align`)
+
+## Where it’s wired
+
+In this repo:
+
+- `flake.nix` declares the `nix-clawdbot` input
+- Nix modules (`nix/modules/*`) reference `nix-clawdbot.packages.${system}`
+
+In the project repo (template):
+
+- `templates/default/flake.nix` passes `nix-clawdbot` into the host modules
+
+## Update workflow
+
+Update `nix-clawdbot` in the **project repo**:
+
+```bash
+nix flake lock --update-input nix-clawdbot
+```
+
+Then deploy to a staging host first so you can validate behavior before production:
+
+```bash
+clawlets release manifest build --host <host> --channel staging --system x86_64-linux --release-id <releaseId> --out deploy/<host>/staging/<releaseId>.json
+clawlets release manifest sign --in deploy/<host>/staging/<releaseId>.json
+clawlets server update apply --host <host>
+```
+
+## What to watch for
+
+OpenClaw updates can change schema keys, gateway startup flags, or expectations for
+secrets and env wiring. Also watch for plugin and skill compatibility if you rely on
+third-party extensions.

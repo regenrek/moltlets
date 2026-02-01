@@ -1,0 +1,6 @@
+{
+  "title": "Concepts",
+  "description": "Mental models and runtime architecture",
+  "icon": "BookOpen",
+  "pages": ["index", "queue", "orchestrator", "runtime-layout"]
+}

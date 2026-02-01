@@ -1,0 +1,72 @@
+---
+title: Image‑based provisioning
+description: Image‑first bootstrap flow.
+---
+
+Image‑based provisioning lets you boot Hetzner hosts from a prebuilt NixOS image and
+skip `nixos-anywhere` during bootstrap. This is useful when you want faster host creation
+or a repeatable image pipeline.
+
+## Reality check (Hetzner)
+
+Hetzner Cloud does not provide a first‑party image upload API. The reliable path today
+is `hcloud-upload-image` (provisions a rescue VM, writes the image, then snapshots it)
+or a manual snapshot from a seeded VM.
+
+## POC path (recommended)
+
+Project repos support a raw image build and upload flow. The image is built without
+secrets, uploaded to a public URL, and imported into Hetzner before bootstrap.
+
+1) **Build image** from the flake (no secrets baked):
+
+```bash
+clawlets image build --host <host>
+```
+
+This builds `packages.x86_64-linux.<host>-image` (raw) and writes it to
+`.clawlets/images/<host>/...`.
+
+2) **Publish** the raw image to a public URL (S3/Backblaze/etc). Large files upload
+faster if you compress them (`bz2`/`gz`/`xz`).
+
+3) **Import** to Hetzner using `hcloud-upload-image`:
+
+```bash
+clawlets image upload --host <host> --image-url https://<bucket>/<image>.raw --compression bz2
+```
+
+Requires `HCLOUD_TOKEN` in your environment.
+
+4) **Pin** the image in config:
+
+```bash
+clawlets host set --host <host> --hetzner-image <image_id_or_name>
+```
+
+5) **Bootstrap** with the image:
+
+```bash
+clawlets bootstrap --mode image
+```
+
+6) **Apply updates** (same as normal updates):
+
+```bash
+clawlets server update apply --host <host> --target-host admin@<ipv4>
+```
+
+## Alternate path (snapshot)
+
+If you cannot upload, create a temporary VM, install NixOS, then snapshot it. This is
+less deterministic and requires extra care to avoid leaking secrets or leaving behind
+credentials.
+
+## Notes
+
+Treat images as public artifacts and keep secrets out of them.
+
+- Never embed plaintext secrets in the image.
+- The raw image build uses a bootstrap module that disables secrets + fleet services.
+- Install encrypted secrets via CI‑published bundles (preferred) or `clawlets secrets sync`
+  after the host is reachable.

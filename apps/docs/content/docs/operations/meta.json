@@ -1,0 +1,13 @@
+{
+  "title": "Operations",
+  "description": "Bootstrap, deploy, and day-2 ops",
+  "icon": "Settings",
+  "pages": [
+    "index",
+    "install",
+    "deploy",
+    "runbook",
+    "image-based-provisioning",
+    "troubleshooting"
+  ]
+}

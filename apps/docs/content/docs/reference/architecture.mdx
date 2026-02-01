@@ -1,0 +1,70 @@
+---
+title: Architecture
+description: System architecture and workflows.
+---
+
+## Repos + boundaries
+
+Clawlets is split across a few repos and a local runtime directory. Understanding
+these boundaries makes it easier to reason about what should be committed and what
+must remain local.
+
+- **Clawlets (this repo)**: CLI, Nix modules, `clf` queue/orchestrator, docs.
+- **clawlets-template**: project scaffolding used by `clawlets project init`.
+- **Project repo**: `flake.nix`, `fleet/`, `secrets/`, `cattle/personas/` (public-safe).
+- **Runtime (`.clawlets/`)**: gitignored operator state + keys + provisioning artifacts.
+
+Rules:
+- `fleet/clawlets.json` is canonical; no secrets.
+- Secrets live only in `secrets/` (sops-encrypted) and `.clawlets/` (operator keys/runtime).
+
+## Core components
+
+These components are the core of the system. The CLI and Nix modules define desired
+state, and the runtime pieces implement it on the host.
+
+- **CLI (`clawlets`)**: bootstrap, deploy, secrets, server ops.
+- **Nix modules**: `clawletsProjectHost`, `clawdbotFleet`, `clawletsSelfUpdate`, `clfOrchestrator`.
+- **Per-bot gateway**: one Clawdbot gateway per bot (user `bot-<id>`, state `/srv/clawdbot/<id>`).
+- **Orchestrator (`clf-orchestrator`)**: job queue + cattle worker, socket `/run/clf/orchestrator.sock`.
+- **Updater**: pulls signed manifests + optional secrets bundle, applies by store path.
+
+## Data + secret flow
+
+Configuration and secrets follow a predictable flow from repo to host. The Nix layer
+renders bot config into `/run/secrets`, and sops-nix materializes secrets at runtime.
+
+- **Config**: `fleet/clawlets.json` → Nix modules → rendered bot config in `/run/secrets/rendered/clawdbot-<bot>.json`.
+- **Secrets**: sops-encrypted under `secrets/hosts/<host>/` → installed to `/var/lib/clawlets/secrets/hosts/<host>` → decrypted into `/run/secrets/**`.
+- **Gateway auth**: per-bot token stored in `/srv/clawdbot/<bot>/credentials/gateway.env`.
+
+## Lifecycle (happy path)
+
+The typical lifecycle flows from project creation to bootstrap, update, and lockdown.
+The dashboard mirrors this flow, while the CLI provides automation.
+
+1) `clawlets project init` → new project repo.
+2) Edit `fleet/clawlets.json`, add bots + hosts + secret wiring.
+3) `clawlets env init` → set `HCLOUD_TOKEN`.
+4) `clawlets secrets init` → generate sops rules + encrypted secrets.
+5) `clawlets doctor --scope bootstrap` → preflight.
+6) `clawlets bootstrap` → provision + install NixOS.
+7) `clawlets server update apply` → apply signed release.
+8) `clawlets host set --ssh-exposure tailnet` + `clawlets lockdown` → remove public SSH.
+
+## Cattle (ephemeral VMs)
+
+If you enable cattle, the orchestrator can spawn short-lived workers from a prebuilt
+image and inject the persona and task at runtime.
+
+- Enabled via `cattle.*` in `fleet/clawlets.json`.
+- Spawned via `clawlets cattle spawn` (plugin) or `clf jobs enqueue`.
+- Secrets fetched at runtime from tailnet-only HTTP (`/v1/cattle/env`).
+
+## Single source of truth
+
+Clawlets keeps the model simple: config and secrets in the repo, runtime state local.
+
+- Config: `fleet/clawlets.json`
+- Secrets: `secrets/` (sops)
+- Runtime: `.clawlets/` (local operator state, gitignored)

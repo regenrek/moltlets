@@ -174,8 +174,8 @@ export async function addRepoChecks(params: {
         status: "ok",
         label: "docs index integrity",
         detail: templateRoot
-          ? "(docs/docs.yaml matches template; all files exist)"
-          : "(docs/docs.yaml valid; all files exist)",
+          ? "(docs meta valid; all files exist)"
+          : "(docs meta valid; all files exist)",
       });
     }
   }

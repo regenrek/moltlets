@@ -1,0 +1,16 @@
+{
+  "title": "Security",
+  "description": "Threat model, boundaries, updates, and operator checks",
+  "icon": "ShieldCheck",
+  "pages": [
+    "index",
+    "---Foundations---",
+    "architecture",
+    "updates",
+    "secrets",
+    "---Operations---",
+    "audits",
+    "ops-invariants",
+    "troubleshooting"
+  ]
+}

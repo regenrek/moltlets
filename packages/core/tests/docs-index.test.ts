@@ -4,98 +4,68 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { validateDocsIndexIntegrity } from "../src/lib/docs-index";
 
+function docsDir(repoRoot: string) {
+  return path.join(repoRoot, "apps", "docs", "content", "docs");
+}
+
 describe("docs index integrity", () => {
-  it("validates docs/docs.yaml in the repo", () => {
+  it("validates apps/docs/content/docs/meta.json in the repo", () => {
     const repoRoot = path.resolve(__dirname, "..", "..", "..");
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r).toEqual({ ok: true, errors: [] });
   });
 
-  it("reports missing repo docs index", async () => {
+  it("reports missing repo docs meta", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
-    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
+    await mkdir(docsDir(repoRoot), { recursive: true });
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r.ok).toBe(false);
-    expect(r.errors.some((e) => e.includes("missing docs index"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("missing docs meta"))).toBe(true);
   });
 
-  it("skips validation when docs/ is absent", async () => {
+  it("skips validation when docs dir is absent", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r).toEqual({ ok: true, errors: [] });
   });
 
-  it("reports template mismatch when templateRoot is provided", async () => {
+  it("rejects invalid meta JSON", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
-    const templateRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-template-"));
-    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
-    await mkdir(path.join(templateRoot, "docs"), { recursive: true });
-
-    await writeFile(path.join(repoRoot, "docs", "overview.md"), "# overview\n", "utf8");
-    await writeFile(path.join(templateRoot, "docs", "overview.md"), "# overview\n", "utf8");
-
-    await writeFile(
-      path.join(repoRoot, "docs", "docs.yaml"),
-      ["docs:", "  - path: docs/overview.md", "    when: seed", "    summary: seed", ""].join("\n"),
-      "utf8",
-    );
-    await writeFile(
-      path.join(templateRoot, "docs", "docs.yaml"),
-      ["docs:", "  - path: docs/overview.md", "    when: seed", "    summary: different", ""].join("\n"),
-      "utf8",
-    );
-
-    const mismatch = validateDocsIndexIntegrity({ repoRoot, templateRoot });
-    expect(mismatch.ok).toBe(false);
-    expect(mismatch.errors.some((e) => e.includes("docs index mismatch"))).toBe(true);
-  });
-
-  it("reports duplicates and missing referenced files", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
-    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
-
-    await writeFile(
-      path.join(repoRoot, "docs", "docs.yaml"),
-      [
-        "docs:",
-        "  - path: docs/missing.md",
-        "    when: seed",
-        "    summary: seed",
-        "  - path: docs/missing.md",
-        "    when: seed",
-        "    summary: seed",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-
+    await mkdir(docsDir(repoRoot), { recursive: true });
+    await writeFile(path.join(docsDir(repoRoot), "meta.json"), "not-json", "utf8");
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r.ok).toBe(false);
-    expect(r.errors.some((e) => e.includes("duplicate path"))).toBe(true);
-    expect(r.errors.some((e) => e.includes("references missing file"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("docs meta must be valid JSON"))).toBe(true);
   });
 
-  it("rejects invalid docs index structure", async () => {
+  it("reports duplicates and missing referenced pages", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
-    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
-
-    await writeFile(path.join(repoRoot, "docs", "docs.yaml"), "foo\n", "utf8");
-
+    const dir = docsDir(repoRoot);
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "meta.json"), JSON.stringify({ pages: ["missing", "missing"] }), "utf8");
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r.ok).toBe(false);
-    expect(r.errors.some((e) => e.includes("docs index must be a YAML object"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("duplicate page"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("references missing page"))).toBe(true);
   });
 
-  it("rejects unsafe docs entry paths", async () => {
+  it("reports directory pages missing index or meta", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
-    await mkdir(path.join(repoRoot, "docs"), { recursive: true });
+    const dir = docsDir(repoRoot);
+    await mkdir(dir, { recursive: true });
+    await mkdir(path.join(dir, "section"), { recursive: true });
+    await writeFile(path.join(dir, "meta.json"), JSON.stringify({ pages: ["section"] }), "utf8");
+    const r = validateDocsIndexIntegrity({ repoRoot });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes("dir without index.mdx"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("dir without meta.json"))).toBe(true);
+  });
 
-    await writeFile(
-      path.join(repoRoot, "docs", "docs.yaml"),
-      ["docs:", "  - path: /etc/passwd", ""].join("\n"),
-      "utf8",
-    );
-
+  it("rejects unsafe page paths", async () => {
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
+    const dir = docsDir(repoRoot);
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "meta.json"), JSON.stringify({ pages: ["../escape"] }), "utf8");
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r.ok).toBe(false);
     expect(r.errors.some((e) => e.includes("safe relative path"))).toBe(true);

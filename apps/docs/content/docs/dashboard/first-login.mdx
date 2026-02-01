@@ -1,0 +1,38 @@
+---
+title: First login
+description: Sign in and create your first project.
+---
+
+After Convex is wired, the first dashboard session establishes your project and
+connects it to a local repo.
+
+## 1) Sign in
+
+Open the dashboard (local dev: `http://localhost:3000`) and sign in using the configured
+Better Auth provider.
+
+**First user becomes admin.** The first account to sign in is promoted to `admin`.
+Subsequent users default to `viewer` unless promoted by an admin.
+
+## 2) Create a project
+
+From the Projects screen, create a new project and point it at your local repo. The
+template source defaults to `config/template-source.json`, which the dashboard uses
+to discover the starter files and expected layout.
+
+1. Create a new project.
+2. Set the repo root and template source (defaults to `config/template-source.json`).
+3. Save and continue to Setup.
+
+## 3) Run through Setup
+
+The Setup flow mirrors the canonical config and helps you avoid missing required
+values before you bootstrap a host:
+
+- Fleet basics (bot list, ordering)
+- Host config (disk device, SSH exposure, tailnet)
+- Secrets wiring (env mappings + missing secrets)
+
+Once the checklist is green you are ready to bootstrap and update via the CLI
+(`bootstrap`, `server update apply`, `lockdown`). The dashboard keeps the config
+consistent while those operations run from your workstation.

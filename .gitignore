@@ -10,5 +10,10 @@ packages/**/coverage/
 packages/core/tests/.template/
 .tmp
 .env.local
+.env.prod
 .clawlets/
 .clawdlets/
+.alchemy/
+.tanstack/
+.wrangler/
+.source/

@@ -1,0 +1,66 @@
+---
+title: Ops invariants
+description: Rules of engagement.
+---
+
+These are the operational rules Clawlets assumes. They are meant to keep drift low and
+make recovery predictable.
+
+## Deploy‑only changes
+
+Any persistent change should be made in the project repo (or `.clawlets/`) and applied
+through the normal deploy flow. Treat hosts as disposable and prefer reinstall over
+manual drift.
+
+- Use signed desired‑state updates + `clawlets server update apply` (or the timer).
+- Keep changes in `fleet/clawlets.json`, `secrets/`, or Nix modules.
+
+## Cache‑only switches
+
+Hosts should not evaluate flakes from GitHub at runtime. Switching happens by
+store path (`/nix/store/...`) and cache pulls (`nix copy` from trusted caches).
+
+## No manual host edits
+
+Avoid:
+
+- editing `/etc/nixos/*`
+- running `passwd` or mutating users on‑host (`users.mutableUsers = false`)
+- copying secrets into `/run/secrets/*` or the Nix store
+- “quick‑fix” systemd unit edits
+
+Do instead:
+
+- update config in the project repo and deploy
+- rotate secrets with sops under `secrets/hosts/<host>/...`
+- use `clawlets server status|logs|restart|update` for day‑2 ops
+- run `clawlets server audit --target-host <host>` after bootstrap/lockdown and major changes
+
+## Breakglass (explicit)
+
+Breakglass is a last resort. If you must change a host live, capture the change and
+apply it through the repo as soon as possible.
+
+If you must do a live fix:
+
+1) do the minimum to restore service
+2) codify the change in Nix/docs
+3) deploy pinned and treat the live fix as temporary
+
+Default breakglass path:
+
+- console login as `breakglass` (wheel user) then `sudo -i`
+- `admin` is intentionally not wheel
+
+## Deploy privilege model
+
+The default privilege model keeps `admin` out of the rebuild path unless you explicitly
+enable it. This helps reduce accidental changes on production hosts.
+
+- Default: `admin` cannot run `nixos-rebuild` (breakglass required).
+- Optional: enable `clawlets.operator.deploy.enable` to allow `admin` to run `install-secrets` (constrained allowlist).
+
+## Egress posture
+
+Default posture blocks outbound SMTP ports only (anti‑spam). For stricter egress control,
+enable `clawlets.egress.mode = "proxy-allowlist"`.

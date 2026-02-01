@@ -1,12 +1,31 @@
 import fs from "node:fs";
 import path from "node:path";
-import YAML from "yaml";
 
-export type DocsIndexEntry = {
-  path: string;
-  when?: string;
-  summary?: string;
+type DocsMeta = {
+  pages?: unknown;
 };
+
+function readMeta(filePath: string): { pages: string[] } {
+  if (!fs.existsSync(filePath)) throw new Error(`missing docs meta: ${filePath}`);
+  const rawText = fs.readFileSync(filePath, "utf8");
+  let parsed: DocsMeta;
+  try {
+    parsed = JSON.parse(rawText) as DocsMeta;
+  } catch (err) {
+    throw new Error(`docs meta must be valid JSON: ${filePath}`);
+  }
+  if (!parsed || typeof parsed !== "object") throw new Error(`docs meta must be a JSON object: ${filePath}`);
+  if (!Array.isArray(parsed.pages)) throw new Error(`docs meta must contain pages: []: ${filePath}`);
+  const pages = parsed.pages.map((p) => String(p));
+  return { pages };
+}
+
+function normalizeEntry(entry: string): string | null {
+  const trimmed = entry.trim();
+  if (!trimmed) throw new Error("docs meta pages entry cannot be empty");
+  if (trimmed.startsWith("---") && trimmed.endsWith("---")) return null;
+  return trimmed;
+}
 
 function isSafeRelativePath(p: string): boolean {
   if (!p) return false;
@@ -16,47 +35,56 @@ function isSafeRelativePath(p: string): boolean {
   return true;
 }
 
-function normalizeEntry(raw: unknown): DocsIndexEntry {
-  if (!raw || typeof raw !== "object") throw new Error("docs entry must be an object");
-  const any = raw as Record<string, unknown>;
-  const p0 = String(any.path ?? "");
-  if (!p0) throw new Error("docs entry missing path");
-  if (!isSafeRelativePath(p0)) throw new Error(`docs entry path must be a safe relative path: ${p0}`);
-  if (!p0.replace(/\\/g, "/").startsWith("docs/")) throw new Error(`docs entry path must start with docs/: ${p0}`);
-
-  const when = any.when == null ? undefined : String(any.when);
-  const summary = any.summary == null ? undefined : String(any.summary);
-  return { path: p0.replace(/\\/g, "/"), when, summary };
-}
-
-function readDocsIndex(filePath: string): DocsIndexEntry[] {
-  if (!fs.existsSync(filePath)) throw new Error(`missing docs index: ${filePath}`);
-  const raw = YAML.parse(fs.readFileSync(filePath, "utf8")) as { docs?: unknown };
-  if (!raw || typeof raw !== "object") throw new Error(`docs index must be a YAML object: ${filePath}`);
-  if (!Array.isArray(raw.docs)) throw new Error(`docs index must contain docs: []: ${filePath}`);
-  return raw.docs.map(normalizeEntry);
-}
-
-function ensureUniquePaths(entries: DocsIndexEntry[], label: string): string[] {
+function ensureUniquePages(pages: string[], label: string): string[] {
   const seen = new Set<string>();
   const dupes: string[] = [];
-  for (const e of entries) {
-    if (seen.has(e.path)) dupes.push(e.path);
-    seen.add(e.path);
+  for (const p of pages) {
+    if (seen.has(p)) dupes.push(p);
+    seen.add(p);
   }
-  return dupes.length > 0 ? [`${label} has duplicate path(s): ${Array.from(new Set(dupes)).join(", ")}`] : [];
+  return dupes.length > 0 ? [`${label} has duplicate page(s): ${Array.from(new Set(dupes)).join(", ")}`] : [];
 }
 
-function entriesEqual(a: DocsIndexEntry[], b: DocsIndexEntry[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const ea = a[i]!;
-    const eb = b[i]!;
-    if (ea.path !== eb.path) return false;
-    if ((ea.when ?? "") !== (eb.when ?? "")) return false;
-    if ((ea.summary ?? "") !== (eb.summary ?? "")) return false;
+function validateMetaTree(params: {
+  docsDir: string;
+  metaPath: string;
+  label: string;
+  errors: string[];
+}) {
+  const { docsDir, metaPath, label, errors } = params;
+  const meta = readMeta(metaPath);
+  const normalized = meta.pages.map(normalizeEntry).filter(Boolean) as string[];
+  errors.push(...ensureUniquePages(normalized, label));
+
+  for (const entry of normalized) {
+    if (!isSafeRelativePath(entry)) {
+      errors.push(`${label} page must be a safe relative path: ${entry}`);
+      continue;
+    }
+    const filePath = path.join(docsDir, `${entry}.mdx`);
+    const dirPath = path.join(docsDir, entry);
+    if (fs.existsSync(filePath)) continue;
+    if (!fs.existsSync(dirPath)) {
+      errors.push(`${label} references missing page: ${entry}`);
+      continue;
+    }
+
+    const indexPath = path.join(dirPath, "index.mdx");
+    const childMetaPath = path.join(dirPath, "meta.json");
+    if (!fs.existsSync(indexPath)) {
+      errors.push(`${label} references dir without index.mdx: ${entry}`);
+    }
+    if (!fs.existsSync(childMetaPath)) {
+      errors.push(`${label} references dir without meta.json: ${entry}`);
+    } else {
+      validateMetaTree({
+        docsDir: dirPath,
+        metaPath: childMetaPath,
+        label: `${label}/${entry}`,
+        errors,
+      });
+    }
   }
-  return true;
 }
 
 export function validateDocsIndexIntegrity(params: {
@@ -64,60 +92,40 @@ export function validateDocsIndexIntegrity(params: {
   templateRoot?: string | null;
 }): { ok: boolean; errors: string[] } {
   const repoRoot = params.repoRoot;
+  const repoDocsDir = path.join(repoRoot, "apps", "docs", "content", "docs");
+  const repoMetaPath = path.join(repoDocsDir, "meta.json");
 
-  const repoDocsDir = path.join(repoRoot, "docs");
-  const repoIndexPath = path.join(repoDocsDir, "docs.yaml");
-
-  const templateDocsDir = params.templateRoot ? path.join(params.templateRoot, "docs") : null;
-  const templateIndexPath = templateDocsDir ? path.join(templateDocsDir, "docs.yaml") : null;
+  const templateDocsDir = params.templateRoot
+    ? path.join(params.templateRoot, "apps", "docs", "content", "docs")
+    : null;
+  const templateMetaPath = templateDocsDir ? path.join(templateDocsDir, "meta.json") : null;
 
   const errors: string[] = [];
 
-  let repoEntries: DocsIndexEntry[] = [];
-  let templateEntries: DocsIndexEntry[] = [];
-
   const hasRepoDocs = fs.existsSync(repoDocsDir);
-  const hasRepoIndex = fs.existsSync(repoIndexPath);
-  const hasTemplateIndex = templateIndexPath ? fs.existsSync(templateIndexPath) : false;
+  const hasRepoMeta = fs.existsSync(repoMetaPath);
+  const hasTemplateMeta = templateMetaPath ? fs.existsSync(templateMetaPath) : false;
 
-  if (!hasRepoDocs && !hasTemplateIndex) {
+  if (!hasRepoDocs && !hasTemplateMeta) {
     return { ok: true, errors: [] };
   }
 
-  if (hasRepoDocs) {
+  if (!hasRepoDocs || !hasRepoMeta) {
+    errors.push(`missing docs meta: ${repoMetaPath}`);
+  } else {
     try {
-      repoEntries = readDocsIndex(repoIndexPath);
+      validateMetaTree({ docsDir: repoDocsDir, metaPath: repoMetaPath, label: "apps/docs/content/docs/meta.json", errors });
     } catch (e) {
       errors.push(String((e as Error)?.message || e));
     }
   }
 
-  if (templateIndexPath && hasTemplateIndex) {
+  if (templateMetaPath && hasTemplateMeta) {
     try {
-      templateEntries = readDocsIndex(templateIndexPath);
+      validateMetaTree({ docsDir: templateDocsDir as string, metaPath: templateMetaPath, label: path.relative(repoRoot, templateMetaPath), errors });
     } catch (e) {
       errors.push(String((e as Error)?.message || e));
     }
-  }
-
-  errors.push(...ensureUniquePaths(repoEntries, "docs/docs.yaml"));
-  if (templateIndexPath && hasTemplateIndex) {
-    errors.push(...ensureUniquePaths(templateEntries, path.relative(repoRoot, templateIndexPath)));
-  }
-
-  for (const e of repoEntries) {
-    const abs = path.join(repoRoot, e.path);
-    if (!fs.existsSync(abs)) errors.push(`docs/docs.yaml references missing file: ${e.path}`);
-  }
-  if (templateIndexPath && hasTemplateIndex) {
-    for (const e of templateEntries) {
-      const abs = path.join(params.templateRoot as string, e.path);
-      if (!fs.existsSync(abs)) errors.push(`template docs.yaml references missing file: ${e.path}`);
-    }
-  }
-
-  if (templateIndexPath && hasTemplateIndex && repoEntries.length > 0 && templateEntries.length > 0 && !entriesEqual(repoEntries, templateEntries)) {
-    errors.push("docs index mismatch: docs/docs.yaml must match template docs/docs.yaml (paths + metadata + order)");
   }
 
   return { ok: errors.length === 0, errors };
