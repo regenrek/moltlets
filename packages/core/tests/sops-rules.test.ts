@@ -7,7 +7,7 @@ describe("sops-rules doctor compatibility", () => {
     const { upsertSopsCreationRule } = await import("../src/lib/sops-config");
     const { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } = await import("../src/lib/sops-rules");
 
-    const layout = getRepoLayout("/repo", "/repo/.clawdlets");
+    const layout = getRepoLayout("/repo", "/repo/.clawlets");
     const host = "clawdbot-fleet-host";
 
     const expectedHostSecrets = getHostSecretsSopsCreationRulePathRegex(layout, host);

@@ -24,33 +24,33 @@ describe("config migrate", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ mutation, query }) as any,
     }))
-    vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+    vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
     vi.doMock("~/server/run-manager", () => ({ runWithEvents }))
     vi.doMock("~/sdk/repo-root", () => ({ getRepoRoot: async () => "/tmp/repo" }))
-    vi.doMock("@clawdlets/core/repo-layout", () => ({
-      getRepoLayout: () => ({ clawdletsConfigPath: "/tmp/repo/fleet/clawdlets.json" }),
+    vi.doMock("@clawlets/core/repo-layout", () => ({
+      getRepoLayout: () => ({ clawletsConfigPath: "/tmp/repo/fleet/clawlets.json" }),
     }))
     vi.doMock("node:fs/promises", () => ({ readFile: async () => "{}" }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-        "@clawdlets/core/lib/clawdlets-config",
+    vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+        "@clawlets/core/lib/clawlets-config",
       )
       return {
         ...actual,
-        ClawdletsConfigSchema: {
+        ClawletsConfigSchema: {
           safeParse: (value: unknown) => ({ success: true, data: value }),
         },
-        writeClawdletsConfig: async () => {},
+        writeClawletsConfig: async () => {},
       }
     })
-    vi.doMock("@clawdlets/core/lib/clawdlets-config-migrate", () => ({
-      migrateClawdletsConfigToV12: () => ({ changed: true, migrated: { schemaVersion: 12 }, warnings: [] }),
+    vi.doMock("@clawlets/core/lib/clawlets-config-migrate", () => ({
+      migrateClawletsConfigToV12: () => ({ changed: true, migrated: { schemaVersion: 12 }, warnings: [] }),
     }))
 
     const mod = await import("~/sdk/config-migrate")
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
-      async () => await mod.migrateClawdletsConfigFileToV12({ data: { projectId: "p1" as any } }),
+      async () => await mod.migrateClawletsConfigFileToV12({ data: { projectId: "p1" as any } }),
     )
 
     expect(res.ok).toBe(true)

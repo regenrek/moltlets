@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 describe("secrets init template sets", () => {
   it("marks garnix netrc secret as netrc placeholder", async () => {
-    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
-    const cfg = ClawdletsConfigSchema.parse({
+    const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: {
         botOrder: ["alpha"],
@@ -37,11 +37,11 @@ describe("secrets init template sets", () => {
   });
 
   it("omits garnix netrc placeholder when private cache disabled", async () => {
-    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
-    const cfg = ClawdletsConfigSchema.parse({
+    const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: {
         botOrder: ["alpha"],

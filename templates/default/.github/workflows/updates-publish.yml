@@ -10,7 +10,7 @@ on:
         required: false
         default: "staging"
       host:
-        description: "Optional single host (defaults to all hosts in fleet/clawdlets.json)"
+        description: "Optional single host (defaults to all hosts in fleet/clawlets.json)"
         required: false
 
 permissions:
@@ -70,7 +70,7 @@ jobs:
 
           touch _gh-pages/.nojekyll
 
-          hosts="$(jq -r '.hosts | keys[]' fleet/clawdlets.json)"
+          hosts="$(jq -r '.hosts | keys[]' fleet/clawlets.json)"
           if [[ -n "${SINGLE_HOST:-}" ]]; then
             hosts="${SINGLE_HOST}"
           fi
@@ -98,11 +98,11 @@ jobs:
             while IFS= read -r s; do
               [[ -z "${s}" ]] && continue
               cache_flags+=(--cache-substituter "${s}")
-            done < <(jq -r --arg host "${host}" '.hosts[$host].cache.substituters[]? // empty' fleet/clawdlets.json)
+            done < <(jq -r --arg host "${host}" '.hosts[$host].cache.substituters[]? // empty' fleet/clawlets.json)
             while IFS= read -r k; do
               [[ -z "${k}" ]] && continue
               cache_flags+=(--cache-trusted-key "${k}")
-            done < <(jq -r --arg host "${host}" '.hosts[$host].cache.trustedPublicKeys[]? // empty' fleet/clawdlets.json)
+            done < <(jq -r --arg host "${host}" '.hosts[$host].cache.trustedPublicKeys[]? // empty' fleet/clawlets.json)
 
             if [[ "${#cache_flags[@]}" -eq 0 ]]; then
               echo "error: missing cache config for host=${host} (expected hosts.<host>.cache.substituters/trustedPublicKeys)" >&2
@@ -110,15 +110,15 @@ jobs:
             fi
 
             ttl_flag=()
-            netrc_enabled="$(jq -r --arg host "${host}" '.hosts[$host].cache.netrc.enable // false' fleet/clawdlets.json)"
+            netrc_enabled="$(jq -r --arg host "${host}" '.hosts[$host].cache.netrc.enable // false' fleet/clawlets.json)"
             if [[ "${netrc_enabled}" == "true" ]]; then
-              ttl="$(jq -r --arg host "${host}" '.hosts[$host].cache.netrc.narinfoCachePositiveTtl // 3600' fleet/clawdlets.json)"
+              ttl="$(jq -r --arg host "${host}" '.hosts[$host].cache.netrc.narinfoCachePositiveTtl // 3600' fleet/clawlets.json)"
               if [[ "${ttl}" =~ ^[0-9]+$ ]]; then
                 ttl_flag=(--cache-narinfo-cache-positive-ttl "${ttl}")
               fi
             fi
 
-            nix run .#clawdlets -- release manifest build \
+            nix run .#clawlets -- release manifest build \
               --host "${host}" \
               --channel "${channel}" \
               --system x86_64-linux \
@@ -133,16 +133,16 @@ jobs:
               "${ttl_flag[@]}" \
               --out "${manifest_path}"
 
-            nix run .#clawdlets -- release manifest sign --in "${manifest_path}"
+            nix run .#clawlets -- release manifest sign --in "${manifest_path}"
 
-            nix run .#clawdlets -- release pointer write \
+            nix run .#clawlets -- release pointer write \
               --host "${host}" \
               --channel "${channel}" \
               --release-id "${next}" \
               --file "${next}.json" \
               --out "${pointer_path}"
 
-            nix run .#clawdlets -- release manifest sign --in "${pointer_path}"
+            nix run .#clawlets -- release manifest sign --in "${pointer_path}"
 
             echo "::endgroup::"
           done

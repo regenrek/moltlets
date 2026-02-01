@@ -1,9 +1,9 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
-const WORKSPACE_ROOT_ENV = "CLAWDLETS_WORKSPACE_ROOTS";
+const WORKSPACE_ROOT_ENV = "CLAWLETS_WORKSPACE_ROOTS";
 let cachedWorkspaceRoots: { key: string; roots: string[] } | null = null;
 
 export function resolveUserPath(input: string): string {
@@ -98,8 +98,8 @@ export function assertRepoRootPath(repoRoot: string, options: RepoRootValidation
 
   if (requireRepoLayout) {
     const layout = getRepoLayout(resolved);
-    if (!fs.existsSync(layout.clawdletsConfigPath)) {
-      throw new Error(`missing fleet/clawdlets.json in ${resolved}`);
+    if (!fs.existsSync(layout.clawletsConfigPath)) {
+      throw new Error(`missing fleet/clawlets.json in ${resolved}`);
     }
   }
 

@@ -1,5 +1,5 @@
 {
-  description = "Clawdlets (CLI + infra framework)";
+  description = "Clawlets (CLI + infra framework)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
@@ -40,14 +40,14 @@
           nodejs = pkgs.nodejs_22;
 
           pnpmWorkspacesCli = [
-            "@clawdlets/shared"
-            "@clawdlets/cattle-core"
-            "@clawdlets/core"
-            "clawdlets"
+            "@clawlets/shared"
+            "@clawlets/cattle-core"
+            "@clawlets/core"
+            "clawlets"
           ];
 
           pnpmDepsCli = pkgs.fetchPnpmDeps {
-            pname = "clawdlets-cli";
+            pname = "clawlets-cli";
             version = "0.4.3";
             src = rootSrc;
             inherit pnpm;
@@ -57,8 +57,8 @@
             hash = "sha256-A3izetIxONv5hwMCrqqaE4WcJE9RkkSKrSLSGjYyZ9Q=";
           };
 
-          clawdletsCli = pkgs.buildNpmPackage {
-            pname = "clawdlets";
+          clawletsCli = pkgs.buildNpmPackage {
+            pname = "clawlets";
             version = "0.4.3";
             src = rootSrc;
 
@@ -80,10 +80,10 @@
               runHook preBuild
 
               # Dependencies are installed by pnpmConfigHook (offline, workspace-scoped).
-              pnpm --filter=@clawdlets/shared build
-              pnpm --filter=@clawdlets/cattle-core build
-              pnpm --filter=@clawdlets/core build
-              pnpm --filter=clawdlets build
+              pnpm --filter=@clawlets/shared build
+              pnpm --filter=@clawlets/cattle-core build
+              pnpm --filter=@clawlets/core build
+              pnpm --filter=clawlets build
 
               runHook postBuild
             '';
@@ -91,28 +91,28 @@
             installPhase = ''
               runHook preInstall
 
-              mkdir -p $out/lib/clawdlets
+              mkdir -p $out/lib/clawlets
               mkdir -p $out/bin
 
-              cp -r node_modules $out/lib/clawdlets/node_modules
-              cp -r packages $out/lib/clawdlets/packages
+              cp -r node_modules $out/lib/clawlets/node_modules
+              cp -r packages $out/lib/clawlets/packages
 
-              makeWrapper ${nodejs}/bin/node $out/bin/clawdlets \
-                --add-flags "$out/lib/clawdlets/packages/cli/dist/main.mjs" \
+              makeWrapper ${nodejs}/bin/node $out/bin/clawlets \
+                --add-flags "$out/lib/clawlets/packages/cli/dist/main.mjs" \
                 --prefix PATH : ${pkgs.minisign}/bin
 
               runHook postInstall
             '';
 
             meta = {
-              description = "clawdlets CLI";
-              mainProgram = "clawdlets";
+              description = "clawlets CLI";
+              mainProgram = "clawlets";
             };
           };
         in
           {
-            clawdlets = clawdletsCli;
-            default = clawdletsCli;
+            clawlets = clawletsCli;
+            default = clawletsCli;
           }
       );
     in {
@@ -144,16 +144,16 @@
       };
 
       nixosModules = {
-        clawdletsProjectHost = import ./nix/hosts/project-host.nix;
-        clawdletsCattleImage = import ./nix/cattle/image.nix;
+        clawletsProjectHost = import ./nix/hosts/project-host.nix;
+        clawletsCattleImage = import ./nix/cattle/image.nix;
 
-        # Advanced / reuse. Projects should generally import clawdletsProjectHost only.
-        clawdletsHostMeta = import ./nix/modules/clawdlets-host-meta.nix;
-        clawdletsHostBaseline = import ./nix/modules/clawdlets-host-baseline.nix;
-        clawdletsSelfUpdate = import ./nix/modules/clawdlets-self-update.nix;
-        clawdletsCacheAtticServer = import ./nix/modules/clawdlets-cache-attic-server.nix;
-        clawdletsCacheHarmoniaServer = import ./nix/modules/clawdlets-cache-harmonia-server.nix;
-        clawdletsImageFormats = import ./nix/modules/clawdlets-image-formats.nix;
+        # Advanced / reuse. Projects should generally import clawletsProjectHost only.
+        clawletsHostMeta = import ./nix/modules/clawlets-host-meta.nix;
+        clawletsHostBaseline = import ./nix/modules/clawlets-host-baseline.nix;
+        clawletsSelfUpdate = import ./nix/modules/clawlets-self-update.nix;
+        clawletsCacheAtticServer = import ./nix/modules/clawlets-cache-attic-server.nix;
+        clawletsCacheHarmoniaServer = import ./nix/modules/clawlets-cache-harmonia-server.nix;
+        clawletsImageFormats = import ./nix/modules/clawlets-image-formats.nix;
 
         clawdbotFleet = import ./nix/modules/clawdbot-fleet.nix;
         clawdbotCattle = import ./nix/modules/clawdbot-cattle.nix;

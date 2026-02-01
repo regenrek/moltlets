@@ -27,18 +27,18 @@ let
           wants = [ "network-online.target" "sops-nix.service" ];
           path = [ pkgs.coreutils pkgs.curl pkgs.openssl pkgs.jq ];
           environment = {
-            CLAWDLETS_GH_APP_ID = appId;
-            CLAWDLETS_GH_INSTALLATION_ID = installationId;
-            CLAWDLETS_GH_PRIVATE_KEY_PATH = privateKeyPath;
-            CLAWDLETS_GH_ENV_FILE = envFile;
-            CLAWDLETS_GH_GIT_CREDENTIALS_FILE = gitCredsFile;
-            CLAWDLETS_GH_GITCONFIG_FILE = gitConfigFile;
-            CLAWDLETS_BOT_USER = "bot-${b}";
-            CLAWDLETS_BOT_GROUP = "bot-${b}";
+            CLAWLETS_GH_APP_ID = appId;
+            CLAWLETS_GH_INSTALLATION_ID = installationId;
+            CLAWLETS_GH_PRIVATE_KEY_PATH = privateKeyPath;
+            CLAWLETS_GH_ENV_FILE = envFile;
+            CLAWLETS_GH_GIT_CREDENTIALS_FILE = gitCredsFile;
+            CLAWLETS_GH_GITCONFIG_FILE = gitConfigFile;
+            CLAWLETS_BOT_USER = "bot-${b}";
+            CLAWLETS_BOT_GROUP = "bot-${b}";
           };
           serviceConfig = {
             Type = "oneshot";
-            ExecStart = "/etc/clawdlets/bin/gh-mint-app-token";
+            ExecStart = "/etc/clawlets/bin/gh-mint-app-token";
 
             User = "root";
             Group = "root";
@@ -133,7 +133,7 @@ let
             ORG = cfg.githubSync.org;
           } // lib.optionalAttrs (cfg.githubSync.repos != []) { REPOS = reposEnv; };
           script = ''
-            exec /etc/clawdlets/bin/gh-sync
+            exec /etc/clawlets/bin/gh-sync
           '';
         };
       };

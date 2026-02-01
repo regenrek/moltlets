@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import type { RepoLayout } from "../repo-layout.js";
-import { loadClawdletsConfig } from "../lib/clawdlets-config.js";
+import { loadClawletsConfig } from "../lib/clawlets-config.js";
 import { getHostSecretsDir } from "../repo-layout.js";
 import { sopsDecryptYamlFile } from "../lib/sops.js";
 import { isPlaceholderSecretValue } from "../lib/secrets-init.js";
@@ -24,10 +24,10 @@ export async function addCattleChecks(params: {
   push({
     status: params.hcloudToken ? "ok" : "missing",
     label: "HCLOUD_TOKEN",
-    detail: params.hcloudToken ? "(set)" : "(set in .clawdlets/env or env var; run: clawdlets env init)",
+    detail: params.hcloudToken ? "(set)" : "(set in .clawlets/env or env var; run: clawlets env init)",
   });
 
-  const { config } = loadClawdletsConfig({ repoRoot: params.repoRoot });
+  const { config } = loadClawletsConfig({ repoRoot: params.repoRoot });
   const cattleEnabled = Boolean((config as any).cattle?.enabled);
   const cattleImage = String((config as any).cattle?.hetzner?.image || "").trim();
 

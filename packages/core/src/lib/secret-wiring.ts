@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { EnvVarNameSchema, SecretNameSchema } from "@clawdlets/shared/lib/identifiers";
+import { EnvVarNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers";
 
 export const SecretEnvSchema = z.record(EnvVarNameSchema, SecretNameSchema).default(() => ({}));
 
@@ -23,9 +23,9 @@ const AbsolutePathSchema = z
   );
 
 const AllowedTargetPathSchema = AbsolutePathSchema.refine(
-  (v) => v.startsWith("/var/lib/clawdlets/"),
+  (v) => v.startsWith("/var/lib/clawlets/"),
   {
-    message: "targetPath must be under /var/lib/clawdlets/",
+    message: "targetPath must be under /var/lib/clawlets/",
   },
 );
 

@@ -5,7 +5,7 @@ import { jobs } from "./commands/jobs.js";
 const main = defineCommand({
   meta: {
     name: "clf",
-    description: "ClawdletFleet (bot-facing control plane CLI).",
+    description: "ClawletFleet (bot-facing control plane CLI).",
   },
   subCommands: {
     jobs,

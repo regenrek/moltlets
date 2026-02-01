@@ -1,11 +1,11 @@
 {
-  "name": "clawdlets",
+  "name": "clawlets",
   "version": "0.4.3",
   "private": false,
   "type": "module",
-  "description": "CLI for clawdlets (NixOS fleet + bot operations)",
+  "description": "CLI for clawlets (NixOS fleet + bot operations)",
   "bin": {
-    "clawdlets": "dist/main.mjs"
+    "clawlets": "dist/main.mjs"
   },
   "files": [
     "dist",
@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@clawdlets/core": "workspace:*",
-    "@clawdlets/shared": "workspace:*",
+    "@clawlets/core": "workspace:*",
+    "@clawlets/shared": "workspace:*",
     "ajv": "^8.17.1",
     "citty": "^0.2.0",
     "giget": "^3.1.1",
@@ -52,7 +52,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/regenrek/clawdlets.git"
+    "url": "git+https://github.com/regenrek/clawlets.git"
   },
   "license": "MIT",
   "packageManager": "pnpm@10.25.0"

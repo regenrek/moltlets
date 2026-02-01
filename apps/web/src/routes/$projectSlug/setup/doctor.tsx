@@ -10,7 +10,7 @@ import { LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import { runDoctor } from "~/sdk/operations"
 
 export const Route = createFileRoute("/$projectSlug/setup/doctor")({
@@ -40,7 +40,7 @@ function pickFixLink(
     ? ({ to: `${hostBase}/audit`, label: "Open Audit" })
     : toHosts()
 
-  if (label.includes("clawdlets config") || label.includes("fleet config")) return toFleet()
+  if (label.includes("clawlets config") || label.includes("fleet config")) return toFleet()
   if (label.includes("fleet policy") || label.includes("fleet bots") || label.includes("services.clawdbotfleet.enable")) return toFleet()
   if (label.includes("host config") || label.includes("targethost") || label.includes("sshexposure") || label.includes("diskdevice")) return toHosts()
   if (label.includes("provisioning") || label.includes("admin cidr") || label.includes("ssh pubkey")) return toHosts()
@@ -56,9 +56,9 @@ function DoctorSetup() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
   const config = cfg.data?.config as any

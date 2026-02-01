@@ -54,7 +54,7 @@ function makeServer() {
   };
 }
 
-vi.mock("@clawdlets/clf-queue", () => ({
+vi.mock("@clawlets/clf-queue", () => ({
   openClfQueue: (...args: any[]) => openClfQueueMock(...args),
 }));
 

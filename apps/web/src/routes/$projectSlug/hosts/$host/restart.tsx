@@ -9,7 +9,7 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import { serverRestartExecute, serverRestartStart } from "~/sdk/server-ops"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/restart")({
@@ -21,9 +21,9 @@ function RestartOperate() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
   const config = cfg.data?.config as any

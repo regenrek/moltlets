@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ../modules/clawdlets-host-meta.nix
+    ../modules/clawlets-host-meta.nix
     ../modules/clawdbot-cattle.nix
   ];
 
@@ -15,8 +15,8 @@
     };
   };
 
-  clawdlets.hostName = "clawdlets-cattle";
-  clawdlets.diskDevice = "/dev/sda";
+  clawlets.hostName = "clawlets-cattle";
+  clawlets.diskDevice = "/dev/sda";
 
   fileSystems."/" = {
     device = lib.mkDefault "/dev/disk/by-label/nixos";
@@ -24,8 +24,8 @@
     autoResize = lib.mkDefault true;
   };
 
-  networking.hostName = lib.mkDefault config.clawdlets.hostName;
-  networking.nameservers = config.clawdlets.nameservers;
+  networking.hostName = lib.mkDefault config.clawlets.hostName;
+  networking.nameservers = config.clawlets.nameservers;
   networking.useDHCP = false;
   networking.useNetworkd = true;
   systemd.network.networks."10-uplink" = {
@@ -43,7 +43,7 @@
 
   boot.loader.grub = {
     enable = true;
-    devices = lib.mkDefault [ config.clawdlets.diskDevice ];
+    devices = lib.mkDefault [ config.clawlets.diskDevice ];
     efiSupport = false;
     useOSProber = false;
   };

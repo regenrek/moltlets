@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button"
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar"
 import { useProjectBySlug } from "~/lib/project-data"
 import { buildHostPath, parseHostName, parseProjectSlug } from "~/lib/project-routing"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 
 type OpenHost = {
   name: string
@@ -36,10 +36,10 @@ function OpenSshExposureBanner() {
   const projectId = projectQuery.projectId
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     enabled: Boolean(projectId),
     queryFn: async () =>
-      await getClawdletsConfig({
+      await getClawletsConfig({
         data: { projectId: projectId as Id<"projects"> },
       }),
   })

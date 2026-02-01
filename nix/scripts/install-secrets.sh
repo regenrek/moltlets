@@ -5,7 +5,7 @@ usage() {
   cat >&2 <<'USAGE'
 usage: install-secrets --host <host> --tar <path> --rev <40-hex-sha> [--digest <sha256>]
 
-Installs encrypted secrets tarball to /var/lib/clawdlets/secrets/hosts/<host>.
+Installs encrypted secrets tarball to /var/lib/clawlets/secrets/hosts/<host>.
 USAGE
 }
 
@@ -109,7 +109,7 @@ trap 'rm -rf "${tmpdir}"' EXIT
 
 tar -xzf "${tar_path}" -C "${tmpdir}"
 
-secrets_dir="/var/lib/clawdlets/secrets/hosts/${host}"
+secrets_dir="/var/lib/clawlets/secrets/hosts/${host}"
 install -d -m 0700 -o root -g root "${secrets_dir}"
 
 shopt -s nullglob
@@ -126,14 +126,14 @@ for f in "${files[@]}"; do
   install -m 0400 -o root -g root "${f}" "${secrets_dir}/${bn}"
 done
 
-printf '%s\n' "${rev}" > "${secrets_dir}/.clawdlets-secrets-rev"
-chown root:root "${secrets_dir}/.clawdlets-secrets-rev"
-chmod 0400 "${secrets_dir}/.clawdlets-secrets-rev"
+printf '%s\n' "${rev}" > "${secrets_dir}/.clawlets-secrets-rev"
+chown root:root "${secrets_dir}/.clawlets-secrets-rev"
+chmod 0400 "${secrets_dir}/.clawlets-secrets-rev"
 
 if [[ -n "${digest}" ]]; then
-  printf '%s\n' "${digest}" > "${secrets_dir}/.clawdlets-secrets-digest"
-  chown root:root "${secrets_dir}/.clawdlets-secrets-digest"
-  chmod 0400 "${secrets_dir}/.clawdlets-secrets-digest"
+  printf '%s\n' "${digest}" > "${secrets_dir}/.clawlets-secrets-digest"
+  chown root:root "${secrets_dir}/.clawlets-secrets-digest"
+  chmod 0400 "${secrets_dir}/.clawlets-secrets-digest"
 fi
 
 rm -f "${tar_path}"

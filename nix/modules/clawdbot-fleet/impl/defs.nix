@@ -4,12 +4,12 @@ let
   cfg = config.services.clawdbotFleet;
   knownBundledSkills = builtins.fromJSON (builtins.readFile (project.root + "/fleet/bundled-skills.json"));
 
-  defaultHostSecretsDir = "/var/lib/clawdlets/secrets/hosts/${config.networking.hostName}";
+  defaultHostSecretsDir = "/var/lib/clawlets/secrets/hosts/${config.networking.hostName}";
   resolvedSopsDir =
-    if (config ? clawdlets)
-       && (config.clawdlets ? secrets)
-       && ((config.clawdlets.secrets.hostDir or null) != null)
-    then config.clawdlets.secrets.hostDir
+    if (config ? clawlets)
+       && (config.clawlets ? secrets)
+       && ((config.clawlets.secrets.hostDir or null) != null)
+    then config.clawlets.secrets.hostDir
     else defaultHostSecretsDir;
 
   sopsSecrets = import ../../../lib/sops-secrets.nix { };
@@ -118,7 +118,7 @@ let
     || cfg.codex.bots != []
     || hasCodingAgent;
 
-  toolsInventoryMd = pkgs.runCommand "clawdlets-tools.md" {} ''
+  toolsInventoryMd = pkgs.runCommand "clawlets-tools.md" {} ''
     set -euo pipefail
 
     cat >"$out" <<'MD'
@@ -159,7 +159,7 @@ MD
     ''}
   '';
 
-  buildInfoJson = pkgs.writeText "clawdlets-build-info.json" (builtins.toJSON flakeInfo);
+  buildInfoJson = pkgs.writeText "clawlets-build-info.json" (builtins.toJSON flakeInfo);
 
   botIndexByName = lib.listToAttrs (lib.imap0 (i: name: { name = name; value = i; }) cfg.bots);
   botIndex = b: botIndexByName.${b} or (throw "unknown bot index for ${b}");

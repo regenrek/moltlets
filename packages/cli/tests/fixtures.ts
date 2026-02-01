@@ -1,4 +1,4 @@
-import type { ClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
+import type { ClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 
 export const baseHost = {
   enable: false,
@@ -37,7 +37,7 @@ export function makeConfig(params?: {
   hostName?: string;
   hostOverrides?: Partial<typeof baseHost>;
   fleetOverrides?: Record<string, unknown>;
-}): ClawdletsConfig {
+}): ClawletsConfig {
   const hostName = params?.hostName ?? "alpha";
   const host = { ...baseHost, ...(params?.hostOverrides ?? {}) };
   const fleet = {
@@ -56,5 +56,5 @@ export function makeConfig(params?: {
     defaultHost: hostName,
     fleet,
     hosts: { [hostName]: host } as Record<string, typeof host>,
-  } as ClawdletsConfig;
+  } as ClawletsConfig;
 }

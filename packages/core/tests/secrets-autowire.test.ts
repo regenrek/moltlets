@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 describe("secrets autowire", () => {
   it("plans stable mappings with deterministic ordering", async () => {
-    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
-    const cfg = ClawdletsConfigSchema.parse({
+    const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: {
         botOrder: ["alpha", "beta"],
@@ -38,10 +38,10 @@ describe("secrets autowire", () => {
   });
 
   it("no-ops when already wired", async () => {
-    const { ClawdletsConfigSchema } = await import("../src/lib/clawdlets-config");
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
-    const cfg = ClawdletsConfigSchema.parse({
+    const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: {
         botOrder: ["maren"],

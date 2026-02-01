@@ -5,7 +5,7 @@ import path from "node:path";
 import { findClawdbotSecretViolations } from "../src/doctor/repo-checks-secrets";
 
 async function setupRepo(): Promise<{ dir: string; botDir: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-repo-checks-secrets-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "clawlets-repo-checks-secrets-"));
   const botDir = path.join(dir, "fleet", "workspaces", "bots", "bot1");
   await mkdir(botDir, { recursive: true });
   return { dir, botDir };
@@ -40,7 +40,7 @@ describe("repo-checks-secrets", () => {
 
   it("does not follow $include targets outside repo root", async () => {
     const { dir, botDir } = await setupRepo();
-    const outsideDir = await mkdtemp(path.join(tmpdir(), "clawdlets-repo-checks-secrets-outside-"));
+    const outsideDir = await mkdtemp(path.join(tmpdir(), "clawlets-repo-checks-secrets-outside-"));
     try {
       const outsideFile = path.join(outsideDir, "outside.json5");
       await writeFile(outsideFile, '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");
@@ -59,7 +59,7 @@ describe("repo-checks-secrets", () => {
     if (process.platform === "win32") return;
 
     const { dir, botDir } = await setupRepo();
-    const outsideDir = await mkdtemp(path.join(tmpdir(), "clawdlets-repo-checks-secrets-outside-"));
+    const outsideDir = await mkdtemp(path.join(tmpdir(), "clawlets-repo-checks-secrets-outside-"));
     try {
       const outsideFile = path.join(outsideDir, "outside.json5");
       await writeFile(outsideFile, '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");

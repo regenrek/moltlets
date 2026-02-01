@@ -37,7 +37,7 @@ describe("clawdbot fleet tmpfiles", () => {
         "  project = { root = toString " + fixtureRoot + "; config = {}; };",
         "  cfg = (lib.nixosSystem {",
         "    inherit system;",
-        "    specialArgs = { inherit project; flakeInfo = { clawdlets = { rev = \"test\"; lastModifiedDate = null; }; }; };",
+        "    specialArgs = { inherit project; flakeInfo = { clawlets = { rev = \"test\"; lastModifiedDate = null; }; }; };",
         "    modules = [",
         "      flake.inputs.sops-nix.nixosModules.sops",
         "      flake.nixosModules.clawdbotFleet",

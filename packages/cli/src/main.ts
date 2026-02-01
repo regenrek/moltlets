@@ -6,8 +6,8 @@ import { readCliVersion } from "./lib/version.js";
 
 const main = defineCommand({
   meta: {
-    name: "clawdlets",
-    description: "Clawdbot fleet helper (CLI-first; runtime state in .clawdlets/; secrets in /secrets).",
+    name: "clawlets",
+    description: "Clawdbot fleet helper (CLI-first; runtime state in .clawlets/; secrets in /secrets).",
   },
   subCommands: baseCommands,
 });

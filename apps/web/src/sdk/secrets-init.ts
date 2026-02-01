@@ -2,27 +2,27 @@ import fs from "node:fs/promises"
 import path from "node:path"
 
 import { createServerFn } from "@tanstack/react-start"
-import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets-plan"
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan"
 import {
   buildSecretsInitTemplate,
   isPlaceholderSecretValue,
   type SecretsInitJson,
-} from "@clawdlets/core/lib/secrets-init"
-import { buildSecretsInitTemplateSets } from "@clawdlets/core/lib/secrets-init-template"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { getRepoLayout, getHostSecretFile } from "@clawdlets/core/repo-layout"
-import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawdlets/core/lib/secrets-allowlist"
-import { writeFileAtomic } from "@clawdlets/core/lib/fs-safe"
-import { mkpasswdYescryptHash } from "@clawdlets/core/lib/mkpasswd"
-import { sopsDecryptYamlFile } from "@clawdlets/core/lib/sops"
-import { readYamlScalarFromMapping } from "@clawdlets/core/lib/yaml-scalar"
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds"
+} from "@clawlets/core/lib/secrets-init"
+import { buildSecretsInitTemplateSets } from "@clawlets/core/lib/secrets-init-template"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { getRepoLayout, getHostSecretFile } from "@clawlets/core/repo-layout"
+import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawlets/core/lib/secrets-allowlist"
+import { writeFileAtomic } from "@clawlets/core/lib/fs-safe"
+import { mkpasswdYescryptHash } from "@clawlets/core/lib/mkpasswd"
+import { sopsDecryptYamlFile } from "@clawlets/core/lib/sops"
+import { readYamlScalarFromMapping } from "@clawlets/core/lib/yaml-scalar"
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds"
 
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
-import { getClawdletsCliEnv } from "~/server/run-env"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
+import { getClawletsCliEnv } from "~/server/run-env"
 import { runWithEvents, spawnCommand } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { parseProjectHostInput, parseSecretsInitExecuteInput } from "~/sdk/serverfn-validators"
@@ -34,7 +34,7 @@ export const getSecretsTemplate = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
 
     const hostCfg = config.hosts[host]
@@ -58,7 +58,7 @@ export const secretsInitStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -94,14 +94,14 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
     let tmpJsonPath = ""
     let redactTokens: string[] = []
     try {
-      const { config } = loadClawdletsConfig({ repoRoot })
+      const { config } = loadClawletsConfig({ repoRoot })
       if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
       const layout = getRepoLayout(repoRoot)
 
       const allowlist = buildManagedHostSecretNameAllowlist({ config, host: data.host })
       assertSecretsAreManaged({ allowlist, secrets: data.secrets })
 
-      const baseRedactions = await readClawdletsEnvTokens(repoRoot)
+      const baseRedactions = await readClawletsEnvTokens(repoRoot)
       const extraRedactions = [
         data.adminPassword,
         data.adminPasswordHash,
@@ -113,11 +113,11 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
 
       redactTokens = Array.from(new Set([...baseRedactions, ...extraRedactions]))
 
-      const cliEntry = resolveClawdletsCliEntry()
-      const cliEnv = getClawdletsCliEnv()
+      const cliEntry = resolveClawletsCliEntry()
+      const cliEnv = getClawletsCliEnv()
       tmpJsonPath = path.join(
         repoRoot,
-        ".clawdlets",
+        ".clawlets",
         `secrets.ui.${Date.now()}.${process.pid}.json`,
       )
 

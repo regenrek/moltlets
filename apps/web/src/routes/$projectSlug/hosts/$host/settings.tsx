@@ -17,7 +17,7 @@ import { singleHostCidrFromIp } from "~/lib/ip-utils"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
-import { getClawdletsConfig, writeClawdletsConfigFile } from "~/sdk/config"
+import { getClawletsConfig, writeClawletsConfigFile } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/settings")({
   component: HostsSetup,
@@ -30,9 +30,9 @@ function HostsSetup() {
   const queryClient = useQueryClient()
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
 
@@ -130,14 +130,14 @@ function HostsSetup() {
           },
         },
       }
-      return await writeClawdletsConfigFile({
+      return await writeClawletsConfigFile({
         data: { projectId: projectId as Id<"projects">, next, title: `Update host ${selectedHost}` },
       })
     },
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Validation failed")
     },
     onError: (err) => {

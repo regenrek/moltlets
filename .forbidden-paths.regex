@@ -2,11 +2,12 @@
 # Keep conservative; GitHub push protection is the hard gate.
 #
 # Local runtime + plaintext secrets
+(^|/)\\.clawlets/
 (^|/)\\.clawdlets/
 (^|/)\\.env($|/)
 (^|/)\\.env\\.
 
-# Note: encrypted secrets live under `secrets/` in many clawdlets projects.
+# Note: encrypted secrets live under `secrets/` in many clawlets projects.
 # Don't blanket-block `secrets/` here; rely on other patterns (and push protection)
 # to prevent plaintext creds from being committed.
 

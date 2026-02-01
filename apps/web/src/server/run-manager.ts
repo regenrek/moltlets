@@ -3,7 +3,7 @@ import readline from "node:readline";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { RunEventLevel } from "@clawdlets/core/lib/run-types";
+import type { RunEventLevel } from "@clawlets/core/lib/run-types";
 import type { ConvexClient } from "./convex";
 import { redactLine } from "./redaction";
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
-import { listPinnedChannels } from "@clawdlets/core/lib/channel-registry"
+import { listPinnedChannels } from "@clawlets/core/lib/channel-registry"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
@@ -82,7 +82,7 @@ export function BotCapabilities(props: {
         return
       }
       toast.success("Capability applied")
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", props.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
       setSelected("")
       setUseLiveSchema(false)
     },

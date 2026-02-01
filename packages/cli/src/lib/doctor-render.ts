@@ -1,5 +1,5 @@
 import process from "node:process";
-import type { DoctorCheck } from "@clawdlets/core/doctor";
+import type { DoctorCheck } from "@clawlets/core/doctor";
 
 type DoctorStatus = DoctorCheck["status"];
 
@@ -151,6 +151,6 @@ export function renderDoctorGateFailure(params: {
   }
 
   lines.push("");
-  lines.push(`hint: run clawdlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""}`);
+  lines.push(`hint: run clawlets doctor --scope ${params.scope}${params.strict ? " --strict" : ""}`);
   return lines.join("\n");
 }

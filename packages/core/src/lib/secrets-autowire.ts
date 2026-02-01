@@ -1,8 +1,8 @@
 import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
 import { suggestSecretNameForEnvVar } from "./fleet-secrets-plan-helpers.js";
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import type { MissingSecretConfig, SecretSource } from "./secrets-plan.js";
-import { ClawdletsConfigSchema } from "./clawdlets-config.js";
+import { ClawletsConfigSchema } from "./clawlets-config.js";
 
 export type SecretsAutowireScope = "fleet" | "bot";
 
@@ -36,7 +36,7 @@ function normalizeEnvVarFilter(list: string[] | undefined): Set<string> | null {
 }
 
 export function planSecretsAutowire(params: {
-  config: ClawdletsConfig;
+  config: ClawletsConfig;
   hostName: string;
   scope?: SecretsAutowireScope;
   bot?: string;
@@ -95,10 +95,10 @@ export function planSecretsAutowire(params: {
 }
 
 export function applySecretsAutowire(params: {
-  config: ClawdletsConfig;
+  config: ClawletsConfig;
   plan: SecretsAutowirePlan;
-}): ClawdletsConfig {
-  const next = structuredClone(params.config) as ClawdletsConfig;
+}): ClawletsConfig {
+  const next = structuredClone(params.config) as ClawletsConfig;
 
   for (const entry of params.plan.updates) {
     if (entry.scope === "fleet") {
@@ -120,5 +120,5 @@ export function applySecretsAutowire(params: {
     profile.secretEnv[entry.envVar] = entry.secretName;
   }
 
-  return ClawdletsConfigSchema.parse(next);
+  return ClawletsConfigSchema.parse(next);
 }

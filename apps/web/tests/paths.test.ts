@@ -8,7 +8,7 @@ import { assertRepoRootPath, resolveUserPath, resolveWorkspacePath } from "../sr
 describe("resolveUserPath", () => {
   it("expands ~ and ~/ paths", () => {
     expect(resolveUserPath("~")).toBe(os.homedir())
-    expect(resolveUserPath("~/clawdlets")).toBe(path.join(os.homedir(), "clawdlets"))
+    expect(resolveUserPath("~/clawlets")).toBe(path.join(os.homedir(), "clawlets"))
   })
 
   it("resolves relative paths from cwd", () => {
@@ -31,8 +31,8 @@ describe("workspace path validation", () => {
   let workspaceRoot = ""
 
   beforeEach(async () => {
-    workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "clawdlets-workspace-"))
-    vi.stubEnv("CLAWDLETS_WORKSPACE_ROOTS", workspaceRoot)
+    workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "clawlets-workspace-"))
+    vi.stubEnv("CLAWLETS_WORKSPACE_ROOTS", workspaceRoot)
   })
 
   afterEach(async () => {
@@ -43,7 +43,7 @@ describe("workspace path validation", () => {
   it("accepts repo root within workspace", async () => {
     const repoRoot = path.join(workspaceRoot, "repo1")
     await mkdir(path.join(repoRoot, "fleet"), { recursive: true })
-    await writeFile(path.join(repoRoot, "fleet", "clawdlets.json"), "{}\n", "utf8")
+    await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), "{}\n", "utf8")
     const resolved = resolveWorkspacePath(repoRoot, { requireRepoLayout: true })
     expect(resolved).toBe(await realpath(repoRoot))
   })
@@ -58,7 +58,7 @@ describe("workspace path validation", () => {
   })
 
   it("dedupes duplicate workspace roots", async () => {
-    vi.stubEnv("CLAWDLETS_WORKSPACE_ROOTS", `${workspaceRoot}${path.delimiter}${workspaceRoot}/.`)
+    vi.stubEnv("CLAWLETS_WORKSPACE_ROOTS", `${workspaceRoot}${path.delimiter}${workspaceRoot}/.`)
     const repoRoot = path.join(workspaceRoot, "repo-dup")
     await mkdir(repoRoot, { recursive: true })
     const resolved = resolveWorkspacePath(repoRoot, { allowMissing: false })
@@ -77,7 +77,7 @@ describe("workspace path validation", () => {
 
   it("throws when workspace roots are missing", () => {
     const missingRoot = path.join(workspaceRoot, "missing-root")
-    vi.stubEnv("CLAWDLETS_WORKSPACE_ROOTS", missingRoot)
+    vi.stubEnv("CLAWLETS_WORKSPACE_ROOTS", missingRoot)
     expect(() => resolveWorkspacePath("/tmp", { allowMissing: true })).toThrow(/workspace roots not configured/i)
   })
 
@@ -98,7 +98,7 @@ describe("workspace path validation", () => {
     const repoRoot = path.join(workspaceRoot, "repo2")
     await mkdir(repoRoot, { recursive: true })
     expect(() => assertRepoRootPath(repoRoot, { allowMissing: false, requireRepoLayout: true })).toThrow(
-      /clawdlets\.json/i,
+      /clawlets\.json/i,
     )
   })
 })

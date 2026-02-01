@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import { toast } from "sonner"
-import type { SecretsPlanWarning } from "@clawdlets/core/lib/secrets-plan"
+import type { SecretsPlanWarning } from "@clawlets/core/lib/secrets-plan"
 import { Button } from "~/components/ui/button"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SecretInput } from "~/components/ui/secret-input"

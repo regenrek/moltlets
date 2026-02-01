@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 import { makeConfig } from "./fixtures.js";
 
 const loadHostContextMock = vi.fn();
@@ -11,23 +11,23 @@ const createSecretsTarMock = vi.fn();
 const runMock = vi.fn();
 const sshRunMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/git", () => ({
+vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
 }));
 
-vi.mock("@clawdlets/core/lib/secrets-tar", () => ({
+vi.mock("@clawlets/core/lib/secrets-tar", () => ({
   createSecretsTar: createSecretsTarMock,
 }));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   run: runMock,
 }));
 
-vi.mock("@clawdlets/core/lib/ssh-remote", () => ({
+vi.mock("@clawlets/core/lib/ssh-remote", () => ({
   sshRun: sshRunMock,
   shellQuote: (s: string) => s,
 }));
@@ -53,7 +53,7 @@ describe("secrets sync", () => {
     createSecretsTarMock.mockResolvedValue({ tarPath, digest: "digest" });
     const { secretsSync } = await import("../src/commands/secrets/sync.js");
     await secretsSync.run({ args: { host: "alpha", targetHost: "admin@host" } } as any);
-    expect(runMock).toHaveBeenCalledWith("scp", [tarPath, "admin@host:/tmp/clawdlets-secrets.alpha." + process.pid + ".tgz"], { redact: [] });
+    expect(runMock).toHaveBeenCalledWith("scp", [tarPath, "admin@host:/tmp/clawlets-secrets.alpha." + process.pid + ".tgz"], { redact: [] });
     expect(sshRunMock).toHaveBeenCalled();
   });
 });

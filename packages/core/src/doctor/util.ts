@@ -18,7 +18,7 @@ export function dirHasAnyFile(dirPath: string): boolean {
 }
 
 export function resolveTemplateRoot(repoRoot: string): string | null {
-  const env = String(process.env["CLAWDLETS_TEMPLATE_DIR"] || "").trim();
+  const env = String(process.env["CLAWLETS_TEMPLATE_DIR"] || "").trim();
   if (env) {
     const resolved = path.resolve(env);
     if (fs.existsSync(resolved)) return resolved;

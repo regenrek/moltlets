@@ -44,9 +44,9 @@ describe("doctor", () => {
   const originalEnv = { ...process.env };
 
   beforeAll(async () => {
-    repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-doctor-"));
+    repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-doctor-"));
     templateRoot = path.join(repoRoot, "__template__");
-    process.env.CLAWDLETS_TEMPLATE_DIR = templateRoot;
+    process.env.CLAWLETS_TEMPLATE_DIR = templateRoot;
     await writeFile(path.join(repoRoot, "flake.nix"), "{ }", "utf8");
     await mkdir(path.join(repoRoot, "scripts"), { recursive: true });
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
@@ -55,7 +55,7 @@ describe("doctor", () => {
     await mkdir(path.join(templateRoot, "fleet"), { recursive: true });
     await mkdir(path.join(templateRoot, "fleet", "workspaces", "common"), { recursive: true });
     await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-    await mkdir(path.join(repoRoot, ".clawdlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix"), { recursive: true });
+    await mkdir(path.join(repoRoot, ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix"), { recursive: true });
 
     const bundledSkillsText = ["[", '  "github",', '  "brave-search",', '  "coding-agent"', "]", ""].join("\n");
     await writeFile(path.join(repoRoot, "fleet", "bundled-skills.json"), bundledSkillsText, "utf8");
@@ -103,11 +103,11 @@ describe("doctor", () => {
     const sshPub = path.join(repoRoot, "id_ed25519.pub");
     await writeFile(sshPub, "ssh-ed25519 AAAATEST test\n", "utf8");
 
-    const operatorKey = path.join(repoRoot, ".clawdlets", "keys", "operators", "tester.agekey");
+    const operatorKey = path.join(repoRoot, ".clawlets", "keys", "operators", "tester.agekey");
     await mkdir(path.dirname(operatorKey), { recursive: true });
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
-    const clawdletsConfig = {
+    const clawletsConfig = {
       schemaVersion: 12,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
@@ -143,8 +143,8 @@ describe("doctor", () => {
       },
     };
 
-    await writeFile(path.join(repoRoot, "fleet", "clawdlets.json"), JSON.stringify(clawdletsConfig, null, 2) + "\n", "utf8");
-    await writeFile(path.join(templateRoot, "fleet", "clawdlets.json"), JSON.stringify(clawdletsConfig, null, 2) + "\n", "utf8");
+    await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), JSON.stringify(clawletsConfig, null, 2) + "\n", "utf8");
+    await writeFile(path.join(templateRoot, "fleet", "clawlets.json"), JSON.stringify(clawletsConfig, null, 2) + "\n", "utf8");
 
     mockFleetMain = {
       bots: ["alpha", "beta"],
@@ -194,7 +194,7 @@ describe("doctor", () => {
     await writeFile(path.join(secretsDir, "z_ai_api_key.yaml"), `z_ai_api_key: ${enc}\nsops: {}\n`, "utf8");
 
     await writeFile(
-      path.join(repoRoot, ".clawdlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
+      path.join(repoRoot, ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
       "AGE-SECRET-KEY-TEST\n",
       "utf8",
     );
@@ -207,7 +207,7 @@ describe("doctor", () => {
   });
 
   afterEach(() => {
-    process.env = { ...originalEnv, CLAWDLETS_TEMPLATE_DIR: templateRoot };
+    process.env = { ...originalEnv, CLAWLETS_TEMPLATE_DIR: templateRoot };
     mockFleetMain = {
       bots: ["alpha", "beta"],
       botProfiles: {
@@ -229,14 +229,14 @@ describe("doctor", () => {
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   });
 
-  it("warns when clawdlets config fails to load", async () => {
-    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+  it("warns when clawlets config fails to load", async () => {
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
     await writeFile(configPath, "{", "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "updates" });
-    const check = checks.find((c) => c.label === "clawdlets config");
+    const check = checks.find((c) => c.label === "clawlets config");
     expect(check?.status).toBe("warn");
 
     await writeFile(configPath, original, "utf8");
@@ -367,7 +367,7 @@ describe("doctor", () => {
   });
 
   it("flags provisioning ssh pubkey file contents as invalid", async () => {
-    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
@@ -404,8 +404,8 @@ describe("doctor", () => {
     await rm(botDir, { recursive: true, force: true });
   });
 
-  it("flags secrets in fleet/clawdlets.json", async () => {
-    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+  it("flags secrets in fleet/clawlets.json", async () => {
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
@@ -424,7 +424,7 @@ describe("doctor", () => {
   });
 
   it("fails when diskDevice is left as CHANGE_ME placeholder", async () => {
-    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
@@ -440,7 +440,7 @@ describe("doctor", () => {
   });
 
   it("requires garnix_netrc when private Garnix cache enabled", async () => {
-    const configPath = path.join(repoRoot, "fleet", "clawdlets.json");
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;

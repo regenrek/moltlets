@@ -1,6 +1,6 @@
-# Clawdlets
+# Clawlets
 
-Clawdlets is an unofficial clawdbot server provisioner for made for hetzner.
+Clawlets is an unofficial clawdbot server provisioner for made for hetzner.
 
 ## Official Templates
 - Looking for official AWS Deploy? [clawdbot/clawdinators](https://github.com/clawdbot/clawdinators)
@@ -28,7 +28,7 @@ Read [Quickstart Guide](docs/quickstart.md) to get started.
 - Start here: `docs/README.md`
 - [Overview](docs/overview.md) – Mental model + lifecycle.
 - [CLI Cookbook](docs/cli.md) – Common commands and patterns.
-- [Config Reference](docs/config.md) – `fleet/clawdlets.json` reference.
+- [Config Reference](docs/config.md) – `fleet/clawlets.json` reference.
 - [Installation Guide](docs/install.md) – Prerequisites and setup.
 - [Deployment & Updates](docs/deploy.md) – How to ship changes.
 - [Agent Configuration](docs/agent-config.md) – Routing, skills, and workspaces.
@@ -41,7 +41,7 @@ Read [Quickstart Guide](docs/quickstart.md) to get started.
 
 ## Powered By
 
-Clawdlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core projects:
+Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core projects:
 
 - [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
 - [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)

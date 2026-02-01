@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-state_dir="/var/lib/clawdlets/updates"
-if [[ -n "${CLAWDLETS_UPDATER_STATE_DIR:-}" && "${CLAWDLETS_UPDATER_STATE_DIR}" != "${state_dir}" ]]; then
-  echo "error: refusing CLAWDLETS_UPDATER_STATE_DIR override (must be ${state_dir})" >&2
+state_dir="/var/lib/clawlets/updates"
+if [[ -n "${CLAWLETS_UPDATER_STATE_DIR:-}" && "${CLAWLETS_UPDATER_STATE_DIR}" != "${state_dir}" ]]; then
+  echo "error: refusing CLAWLETS_UPDATER_STATE_DIR override (must be ${state_dir})" >&2
   exit 2
 fi
 

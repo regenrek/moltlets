@@ -6,7 +6,7 @@
 - `docs/quickstart.md`: “do these commands” walkthrough
 - `docs/poc.md`: acceptance criteria (“done”)
 - `docs/cli.md`: command cookbook
-- `docs/config.md`: `fleet/clawdlets.json` reference
+- `docs/config.md`: `fleet/clawlets.json` reference
 - `docs/agent-config.md`: routing + skills + workspaces
 - `docs/cattle.md`: cattle mode (ephemeral agents)
 - `docs/orchestrator.md`: clf + orchestrator (bot-facing jobs queue)

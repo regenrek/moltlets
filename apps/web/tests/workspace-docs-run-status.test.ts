@@ -19,13 +19,13 @@ async function loadWorkspaceDocs(options: { pathExists: boolean; writeThrows: bo
     createConvexClient: () => ({ mutation, query: vi.fn(async () => ({})) }) as any,
   }))
   vi.doMock("~/sdk/repo-root", () => ({ getRepoRoot: async () => "/tmp/repo" }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents: async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
       await fn(async () => {})
     },
   }))
-  vi.doMock("@clawdlets/core/repo-layout", () => ({
+  vi.doMock("@clawlets/core/repo-layout", () => ({
     getRepoLayout: () => ({
       repoRoot: "/tmp/repo",
       fleetWorkspacesCommonDir: "/tmp/repo/fleet/workspaces/common",
@@ -33,11 +33,11 @@ async function loadWorkspaceDocs(options: { pathExists: boolean; writeThrows: bo
     }),
     getBotWorkspaceDir: (_layout: unknown, botId: string) => `/tmp/repo/fleet/workspaces/bots/${botId}`,
   }))
-  vi.doMock("@clawdlets/core/lib/fleet-workspaces", () => ({
+  vi.doMock("@clawlets/core/lib/fleet-workspaces", () => ({
     isFleetWorkspaceEditableDoc: () => true,
     FLEET_WORKSPACE_EDITABLE_DOCS: [],
   }))
-  vi.doMock("@clawdlets/core/lib/fs-safe", () => ({
+  vi.doMock("@clawlets/core/lib/fs-safe", () => ({
     ensureDir: async () => {
       if (options.ensureThrows) throw new Error("mkdir failed")
     },
@@ -46,7 +46,7 @@ async function loadWorkspaceDocs(options: { pathExists: boolean; writeThrows: bo
       if (options.writeThrows) throw new Error("write failed")
     },
   }))
-  vi.doMock("@clawdlets/core/lib/fs-trash", () => ({
+  vi.doMock("@clawlets/core/lib/fs-trash", () => ({
     moveToTrash: async () => {
       if (options.trashThrows) throw new Error("trash failed")
     },

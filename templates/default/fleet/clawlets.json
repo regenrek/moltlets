@@ -27,7 +27,7 @@
       "location": "nbg1",
       "maxInstances": 10,
       "defaultTtl": "2h",
-      "labels": { "managed-by": "clawdlets" }
+      "labels": { "managed-by": "clawlets" }
     },
     "defaults": { "autoShutdown": true, "callbackUrl": "" }
   },

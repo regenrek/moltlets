@@ -1,17 +1,17 @@
-# Clawdlets Architecture
+# Clawlets Architecture
 
-This document describes the end-to-end lifecycle of a Clawdlets project, from initialization through ongoing maintenance.
+This document describes the end-to-end lifecycle of a Clawlets project, from initialization through ongoing maintenance.
 
 ## Repo layers + secret boundaries
 
-- **clawdlets (CLI repo):** `clawdlets` + `clf` + docs (no project secrets).
-- **clawdlets-template:** scaffold + workflows used by `project init`.
+- **clawlets (CLI repo):** `clawlets` + `clf` + docs (no project secrets).
+- **clawlets-template:** scaffold + workflows used by `project init`.
 - **Project repo:** `flake.nix`, `fleet/`, `secrets/`, `cattle/personas/` (public-safe).
-- **Runtime (`.clawdlets/`):** gitignored state + keys + provisioning artifacts.
+- **Runtime (`.clawlets/`):** gitignored state + keys + provisioning artifacts.
 
 Rules of thumb:
-- `fleet/clawdlets.json` and `fleet/workspaces/**` (documentsDir/includes) must not contain secrets.
-- Secrets live only in `secrets/` (sops-encrypted) and `.clawdlets/` (runtime).
+- `fleet/clawlets.json` and `fleet/workspaces/**` (documentsDir/includes) must not contain secrets.
+- Secrets live only in `secrets/` (sops-encrypted) and `.clawlets/` (runtime).
 
 ## Defaults worth knowing
 
@@ -23,25 +23,25 @@ Rules of thumb:
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║                           CLAWDLETS E2E LIFECYCLE DIAGRAM                                            ║
+║                           CLAWLETS E2E LIFECYCLE DIAGRAM                                            ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│  PHASE 1: PROJECT INITIALIZATION (clawdlets project init)                                            │
+│  PHASE 1: PROJECT INITIALIZATION (clawlets project init)                                            │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                      │
 │   Developer                                                                                          │
 │      │                                                                                               │
-│      │  clawdlets project init --dir ./my-fleet                                                      │
+│      │  clawlets project init --dir ./my-fleet                                                      │
 │      ▼                                                                                               │
 │  ┌────────────────┐       ┌──────────────────────────┐       ┌─────────────────────────────┐         │
-│  │  clawdlets     │──────▶│  clawdlets-template      │──────▶│  New Project Created        │         │
+│  │  clawlets     │──────▶│  clawlets-template      │──────▶│  New Project Created        │         │
 │  │  CLI           │ giget │  (templates/default/)    │       │                             │         │
 │  └────────────────┘       └──────────────────────────┘       │  my-fleet/                  │         │
 │                                                              │  ├── flake.nix              │         │
-│   Inputs:                                                    │  ├── fleet/clawdlets.json   │         │
-│   - template repo (regenrek/clawdlets-template)              │  ├── secrets/               │         │
-│   - host name                                                │  ├── .clawdlets/            │         │
+│   Inputs:                                                    │  ├── fleet/clawlets.json   │         │
+│   - template repo (regenrek/clawlets-template)              │  ├── secrets/               │         │
+│   - host name                                                │  ├── .clawlets/            │         │
 │                                                              │  ├── cattle/personas/       │         │
 │                                                              │  └── .github/workflows/     │         │
 │                                                              └─────────────────────────────┘         │
@@ -58,17 +58,17 @@ Rules of thumb:
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 1: ENVIRONMENT SETUP                                                                     │   │
 │  │ ─────────────────────────                                                                     │   │
-│  │   clawdlets env init  ──▶  .clawdlets/env (HCLOUD_TOKEN)                                      │   │
+│  │   clawlets env init  ──▶  .clawlets/env (HCLOUD_TOKEN)                                      │   │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
 │                                              │                                                       │
 │                                              ▼                                                       │
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 2: FLEET & HOST CONFIGURATION                                                            │   │
 │  │ ─────────────────────────────────────                                                         │   │
-│  │   clawdlets fleet set --guild-id <id>                                                         │   │
-│  │   clawdlets bot add --bot <id>                              ┌─────────────────────────┐       │   │
-│  │   clawdlets host add --host myhost           ──────────────▶│ fleet/clawdlets.json    │       │   │
-│  │   clawdlets host set --host myhost \                        │ (canonical config)      │       │   │
+│  │   clawlets fleet set --guild-id <id>                                                         │   │
+│  │   clawlets bot add --bot <id>                              ┌─────────────────────────┐       │   │
+│  │   clawlets host add --host myhost           ──────────────▶│ fleet/clawlets.json    │       │   │
+│  │   clawlets host set --host myhost \                        │ (canonical config)      │       │   │
 │  │       --enable true --ssh-exposure bootstrap \              └─────────────────────────┘       │   │
 │  │       --admin-cidr <ip>/32 --ssh-pubkey-file ~/.ssh/id.pub                                    │   │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
@@ -77,20 +77,20 @@ Rules of thumb:
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 3: SECRETS INITIALIZATION                                                                │   │
 │  │ ─────────────────────────────────                                                             │   │
-│  │   clawdlets secrets init --interactive                                                        │   │
+│  │   clawlets secrets init --interactive                                                        │   │
 │  │                   │                                                                           │   │
 │  │                   ├──▶ secrets/.sops.yaml (encryption rules)                                  │   │
 │  │                   ├──▶ secrets/hosts/<host>/age_key.yaml                                      │   │
 │  │                   ├──▶ secrets/hosts/<host>/discord_token_*.yaml                              │   │
 │  │                   ├──▶ secrets/hosts/<host>/tailscale_authkey.yaml                            │   │
-│  │                   └──▶ .clawdlets/extra-files/<host>/ (injection payload)                     │   │
+│  │                   └──▶ .clawlets/extra-files/<host>/ (injection payload)                     │   │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
 │                                              │                                                       │
 │                                              ▼                                                       │
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 4: PRE-FLIGHT CHECK                                                                      │   │
 │  │ ────────────────────────                                                                      │   │
-│  │   clawdlets doctor --scope bootstrap --strict                                                 │   │
+│  │   clawlets doctor --scope bootstrap --strict                                                 │   │
 │  │                   │                                                                           │   │
 │  │                   └──▶ Validates: secrets, config, Nix flake, SSH keys                        │   │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
@@ -99,7 +99,7 @@ Rules of thumb:
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 5: BOOTSTRAP (Provision + Install)                                                       │   │
 │  │ ───────────────────────────────────────                                                       │   │
-│  │   clawdlets bootstrap --host myhost                                                           │   │
+│  │   clawlets bootstrap --host myhost                                                           │   │
 │  │                   │                                                                           │   │
 │  │                   ├──▶ OpenTofu Apply ──▶ Hetzner VM Created ──▶ Public IP                    │   │
 │  │                   │                                                                           │   │
@@ -120,9 +120,9 @@ Rules of thumb:
 │  ┌───────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │  │ STEP 6: LOCKDOWN (Secure to Tailnet)                                                          │   │
 │  │ ───────────────────────────────────                                                           │   │
-│  │   clawdlets host set --target-host admin@<tailscale-ip>                                       │   │
-│  │   clawdlets host set --ssh-exposure tailnet                                                   │   │
-│  │   clawdlets lockdown --host myhost                                                            │   │
+│  │   clawlets host set --target-host admin@<tailscale-ip>                                       │   │
+│  │   clawlets host set --ssh-exposure tailnet                                                   │   │
+│  │   clawlets lockdown --host myhost                                                            │   │
 │  │                   │                                                                           │   │
 │  │                   └──▶ Closes public SSH, Tailnet-only access                                 │   │
 │  └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
@@ -147,7 +147,7 @@ Rules of thumb:
 │  │  │ updates-publish.yml (GitHub Actions)                                                      │   │ │
 │  │  │ ──────────────────────────────────────                                                    │   │ │
 │  │  │   1. nix eval .#packages.x86_64-linux."<host>-system".outPath  (Store path)              │   │ │
-│  │  │   2. clawdlets release manifest build --host <host> --channel <channel> --release-id <n>  │   │ │
+│  │  │   2. clawlets release manifest build --host <host> --channel <channel> --release-id <n>  │   │ │
 │  │  │   3. minisign -S  (Sign with MINISIGN_PRIVATE_KEY)                                        │   │ │
 │  │  │   4. Commit to gh-pages branch (GitHub Pages):                                            │   │ │
 │  │  │        deploy/<host>/<channel>/latest.json                                                │   │ │
@@ -158,7 +158,7 @@ Rules of thumb:
 │  │  ┌──────────────────────────────────────────────────────────────────────────────────────────┐   │ │
 │  │  │ operator apply-now (optional)                                                            │   │ │
 │  │  │ ─────────────────────────────                                                            │   │ │
-│  │  │   clawdlets server update apply --host <host> ───────────────▶ NixOS Host                 │   │ │
+│  │  │   clawlets server update apply --host <host> ───────────────▶ NixOS Host                 │   │ │
 │  │  └──────────────────────────────────────────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                                      │
@@ -193,7 +193,7 @@ Rules of thumb:
 │  │   │ Runtime Cattle Operations (via clf-orchestrator on host)                                 │   │ │
 │  │   │ ─────────────────────────────────────────────────────────                                │   │ │
 │  │   │                                                                                          │   │ │
-│  │   │   clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h                  │   │ │
+│  │   │   clawlets cattle spawn --persona rex --task-file ./task.json --ttl 2h                  │   │ │
 │  │   │         │                                                                                │   │ │
 │  │   │         ▼                                                                                │   │ │
 │  │   │   ┌─────────────┐        ┌─────────────┐        ┌─────────────┐                          │   │ │
@@ -202,9 +202,9 @@ Rules of thumb:
 │  │   │   └─────────────┘        └─────────────┘        └──────┬──────┘                          │   │ │
 │  │   │                                                        │                                 │   │ │
 │  │   │                                                        ▼                                 │   │ │
-│  │   │   clawdlets cattle list           (list active VMs)                                      │   │ │
-│  │   │   clawdlets cattle logs <id>      (stream logs)                                          │   │ │
-│  │   │   clawdlets cattle reap           (cleanup expired VMs)  ◀─── TTL reached               │   │ │
+│  │   │   clawlets cattle list           (list active VMs)                                      │   │ │
+│  │   │   clawlets cattle logs <id>      (stream logs)                                          │   │ │
+│  │   │   clawlets cattle reap           (cleanup expired VMs)  ◀─── TTL reached               │   │ │
 │  │   └─────────────────────────────────────────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                                      │
@@ -215,17 +215,17 @@ Rules of thumb:
 │  │  ┌──────────────────────────────┐      ┌──────────────────────────────┐                         │ │
 │  │  │ Health Checks                │      │ Secrets Management           │                         │ │
 │  │  │ ─────────────                │      │ ──────────────────           │                         │ │
-│  │  │ clawdlets doctor --scope repo│      │ sops edit secrets/...yaml    │                         │ │
-│  │  │ clawdlets doctor --scope     │      │ clawdlets secrets sync       │                         │ │
-│  │  │   updates --strict           │      │ clawdlets server update apply│                         │ │
-│  │  │ clawdlets server audit       │      └──────────────────────────────┘                         │ │
-│  │  │ clawdlets server logs --unit │                                                               │ │
+│  │  │ clawlets doctor --scope repo│      │ sops edit secrets/...yaml    │                         │ │
+│  │  │ clawlets doctor --scope     │      │ clawlets secrets sync       │                         │ │
+│  │  │   updates --strict           │      │ clawlets server update apply│                         │ │
+│  │  │ clawlets server audit       │      └──────────────────────────────┘                         │ │
+│  │  │ clawlets server logs --unit │                                                               │ │
 │  │  │   clawdbot-*.service --follow│      ┌──────────────────────────────┐                         │ │
 │  │  └──────────────────────────────┘      │ Add Bots/Features            │                         │ │
 │  │                                        │ ─────────────────            │                         │ │
-│  │                                        │ clawdlets bot add --bot <id> │                         │ │
-│  │                                        │ clawdlets secrets init       │                         │ │
-│  │                                        │ clawdlets server update apply│                         │ │
+│  │                                        │ clawlets bot add --bot <id> │                         │ │
+│  │                                        │ clawlets secrets init       │                         │ │
+│  │                                        │ clawlets server update apply│                         │ │
 │  │                                        └──────────────────────────────┘                         │ │
 │  └─────────────────────────────────────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -239,7 +239,7 @@ Rules of thumb:
 ╠══════════════════════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                                      ║
 ║    ┌────────────────────┐              ┌─────────────────────┐              ┌──────────────────────┐ ║
-║    │  clawdlets CLI     │              │  clawdlets-template │              │  User Project        │ ║
+║    │  clawlets CLI     │              │  clawlets-template │              │  User Project        │ ║
 ║    │  (packages/cli/)   │─────────────▶│  (templates/default)│─────────────▶│  (my-fleet/)         │ ║
 ║    │                    │   init       │                     │   scaffold   │                      │ ║
 ║    └────────────────────┘              └─────────────────────┘              └──────────────────────┘ ║
@@ -265,13 +265,13 @@ Rules of thumb:
 
 | Category | File | Purpose |
 |----------|------|---------|
-| **Configuration** | `fleet/clawdlets.json` | Central fleet configuration (hosts, bots, secrets mapping) |
+| **Configuration** | `fleet/clawlets.json` | Central fleet configuration (hosts, bots, secrets mapping) |
 | | `flake.nix` / `flake.lock` | NixOS configurations for hosts and cattle images |
-| | `.clawdlets/env` | Local deploy credentials (gitignored) |
+| | `.clawlets/env` | Local deploy credentials (gitignored) |
 | | `cattle/personas/<name>/` | Cattle persona registry |
 | **Secrets** | `secrets/.sops.yaml` | SOPS encryption rules |
 | | `secrets/hosts/<host>/*.yaml` | Encrypted secrets per host |
-| | `.clawdlets/extra-files/` | nixos-anywhere injection payload |
+| | `.clawlets/extra-files/` | nixos-anywhere injection payload |
 | **Workflows** | `updates-publish.yml` | Builds and signs release manifests + publishes secrets bundles |
 | | `deploy.yml` | Deploys manifests to hosts via Tailnet |
 | | `bump-nix-clawdbot.yml` | Auto-updates nix-clawdbot dependency |
@@ -289,7 +289,7 @@ Rules of thumb:
 
 | Phase | Purpose | Key Commands | Output |
 |-------|---------|--------------|--------|
-| **1. Init** | Scaffold project from template | `clawdlets project init` | Project repo with flake, config, secrets structure |
+| **1. Init** | Scaffold project from template | `clawlets project init` | Project repo with flake, config, secrets structure |
 | **2. Day0** | First-time provisioning | `env init` → `host set` → `secrets init` → `bootstrap` → `lockdown` | Running NixOS VM on Hetzner, secured via Tailnet |
 | **3. Day** | Ongoing operations | GitOps (push → build → deploy), cattle spawn/reap, secrets rotation | Continuous deployment, ephemeral task VMs |
 
@@ -303,7 +303,7 @@ Template → Init → Day0 Bootstrap → Lockdown → GitOps CI/CD loop
                                             Cattle VMs (on demand)
 ```
 
-1. **Template** (`clawdlets-template`) provides the project scaffold
+1. **Template** (`clawlets-template`) provides the project scaffold
 2. **Init** creates a new project with all necessary files and git hooks
 3. **Day0 Bootstrap** provisions infrastructure on Hetzner and installs NixOS
 4. **Lockdown** secures the server to Tailnet-only access

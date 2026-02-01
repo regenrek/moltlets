@@ -11,11 +11,11 @@ describe("resolveTemplateSpec errors", () => {
 
   it("throws when template source config missing", async () => {
     const prevCwd = process.cwd()
-    const prevEnv = process.env["CLAWDLETS_TEMPLATE_SPEC"]
-    const tempRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-template-missing-"))
+    const prevEnv = process.env["CLAWLETS_TEMPLATE_SPEC"]
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "clawlets-template-missing-"))
 
     process.chdir(tempRoot)
-    delete process.env["CLAWDLETS_TEMPLATE_SPEC"]
+    delete process.env["CLAWLETS_TEMPLATE_SPEC"]
     vi.resetModules()
 
     try {
@@ -23,8 +23,8 @@ describe("resolveTemplateSpec errors", () => {
       expect(() => resolveTemplateSpec()).toThrow(/template source config missing/i)
     } finally {
       process.chdir(prevCwd)
-      if (prevEnv === undefined) delete process.env["CLAWDLETS_TEMPLATE_SPEC"]
-      else process.env["CLAWDLETS_TEMPLATE_SPEC"] = prevEnv
+      if (prevEnv === undefined) delete process.env["CLAWLETS_TEMPLATE_SPEC"]
+      else process.env["CLAWLETS_TEMPLATE_SPEC"] = prevEnv
     }
   })
 })

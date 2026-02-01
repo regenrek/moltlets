@@ -14,7 +14,7 @@ const list = defineCommand({
   meta: { name: "list", description: "List installed plugins." },
   args: {
     json: { type: "boolean", description: "Output JSON.", default: false },
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
   },
   async run({ args }) {
     const { listInstalledPlugins } = await loadPlugins();
@@ -43,18 +43,18 @@ const list = defineCommand({
 });
 
 const add = defineCommand({
-  meta: { name: "add", description: "Install a plugin into .clawdlets/plugins." },
+  meta: { name: "add", description: "Install a plugin into .clawlets/plugins." },
   args: {
     name: { type: "string", description: "Plugin name (e.g. cattle)." },
-    package: { type: "string", description: "Package to install (default: @clawdlets/plugin-<name>)." },
+    package: { type: "string", description: "Package to install (default: @clawlets/plugin-<name>)." },
     version: { type: "string", description: "Package version/tag (default: latest)." },
     allowThirdParty: { type: "boolean", description: "Allow third-party plugins (unsafe).", default: false },
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
   },
   async run({ args }) {
     const slug = resolveSlug(args);
-    const packageName = String(args.package || `@clawdlets/plugin-${slug}`).trim();
-    if (!args.allowThirdParty && !packageName.startsWith("@clawdlets/")) {
+    const packageName = String(args.package || `@clawlets/plugin-${slug}`).trim();
+    if (!args.allowThirdParty && !packageName.startsWith("@clawlets/")) {
       throw new Error("third-party plugins disabled (pass --allow-third-party to override)");
     }
     const { installPlugin } = await loadPlugins();
@@ -74,7 +74,7 @@ const rm = defineCommand({
   meta: { name: "rm", description: "Remove an installed plugin." },
   args: {
     name: { type: "string", description: "Plugin name (e.g. cattle)." },
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
   },
   async run({ args }) {
     const slug = resolveSlug(args);

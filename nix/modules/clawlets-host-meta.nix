@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  options.clawdlets = {
+  options.clawlets = {
     hostName = lib.mkOption {
       type = lib.types.str;
       default = "CHANGE_ME_HOSTNAME";

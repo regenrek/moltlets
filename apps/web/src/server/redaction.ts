@@ -14,8 +14,8 @@ function uniqNonEmpty(values: string[]): string[] {
   return out;
 }
 
-export async function readClawdletsEnvTokens(repoRoot: string): Promise<string[]> {
-  const envPath = path.join(repoRoot, ".clawdlets", "env");
+export async function readClawletsEnvTokens(repoRoot: string): Promise<string[]> {
+  const envPath = path.join(repoRoot, ".clawlets", "env");
   try {
     const raw = await fs.readFile(envPath, "utf8");
     const tokens: string[] = [];

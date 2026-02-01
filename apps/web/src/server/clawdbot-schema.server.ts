@@ -1,17 +1,17 @@
 import { randomBytes } from "node:crypto"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import type { ClawdbotSchemaArtifact } from "@clawdlets/core/lib/clawdbot-schema"
-import { parseClawdbotSchemaArtifact } from "@clawdlets/core/lib/clawdbot-schema"
-import { buildClawdbotBotConfig } from "@clawdlets/core/lib/clawdbot-config-invariants"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { compareClawdbotSchemaToNixClawdbot, summarizeClawdbotSchemaComparison } from "@clawdlets/core/lib/clawdbot-schema-compare"
-import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "@clawdlets/core/lib/nix-clawdbot"
-import { shellQuote, sshCapture, validateTargetHost } from "@clawdlets/core/lib/ssh-remote"
-import { BotIdSchema } from "@clawdlets/shared/lib/identifiers"
+import type { ClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
+import { parseClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
+import { buildClawdbotBotConfig } from "@clawlets/core/lib/clawdbot-config-invariants"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { compareClawdbotSchemaToNixClawdbot, summarizeClawdbotSchemaComparison } from "@clawlets/core/lib/clawdbot-schema-compare"
+import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "@clawlets/core/lib/nix-clawdbot"
+import { shellQuote, sshCapture, validateTargetHost } from "@clawlets/core/lib/ssh-remote"
+import { BotIdSchema } from "@clawlets/shared/lib/identifiers"
 import { createConvexClient } from "~/server/convex"
 import { getProjectContext } from "~/sdk/repo-root"
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 const SOURCE_TTL_MS = 5 * 60 * 1000
 const STATUS_TTL_MS = 60 * 1000
@@ -184,7 +184,7 @@ export async function fetchClawdbotSchemaLive(params: {
     if (cached && cached.expiresAt > now) return cached.value
   }
 
-  const { config } = loadClawdletsConfig({ repoRoot })
+  const { config } = loadClawletsConfig({ repoRoot })
 
   const host = hostCandidate || config.defaultHost || ""
   if (!host) throw new Error("missing host")

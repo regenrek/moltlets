@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Clawdlets",
+  "name": "Clawlets",
   "theme": "mint",
   "colors": {
     "primary": "#FF5A36"
@@ -8,7 +8,7 @@
   "topbarLinks": [
     {
       "name": "GitHub",
-      "url": "https://github.com/regenrek/clawdlets"
+      "url": "https://github.com/regenrek/clawlets"
     }
   ],
   "navigation": {
@@ -31,7 +31,7 @@
         ]
       },
       {
-        "group": "Operator CLI (clawdlets)",
+        "group": "Operator CLI (clawlets)",
         "pages": [
           "cli",
           "install",

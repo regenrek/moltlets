@@ -114,7 +114,7 @@ async function moveToTrashWindows(targetPath: string): Promise<void> {
 }
 
 async function moveToTrashFallback(targetPath: string): Promise<void> {
-  const trashDir = path.join(os.homedir(), ".clawdlets-trash")
+  const trashDir = path.join(os.homedir(), ".clawlets-trash")
   await ensureDir(trashDir)
   const name = await uniqueTrashName(path.basename(targetPath), trashDir)
   await movePath(targetPath, path.join(trashDir, name))

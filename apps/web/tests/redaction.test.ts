@@ -3,14 +3,14 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { tmpdir } from "node:os"
 
-import { readClawdletsEnvTokens, redactLine } from "../src/server/redaction"
+import { readClawletsEnvTokens, redactLine } from "../src/server/redaction"
 
-describe("readClawdletsEnvTokens", () => {
-  it("extracts unique values from .clawdlets/env", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "clawdlets-web-redaction-"))
-    await mkdir(path.join(root, ".clawdlets"), { recursive: true })
+describe("readClawletsEnvTokens", () => {
+  it("extracts unique values from .clawlets/env", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clawlets-web-redaction-"))
+    await mkdir(path.join(root, ".clawlets"), { recursive: true })
     await writeFile(
-      path.join(root, ".clawdlets", "env"),
+      path.join(root, ".clawlets", "env"),
       [
         "# comment",
         "",
@@ -22,7 +22,7 @@ describe("readClawdletsEnvTokens", () => {
       "utf8",
     )
 
-    const tokens = await readClawdletsEnvTokens(root)
+    const tokens = await readClawletsEnvTokens(root)
     expect(tokens).toEqual(["abc12345", "abc"])
   })
 })

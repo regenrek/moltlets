@@ -144,7 +144,7 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
                 id="sopsAgeKeyFile"
                 value={sopsAgeKeyFile}
                 onChange={(e) => setSopsAgeKeyFileOverride(e.target.value)}
-                placeholder=".clawdlets/keys/operators/<user>.agekey"
+                placeholder=".clawlets/keys/operators/<user>.agekey"
               />
               <InputGroupAddon align="inline-end">
                 <InputGroupButton disabled={detectSops.isPending} onClick={() => detectSops.mutate()}>

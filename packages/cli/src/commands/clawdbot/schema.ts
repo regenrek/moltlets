@@ -1,9 +1,9 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { shellQuote, sshRun } from "@clawdlets/core/lib/ssh-remote";
-import { BotIdSchema } from "@clawdlets/shared/lib/identifiers";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
-import { buildClawdbotBotConfig } from "@clawdlets/core/lib/clawdbot-config-invariants";
+import { shellQuote, sshRun } from "@clawlets/core/lib/ssh-remote";
+import { BotIdSchema } from "@clawlets/shared/lib/identifiers";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
+import { buildClawdbotBotConfig } from "@clawlets/core/lib/clawdbot-config-invariants";
 import { needsSudo, requireTargetHost } from "../server/common.js";
 
 function requireBotId(value: string): string {
@@ -37,9 +37,9 @@ function buildGatewaySchemaCommand(params: { botId: string; port: number; sudo: 
 const schemaFetch = defineCommand({
   meta: { name: "fetch", description: "Fetch live Clawdbot config schema via gateway RPC." },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit clawdbot-<bot>.service)." },
     sshTty: { type: "boolean", description: "Allocate SSH TTY.", default: false },
   },

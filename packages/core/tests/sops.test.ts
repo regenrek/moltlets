@@ -128,7 +128,7 @@ describe("sops args", () => {
 
   it("encrypt passes plaintext via stdin", async () => {
     const { sopsEncryptYamlToFile } = await import("../src/lib/sops");
-    const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-sops-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "clawlets-sops-"));
     const outPath = path.join(dir, "secrets.enc.yaml");
     try {
       await sopsEncryptYamlToFile({
@@ -149,7 +149,7 @@ describe("sops args", () => {
 
   it("encrypt writes output with 0600 perms", async () => {
     const { sopsEncryptYamlToFile } = await import("../src/lib/sops");
-    const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-sops-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "clawlets-sops-"));
     const outPath = path.join(dir, "secrets.enc.yaml");
     try {
       encryptedOutput = "<encrypted>\n";

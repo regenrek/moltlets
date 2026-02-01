@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawdletsConfig, getSshExposureMode } from "@clawdlets/core/lib/clawdlets-config"
+import { loadClawletsConfig, getSshExposureMode } from "@clawlets/core/lib/clawlets-config"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient, type ConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { spawnCommand } from "~/server/run-manager"
 import { getRepoRoot } from "~/sdk/repo-root"
 import { parseProjectHostRequiredInput, parseProjectRunHostInput } from "~/sdk/serverfn-validators"
@@ -47,7 +47,7 @@ export const lockdownExecute = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const hostCfg = config.hosts[data.host]
     if (!hostCfg) throw new Error(`unknown host: ${data.host}`)
     const sshMode = getSshExposureMode(hostCfg)
@@ -55,8 +55,8 @@ export const lockdownExecute = createServerFn({ method: "POST" })
       throw new Error(`sshExposure.mode=${sshMode}; set sshExposure.mode=tailnet before lockdown`)
     }
 
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
 
     try {
       await spawnCommand({

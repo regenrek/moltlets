@@ -4,20 +4,20 @@ import { seo } from "../src/utils/seo"
 
 describe("seo", () => {
   it("includes base tags", () => {
-    const tags = seo({ title: "Clawdlets", description: "Desc", keywords: "k1,k2" })
+    const tags = seo({ title: "Clawlets", description: "Desc", keywords: "k1,k2" })
     expect(tags).toEqual(
       expect.arrayContaining([
-        { title: "Clawdlets" },
+        { title: "Clawlets" },
         { name: "description", content: "Desc" },
         { name: "keywords", content: "k1,k2" },
-        { name: "twitter:title", content: "Clawdlets" },
-        { name: "og:title", content: "Clawdlets" },
+        { name: "twitter:title", content: "Clawlets" },
+        { name: "og:title", content: "Clawlets" },
       ]),
     )
   })
 
   it("adds image tags when provided", () => {
-    const tags = seo({ title: "Clawdlets", image: "https://cdn.example.com/og.png" })
+    const tags = seo({ title: "Clawlets", image: "https://cdn.example.com/og.png" })
     expect(tags).toEqual(
       expect.arrayContaining([
         { name: "twitter:image", content: "https://cdn.example.com/og.png" },

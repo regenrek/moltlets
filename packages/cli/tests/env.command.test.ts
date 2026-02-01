@@ -6,12 +6,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 const findRepoRootMock = vi.fn();
 const loadDeployCredsMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@clawdlets/core/lib/deploy-creds")>();
+vi.mock("@clawlets/core/lib/deploy-creds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@clawlets/core/lib/deploy-creds")>();
   return {
     ...actual,
     loadDeployCreds: loadDeployCredsMock,
@@ -31,7 +31,7 @@ describe("env commands", () => {
   });
 
   it("env init writes explicit env file", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-env-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-"));
     findRepoRootMock.mockReturnValue(repoRoot);
     const envFile = path.join(repoRoot, ".env.custom");
     const { envInit } = await import("../src/commands/env.js");
@@ -42,10 +42,10 @@ describe("env commands", () => {
   });
 
   it("env show prints resolved values", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-env-show-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-show-"));
     findRepoRootMock.mockReturnValue(repoRoot);
     loadDeployCredsMock.mockReturnValue({
-      envFile: { status: "ok", origin: "default", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", origin: "default", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", GITHUB_TOKEN: "gh", NIX_BIN: "nix", SOPS_AGE_KEY_FILE: "/keys/age" },
       sources: { HCLOUD_TOKEN: "file", GITHUB_TOKEN: "env", NIX_BIN: "default", SOPS_AGE_KEY_FILE: "file" },
     });

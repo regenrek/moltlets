@@ -4,15 +4,15 @@ import { resolveTemplateSpec } from "../src/server/template-spec"
 
 describe("resolveTemplateSpec", () => {
   it("uses pinned github spec by default", () => {
-    const prev = process.env["CLAWDLETS_TEMPLATE_SPEC"]
-    delete process.env["CLAWDLETS_TEMPLATE_SPEC"]
+    const prev = process.env["CLAWLETS_TEMPLATE_SPEC"]
+    delete process.env["CLAWLETS_TEMPLATE_SPEC"]
     try {
       const spec = resolveTemplateSpec()
       expect(spec.startsWith("github:")).toBe(true)
       expect(spec).toMatch(/\/templates\/default#[0-9a-f]{40}$/)
     } finally {
-      if (prev === undefined) delete process.env["CLAWDLETS_TEMPLATE_SPEC"]
-      else process.env["CLAWDLETS_TEMPLATE_SPEC"] = prev
+      if (prev === undefined) delete process.env["CLAWLETS_TEMPLATE_SPEC"]
+      else process.env["CLAWLETS_TEMPLATE_SPEC"] = prev
     }
   })
 
@@ -24,7 +24,7 @@ describe("resolveTemplateSpec", () => {
   })
 
   it("rejects repo shorthand", () => {
-    expect(() => resolveTemplateSpec("regenrek/clawdlets-template")).toThrow(
+    expect(() => resolveTemplateSpec("regenrek/clawlets-template")).toThrow(
       /must be a giget spec/i,
     )
   })

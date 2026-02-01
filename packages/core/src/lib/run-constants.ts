@@ -17,6 +17,7 @@ export const RUN_KINDS = [
   "server_update_apply",
   "server_update_status",
   "server_update_logs",
+  "deploy",
   "custom",
 ] as const;
 

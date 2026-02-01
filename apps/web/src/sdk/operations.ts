@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start"
-import type { DoctorCheck } from "@clawdlets/core/doctor"
-import { collectDoctorChecks } from "@clawdlets/core/doctor"
+import type { DoctorCheck } from "@clawlets/core/doctor"
+import { collectDoctorChecks } from "@clawlets/core/doctor"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
-import { getClawdletsCliEnv } from "~/server/run-env"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
+import { getClawletsCliEnv } from "~/server/run-env"
 import { runWithEvents, spawnCommand } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { requireAdminAndBoundRun } from "~/sdk/run-guards"
@@ -37,7 +37,7 @@ export const runDoctor = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -125,9 +125,9 @@ export const bootstrapExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "bootstrap",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       await spawnCommand({

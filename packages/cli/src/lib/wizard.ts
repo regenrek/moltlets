@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
 
-export const NAV_BACK = Symbol("clawdlets.nav.back");
-export const NAV_EXIT = Symbol("clawdlets.nav.exit");
+export const NAV_BACK = Symbol("clawlets.nav.back");
+export const NAV_EXIT = Symbol("clawlets.nav.exit");
 export type Nav = typeof NAV_BACK | typeof NAV_EXIT;
 
 export function isNav(v: unknown): v is Nav {

@@ -59,7 +59,7 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       ...seo({
-        title: "Clawdlets",
+        title: "Clawlets",
         description: "Self-hosted web UI for managing Clawdbot fleets.",
       }),
     ],

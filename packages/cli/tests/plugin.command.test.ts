@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { plugin } from "../src/commands/plugin.js";
 
 function makeRepoRoot(): string {
-  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugin-cmd-"));
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugin-cmd-"));
   fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
   return repoRoot;
@@ -51,9 +51,9 @@ describe("plugin command", () => {
     const repoRoot = makeRepoRoot();
     tempDirs.push(repoRoot);
     process.chdir(repoRoot);
-    const badDir = path.join(repoRoot, ".clawdlets", "plugins", "broken");
+    const badDir = path.join(repoRoot, ".clawlets", "plugins", "broken");
     fs.mkdirSync(badDir, { recursive: true });
-    fs.writeFileSync(path.join(badDir, "clawdlets-plugin.json"), "{\"bad\":");
+    fs.writeFileSync(path.join(badDir, "clawlets-plugin.json"), "{\"bad\":");
     const errors: string[] = [];
     const errSpy = vi.spyOn(console, "error").mockImplementation((...args) => errors.push(args.join(" ")));
     await plugin.subCommands.list.run({ args: { json: false } as any });

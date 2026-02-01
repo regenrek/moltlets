@@ -1,4 +1,4 @@
-import { MAX_BOOTSTRAP_TOKEN_TTL_SECONDS } from "@clawdlets/cattle-core/lib/cattle-cloudinit";
+import { MAX_BOOTSTRAP_TOKEN_TTL_SECONDS } from "@clawlets/cattle-core/lib/cattle-cloudinit";
 
 function parseIntEnv(value: string | undefined, fallback: number): number {
   const v = String(value ?? "").trim();

@@ -1,7 +1,7 @@
 import {
   assertSecretsAreManaged as coreAssertSecretsAreManaged,
   buildManagedHostSecretNameAllowlist as coreBuildManagedHostSecretNameAllowlist,
-} from "@clawdlets/core/lib/secrets-allowlist"
+} from "@clawlets/core/lib/secrets-allowlist"
 
 export function assertSecretsAreManaged(...args: Parameters<typeof coreAssertSecretsAreManaged>) {
   return coreAssertSecretsAreManaged(...args)

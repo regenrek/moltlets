@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CattleTaskSchema, type CattleTask } from "@clawdlets/cattle-core/lib/cattle-task";
+import { CattleTaskSchema, type CattleTask } from "@clawlets/cattle-core/lib/cattle-task";
 import { type ClfJobKind } from "./protocol.js";
 
 export const ClfCattleSpawnPayloadSchema = z.object({

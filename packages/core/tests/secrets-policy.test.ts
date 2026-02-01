@@ -12,7 +12,7 @@ describe("secrets-policy", () => {
   });
 
   it("fails when secrets path is not a directory", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "clawdlets-secrets-policy-"));
+    const root = await mkdtemp(path.join(tmpdir(), "clawlets-secrets-policy-"));
     const file = path.join(root, "not-a-dir");
     await writeFile(file, "x", "utf8");
     const r = validateHostSecretsYamlFiles({ secretsDir: file });
@@ -21,7 +21,7 @@ describe("secrets-policy", () => {
   });
 
   it("validates individual secret files by filename key + sops metadata", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-secrets-policy-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "clawlets-secrets-policy-"));
     await writeFile(path.join(dir, "ignore.txt"), "x", "utf8");
 
     await writeFile(path.join(dir, "bad.yaml"), "a: [", "utf8");
@@ -40,7 +40,7 @@ describe("secrets-policy", () => {
   });
 
   it("accepts one-key + sops metadata per file", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-secrets-policy-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "clawlets-secrets-policy-"));
     await mkdir(dir, { recursive: true });
     await writeFile(
       path.join(dir, "discord_token_alpha.yaml"),

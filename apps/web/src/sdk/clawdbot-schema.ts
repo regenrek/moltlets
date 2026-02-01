@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import type { ClawdbotSchemaLiveResult, ClawdbotSchemaStatusResult } from "~/server/clawdbot-schema.server"
 import { parseProjectHostBotInput, parseProjectIdInput } from "~/sdk/serverfn-validators"
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 export const getClawdbotSchemaLive = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostBotInput)

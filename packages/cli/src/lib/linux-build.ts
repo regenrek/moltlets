@@ -4,7 +4,7 @@ export function linuxBuildRequiredError(params: { command: string }): Error {
     [
       `${cmd}: local NixOS builds require Linux.`,
       "Use one of:",
-      "- CI: build systems + publish signed desired-state manifests, then let hosts pull (or trigger with: clawdlets server update apply)",
+      "- CI: build systems + publish signed desired-state manifests, then let hosts pull (or trigger with: clawlets server update apply)",
       "- Linux builder: build on Linux, publish manifests + pointer, then apply updates",
     ].join("\n"),
   );

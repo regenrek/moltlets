@@ -23,14 +23,14 @@ async function loadSecretsVerify(options: { getRepoRootThrows: boolean }) {
       run: { kind: "secrets_verify", status: "running" },
     }),
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-    loadClawdletsConfig: () => {
+  vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+    loadClawletsConfig: () => {
       if (options.getRepoRootThrows) throw new Error("repo missing")
       return { config: { defaultHost: "alpha", hosts: { alpha: {} } } }
     },
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawdlets-cli", () => ({ resolveClawdletsCliEntry: () => "cli.js" }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents: async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
       await fn(async () => {})
@@ -57,11 +57,11 @@ async function loadSecretsSync(options: { spawnThrows: boolean }) {
       run: { kind: "secrets_sync", status: "running" },
     }),
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-    loadClawdletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
+  vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+    loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawdlets-cli", () => ({ resolveClawdletsCliEntry: () => "cli.js" }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
   vi.doMock("~/server/run-manager", () => ({
     spawnCommand: async () => {
       if (options.spawnThrows) throw new Error("spawn failed")

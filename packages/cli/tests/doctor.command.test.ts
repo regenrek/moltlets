@@ -6,15 +6,15 @@ const resolveHostNameOrExitMock = vi.fn(() => "alpha");
 const collectDoctorChecksMock = vi.fn();
 const renderDoctorReportMock = vi.fn(() => "report");
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/host-resolve", () => ({
+vi.mock("@clawlets/core/lib/host-resolve", () => ({
   resolveHostNameOrExit: resolveHostNameOrExitMock,
 }));
 
-vi.mock("@clawdlets/core/doctor", () => ({
+vi.mock("@clawlets/core/doctor", () => ({
   collectDoctorChecks: collectDoctorChecksMock,
 }));
 
@@ -54,10 +54,10 @@ describe("doctor command", () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it("exits early for CLI repo without clawdlets.json", async () => {
+  it("exits early for CLI repo without clawlets.json", async () => {
     const existsSpy = vi.spyOn(fs, "existsSync").mockImplementation((p) => {
       if (String(p).endsWith("config/template-source.json")) return true;
-      if (String(p).endsWith("fleet/clawdlets.json")) return false;
+      if (String(p).endsWith("fleet/clawlets.json")) return false;
       return false;
     });
     const { doctor } = await import("../src/commands/doctor.js");

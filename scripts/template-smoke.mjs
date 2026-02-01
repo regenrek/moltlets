@@ -50,12 +50,12 @@ function parseArgs(argv) {
     keepTemp: args.has("--keep-temp"),
     skipNix: args.has("--skip-nix"),
     skipRemoteInit: args.has("--skip-remote-init"),
-    templateLocalDir: process.env.CLAWDLETS_TEMPLATE_LOCAL_DIR || "",
+    templateLocalDir: process.env.CLAWLETS_TEMPLATE_LOCAL_DIR || "",
   };
 }
 
 function resolveDefaultLocalTemplateDir() {
-  const sibling = path.resolve(repoRoot, "..", "clawdlets-template", "templates", "default");
+  const sibling = path.resolve(repoRoot, "..", "clawlets-template", "templates", "default");
   if (fs.existsSync(sibling)) return sibling;
   return "";
 }
@@ -91,7 +91,7 @@ function main() {
         "Usage: node scripts/template-smoke.mjs [--skip-nix] [--skip-remote-init] [--keep-temp]",
         "",
         "Env:",
-        "  CLAWDLETS_TEMPLATE_LOCAL_DIR  Optional local template dir to validate (defaults to ../clawdlets-template/templates/default if present).",
+        "  CLAWLETS_TEMPLATE_LOCAL_DIR  Optional local template dir to validate (defaults to ../clawlets-template/templates/default if present).",
       ].join("\n"),
     );
     process.exit(0);
@@ -100,8 +100,8 @@ function main() {
   if (!hasBin("pnpm")) die("missing pnpm");
   if (!hasBin("npm")) die("missing npm");
 
-  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-template-smoke-"));
-  const tmpPkgDir = path.join(tmpBase, "npm", "clawdlets");
+  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-template-smoke-"));
+  const tmpPkgDir = path.join(tmpBase, "npm", "clawlets");
   const tmpPrefix = path.join(tmpBase, "npm-global");
   const tmpProject = path.join(tmpBase, "project");
 
@@ -121,16 +121,16 @@ function main() {
     run("npm", ["install", "-g", "--prefix", tmpPrefix, tarballPath], { cwd: tmpBase });
 
     const binDir = path.join(tmpPrefix, "bin");
-    const bin = path.join(binDir, process.platform === "win32" ? "clawdlets.cmd" : "clawdlets");
-    if (!fs.existsSync(bin)) die(`expected clawdlets bin at ${bin}`);
+    const bin = path.join(binDir, process.platform === "win32" ? "clawlets.cmd" : "clawlets");
+    if (!fs.existsSync(bin)) die(`expected clawlets bin at ${bin}`);
 
     const env = { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}` };
-    run("clawdlets", ["--help"], { cwd: repoRoot, env });
+    run("clawlets", ["--help"], { cwd: repoRoot, env });
 
     const localTemplateDir = (opts.templateLocalDir || resolveDefaultLocalTemplateDir()).trim();
     if (localTemplateDir && fs.existsSync(localTemplateDir)) {
       console.log(`template-smoke: doctor local template (${localTemplateDir})`);
-      run("clawdlets", ["doctor", "--scope", "repo"], { cwd: localTemplateDir, env });
+      run("clawlets", ["doctor", "--scope", "repo"], { cwd: localTemplateDir, env });
       if (!opts.skipNix && hasBin("nix")) {
         run("nix", ["flake", "check", "-L"], { cwd: localTemplateDir, env });
       }
@@ -143,7 +143,7 @@ function main() {
       ensureEmptyDir(tmpProject);
       console.log(`template-smoke: project init (repo=${tpl.repo} path=${tpl.path} ref=${tpl.ref})`);
       run(
-        "clawdlets",
+        "clawlets",
         [
           "project",
           "init",
@@ -160,7 +160,7 @@ function main() {
         ],
         { cwd: repoRoot, env },
       );
-      run("clawdlets", ["doctor", "--scope", "repo"], { cwd: tmpProject, env });
+      run("clawlets", ["doctor", "--scope", "repo"], { cwd: tmpProject, env });
     }
 
     console.log("template-smoke: ok");

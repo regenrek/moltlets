@@ -9,14 +9,14 @@ ssh-keygen -R <ipv4>
 ssh-keygen -R "[<ipv4>]:22" || true
 ```
 
-`clawdlets bootstrap` also clears known_hosts entries.
+`clawlets bootstrap` also clears known_hosts entries.
 
 ## Provisioning troubleshooting
 
 Run OpenTofu via nix directly (from your project repo, example plan):
 
 ```bash
-nix run --impure nixpkgs#opentofu -- -chdir=.clawdlets/infra/opentofu/<host> plan
+nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host> plan
 ```
 
 ## GitHub flake fetch 404
@@ -25,7 +25,7 @@ If your base flake repo is private, set `GITHUB_TOKEN` in your environment (fine
 
 ## `journalctl --since 5m` parse error
 
-Use `--since "5 min ago"` or `clawdlets server logs --since 5m` (CLI normalizes `5m`).
+Use `--since "5 min ago"` or `clawlets server logs --since 5m` (CLI normalizes `5m`).
 
 ## `sudo: a terminal is required`
 
@@ -48,14 +48,14 @@ ssh -t <host> "sudo ss -ltnp | grep ':187' || true"
 Restart the unit:
 
 ```bash
-clawdlets server restart --target-host <host> --unit clawdbot-melinda.service
+clawlets server restart --target-host <host> --unit clawdbot-melinda.service
 ```
 
 ## CI deploy can’t reach host (tailnet)
 
 - Verify `TAILSCALE_AUTHKEY` is valid and not expired.
 - Ensure the host is in the tailnet and MagicDNS resolves.
-- Confirm `fleet/clawdlets.json` has `targetHost` set (e.g. `admin@<magicdns-name>`).
+- Confirm `fleet/clawlets.json` has `targetHost` set (e.g. `admin@<magicdns-name>`).
 
 ## CI deploy: SSH auth failed
 
@@ -70,7 +70,7 @@ clawdlets server restart --target-host <host> --unit clawdbot-melinda.service
 
 ## Self-update: minisign verification failed
 
-- Confirm `clawdlets.selfUpdate.publicKeys` includes the key used in CI.
+- Confirm `clawlets.selfUpdate.publicKeys` includes the key used in CI.
 - Ensure `.minisig` exists at `.../latest.json.minisig`.
 - Re-run the manifest workflow to republish signatures.
 

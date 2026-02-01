@@ -22,28 +22,28 @@ async function loadConfig() {
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents,
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-      "@clawdlets/core/lib/clawdlets-config",
+  vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+    const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+      "@clawlets/core/lib/clawlets-config",
     )
     return {
       ...actual,
-      ClawdletsConfigSchema: {
+      ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadClawdletsConfig: () => ({
-        configPath: "/tmp/fleet/clawdlets.json",
+      loadClawletsConfig: () => ({
+        configPath: "/tmp/fleet/clawlets.json",
         config: { fleet: { bots: { bot1: { clawdbot: { ok: true } } } } },
       }),
-      loadClawdletsConfigRaw: () => ({
-        configPath: "/tmp/fleet/clawdlets.json",
+      loadClawletsConfigRaw: () => ({
+        configPath: "/tmp/fleet/clawlets.json",
         config: { fleet: { bots: { bot1: { clawdbot: { ok: true } } } } },
       }),
-      writeClawdletsConfig: async () => {},
+      writeClawletsConfig: async () => {},
     }
   })
 
@@ -75,12 +75,12 @@ describe("config bot clawdbot policy", () => {
     expect(runWithEvents).not.toHaveBeenCalled()
   })
 
-  it("rejects clawdbot changes via writeClawdletsConfigFile", async () => {
+  it("rejects clawdbot changes via writeClawletsConfigFile", async () => {
     const { mod, mutation, runWithEvents } = await loadConfig()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
-        await mod.writeClawdletsConfigFile({
+        await mod.writeClawletsConfigFile({
           data: {
             projectId: "p1" as any,
             next: { fleet: { bots: { bot1: { clawdbot: { ok: false } } } } },

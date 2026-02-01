@@ -7,8 +7,8 @@ import {
   ClfJobKindSchema,
   createClfClient,
   type ClfJobKind,
-} from "@clawdlets/clf-queue";
-import { CattleTaskSchema, CATTLE_TASK_SCHEMA_VERSION, type CattleTask } from "@clawdlets/cattle-core/lib/cattle-task";
+} from "@clawlets/clf-queue";
+import { CattleTaskSchema, CATTLE_TASK_SCHEMA_VERSION, type CattleTask } from "@clawlets/cattle-core/lib/cattle-task";
 import { formatTable, printJson } from "../lib/output.js";
 import { classifyError, exitCodeFor } from "../lib/errors.js";
 

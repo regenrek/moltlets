@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-out_env_file="${CLAWDLETS_GATEWAY_ENV_FILE:-}"
-bot_user="${CLAWDLETS_BOT_USER:-}"
-bot_group="${CLAWDLETS_BOT_GROUP:-}"
+out_env_file="${CLAWLETS_GATEWAY_ENV_FILE:-}"
+bot_user="${CLAWLETS_BOT_USER:-}"
+bot_group="${CLAWLETS_BOT_GROUP:-}"
 
 if [[ -z "${out_env_file}" ]]; then
-  echo "error: missing CLAWDLETS_GATEWAY_ENV_FILE" >&2
+  echo "error: missing CLAWLETS_GATEWAY_ENV_FILE" >&2
   exit 2
 fi
 if [[ -z "${bot_user}" || -z "${bot_group}" ]]; then
-  echo "error: missing CLAWDLETS_BOT_USER / CLAWDLETS_BOT_GROUP" >&2
+  echo "error: missing CLAWLETS_BOT_USER / CLAWLETS_BOT_GROUP" >&2
   exit 2
 fi
 
@@ -38,7 +38,7 @@ if [[ -z "${token}" ]]; then
   exit 1
 fi
 
-tmp="$(mktemp --tmpdir="${out_dir}" ".clawdlets-gateway-token.XXXXXX")"
+tmp="$(mktemp --tmpdir="${out_dir}" ".clawlets-gateway-token.XXXXXX")"
 printf 'CLAWDBOT_GATEWAY_TOKEN=%s\n' "${token}" >"${tmp}"
 chown "${bot_user}:${bot_group}" "${tmp}"
 chmod 0400 "${tmp}"

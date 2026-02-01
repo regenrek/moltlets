@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { run } from "@clawdlets/core/lib/run";
+import { run } from "@clawlets/core/lib/run";
 
 export function resolveManifestSignaturePath(params: {
   cwd: string;
@@ -96,7 +96,7 @@ export async function signFileWithMinisign(params: {
     if (!keyContent) {
       throw new Error(`minisign private key missing (set ${envName} or pass --private-key-file)`);
     }
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-minisign."));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-minisign."));
     keyPath = path.join(tempDir, "minisign.key");
     fs.writeFileSync(keyPath, `${keyContent}\n`, { mode: 0o600 });
   }

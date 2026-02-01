@@ -3,7 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeConfig, baseHost } from "./fixtures.js";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
 const applyOpenTofuVarsMock = vi.fn();
 const destroyOpenTofuVarsMock = vi.fn();
@@ -11,36 +11,36 @@ const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((v: string) => v);
 const findRepoRootMock = vi.fn(() => "/repo");
 const resolveHostNameOrExitMock = vi.fn(() => "alpha");
-const loadClawdletsConfigMock = vi.fn();
+const loadClawletsConfigMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/opentofu", () => ({
+vi.mock("@clawlets/core/lib/opentofu", () => ({
   applyOpenTofuVars: applyOpenTofuVarsMock,
   destroyOpenTofuVars: destroyOpenTofuVarsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/path-expand", () => ({
+vi.mock("@clawlets/core/lib/path-expand", () => ({
   expandPath: expandPathMock,
 }));
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/host-resolve", () => ({
+vi.mock("@clawlets/core/lib/host-resolve", () => ({
   resolveHostNameOrExit: resolveHostNameOrExitMock,
 }));
 
-vi.mock("@clawdlets/core/lib/clawdlets-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-    "@clawdlets/core/lib/clawdlets-config",
+vi.mock("@clawlets/core/lib/clawlets-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+    "@clawlets/core/lib/clawlets-config",
   );
   return {
     ...actual,
-    loadClawdletsConfig: loadClawdletsConfigMock,
+    loadClawletsConfig: loadClawletsConfigMock,
   };
 });
 
@@ -50,7 +50,7 @@ describe("infra command", () => {
   });
 
   it("applies opentofu vars", async () => {
-    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-infra-"));
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-infra-"));
     const pubkey = path.join(tmp, "id_ed25519.pub");
     fs.writeFileSync(pubkey, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P test", "utf8");
     const config = makeConfig({
@@ -61,9 +61,9 @@ describe("infra command", () => {
       },
     });
     const layout = getRepoLayout("/repo");
-    loadClawdletsConfigMock.mockReturnValue({ layout, config });
+    loadClawletsConfigMock.mockReturnValue({ layout, config });
     loadDeployCredsMock.mockReturnValue({
-      envFile: { status: "ok", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", NIX_BIN: "nix", GITHUB_TOKEN: "" },
     });
     const { infra } = await import("../src/commands/infra.js");
@@ -72,7 +72,7 @@ describe("infra command", () => {
   });
 
   it("destroy requires force when no TTY", async () => {
-    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-infra-destroy-"));
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-infra-destroy-"));
     const pubkey = path.join(tmp, "id_ed25519.pub");
     fs.writeFileSync(pubkey, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P test", "utf8");
     const config = makeConfig({
@@ -80,9 +80,9 @@ describe("infra command", () => {
       hostOverrides: { ...baseHost, provisioning: { ...baseHost.provisioning, sshPubkeyFile: pubkey } },
     });
     const layout = getRepoLayout("/repo");
-    loadClawdletsConfigMock.mockReturnValue({ layout, config });
+    loadClawletsConfigMock.mockReturnValue({ layout, config });
     loadDeployCredsMock.mockReturnValue({
-      envFile: { status: "ok", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", NIX_BIN: "nix", GITHUB_TOKEN: "" },
     });
     const original = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");

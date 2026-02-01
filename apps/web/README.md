@@ -1,6 +1,6 @@
-# Clawdlets Web (TanStack Start + Convex)
+# Clawlets Web (TanStack Start + Convex)
 
-Self-hosted web UI for bootstrapping + operating Clawdlets projects.
+Self-hosted web UI for bootstrapping + operating Clawlets projects.
 
 ## Dev
 
@@ -41,7 +41,7 @@ pnpm dev
 
 ### Template source
 
-Project scaffolding defaults to `config/template-source.json` (pinned commit). Override with `CLAWDLETS_TEMPLATE_SPEC`.
+Project scaffolding defaults to `config/template-source.json` (pinned commit). Override with `CLAWLETS_TEMPLATE_SPEC`.
 
 ### Auth config
 

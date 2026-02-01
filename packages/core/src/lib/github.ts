@@ -46,7 +46,7 @@ export async function checkGithubRepoVisibility(params: {
     const res = await fetch(`https://api.github.com/repos/${params.owner}/${params.repo}`, {
       method: "GET",
       headers: {
-        "User-Agent": "clawdlets",
+        "User-Agent": "clawlets",
         Accept: "application/vnd.github+json",
         ...(params.token ? { Authorization: `Bearer ${params.token}` } : {}),
       },

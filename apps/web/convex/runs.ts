@@ -1,4 +1,4 @@
-import { RUN_KINDS, RUN_STATUSES } from "@clawdlets/core/lib/run-constants";
+import { RUN_KINDS, RUN_STATUSES } from "@clawlets/core/lib/run-constants";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
@@ -7,7 +7,7 @@ import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin }
 import { rateLimit } from "./lib/rateLimit";
 import { ProjectDoc, RunDoc } from "./lib/validators";
 import { Role } from "./schema";
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error";
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));

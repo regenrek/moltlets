@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { resolveGitRev } from "@clawdlets/core/lib/git";
-import { capture, run } from "@clawdlets/core/lib/run";
-import { withFlakesEnv } from "@clawdlets/core/lib/nix-flakes";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { resolveGitRev } from "@clawlets/core/lib/git";
+import { capture, run } from "@clawlets/core/lib/run";
+import { withFlakesEnv } from "@clawlets/core/lib/nix-flakes";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 async function buildRawImage(params: { repoRoot: string; nixBin: string; host: string }): Promise<string> {
   if (process.platform !== "linux") {
@@ -37,10 +37,10 @@ const imageBuild = defineCommand({
     description: "Build a raw NixOS image for a host (nixos-generators).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     rev: { type: "string", description: "Git rev to name the image (HEAD/sha/tag).", default: "HEAD" },
-    out: { type: "string", description: "Output path (default: .clawdlets/images/<host>/clawdlets-<host>-<rev>.raw)." },
+    out: { type: "string", description: "Output path (default: .clawlets/images/<host>/clawlets-<host>-<rev>.raw)." },
     nixBin: { type: "string", description: "Override nix binary (default: nix)." },
   },
   async run({ args }) {
@@ -59,7 +59,7 @@ const imageBuild = defineCommand({
     const outRaw = String(args.out || "").trim();
     const outPath = outRaw
       ? (path.isAbsolute(outRaw) ? outRaw : path.resolve(cwd, outRaw))
-      : path.join(layout.runtimeDir, "images", hostName, `clawdlets-${hostName}-${resolved}.raw`);
+      : path.join(layout.runtimeDir, "images", hostName, `clawlets-${hostName}-${resolved}.raw`);
 
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.copyFileSync(imagePath, outPath);
@@ -74,9 +74,9 @@ const imageUpload = defineCommand({
     description: "Upload a raw image to Hetzner using hcloud-upload-image.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     "image-url": { type: "string", description: "Public URL for the raw image (Hetzner must reach it)." },
     compression: { type: "string", description: "Compression type (none|gz|bz2|xz).", default: "none" },
     architecture: { type: "string", description: "Architecture (x86 or arm).", default: "x86" },
@@ -93,7 +93,7 @@ const imageUpload = defineCommand({
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 
     const imageUrl = String((args as any)["image-url"] || "").trim();
     if (!imageUrl) throw new Error("missing --image-url");
@@ -124,7 +124,7 @@ const imageUpload = defineCommand({
     });
 
     console.log(`ok: upload complete for ${hostName}`);
-    console.log(`hint: set hetzner.image in fleet/clawdlets.json to the new image ID/name`);
+    console.log(`hint: set hetzner.image in fleet/clawlets.json to the new image ID/name`);
   },
 });
 

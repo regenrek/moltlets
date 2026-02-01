@@ -24,7 +24,7 @@ function ImportProject() {
       <div>
         <h1 className="text-2xl font-black tracking-tight">Import Project</h1>
         <p className="text-muted-foreground mt-1">
-          Register an existing clawdlets repo on this machine.
+          Register an existing clawlets repo on this machine.
         </p>
       </div>
 
@@ -47,7 +47,7 @@ function ImportProject() {
             onChange={(e) => setLocalPath(e.target.value)}
           />
           <div className="text-muted-foreground text-xs">
-            Must contain <code>fleet/clawdlets.json</code>.
+            Must contain <code>fleet/clawlets.json</code>.
           </div>
         </div>
 

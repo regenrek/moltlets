@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Id } from "../../../convex/_generated/dataModel"
-import type { ClawdbotSchemaArtifact } from "@clawdlets/core/lib/clawdbot-schema"
-import { getPinnedClawdbotSchema } from "@clawdlets/core/lib/clawdbot-schema"
-import type { lintClawdbotSecurityConfig } from "@clawdlets/core/lib/clawdbot-security-lint"
+import type { ClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
+import { getPinnedClawdbotSchema } from "@clawlets/core/lib/clawdbot-schema"
+import type { lintClawdbotSecurityConfig } from "@clawlets/core/lib/clawdbot-security-lint"
 import { Button } from "~/components/ui/button"
 import { Switch } from "~/components/ui/switch"
 import { Badge } from "~/components/ui/badge"
@@ -112,7 +112,7 @@ export function BotClawdbotEditor(props: {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved clawdbot config")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", props.projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
       } else {
         setServerIssues(
           (res.issues || []).map((i) => ({
@@ -139,7 +139,7 @@ export function BotClawdbotEditor(props: {
       if (res.ok) {
         const changes = Array.isArray((res as any).changes) ? (res as any).changes : []
         toast.success(changes.length > 0 ? "Applied security defaults" : "Already hardened")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", props.projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
         return
       }
       setServerIssues(

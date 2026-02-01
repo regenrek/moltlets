@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
 const sshRunMock = vi.fn().mockResolvedValue(undefined);
 const sshCaptureMock = vi.fn().mockResolvedValue(
@@ -13,12 +13,12 @@ const resolveGitRevMock = vi.fn().mockResolvedValue("0123456789abcdef0123456789a
 const loadDeployCredsMock = vi.fn();
 const findRepoRootMock = vi.fn().mockReturnValue("/repo");
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "github:owner/repo" });
-const loadClawdletsConfigMock = vi.fn();
+const loadClawletsConfigMock = vi.fn();
 const requireDeployGateMock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@clawdlets/core/lib/ssh-remote", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/ssh-remote")>(
-    "@clawdlets/core/lib/ssh-remote",
+vi.mock("@clawlets/core/lib/ssh-remote", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/ssh-remote")>(
+    "@clawlets/core/lib/ssh-remote",
   );
   return {
     ...actual,
@@ -27,33 +27,33 @@ vi.mock("@clawdlets/core/lib/ssh-remote", async () => {
   };
 });
 
-vi.mock("@clawdlets/core/lib/opentofu", () => ({
+vi.mock("@clawlets/core/lib/opentofu", () => ({
   applyOpenTofuVars: applyOpenTofuVarsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/git", () => ({
+vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/base-flake", () => ({
+vi.mock("@clawlets/core/lib/base-flake", () => ({
   resolveBaseFlake: resolveBaseFlakeMock,
 }));
 
-vi.mock("@clawdlets/core/lib/clawdlets-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-    "@clawdlets/core/lib/clawdlets-config",
+vi.mock("@clawlets/core/lib/clawlets-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+    "@clawlets/core/lib/clawlets-config",
   );
   return {
     ...actual,
-    loadClawdletsConfig: loadClawdletsConfigMock,
+    loadClawletsConfig: loadClawletsConfigMock,
   };
 });
 
@@ -76,9 +76,9 @@ const baseHost = {
 };
 
 function setConfig() {
-  loadClawdletsConfigMock.mockReturnValue({
+  loadClawletsConfigMock.mockReturnValue({
     layout: getRepoLayout("/repo"),
-    configPath: "/repo/fleet/clawdlets.json",
+    configPath: "/repo/fleet/clawlets.json",
     config: {
       schemaVersion: 12,
       defaultHost: hostName,
@@ -95,18 +95,18 @@ describe("lockdown command", () => {
     vi.clearAllMocks();
     setConfig();
     loadDeployCredsMock.mockReturnValue({
-      envFile: { status: "ok", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", GITHUB_TOKEN: "", NIX_BIN: "nix" },
     });
   });
 
   it("applies opentofu vars without ssh", async () => {
-    const tempDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawdlets-lockdown-"));
+    const tempDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawlets-lockdown-"));
     const keyPath = path.join(tempDir, "id_ed25519.pub");
     await fs.promises.writeFile(keyPath, "ssh-ed25519 AAAA", "utf8");
-    loadClawdletsConfigMock.mockReturnValue({
+    loadClawletsConfigMock.mockReturnValue({
       layout: getRepoLayout("/repo"),
-      configPath: "/repo/fleet/clawdlets.json",
+      configPath: "/repo/fleet/clawlets.json",
       config: {
         schemaVersion: 8,
         defaultHost: hostName,

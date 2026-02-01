@@ -19,8 +19,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -28,12 +28,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -77,8 +77,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -86,12 +86,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -127,8 +127,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -136,12 +136,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -177,8 +177,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -186,12 +186,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -215,7 +215,7 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -245,8 +245,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -254,12 +254,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -286,8 +286,8 @@ describe("clawdbot live schema cache", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -295,12 +295,12 @@ describe("clawdbot live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,

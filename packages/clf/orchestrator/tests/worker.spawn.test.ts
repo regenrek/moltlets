@@ -14,8 +14,8 @@ const createCattleServerMock = vi.fn(async () => ({
   labels: {},
 }));
 
-vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/cattle-core/lib/hcloud-cattle")>("@clawdlets/cattle-core/lib/hcloud-cattle");
+vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/cattle-core/lib/hcloud-cattle")>("@clawlets/cattle-core/lib/hcloud-cattle");
   return {
     ...actual,
     listCattleServers: listCattleServersMock,
@@ -23,11 +23,11 @@ vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
   };
 });
 
-vi.mock("@clawdlets/cattle-core/lib/cattle-cloudinit", () => ({
+vi.mock("@clawlets/cattle-core/lib/cattle-cloudinit", () => ({
   buildCattleCloudInitUserData: () => "#cloud-config\n",
 }));
 
-vi.mock("@clawdlets/cattle-core/lib/persona-loader", () => ({
+vi.mock("@clawlets/cattle-core/lib/persona-loader", () => ({
   loadPersona: () => ({
     name: "rex",
     config: { model: { primary: "openai/gpt-4o" } },
@@ -35,11 +35,11 @@ vi.mock("@clawdlets/cattle-core/lib/persona-loader", () => ({
   }),
 }));
 
-vi.mock("@clawdlets/shared/lib/llm-provider-env", () => ({
+vi.mock("@clawlets/shared/lib/llm-provider-env", () => ({
   getModelRequiredEnvVars: () => ["OPENAI_API_KEY"],
 }));
 
-vi.mock("@clawdlets/cattle-core/lib/ttl", () => ({
+vi.mock("@clawlets/cattle-core/lib/ttl", () => ({
   parseTtlToSeconds: () => ({ seconds: 60 }),
 }));
 
@@ -221,7 +221,7 @@ describe("clf-orchestrator worker spawn errors", () => {
     expect(queue.ack).toHaveBeenCalled();
     expect(createBootstrap).toHaveBeenCalledWith(
       expect.objectContaining({
-        publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
+        publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
       }),
     );
     expect(createCattleServerMock).toHaveBeenCalledWith(

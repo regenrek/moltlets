@@ -10,7 +10,7 @@ import { Textarea } from "~/components/ui/textarea"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { addProjectSshKeys, getClawdletsConfig, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
+import { addProjectSshKeys, getClawletsConfig, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
   component: SecuritySshKeys,
@@ -23,9 +23,9 @@ function SecuritySshKeys() {
   const queryClient = useQueryClient()
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
 
@@ -62,7 +62,7 @@ function SecuritySshKeys() {
         toast.success("Updated SSH settings")
         setKeyText("")
         setKnownHostsText("")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Failed")
     },
   })
@@ -77,7 +77,7 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed SSH key")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Failed")
     },
   })
@@ -92,7 +92,7 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed known_hosts entry")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Failed")
     },
   })

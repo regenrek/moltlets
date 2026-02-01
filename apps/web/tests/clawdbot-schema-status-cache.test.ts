@@ -24,9 +24,9 @@ describe("clawdbot schema status cache", () => {
       }),
       getRepoRoot: async (_client: unknown, projectId: string) => `/tmp/${projectId}`,
     }))
-    vi.doMock("@clawdlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/nix-clawdbot")>(
-        "@clawdlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
+        "@clawlets/core/lib/nix-clawdbot",
       )
       return {
         ...actual,
@@ -67,9 +67,9 @@ describe("clawdbot schema status cache", () => {
       }),
       getRepoRoot: async (_client: unknown, projectId: string) => `/tmp/${projectId}`,
     }))
-    vi.doMock("@clawdlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/nix-clawdbot")>(
-        "@clawdlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
+        "@clawlets/core/lib/nix-clawdbot",
       )
       return {
         ...actual,
@@ -102,9 +102,9 @@ describe("clawdbot schema status cache", () => {
         repoRoot: `/tmp/${projectId}`,
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-schema-compare", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdbot-schema-compare")>(
-        "@clawdlets/core/lib/clawdbot-schema-compare",
+    vi.doMock("@clawlets/core/lib/clawdbot-schema-compare", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawdbot-schema-compare")>(
+        "@clawlets/core/lib/clawdbot-schema-compare",
       )
       return {
         ...actual,
@@ -122,9 +122,9 @@ describe("clawdbot schema status cache", () => {
 
   it("dedupes source fetches across concurrent status calls", async () => {
     vi.resetModules()
-    vi.doMock("@clawdlets/core/lib/clawdbot-schema-compare", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdbot-schema-compare")>(
-        "@clawdlets/core/lib/clawdbot-schema-compare",
+    vi.doMock("@clawlets/core/lib/clawdbot-schema-compare", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawdbot-schema-compare")>(
+        "@clawlets/core/lib/clawdbot-schema-compare",
       )
       return actual
     })
@@ -154,9 +154,9 @@ describe("clawdbot schema status cache", () => {
         repoRoot: `/tmp/${projectId}`,
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/nix-clawdbot")>(
-        "@clawdlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
+        "@clawlets/core/lib/nix-clawdbot",
       )
       return {
         ...actual,

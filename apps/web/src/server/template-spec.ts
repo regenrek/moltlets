@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 
-import { normalizeTemplateSource } from "@clawdlets/core/lib/template-source"
+import { normalizeTemplateSource } from "@clawlets/core/lib/template-source"
 
 type TemplateSourceConfig = {
   repo?: string
@@ -75,7 +75,7 @@ function getDefaultTemplateSpec(): string {
 
 export function resolveTemplateSpec(input?: unknown): string {
   const raw = typeof input === "string" ? input.trim() : ""
-  const fromEnv = String(process.env["CLAWDLETS_TEMPLATE_SPEC"] || "").trim()
+  const fromEnv = String(process.env["CLAWLETS_TEMPLATE_SPEC"] || "").trim()
   const spec = raw || fromEnv || getDefaultTemplateSpec()
   assertSupportedTemplateSpec(spec)
   return spec

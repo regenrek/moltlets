@@ -64,8 +64,8 @@ function AuthEnabledSignIn() {
           </div>
           <div className="text-muted-foreground text-sm">
             {mode === "sign-up"
-              ? "Create an admin account to manage your Clawdlets projects."
-              : "Use your account to access your Clawdlets projects."}
+              ? "Create an admin account to manage your Clawlets projects."
+              : "Use your account to access your Clawlets projects."}
           </div>
         </div>
 

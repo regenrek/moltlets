@@ -52,7 +52,7 @@ describe("template source validation", () => {
 
 describe("template test dir guard", () => {
   it("rejects dangerous overrides", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-repo-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-repo-"));
     await mkdir(path.join(repoRoot, "packages", "core", "tests"), { recursive: true });
 
     expect(() => resolveTemplateTestDir({ repoRoot, destRoot: "/" })).toThrow(/filesystem root/);

@@ -1,6 +1,6 @@
 import YAML from "yaml";
 import type { CattleTask } from "./cattle-task.js";
-import { EnvVarNameSchema } from "@clawdlets/shared/lib/identifiers";
+import { EnvVarNameSchema } from "@clawlets/shared/lib/identifiers";
 
 export const HCLOUD_USER_DATA_MAX_BYTES = 32 * 1024;
 
@@ -26,7 +26,7 @@ export type CattleCloudInitParams = {
   }>;
 };
 
-const SUPPORTED_PUBLIC_ENV_KEYS = new Set<string>(["CLAWDLETS_CATTLE_AUTO_SHUTDOWN"]);
+const SUPPORTED_PUBLIC_ENV_KEYS = new Set<string>(["CLAWLETS_CATTLE_AUTO_SHUTDOWN"]);
 export const MAX_BOOTSTRAP_TOKEN_TTL_SECONDS = 15 * 60;
 export const MAX_TAILSCALE_AUTH_KEY_TTL_SECONDS = 60 * 60;
 
@@ -69,7 +69,7 @@ function normalizePublicEnv(env: Record<string, string> | undefined): Record<str
     const key = String(k || "").trim();
     if (!key) continue;
     void EnvVarNameSchema.parse(key);
-    if (!key.startsWith("CLAWDLETS_")) {
+    if (!key.startsWith("CLAWLETS_")) {
       throw new Error(`cloud-init env not allowed: ${key} (secrets must be fetched at runtime)`);
     }
     if (!SUPPORTED_PUBLIC_ENV_KEYS.has(key)) {
@@ -78,8 +78,8 @@ function normalizePublicEnv(env: Record<string, string> | undefined): Record<str
     out[key] = String(v ?? "");
   }
 
-  if ("CLAWDLETS_CATTLE_AUTO_SHUTDOWN" in out && out.CLAWDLETS_CATTLE_AUTO_SHUTDOWN !== "0" && out.CLAWDLETS_CATTLE_AUTO_SHUTDOWN !== "1") {
-    throw new Error(`cloud-init env invalid: CLAWDLETS_CATTLE_AUTO_SHUTDOWN must be 0|1`);
+  if ("CLAWLETS_CATTLE_AUTO_SHUTDOWN" in out && out.CLAWLETS_CATTLE_AUTO_SHUTDOWN !== "0" && out.CLAWLETS_CATTLE_AUTO_SHUTDOWN !== "1") {
+    throw new Error(`cloud-init env invalid: CLAWLETS_CATTLE_AUTO_SHUTDOWN must be 0|1`);
   }
   return out;
 }
@@ -130,7 +130,7 @@ export function buildCattleCloudInitUserData(params: CattleCloudInitParams): str
 
   const writeFiles: any[] = [
     {
-      path: "/var/lib/clawdlets/cattle/task.json",
+      path: "/var/lib/clawlets/cattle/task.json",
       permissions: "0600",
       owner: "root:root",
       content: `${JSON.stringify({ ...params.task, callbackUrl: "" }, null, 2)}\n`,
@@ -150,7 +150,7 @@ export function buildCattleCloudInitUserData(params: CattleCloudInitParams): str
     ...(bootstrap
       ? [
           {
-            path: "/run/clawdlets/cattle/bootstrap.json",
+            path: "/run/clawlets/cattle/bootstrap.json",
             permissions: "0400",
             owner: "root:root",
             content: `${JSON.stringify(bootstrap, null, 2)}\n`,
@@ -160,7 +160,7 @@ export function buildCattleCloudInitUserData(params: CattleCloudInitParams): str
     ...(publicEnvText
       ? [
           {
-            path: "/run/clawdlets/cattle/env.public",
+            path: "/run/clawlets/cattle/env.public",
             permissions: "0400",
             owner: "root:root",
             content: publicEnvText,

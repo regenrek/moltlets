@@ -28,14 +28,14 @@ async function loadProjects(
     return { project: { localPath: "/tmp" }, role }
   })
 
-  vi.doMock("@clawdlets/core/lib/project-init", () => ({
+  vi.doMock("@clawlets/core/lib/project-init", () => ({
     initProject,
     planProjectInit: async () => ({ plannedFiles: [], nextSteps: [] }),
   }))
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/run-manager", () => ({ runWithEvents }))
   vi.doMock("~/server/template-spec", () => ({ resolveTemplateSpec: () => "github:owner/repo" }))
 

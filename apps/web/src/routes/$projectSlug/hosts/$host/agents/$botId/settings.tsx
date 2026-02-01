@@ -10,7 +10,7 @@ import { BotIntegrations } from "~/components/fleet/bot-integrations"
 import { BotWorkspaceDocs } from "~/components/fleet/bot-workspace-docs"
 import { authClient } from "~/lib/auth-client"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/agents/$botId/settings")({
   component: AgentSettings,
@@ -32,9 +32,9 @@ function AgentSettings() {
   const canEdit = project.data?.role === "admin"
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId) && canQuery,
   })
 

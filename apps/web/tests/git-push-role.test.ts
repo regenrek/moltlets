@@ -40,8 +40,8 @@ async function loadGitServer(role: "admin" | "viewer") {
   })
   const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role }))
 
-  vi.doMock("@clawdlets/core/lib/run", () => ({ capture }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("@clawlets/core/lib/run", () => ({ capture }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   const spawnCommandCapture = vi.fn(async () => ({ exitCode: 0, stdout: "ok", stderr: "" }))
   vi.doMock("~/server/run-manager", () => ({
     spawnCommandCapture,

@@ -25,7 +25,7 @@ export interface CattleServer {
 }
 
 export const CATTLE_LABEL_MANAGED_BY = "managed-by";
-export const CATTLE_LABEL_MANAGED_BY_VALUE = "clawdlets";
+export const CATTLE_LABEL_MANAGED_BY_VALUE = "clawlets";
 export const CATTLE_LABEL_CATTLE = "cattle";
 export const CATTLE_LABEL_CATTLE_VALUE = "true";
 export const CATTLE_LABEL_PERSONA = "persona";
@@ -76,7 +76,7 @@ async function getCattleFirewallId(params: { token: string }): Promise<string> {
 
     const id = await ensureHcloudFirewallId({
       token: params.token,
-      name: "clawdlets-cattle-base",
+      name: "clawlets-cattle-base",
       rules: fwRules,
       labels: { [CATTLE_LABEL_MANAGED_BY]: CATTLE_LABEL_MANAGED_BY_VALUE, [CATTLE_LABEL_CATTLE]: CATTLE_LABEL_CATTLE_VALUE },
     });

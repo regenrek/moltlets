@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { run } from "@clawdlets/core/lib/run";
-import { shellQuote, sshRun } from "@clawdlets/core/lib/ssh-remote";
-import { getHostRemoteSecretsDir, getHostSecretsDir } from "@clawdlets/core/repo-layout";
-import { resolveGitRev } from "@clawdlets/core/lib/git";
-import { createSecretsTar } from "@clawdlets/core/lib/secrets-tar";
+import { run } from "@clawlets/core/lib/run";
+import { shellQuote, sshRun } from "@clawlets/core/lib/ssh-remote";
+import { getHostRemoteSecretsDir, getHostSecretsDir } from "@clawlets/core/repo-layout";
+import { resolveGitRev } from "@clawlets/core/lib/git";
+import { createSecretsTar } from "@clawlets/core/lib/secrets-tar";
 import { needsSudo, requireTargetHost } from "./common.js";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 export const secretsSync = defineCommand({
   meta: {
@@ -15,9 +15,9 @@ export const secretsSync = defineCommand({
     description: "Copy local secrets to the server via the install-secrets allowlist.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     rev: { type: "string", description: "Git rev for secrets metadata (HEAD/sha/tag).", default: "HEAD" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
@@ -36,7 +36,7 @@ export const secretsSync = defineCommand({
     if (!resolved) throw new Error(`unable to resolve git rev: ${revRaw}`);
 
     const { tarPath: tarLocal, digest } = await createSecretsTar({ hostName, localDir });
-    const tarRemote = `/tmp/clawdlets-secrets.${hostName}.${process.pid}.tgz`;
+    const tarRemote = `/tmp/clawlets-secrets.${hostName}.${process.pid}.tgz`;
 
     try {
       await run("scp", [tarLocal, `${targetHost}:${tarRemote}`], { redact: [] });
@@ -51,7 +51,7 @@ export const secretsSync = defineCommand({
     const sudo = needsSudo(targetHost);
     const installCmd = [
       ...(sudo ? ["sudo"] : []),
-      "/etc/clawdlets/bin/install-secrets",
+      "/etc/clawlets/bin/install-secrets",
       "--host",
       hostName,
       "--tar",

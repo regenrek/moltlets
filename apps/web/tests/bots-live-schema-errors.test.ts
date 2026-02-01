@@ -24,24 +24,24 @@ async function loadBots(options: {
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-  vi.doMock("@clawdlets/core/lib/clawdbot-schema-validate", () => ({
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("@clawlets/core/lib/clawdbot-schema-validate", () => ({
     validateClawdbotConfig: options.validate ?? (() => ({ ok: true })),
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-      "@clawdlets/core/lib/clawdlets-config",
+  vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+    const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+      "@clawlets/core/lib/clawlets-config",
     )
     return {
       ...actual,
-      ClawdletsConfigSchema: {
+      ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadClawdletsConfigRaw: () => ({
-        configPath: "/tmp/fleet/clawdlets.json",
+      loadClawletsConfigRaw: () => ({
+        configPath: "/tmp/fleet/clawlets.json",
         config: { fleet: { bots: { bot1: { clawdbot: {} } } } },
       }),
-      writeClawdletsConfig: async () => {},
+      writeClawletsConfig: async () => {},
     }
   })
   vi.doMock("~/server/clawdbot-schema.server", () => ({

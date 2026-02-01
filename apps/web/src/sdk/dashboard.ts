@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises"
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
@@ -52,7 +52,7 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
 
         try {
           const repoRoot = assertRepoRootPath(p.localPath, { allowMissing: false })
-          const { configPath, config } = loadClawdletsConfig({ repoRoot })
+          const { configPath, config } = loadClawletsConfig({ repoRoot })
 
           const botIds = (Array.isArray(config.fleet?.botOrder) ? config.fleet.botOrder : []).filter(
             (b): b is string => typeof b === "string" && b.trim().length > 0,

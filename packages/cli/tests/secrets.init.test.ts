@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getLocalOperatorAgeKeyPath, getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getLocalOperatorAgeKeyPath, getRepoLayout } from "@clawlets/core/repo-layout";
 import { makeConfig, baseHost } from "./fixtures.js";
 
 const promptPasswordMock = vi.fn();
@@ -27,25 +27,25 @@ const buildFleetSecretsPlanMock = vi.fn();
 const validateSecretsInitNonInteractiveMock = vi.fn();
 const planSecretsAutowireMock = vi.fn();
 const applySecretsAutowireMock = vi.fn();
-const writeClawdletsConfigMock = vi.fn();
+const writeClawletsConfigMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/age-keygen", () => ({
+vi.mock("@clawlets/core/lib/age-keygen", () => ({
   ageKeygen: ageKeygenMock,
   agePublicKeyFromIdentityFile: agePublicKeyFromIdentityFileMock,
 }));
 
-vi.mock("@clawdlets/core/lib/mkpasswd", () => ({
+vi.mock("@clawlets/core/lib/mkpasswd", () => ({
   mkpasswdYescryptHash: mkpasswdMock,
 }));
 
-vi.mock("@clawdlets/core/lib/sops", () => ({
+vi.mock("@clawlets/core/lib/sops", () => ({
   sopsEncryptYamlToFile: sopsEncryptMock,
   sopsDecryptYamlFile: sopsDecryptMock,
 }));
 
-vi.mock("@clawdlets/core/lib/sops-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/sops-config")>(
-    "@clawdlets/core/lib/sops-config",
+vi.mock("@clawlets/core/lib/sops-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/sops-config")>(
+    "@clawlets/core/lib/sops-config",
   );
   return {
     ...actual,
@@ -53,28 +53,28 @@ vi.mock("@clawdlets/core/lib/sops-config", async () => {
   };
 });
 
-vi.mock("@clawdlets/core/lib/fleet-secrets-plan", () => ({
+vi.mock("@clawlets/core/lib/fleet-secrets-plan", () => ({
   buildFleetSecretsPlan: buildFleetSecretsPlanMock,
 }));
 
-vi.mock("@clawdlets/core/lib/secrets-autowire", () => ({
+vi.mock("@clawlets/core/lib/secrets-autowire", () => ({
   planSecretsAutowire: planSecretsAutowireMock,
   applySecretsAutowire: applySecretsAutowireMock,
 }));
 
-vi.mock("@clawdlets/core/lib/clawdlets-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-    "@clawdlets/core/lib/clawdlets-config",
+vi.mock("@clawlets/core/lib/clawlets-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+    "@clawlets/core/lib/clawlets-config",
   );
   return {
     ...actual,
-    writeClawdletsConfig: writeClawdletsConfigMock,
+    writeClawletsConfig: writeClawletsConfigMock,
   };
 });
 
-vi.mock("@clawdlets/core/lib/secrets-init", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/secrets-init")>(
-    "@clawdlets/core/lib/secrets-init",
+vi.mock("@clawlets/core/lib/secrets-init", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/secrets-init")>(
+    "@clawlets/core/lib/secrets-init",
   );
   return {
     ...actual,
@@ -82,7 +82,7 @@ vi.mock("@clawdlets/core/lib/secrets-init", async () => {
   };
 });
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
@@ -126,7 +126,7 @@ describe("secrets init", () => {
   });
 
   it("writes secrets and extra-files with from-json", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -162,7 +162,7 @@ describe("secrets init", () => {
       adminPasswordHash: "hash",
       secrets: { discord_token_maren: "token" },
     };
-    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    const jsonPath = path.join(repoRoot, ".clawlets", "secrets.json");
     fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
     fs.writeFileSync(jsonPath, JSON.stringify(secretsJson), "utf8");
 
@@ -170,13 +170,13 @@ describe("secrets init", () => {
     await secretsInit.run({ args: { host: "alpha", fromJson: jsonPath, yes: true } } as any);
 
     const localSecret = path.join(layout.secretsHostsDir, "alpha", "discord_token_maren.yaml");
-    const extraSecret = path.join(layout.extraFilesDir, "alpha", "var", "lib", "clawdlets", "secrets", "hosts", "alpha", "discord_token_maren.yaml");
+    const extraSecret = path.join(layout.extraFilesDir, "alpha", "var", "lib", "clawlets", "secrets", "hosts", "alpha", "discord_token_maren.yaml");
     expect(fs.existsSync(localSecret)).toBe(true);
     expect(fs.existsSync(extraSecret)).toBe(true);
   });
 
   it("fails when fleet.botOrder is empty", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -190,7 +190,7 @@ describe("secrets init", () => {
   });
 
   it("fails when cache.netrc lacks secretName", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -215,7 +215,7 @@ describe("secrets init", () => {
   });
 
   it("fails when discord secret config is missing", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -235,7 +235,7 @@ describe("secrets init", () => {
   });
 
   it("autowires missing secretEnv mappings when --autowire", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -284,7 +284,7 @@ describe("secrets init", () => {
       },
     };
     applySecretsAutowireMock.mockReturnValue(nextConfig);
-    writeClawdletsConfigMock.mockResolvedValue(undefined);
+    writeClawletsConfigMock.mockResolvedValue(undefined);
 
     ageKeygenMock.mockResolvedValue({
       secretKey: "AGE-SECRET-KEY-1",
@@ -309,11 +309,11 @@ describe("secrets init", () => {
     const { secretsInit } = await import("../src/commands/secrets/init.js");
     await secretsInit.run({ args: { host: "alpha", fromJson: secretsJsonPath, autowire: true, yes: true } } as any);
     expect(planSecretsAutowireMock).toHaveBeenCalled();
-    expect(writeClawdletsConfigMock).toHaveBeenCalled();
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
   });
 
   it("writes template and exits when no from-json and not interactive", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -338,7 +338,7 @@ describe("secrets init", () => {
   });
 
   it("rejects missing --from-json file", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -360,7 +360,7 @@ describe("secrets init", () => {
   });
 
   it("exits when default secrets json contains placeholders", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -393,7 +393,7 @@ describe("secrets init", () => {
   });
 
   it("rejects when required discord token is missing in from-json", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -414,7 +414,7 @@ describe("secrets init", () => {
       fileText: "AGE-SECRET-KEY-1",
     });
     upsertSopsCreationRuleMock.mockReturnValue("sops");
-    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    const jsonPath = path.join(repoRoot, ".clawlets", "secrets.json");
     fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
     fs.writeFileSync(
       jsonPath,
@@ -431,7 +431,7 @@ describe("secrets init", () => {
   });
 
   it("collects interactive secrets including netrc and discord token", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const netrcPath = path.join(repoRoot, "garnix.netrc");
     fs.writeFileSync(netrcPath, "machine cache.garnix.io login token", "utf8");
@@ -488,7 +488,7 @@ describe("secrets init", () => {
 
   it("rewrites stale operator .age.pub from private key", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-init-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-init-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -531,7 +531,7 @@ describe("secrets init", () => {
       adminPasswordHash: "hash",
       secrets: { discord_token_maren: "token" },
     };
-    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    const jsonPath = path.join(repoRoot, ".clawlets", "secrets.json");
     fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
     fs.writeFileSync(jsonPath, JSON.stringify(secretsJson), "utf8");
 
@@ -545,7 +545,7 @@ describe("secrets init", () => {
 
   it("recovers host age key from extra-files when encrypted key is not decryptable", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-init-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-init-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -597,7 +597,7 @@ describe("secrets init", () => {
       adminPasswordHash: "hash",
       secrets: { discord_token_maren: "token" },
     };
-    const jsonPath = path.join(repoRoot, ".clawdlets", "secrets.json");
+    const jsonPath = path.join(repoRoot, ".clawlets", "secrets.json");
     fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
     fs.writeFileSync(jsonPath, JSON.stringify(secretsJson), "utf8");
 

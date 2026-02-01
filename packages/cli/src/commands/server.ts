@@ -1,12 +1,12 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { shellQuote, sshCapture, sshRun } from "@clawdlets/core/lib/ssh-remote";
-import { mapWithConcurrency } from "@clawdlets/core/lib/concurrency";
+import { shellQuote, sshCapture, sshRun } from "@clawlets/core/lib/ssh-remote";
+import { mapWithConcurrency } from "@clawlets/core/lib/concurrency";
 import { requireTargetHost, needsSudo } from "./server/common.js";
 import { serverGithubSync } from "./server/github-sync.js";
 import { serverChannels } from "./server/channels.js";
 import { serverUpdate } from "./server/update.js";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 function normalizeSince(value: string): string {
   const v = value.trim();
@@ -59,9 +59,9 @@ const serverAudit = defineCommand({
     description: "Audit host invariants over SSH (tailscale, clawdbot services).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
     json: { type: "boolean", description: "Output JSON.", default: false },
   },
@@ -163,7 +163,7 @@ const serverAudit = defineCommand({
           `channels status (${botId})`,
           [
             ...(sudo ? ["sudo"] : []),
-            "/etc/clawdlets/bin/clawdbot-channels",
+            "/etc/clawlets/bin/clawdbot-channels",
             "--bot",
             shellQuote(botId),
             "status",
@@ -239,9 +239,9 @@ const serverStatus = defineCommand({
     description: "Show systemd status for Clawdbot services.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -270,9 +270,9 @@ const serverLogs = defineCommand({
     description: "Stream or print logs via journalctl.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     unit: {
       type: "string",
       description: "systemd unit (default: clawdbot-*.service).",
@@ -318,9 +318,9 @@ const serverRestart = defineCommand({
     description: "Restart a systemd unit (default: clawdbot-*.service).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     unit: { type: "string", description: "systemd unit (default: clawdbot-*.service).", default: "clawdbot-*.service" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
