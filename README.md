@@ -1,14 +1,23 @@
+<p align="center">
+  <img src="public/clawlets_banner.png" alt="Clawlets Banner" />
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/clawlets"><img src="https://img.shields.io/npm/v/clawlets.svg" alt="npm version" /></a>
+</p>
+
 # Clawlets
 
-Clawlets is an unofficial clawdbot server provisioner for made for hetzner.
+Clawdlets is an unofficial hetzner infrastructure companion for openclaw and nix-openclaw. It provides the tooling to deploy and manage, reproducible bot fleets on Hetzner Cloud using NixOS.
 
 ## Official Templates
 - Looking for official AWS Deploy? [clawdbot/clawdinators](https://github.com/clawdbot/clawdinators)
 - Clawdbot [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot)
 
 > 🚨🚨
-> **Use at your own risk!** This project is under active development and not production-ready. You absolutely need to know what you're doing before deploying this. Misconfiguration can expose credentials, open security holes, or cause data loss.
->
+> **Use at your own risk!** This project is under active development. You absolutely need to know what you're doing before deploying this. Misconfiguration can expose credentials, open security holes, or cause data loss.
+
+> **Note:** Clawlets is an independent project and is **not affiliated with OpenClaw**. Please do not open issues or PRs on the OpenClaw repositories for Clawlets-related problems.
 
 ## Features
 
@@ -18,12 +27,23 @@ Clawlets is an unofficial clawdbot server provisioner for made for hetzner.
 - **CLI-first** – bootstrap, deploy, ops, troubleshooting.
 - **Atomic updates** – rollbacks via NixOS generations.
 
+## Dashboard
+
+<p align="center">
+  <img src="public/clawlets_desktop.png" alt="Clawlets Dashboard" />
+</p>
+
+The Clawlets dashboard provides a unified interface for managing your infrastructure:
+
+- **Host Overview** – status, location, and server type at a glance
+- **Activity Monitoring** – visualize runs and deployments over time
+- **Host Details** – Tailnet, SSH exposure, disk configuration, and network settings
+- **Quick Actions** – Deploy, Updates, Logs, Audit, Restart, and Settings
+- **Full Operations** – Agents, Bootstrap, Secrets, Skills management from the sidebar
 
 ## Quickstart
 
 **Documentation:** https://docs.clawlets.com
-
-Source: `apps/docs/content/docs/`
 
 ## Documentation
 
@@ -34,9 +54,9 @@ Source: `apps/docs/content/docs/`
 - Operations: `apps/docs/content/docs/operations/index.mdx`
 - CLI: `apps/docs/content/docs/cli/index.mdx`
 
-## Powered By
+## Notes & Credits
 
-Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core projects:
+Clawlets started as a personal tool to organize fleet management, bootstrapping, and ops. All credit for the AI assistant and Nix packaging goes to the core projects:
 
 - [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
 - [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)
