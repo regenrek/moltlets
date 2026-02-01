@@ -36,6 +36,7 @@ export const Route = createFileRoute("/$projectSlug/cache")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
+    if (project?.status !== "ready") return
     await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: CachePage,
@@ -45,11 +46,13 @@ function CachePage() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
+  const projectStatus = projectQuery.project?.status
+  const isReady = projectStatus === "ready"
   const queryClient = useQueryClient()
 
   const cfg = useQuery({
     ...clawletsConfigQueryOptions((projectId as Id<"projects"> | null) ?? null),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId && isReady),
   })
 
   const config = cfg.data?.config
@@ -161,6 +164,12 @@ function CachePage() {
   }
   if (!projectId) {
     return <div className="text-muted-foreground">Project not found.</div>
+  }
+  if (projectStatus === "creating") {
+    return <div className="text-muted-foreground">Project setup in progress. Refresh after the run completes.</div>
+  }
+  if (projectStatus === "error") {
+    return <div className="text-sm text-destructive">Project setup failed. Check Runs for details.</div>
   }
   if (cfg.error) {
     return <div className="text-sm text-destructive">{String(cfg.error)}</div>

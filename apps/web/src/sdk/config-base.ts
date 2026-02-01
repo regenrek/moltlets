@@ -5,6 +5,8 @@ import {
   loadClawletsConfigRaw,
   writeClawletsConfig,
 } from "@clawlets/core/lib/clawlets-config"
+import { getRepoLayout } from "@clawlets/core/repo-layout"
+import fs from "node:fs"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
@@ -19,7 +21,17 @@ export const getClawletsConfig = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
+    const { repoRoot } = await getAdminProjectContext(client, data.projectId, { allowMissing: true })
+    if (!fs.existsSync(repoRoot)) {
+      const layout = getRepoLayout(repoRoot)
+      return {
+        repoRoot,
+        configPath: layout.clawletsConfigPath,
+        config: null,
+        json: "",
+        missing: true,
+      }
+    }
     try {
       const { configPath, config } = loadClawletsConfig({ repoRoot })
       const json = JSON.stringify(config, null, 2)
