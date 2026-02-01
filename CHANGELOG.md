@@ -5,6 +5,10 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 ### Added
+- (none)
+
+## [0.4.4] - 2026-02-01
+### Added
 - Add project-level **Security** area (tabs for API keys + SSH keys).
 - Add agent detail pages (Overview/Logs/Settings/Skills), capability presets with schema-backed channel dropdown, and user settings page with logout.
 - Add pinned schema diff helpers + config diff preview utilities for agent settings.
@@ -16,6 +20,11 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Default web auth to Better Auth (remove legacy auth-disabled path) and enforce sign-in redirect.
 - Regenerate pinned OpenClaw schema to include channel plugin schemas for capability selection.
 - Move SSH keys from host scope to project scope (`fleet.sshAuthorizedKeys` / `fleet.sshKnownHosts`) and update migrations/UI accordingly.
+- Rename clawdlets → clawlets across CLI, docs, templates, and runtime (`.clawlets/`).
+
+### Fixed
+- Allow `deploy` run kinds in web/Convex schema.
+- Avoid config fetch failures during project creation and ensure template pin resolves to a `fleet/clawlets.json` root.
 
 ## [0.4.3] - 2026-01-26
 ### Fixed
