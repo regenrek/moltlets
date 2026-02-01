@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-task_file="${CLAWDLETS_CATTLE_TASK_FILE:-/var/lib/clawdlets/cattle/task.json}"
-result_file="${CLAWDLETS_CATTLE_RESULT_FILE:-/var/lib/clawdlets/cattle/result.json}"
-workspace_dir="${CLAWDLETS_CATTLE_WORKSPACE_DIR:-/var/lib/clawdlets/cattle/workspace}"
-gateway_port="${CLAWDLETS_CATTLE_GATEWAY_PORT:-18789}"
-bootstrap_file="${CLAWDLETS_CATTLE_BOOTSTRAP_FILE:-/run/clawdlets/cattle/bootstrap.json}"
-env_file="${CLAWDLETS_CATTLE_ENV_FILE:-/run/clawdlets/cattle/env}"
-public_env_file="/run/clawdlets/cattle/env.public"
+task_file="${CLAWLETS_CATTLE_TASK_FILE:-/var/lib/clawlets/cattle/task.json}"
+result_file="${CLAWLETS_CATTLE_RESULT_FILE:-/var/lib/clawlets/cattle/result.json}"
+workspace_dir="${CLAWLETS_CATTLE_WORKSPACE_DIR:-/var/lib/clawlets/cattle/workspace}"
+gateway_port="${CLAWLETS_CATTLE_GATEWAY_PORT:-18789}"
+bootstrap_file="${CLAWLETS_CATTLE_BOOTSTRAP_FILE:-/run/clawlets/cattle/bootstrap.json}"
+env_file="${CLAWLETS_CATTLE_ENV_FILE:-/run/clawlets/cattle/env}"
+public_env_file="/run/clawlets/cattle/env.public"
 
-export CLAWDLETS_CATTLE_AUTO_SHUTDOWN="${CLAWDLETS_CATTLE_AUTO_SHUTDOWN:-1}"
+export CLAWLETS_CATTLE_AUTO_SHUTDOWN="${CLAWLETS_CATTLE_AUTO_SHUTDOWN:-1}"
 
 now_iso() {
   date -Iseconds
@@ -17,7 +17,7 @@ now_iso() {
 
 umask 077
 mkdir -p "${workspace_dir}"
-mkdir -p "/run/clawdlets/cattle"
+mkdir -p "/run/clawlets/cattle"
 rm -f "${env_file}" || true
 
 started_at="$(now_iso)"
@@ -43,7 +43,7 @@ fail() {
     >"${result_file}.tmp"
   mv "${result_file}.tmp" "${result_file}"
 
-  if [[ "${CLAWDLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
+  if [[ "${CLAWLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
     systemctl poweroff || true
   fi
 
@@ -60,14 +60,14 @@ load_public_env() {
   }
 
   local v
-  v="$(jq -r '.CLAWDLETS_CATTLE_AUTO_SHUTDOWN // ""' "${public_env_file}" 2>/dev/null || true)"
+  v="$(jq -r '.CLAWLETS_CATTLE_AUTO_SHUTDOWN // ""' "${public_env_file}" 2>/dev/null || true)"
   if [[ -z "${v}" || "${v}" == "null" ]]; then
     return 0
   fi
   if [[ "${v}" != "0" && "${v}" != "1" ]]; then
-    fail "invalid env.public CLAWDLETS_CATTLE_AUTO_SHUTDOWN (expected 0|1): ${v}"
+    fail "invalid env.public CLAWLETS_CATTLE_AUTO_SHUTDOWN (expected 0|1): ${v}"
   fi
-  export CLAWDLETS_CATTLE_AUTO_SHUTDOWN="${v}"
+  export CLAWLETS_CATTLE_AUTO_SHUTDOWN="${v}"
 }
 
 fetch_secrets_env() {
@@ -113,9 +113,9 @@ fetch_secrets_env() {
   url="${base_url%/}/v1/cattle/env"
 
   local resp tmp_env curl_cfg
-  resp="$(mktemp -p /run/clawdlets/cattle clawdlets-cattle.env.XXXXXX.json)"
-  tmp_env="$(mktemp -p /run/clawdlets/cattle clawdlets-cattle.env.XXXXXX.sh)"
-  curl_cfg="$(mktemp -p /run/clawdlets/cattle clawdlets-cattle.curl.XXXXXX.conf)"
+  resp="$(mktemp -p /run/clawlets/cattle clawlets-cattle.env.XXXXXX.json)"
+  tmp_env="$(mktemp -p /run/clawlets/cattle clawlets-cattle.env.XXXXXX.sh)"
+  curl_cfg="$(mktemp -p /run/clawlets/cattle clawlets-cattle.curl.XXXXXX.conf)"
   chmod 0400 "${curl_cfg}"
   local token_escaped
   token_escaped="${token//\"/\\\"}"
@@ -174,7 +174,7 @@ fetch_secrets_env() {
 
   # shellcheck disable=SC1090
   source "${env_file}"
-  if [[ "${CLAWDLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
+  if [[ "${CLAWLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
     rm -f "${env_file}" || true
   fi
 }
@@ -271,7 +271,7 @@ jq -n \
   >"${result_file}.tmp"
 mv "${result_file}.tmp" "${result_file}"
 
-if [[ "${CLAWDLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
+if [[ "${CLAWLETS_CATTLE_AUTO_SHUTDOWN:-1}" == "1" ]]; then
   systemctl poweroff || true
 fi
 

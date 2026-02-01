@@ -32,25 +32,25 @@ describe("plugin dispatch integration", () => {
   });
 
   it("dispatches installed plugin via runtime dir", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugin-it-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugin-it-"));
     tempDirs.push(repoRoot);
     writeFile(path.join(repoRoot, "flake.nix"), "{ }\n");
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
 
-    const runtimeDir = ".clawdlets";
+    const runtimeDir = ".clawlets";
     const pluginInstallDir = path.join(repoRoot, runtimeDir, "plugins", "cattle");
     const pluginPackageDir = path.join(
       pluginInstallDir,
       "node_modules",
-      "@clawdlets",
+      "@clawlets",
       "plugin-cattle",
     );
     writeFile(
-      path.join(pluginInstallDir, "clawdlets-plugin.json"),
+      path.join(pluginInstallDir, "clawlets-plugin.json"),
       JSON.stringify(
         {
           slug: "cattle",
-          packageName: "@clawdlets/plugin-cattle",
+          packageName: "@clawlets/plugin-cattle",
           version: "0.0.0",
           command: "cattle",
           entry: "./dist/plugin.mjs",
@@ -61,7 +61,7 @@ describe("plugin dispatch integration", () => {
     );
     writeFile(
       path.join(pluginPackageDir, "package.json"),
-      JSON.stringify({ name: "@clawdlets/plugin-cattle", version: "0.0.0", type: "module" }, null, 2),
+      JSON.stringify({ name: "@clawlets/plugin-cattle", version: "0.0.0", type: "module" }, null, 2),
     );
     const outPath = path.join(repoRoot, "plugin-out.json");
     writeFile(
@@ -82,7 +82,7 @@ describe("plugin dispatch integration", () => {
     );
 
     process.chdir(repoRoot);
-    process.argv = ["node", "clawdlets", `--runtime-dir=${runtimeDir}`, "cattle", "--foo", "bar"];
+    process.argv = ["node", "clawlets", `--runtime-dir=${runtimeDir}`, "cattle", "--foo", "bar"];
     vi.resetModules();
     await import("../src/main.ts");
 

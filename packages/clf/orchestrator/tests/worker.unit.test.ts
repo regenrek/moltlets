@@ -6,8 +6,8 @@ import { runClfWorkerLoop, loadAdminAuthorizedKeys, parseCattleBaseLabels } from
 
 const reapExpiredCattleMock = vi.hoisted(() => vi.fn(async () => ({ expired: [], deletedIds: ["srv-1"] })));
 
-vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/cattle-core/lib/hcloud-cattle")>("@clawdlets/cattle-core/lib/hcloud-cattle");
+vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/cattle-core/lib/hcloud-cattle")>("@clawlets/cattle-core/lib/hcloud-cattle");
   return {
     ...actual,
     reapExpiredCattle: reapExpiredCattleMock,

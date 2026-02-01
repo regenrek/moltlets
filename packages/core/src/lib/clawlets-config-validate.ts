@@ -1,12 +1,12 @@
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import { buildClawdbotBotConfig, type ClawdbotInvariantWarning } from "./clawdbot-config-invariants.js";
 import { validateClawdbotConfig } from "./clawdbot-schema-validate.js";
 import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
 import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./fleet-secrets-plan-helpers.js";
-import { EnvVarNameSchema } from "@clawdlets/shared/lib/identifiers";
+import { EnvVarNameSchema } from "@clawlets/shared/lib/identifiers";
 import type { MissingSecretConfig, SecretsPlanWarning } from "./secrets-plan.js";
 
-export type ClawdletsConfigValidation = {
+export type ClawletsConfigValidation = {
   ok: boolean;
   errors: string[];
   warnings: string[];
@@ -38,11 +38,11 @@ function formatPlanWarning(w: SecretsPlanWarning): string {
   return `${bot}${w.message}${path}`;
 }
 
-export function validateClawdletsConfig(params: {
-  config: ClawdletsConfig;
+export function validateClawletsConfig(params: {
+  config: ClawletsConfig;
   hostName: string;
   strict?: boolean;
-}): ClawdletsConfigValidation {
+}): ClawletsConfigValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
   const schemaErrors: Record<string, string[]> = {};

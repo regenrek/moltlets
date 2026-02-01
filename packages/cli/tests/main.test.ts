@@ -40,7 +40,7 @@ describe("cli main", () => {
   });
 
   it("prints version and exits", async () => {
-    process.argv = ["node", "clawdlets", "--version"];
+    process.argv = ["node", "clawlets", "--version"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       return undefined as never;
     }) as any);
@@ -52,17 +52,17 @@ describe("cli main", () => {
   });
 
   it("normalizes args and runs main", async () => {
-    process.argv = ["node", "clawdlets", "--", "doctor"];
+    process.argv = ["node", "clawlets", "--", "doctor"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 0}`);
     }) as any);
     await import("../src/main.ts");
     expect(runMainMock).toHaveBeenCalledTimes(1);
-    expect(process.argv).toEqual(["node", "clawdlets", "doctor"]);
+    expect(process.argv).toEqual(["node", "clawlets", "doctor"]);
   });
 
   it("dispatches plugins when flags precede the command", async () => {
-    process.argv = ["node", "clawdlets", "--runtime-dir", "/tmp/rt", "cattle", "--foo", "bar"];
+    process.argv = ["node", "clawlets", "--runtime-dir", "/tmp/rt", "cattle", "--foo", "bar"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 0}`);
     }) as any);

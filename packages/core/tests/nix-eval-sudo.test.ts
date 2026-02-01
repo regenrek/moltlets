@@ -7,7 +7,11 @@ import { withFlakesEnv } from "../src/lib/nix-flakes";
 const NIX_EVAL_TIMEOUT_MS = 120_000;
 
 function resolveRepoRoot(): string {
-  return path.resolve(process.env.CLAWDLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));
+  return path.resolve(process.env.CLAWLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));
+}
+
+function resolveClawletsRepoRoot(): string {
+  return path.resolve(__dirname, "..", "..", "..");
 }
 
 function hasNix(): boolean {
@@ -20,42 +24,50 @@ function hasNix(): boolean {
 }
 
 function evalSudoExtraConfig(deployEnabled: boolean): string {
+  const clawletsRepo = resolveClawletsRepoRoot();
+  const clawletsRef = JSON.stringify(`path:${clawletsRepo}`);
   const expr = `
 let
-  flake = builtins.getFlake (toString ./.);
+  baseFlake = builtins.getFlake (toString ./.);
+  clawlets = builtins.getFlake ${clawletsRef};
+  flake = baseFlake // { inputs = baseFlake.inputs // { clawlets = clawlets; }; };
   system = "x86_64-linux";
   hostName = "clawdbot-fleet-host";
-  nixpkgs = flake.inputs.clawdlets.inputs.nixpkgs;
+  nixpkgs = flake.inputs.clawlets.inputs.nixpkgs;
   lib = nixpkgs.lib;
   project = {
     root = flake.outPath;
-    config = builtins.fromJSON (builtins.readFile (flake.outPath + "/fleet/clawdlets.json"));
+    config = builtins.fromJSON (builtins.readFile (flake.outPath + "/fleet/clawlets.json"));
   };
   cfg = (lib.nixosSystem {
     inherit system;
     specialArgs = {
-      clawdlets = flake.inputs.clawdlets;
-      nix-clawdbot = flake.inputs.clawdlets.inputs.nix-clawdbot;
+      clawlets = flake.inputs.clawlets;
+      nix-clawdbot = flake.inputs.clawlets.inputs.nix-clawdbot;
       inherit project;
-      flakeInfo = { clawdlets = { rev = null; lastModifiedDate = null; }; };
+      flakeInfo = { clawlets = { rev = null; lastModifiedDate = null; }; };
     };
     modules = [
-      flake.inputs.clawdlets.inputs.disko.nixosModules.disko
-      flake.inputs.clawdlets.inputs.nixos-generators.nixosModules.all-formats
-      flake.inputs.clawdlets.inputs.sops-nix.nixosModules.sops
-      flake.inputs.clawdlets.nixosModules.clawdletsProjectHost
-      ({ ... }: { clawdlets.hostName = hostName; })
-      ({ ... }: { clawdlets.operator.deploy.enable = lib.mkForce ${deployEnabled ? "true" : "false"}; })
+      flake.inputs.clawlets.inputs.disko.nixosModules.disko
+      flake.inputs.clawlets.inputs.nixos-generators.nixosModules.all-formats
+      flake.inputs.clawlets.inputs.sops-nix.nixosModules.sops
+      flake.inputs.clawlets.nixosModules.clawletsProjectHost
+      ({ ... }: { clawlets.hostName = hostName; })
+      ({ ... }: { clawlets.operator.deploy.enable = lib.mkForce ${deployEnabled ? "true" : "false"}; })
     ];
   }).config;
 in cfg.security.sudo.extraConfig
 `;
 
-  return execFileSync("nix", ["eval", "--impure", "--raw", "--expr", expr], {
-    cwd: resolveRepoRoot(),
-    env: withFlakesEnv(process.env),
-    encoding: "utf8",
-  }).trim();
+  return execFileSync(
+    "nix",
+    ["eval", "--impure", "--raw", "--expr", expr],
+    {
+      cwd: resolveRepoRoot(),
+      env: withFlakesEnv(process.env),
+      encoding: "utf8",
+    },
+  ).trim();
 }
 
 describe("sudo deploy allowlist", () => {
@@ -65,7 +77,7 @@ describe("sudo deploy allowlist", () => {
     "omits deploy sudo alias when disabled",
     () => {
       const extra = evalSudoExtraConfig(false);
-      expect(extra).not.toContain("CLAWDLETS_DEPLOY");
+      expect(extra).not.toContain("CLAWLETS_DEPLOY");
     },
     NIX_EVAL_TIMEOUT_MS,
   );
@@ -74,7 +86,7 @@ describe("sudo deploy allowlist", () => {
     "includes deploy sudo alias when enabled",
     () => {
       const extra = evalSudoExtraConfig(true);
-      expect(extra).toContain("CLAWDLETS_DEPLOY");
+      expect(extra).toContain("CLAWLETS_DEPLOY");
     },
     NIX_EVAL_TIMEOUT_MS,
   );

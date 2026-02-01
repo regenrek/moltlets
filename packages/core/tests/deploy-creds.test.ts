@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 async function setupRepo(): Promise<{ dir: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "clawdlets-deploy-creds-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "clawlets-deploy-creds-"));
   await writeFile(path.join(dir, "flake.nix"), "{}\n", "utf8");
   await mkdir(path.join(dir, "scripts"), { recursive: true });
   return { dir };
@@ -35,9 +35,9 @@ describe("deploy-creds", () => {
   it("loads default <runtimeDir>/env file", async () => {
     const { dir } = await setupRepo();
     try {
-      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
-      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await chmod(path.join(dir, ".clawlets", "env"), 0o600);
 
       const loaded = loadDeployCreds({ cwd: dir });
       expect(loaded.envFile?.status).toBe("ok");
@@ -52,9 +52,9 @@ describe("deploy-creds", () => {
   it("process.env wins over env file", async () => {
     const { dir } = await setupRepo();
     try {
-      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=filetoken\n", "utf8");
-      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=filetoken\n", "utf8");
+      await chmod(path.join(dir, ".clawlets", "env"), 0o600);
 
       process.env.HCLOUD_TOKEN = "envtoken";
 
@@ -69,9 +69,9 @@ describe("deploy-creds", () => {
   it("rejects insecure env file permissions", async () => {
     const { dir } = await setupRepo();
     try {
-      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawdlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
-      await chmod(path.join(dir, ".clawdlets", "env"), 0o644);
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await chmod(path.join(dir, ".clawlets", "env"), 0o644);
 
       const loaded = loadDeployCreds({ cwd: dir });
       expect(loaded.envFile?.status).toBe("invalid");
@@ -96,12 +96,12 @@ describe("deploy-creds", () => {
   it("resolves SOPS_AGE_KEY_FILE relative to repo root", async () => {
     const { dir } = await setupRepo();
     try {
-      await mkdir(path.join(dir, ".clawdlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawdlets", "env"), "SOPS_AGE_KEY_FILE=.clawdlets/keys/operators/me.agekey\n", "utf8");
-      await chmod(path.join(dir, ".clawdlets", "env"), 0o600);
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawlets", "env"), "SOPS_AGE_KEY_FILE=.clawlets/keys/operators/me.agekey\n", "utf8");
+      await chmod(path.join(dir, ".clawlets", "env"), 0o600);
 
       const loaded = loadDeployCreds({ cwd: dir });
-      expect(loaded.values.SOPS_AGE_KEY_FILE).toBe(path.join(dir, ".clawdlets", "keys", "operators", "me.agekey"));
+      expect(loaded.values.SOPS_AGE_KEY_FILE).toBe(path.join(dir, ".clawlets", "keys", "operators", "me.agekey"));
       expect(loaded.sources.SOPS_AGE_KEY_FILE).toBe("file");
     } finally {
       await rm(dir, { recursive: true, force: true });

@@ -32,7 +32,7 @@ function ProjectsIndex() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">Projects</h1>
           <p className="text-muted-foreground mt-1">
-            Local infra repos managed by Clawdlets.
+            Local infra repos managed by Clawlets.
           </p>
         </div>
         <div className="flex items-center gap-2">

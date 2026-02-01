@@ -5,22 +5,22 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { makeConfig, baseHost } from "./fixtures.js";
 
 const findRepoRootMock = vi.fn(() => "/repo");
-const loadClawdletsConfigMock = vi.fn();
-const writeClawdletsConfigMock = vi.fn();
+const loadClawletsConfigMock = vi.fn();
+const writeClawletsConfigMock = vi.fn();
 const resolveHostNameMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/clawdlets-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-    "@clawdlets/core/lib/clawdlets-config",
+vi.mock("@clawlets/core/lib/clawlets-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+    "@clawlets/core/lib/clawlets-config",
   );
   return {
     ...actual,
-    loadClawdletsConfig: loadClawdletsConfigMock,
-    writeClawdletsConfig: writeClawdletsConfigMock,
+    loadClawletsConfig: loadClawletsConfigMock,
+    writeClawletsConfig: writeClawletsConfigMock,
     resolveHostName: resolveHostNameMock,
   };
 });
@@ -43,16 +43,16 @@ describe("host command", () => {
 
   it("adds a host", async () => {
     const config = makeConfig();
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { host } = await import("../src/commands/host.js");
     await host.subCommands?.add?.run?.({ args: { host: "beta" } } as any);
-    expect(writeClawdletsConfigMock).toHaveBeenCalled();
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: added host beta");
   });
 
   it("set-default warns on invalid host", async () => {
     const config = makeConfig();
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: false, message: "bad host", tips: ["use --host alpha"] });
     const { host } = await import("../src/commands/host.js");
     await host.subCommands?.["set-default"]?.run?.({ args: { host: "nope" } } as any);
@@ -61,7 +61,7 @@ describe("host command", () => {
   });
 
   it("set updates ssh keys and known hosts", async () => {
-    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-host-"));
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-host-"));
     const keyFile = path.join(tmp, "id_ed25519.pub");
     const knownFile = path.join(tmp, "known_hosts");
     const pubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P test@example";
@@ -69,7 +69,7 @@ describe("host command", () => {
     fs.writeFileSync(knownFile, "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFake\n", "utf8");
 
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
     const { host } = await import("../src/commands/host.js");
     await host.subCommands?.set?.run?.({
@@ -80,13 +80,13 @@ describe("host command", () => {
         "add-ssh-known-host-file": knownFile,
       },
     } as any);
-    expect(writeClawdletsConfigMock).toHaveBeenCalled();
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: updated host alpha");
   });
 
   it("set warns on unknown host entry", async () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "beta" });
     const { host } = await import("../src/commands/host.js");
     await host.subCommands?.set?.run?.({ args: { host: "beta", enable: "true" } } as any);
@@ -96,7 +96,7 @@ describe("host command", () => {
 
   it("set rejects invalid booleans and modes", async () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
     const { host } = await import("../src/commands/host.js");
     await expect(
@@ -111,12 +111,12 @@ describe("host command", () => {
   });
 
   it("set rejects invalid ssh keys", async () => {
-    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-host-"));
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-host-"));
     const privFile = path.join(tmp, "id_ed25519");
     fs.writeFileSync(privFile, "-----BEGIN OPENSSH PRIVATE KEY-----\n", "utf8");
 
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
     const { host } = await import("../src/commands/host.js");
     await expect(
@@ -128,11 +128,11 @@ describe("host command", () => {
   });
 
   it("set rejects invalid known_hosts input", async () => {
-    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-host-"));
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-host-"));
     const emptyKnown = path.join(tmp, "known_hosts");
     fs.writeFileSync(emptyKnown, "\n", "utf8");
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
-    loadClawdletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawdlets.json", config });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
     const { host } = await import("../src/commands/host.js");
     await expect(

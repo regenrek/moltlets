@@ -1,9 +1,9 @@
 { config, lib, pkgs, flakeInfo ? {}, ... }:
 
 let
-  cfg = config.clawdlets;
+  cfg = config.clawlets;
 
-  defaultHostSecretsDir = "/var/lib/clawdlets/secrets/hosts/${config.networking.hostName}";
+  defaultHostSecretsDir = "/var/lib/clawlets/secrets/hosts/${config.networking.hostName}";
   hostSecretsDir =
     if (cfg.secrets.hostDir or null) != null
     then cfg.secrets.hostDir
@@ -34,7 +34,7 @@ let
   mkSopsSecret = secretName: (sopsSecrets.mkSopsSecretFor { hostDir = hostSecretsDir; }) secretName;
 in
 {
-  options.clawdlets = {
+  options.clawlets = {
     sshExposure = {
       mode = lib.mkOption {
         type = lib.types.enum [ "tailnet" "bootstrap" "public" ];
@@ -51,7 +51,7 @@ in
           Directory containing encrypted sops YAML files on the host filesystem (one secret per file).
 
           Recommended (keeps secrets out of the Nix store):
-          - /var/lib/clawdlets/secrets/hosts/<host>/
+          - /var/lib/clawlets/secrets/hosts/<host>/
         '';
       };
 
@@ -190,9 +190,9 @@ in
   };
 
   config = {
-    clawdlets.secrets.hostDir = lib.mkDefault defaultHostSecretsDir;
+    clawlets.secrets.hostDir = lib.mkDefault defaultHostSecretsDir;
 
-    system.configurationRevision = lib.mkDefault (flakeInfo.clawdlets.rev or null);
+    system.configurationRevision = lib.mkDefault (flakeInfo.clawlets.rev or null);
 
     swapDevices = lib.mkDefault [
       {
@@ -284,54 +284,54 @@ in
           (!isTailscale)
           || sshPublicIngressEnabled
           || (tailscaleCfg.authKeySecret != null && tailscaleCfg.authKeySecret != "");
-        message = "clawdlets.tailnet.tailscale.authKeySecret must be set when tailnet mode is tailscale (or set clawdlets.sshExposure.mode to bootstrap/public for first boot).";
+        message = "clawlets.tailnet.tailscale.authKeySecret must be set when tailnet mode is tailscale (or set clawlets.sshExposure.mode to bootstrap/public for first boot).";
       }
       {
         assertion = cfg.cache.substituters != [];
-        message = "clawdlets.cache.substituters must not be empty.";
+        message = "clawlets.cache.substituters must not be empty.";
       }
       {
         assertion = cfg.cache.trustedPublicKeys != [];
-        message = "clawdlets.cache.trustedPublicKeys must not be empty.";
+        message = "clawlets.cache.trustedPublicKeys must not be empty.";
       }
       {
         assertion =
           (!cfg.cache.netrc.enable)
           || ((cfg.cache.netrc.secretName or null) != null && (cfg.cache.netrc.secretName or "") != "");
-        message = "clawdlets.cache.netrc.secretName must be set when cache.netrc is enabled.";
+        message = "clawlets.cache.netrc.secretName must be set when cache.netrc is enabled.";
       }
       {
         assertion = (!proxyEnabled) || egress.proxy.allowedDomains != [];
-        message = "clawdlets.egress.proxy.allowedDomains must be set when clawdlets.egress.mode is proxy-allowlist.";
+        message = "clawlets.egress.proxy.allowedDomains must be set when clawlets.egress.mode is proxy-allowlist.";
       }
     ];
 
-    environment.etc."clawdlets/bin/install-secrets" = {
+    environment.etc."clawlets/bin/install-secrets" = {
       source = ../scripts/install-secrets.sh;
       mode = "0755";
     };
 
-    environment.etc."clawdlets/bin/switch-system" = {
+    environment.etc."clawlets/bin/switch-system" = {
       source = ../scripts/switch-system.sh;
       mode = "0755";
     };
 
     systemd.tmpfiles.rules = lib.mkIf proxyEnabled [
-      "d /var/lib/clawdlets/proxy 0750 clawdlets-proxy clawdlets-proxy - -"
-      "d /var/lib/clawdlets/proxy/cache 0750 clawdlets-proxy clawdlets-proxy - -"
-      "d /var/lib/clawdlets/proxy/run 0750 clawdlets-proxy clawdlets-proxy - -"
+      "d /var/lib/clawlets/proxy 0750 clawlets-proxy clawlets-proxy - -"
+      "d /var/lib/clawlets/proxy/cache 0750 clawlets-proxy clawlets-proxy - -"
+      "d /var/lib/clawlets/proxy/run 0750 clawlets-proxy clawlets-proxy - -"
     ];
 
-    users.users.clawdlets-proxy = lib.mkIf proxyEnabled {
+    users.users.clawlets-proxy = lib.mkIf proxyEnabled {
       isSystemUser = true;
-      group = "clawdlets-proxy";
-      home = "/var/lib/clawdlets/proxy";
+      group = "clawlets-proxy";
+      home = "/var/lib/clawlets/proxy";
       createHome = false;
       shell = pkgs.bashInteractive;
     };
-    users.groups.clawdlets-proxy = lib.mkIf proxyEnabled { };
+    users.groups.clawlets-proxy = lib.mkIf proxyEnabled { };
 
-    environment.etc."clawdlets/proxy/squid.conf" = lib.mkIf proxyEnabled {
+    environment.etc."clawlets/proxy/squid.conf" = lib.mkIf proxyEnabled {
       mode = "0444";
       text =
         let
@@ -340,12 +340,12 @@ in
           http_port ${proxyAddr4}:${toString proxyPort}
           http_port [${proxyAddr6}]:${toString proxyPort}
 
-          pid_filename /var/lib/clawdlets/proxy/run/squid.pid
+          pid_filename /var/lib/clawlets/proxy/run/squid.pid
 
           # Minimal cache; keep squid happy but avoid pretending this is a CDN.
           cache_mem 0 MB
           maximum_object_size 0 KB
-          cache_dir ufs /var/lib/clawdlets/proxy/cache 64 16 256
+          cache_dir ufs /var/lib/clawlets/proxy/cache 64 16 256
 
           # No privacy surprises: do not forward Proxy-Authorization etc (none expected).
           forwarded_for delete
@@ -376,17 +376,17 @@ in
         '';
     };
 
-    systemd.services.clawdlets-egress-proxy = lib.mkIf proxyEnabled {
-      description = "Clawdlets egress proxy (domain allowlist)";
+    systemd.services.clawlets-egress-proxy = lib.mkIf proxyEnabled {
+      description = "Clawlets egress proxy (domain allowlist)";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "simple";
-        User = "clawdlets-proxy";
-        Group = "clawdlets-proxy";
-        WorkingDirectory = "/var/lib/clawdlets/proxy";
-        ExecStart = "${pkgs.squid}/bin/squid -N -f /etc/clawdlets/proxy/squid.conf";
+        User = "clawlets-proxy";
+        Group = "clawlets-proxy";
+        WorkingDirectory = "/var/lib/clawlets/proxy";
+        ExecStart = "${pkgs.squid}/bin/squid -N -f /etc/clawlets/proxy/squid.conf";
         Restart = "always";
         RestartSec = "2";
 
@@ -394,7 +394,7 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        ReadWritePaths = [ "/var/lib/clawdlets/proxy" ];
+        ReadWritePaths = [ "/var/lib/clawlets/proxy" ];
         UMask = "0077";
 
         CapabilityBoundingSet = "";

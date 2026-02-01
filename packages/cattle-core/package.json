@@ -1,5 +1,5 @@
 {
-  "name": "@clawdlets/cattle-core",
+  "name": "@clawlets/cattle-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clawdlets/shared": "workspace:*",
+    "@clawlets/shared": "workspace:*",
     "yaml": "^2.8.0",
     "zod": "^4.3.6"
   },

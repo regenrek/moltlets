@@ -7,13 +7,13 @@ import { readCliVersion, resolvePackageRoot } from "../src/lib/version.js";
 
 describe("readCliVersion", () => {
   it("reads version from package.json", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-version-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-version-"));
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ version: "1.2.3" }), "utf8");
     expect(readCliVersion(dir)).toBe("1.2.3");
   });
 
   it("throws when version is missing", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-version-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-version-"));
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({}), "utf8");
     expect(() => readCliVersion(dir)).toThrow(/missing version/i);
   });
@@ -21,7 +21,7 @@ describe("readCliVersion", () => {
 
 describe("resolvePackageRoot", () => {
   it("walks up to find package.json", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-root-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-root-"));
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ version: "1.2.3" }), "utf8");
     const nested = path.join(dir, "dist", "lib");
     fs.mkdirSync(nested, { recursive: true });

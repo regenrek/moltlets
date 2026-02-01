@@ -23,8 +23,8 @@ import {
   getLlmProviderFromModelId,
   getProviderAuthMode,
   getProviderCredentials,
-} from "@clawdlets/shared/lib/llm-provider-env";
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+} from "@clawlets/shared/lib/llm-provider-env";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import type { SecretFileSpec } from "./secret-wiring.js";
 import type { MissingSecretConfig, SecretSource, SecretSpec, SecretsPlanWarning } from "./secrets-plan.js";
 
@@ -62,7 +62,7 @@ export type FleetSecretsPlan = {
 const isUnsafeTargetPath = (targetPath: string) =>
   targetPath.includes("/../") || targetPath.endsWith("/..") || targetPath.includes("\u0000");
 
-export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostName: string }): FleetSecretsPlan {
+export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName: string }): FleetSecretsPlan {
   const hostName = params.hostName.trim();
   const hostCfg = (params.config.hosts as any)?.[hostName];
   if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
@@ -128,13 +128,13 @@ export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostNam
       });
       continue;
     }
-    if (!targetPath.startsWith("/var/lib/clawdlets/")) {
+    if (!targetPath.startsWith("/var/lib/clawlets/")) {
       missingSecretConfig.push({
         kind: "secretFile",
         scope: "host",
         fileId,
         targetPath,
-        message: "fleet.secretFiles targetPath must be under /var/lib/clawdlets/",
+        message: "fleet.secretFiles targetPath must be under /var/lib/clawlets/",
       });
     }
   }
@@ -372,7 +372,7 @@ export function buildFleetSecretsPlan(params: { config: ClawdletsConfig; hostNam
         bot,
         fileId,
       });
-      const expectedPrefix = `/var/lib/clawdlets/secrets/bots/${bot}/`;
+      const expectedPrefix = `/var/lib/clawlets/secrets/bots/${bot}/`;
       const targetPath = String(spec.targetPath || "");
       if (isUnsafeTargetPath(targetPath)) {
         missingSecretConfig.push({

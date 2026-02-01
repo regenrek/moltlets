@@ -8,7 +8,7 @@ describe("cattle-state", () => {
   it("upserts and lists active servers", async () => {
     const { openCattleState } = await import("../src/lib/cattle-state");
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cattle-state-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cattle-state-"));
     const dbPath = path.join(dir, "state.sqlite");
 
     const st = openCattleState(dbPath);
@@ -22,7 +22,7 @@ describe("cattle-state", () => {
         ttlSeconds: 7200,
         createdAt: 1700000000,
         expiresAt: 1700007200,
-        labels: { "managed-by": "clawdlets", cattle: "true" },
+        labels: { "managed-by": "clawlets", cattle: "true" },
         lastStatus: "running",
         lastIpv4: "1.2.3.4",
       });
@@ -40,7 +40,7 @@ describe("cattle-state", () => {
   it("finds by id/name and marks deleted", async () => {
     const { openCattleState } = await import("../src/lib/cattle-state");
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cattle-state-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cattle-state-"));
     const dbPath = path.join(dir, "state.sqlite");
 
     const st = openCattleState(dbPath);
@@ -74,7 +74,7 @@ describe("cattle-state", () => {
   it("rejects unknown schema versions", async () => {
     const { openCattleState } = await import("../src/lib/cattle-state");
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cattle-state-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cattle-state-"));
     const dbPath = path.join(dir, "state.sqlite");
 
     const require = createRequire(import.meta.url);
@@ -91,7 +91,7 @@ describe("cattle-state", () => {
 
     const { openCattleState } = await import("../src/lib/cattle-state");
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cattle-state-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cattle-state-"));
     const insecure = path.join(dir, "state");
     fs.mkdirSync(insecure);
     fs.chmodSync(insecure, 0o777);

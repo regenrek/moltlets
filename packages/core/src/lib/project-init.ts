@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { downloadTemplate } from "giget";
 import { ensureDir, writeFileAtomic } from "./fs-safe.js";
 import { capture, run } from "./run.js";
-import { assertSafeHostName } from "@clawdlets/shared/lib/identifiers";
+import { assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 
 type DownloadedTemplate = { dir: string };
 
@@ -101,7 +101,7 @@ async function ensureHookExecutables(repoRoot: string): Promise<boolean> {
 }
 
 async function findTemplateRoot(dir: string): Promise<string> {
-  const direct = path.join(dir, "fleet", "clawdlets.json");
+  const direct = path.join(dir, "fleet", "clawlets.json");
   if (fs.existsSync(direct)) return dir;
 
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -109,12 +109,12 @@ async function findTemplateRoot(dir: string): Promise<string> {
   for (const ent of entries) {
     if (!ent.isDirectory()) continue;
     const candidate = path.join(dir, ent.name);
-    if (fs.existsSync(path.join(candidate, "fleet", "clawdlets.json"))) {
+    if (fs.existsSync(path.join(candidate, "fleet", "clawlets.json"))) {
       candidates.push(candidate);
     }
   }
   if (candidates.length === 1) return candidates[0]!;
-  throw new Error(`template root missing fleet/clawdlets.json (searched: ${dir})`);
+  throw new Error(`template root missing fleet/clawlets.json (searched: ${dir})`);
 }
 
 async function withDownloadedTemplate<T>(
@@ -131,13 +131,13 @@ async function withDownloadedTemplate<T>(
     return await fn({ templateDir, downloaded: { dir: localDir } });
   }
 
-  const tempDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawdlets-template-"));
+  const tempDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawlets-template-"));
   let templateDir = tempDir;
   try {
     const downloaded = await downloadTemplate(templateSpec, {
       dir: tempDir,
       force: true,
-      auth: String(process.env["GITHUB_TOKEN"] || process.env["CLAWDLETS_TEMPLATE_TOKEN"] || "").trim() || undefined,
+      auth: String(process.env["GITHUB_TOKEN"] || process.env["CLAWLETS_TEMPLATE_TOKEN"] || "").trim() || undefined,
     });
     templateDir = await findTemplateRoot(downloaded.dir || tempDir);
     const result = await fn({ templateDir, downloaded: { dir: downloaded.dir || tempDir } });
@@ -173,7 +173,7 @@ async function listPlannedFiles(params: {
 }
 
 async function disableCacheNetrc(destDir: string, host: string): Promise<void> {
-  const configPath = path.join(destDir, "fleet", "clawdlets.json");
+  const configPath = path.join(destDir, "fleet", "clawlets.json");
   if (!fs.existsSync(configPath)) return;
   const raw = await fs.promises.readFile(configPath, "utf8");
   const parsed = JSON.parse(raw) as any;
@@ -276,15 +276,15 @@ export async function initProject(params: {
     "next:",
     `- cd ${destDir}`,
     "- create a git repo + set origin (recommended; enables blank base flake)",
-    "- clawdlets env init  # set HCLOUD_TOKEN in .clawdlets/env (required for provisioning)",
-    `- clawdlets host set --host ${host} --admin-cidr <your-ip>/32 --disk-device /dev/sda --ssh-pubkey-file <path-to-your-key.pub> --add-ssh-key-file <path-to-your-key.pub>`,
-    `- clawdlets host set --host ${host} --ssh-exposure bootstrap`,
-    `- clawdlets secrets init --host ${host}`,
-    `- clawdlets doctor --host ${host}`,
-    `- clawdlets bootstrap --host ${host}`,
-    `- clawdlets host set --host ${host} --target-host <ssh-alias|user@host>`,
-    `- clawdlets host set --host ${host} --ssh-exposure tailnet`,
-    `- clawdlets lockdown --host ${host}`,
+    "- clawlets env init  # set HCLOUD_TOKEN in .clawlets/env (required for provisioning)",
+    `- clawlets host set --host ${host} --admin-cidr <your-ip>/32 --disk-device /dev/sda --ssh-pubkey-file <path-to-your-key.pub> --add-ssh-key-file <path-to-your-key.pub>`,
+    `- clawlets host set --host ${host} --ssh-exposure bootstrap`,
+    `- clawlets secrets init --host ${host}`,
+    `- clawlets doctor --host ${host}`,
+    `- clawlets bootstrap --host ${host}`,
+    `- clawlets host set --host ${host} --target-host <ssh-alias|user@host>`,
+    `- clawlets host set --host ${host} --ssh-exposure tailnet`,
+    `- clawlets lockdown --host ${host}`,
   ];
 
   return {

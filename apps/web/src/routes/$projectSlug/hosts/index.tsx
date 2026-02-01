@@ -12,7 +12,7 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { useProjectBySlug } from "~/lib/project-data"
 import { addHost } from "~/sdk/config"
-import { clawdletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/hosts/")({
@@ -21,7 +21,8 @@ export const Route = createFileRoute("/$projectSlug/hosts/")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
-    await context.queryClient.ensureQueryData(clawdletsConfigQueryOptions(projectId))
+    if (project?.status !== "ready") return
+    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: HostsOverview,
 })
@@ -30,10 +31,12 @@ function HostsOverview() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
+  const projectStatus = projectQuery.project?.status
+  const isReady = projectStatus === "ready"
   const queryClient = useQueryClient()
   const cfg = useQuery({
-    ...clawdletsConfigQueryOptions(projectId as Id<"projects"> | null),
-    enabled: Boolean(projectId),
+    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
+    enabled: Boolean(projectId && isReady),
   })
 
   const config = cfg.data?.config as any
@@ -55,7 +58,7 @@ function HostsOverview() {
       toast.success("Host added")
       setNewHost("")
       setNewHostOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -70,6 +73,12 @@ function HostsOverview() {
   }
   if (!projectId) {
     return <div className="text-muted-foreground">Project not found.</div>
+  }
+  if (projectStatus === "creating") {
+    return <div className="text-muted-foreground">Project setup in progress. Refresh after the run completes.</div>
+  }
+  if (projectStatus === "error") {
+    return <div className="text-sm text-destructive">Project setup failed. Check Runs for details.</div>
   }
 
   return (
@@ -105,7 +114,7 @@ function HostsOverview() {
                   <Label htmlFor="new-host-name">Host name</Label>
                   <Input
                     id="new-host-name"
-                    placeholder="clawdlets-prod-01"
+                    placeholder="clawlets-prod-01"
                     value={newHost}
                     onChange={(e) => setNewHost(e.target.value)}
                   />

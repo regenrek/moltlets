@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-app_id="${CLAWDLETS_GH_APP_ID:-}"
-installation_id="${CLAWDLETS_GH_INSTALLATION_ID:-}"
-private_key_path="${CLAWDLETS_GH_PRIVATE_KEY_PATH:-}"
+app_id="${CLAWLETS_GH_APP_ID:-}"
+installation_id="${CLAWLETS_GH_INSTALLATION_ID:-}"
+private_key_path="${CLAWLETS_GH_PRIVATE_KEY_PATH:-}"
 
-out_env_file="${CLAWDLETS_GH_ENV_FILE:-}"
-out_git_creds_file="${CLAWDLETS_GH_GIT_CREDENTIALS_FILE:-}"
-out_gitconfig_file="${CLAWDLETS_GH_GITCONFIG_FILE:-}"
+out_env_file="${CLAWLETS_GH_ENV_FILE:-}"
+out_git_creds_file="${CLAWLETS_GH_GIT_CREDENTIALS_FILE:-}"
+out_gitconfig_file="${CLAWLETS_GH_GITCONFIG_FILE:-}"
 
-bot_user="${CLAWDLETS_BOT_USER:-}"
-bot_group="${CLAWDLETS_BOT_GROUP:-}"
+bot_user="${CLAWLETS_BOT_USER:-}"
+bot_group="${CLAWLETS_BOT_GROUP:-}"
 
 if [[ -z "${app_id}" || -z "${installation_id}" || -z "${private_key_path}" ]]; then
-  echo "error: missing CLAWDLETS_GH_APP_ID / CLAWDLETS_GH_INSTALLATION_ID / CLAWDLETS_GH_PRIVATE_KEY_PATH" >&2
+  echo "error: missing CLAWLETS_GH_APP_ID / CLAWLETS_GH_INSTALLATION_ID / CLAWLETS_GH_PRIVATE_KEY_PATH" >&2
   exit 2
 fi
 if [[ -z "${out_env_file}" || -z "${out_git_creds_file}" || -z "${out_gitconfig_file}" ]]; then
-  echo "error: missing CLAWDLETS_GH_ENV_FILE / CLAWDLETS_GH_GIT_CREDENTIALS_FILE / CLAWDLETS_GH_GITCONFIG_FILE" >&2
+  echo "error: missing CLAWLETS_GH_ENV_FILE / CLAWLETS_GH_GIT_CREDENTIALS_FILE / CLAWLETS_GH_GITCONFIG_FILE" >&2
   exit 2
 fi
 if [[ -z "${bot_user}" || -z "${bot_group}" ]]; then
-  echo "error: missing CLAWDLETS_BOT_USER / CLAWDLETS_BOT_GROUP" >&2
+  echo "error: missing CLAWLETS_BOT_USER / CLAWLETS_BOT_GROUP" >&2
   exit 2
 fi
 if [[ ! -f "${private_key_path}" ]]; then

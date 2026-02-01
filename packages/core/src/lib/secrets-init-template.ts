@@ -1,4 +1,4 @@
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import type { FleetSecretsPlan } from "./fleet-secrets-plan.js";
 
 type SecretsInitTemplateSets = {
@@ -18,7 +18,7 @@ function uniqSorted(values: string[]): string[] {
 
 export function buildSecretsInitTemplateSets(params: {
   secretsPlan: FleetSecretsPlan;
-  hostCfg: ClawdletsConfig["hosts"][string];
+  hostCfg: ClawletsConfig["hosts"][string];
 }): SecretsInitTemplateSets {
   const hostCfg = params.hostCfg;
   const secretsPlan = params.secretsPlan;

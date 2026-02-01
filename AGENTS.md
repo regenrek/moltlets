@@ -13,7 +13,7 @@ rules
 - avoid sindresorhus deps; implement small helpers in-house
 
 never commit (secrets/instance)
-- .clawdlets/
+- .clawlets/
 - .env files (local tokens)
 - age keys (operator or host)
 - sops config/keys
@@ -27,7 +27,7 @@ docs
 
 source of truth
 - packages/cli/src and packages/core/src (not dist)
-- infra lives in clawdlets-template (project repos)
+- infra lives in clawlets-template (project repos)
 - docs/*.md and docs/docs.yaml
 
 generated (do not edit)

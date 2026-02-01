@@ -4,7 +4,7 @@ Goal
 - Bots request work via `clf jobs ...` without ever holding Hetzner creds or long-lived provider keys.
 
 Split
-- `clawdlets` = operator/admin CLI (bootstrap, deploy, lockdown, server ops).
+- `clawlets` = operator/admin CLI (bootstrap, deploy, lockdown, server ops).
 - `clf` = bot-facing control plane (jobs queue today; more commands later).
 
 ## Components
@@ -26,7 +26,7 @@ No public ingress by default.
 
 ## Deployment (Pet host, NixOS)
 
-Clawdlets framework provides:
+Clawlets framework provides:
 - module: `nix/modules/clf-orchestrator.nix`
 
 Enable in your host config (project repo):
@@ -71,8 +71,8 @@ clf jobs cancel --job-id <jobId> --json
 ```
 
 Notes
-- Bots use `clf`. Do not grant bots access to the `clawdlets` admin CLI.
-- `withGithubToken` is operator-only today (via `clawdlets cattle spawn --with-github-token`).
+- Bots use `clf`. Do not grant bots access to the `clawlets` admin CLI.
+- `withGithubToken` is operator-only today (via `clawlets cattle spawn --with-github-token`).
 
 ## Runtime state
 

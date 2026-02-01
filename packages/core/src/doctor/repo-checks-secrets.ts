@@ -137,7 +137,7 @@ export function findFleetSecretViolations(root: string): {
   files: string[];
   violations: { file: string; label: string }[];
 } {
-  const configPath = path.join(root, "fleet", "clawdlets.json");
+  const configPath = path.join(root, "fleet", "clawlets.json");
   if (!fs.existsSync(configPath)) return { files: [], violations: [] };
   const raw = readFilePrefix(configPath);
   for (const pattern of CLAWDBOT_SECRET_PATTERNS) {

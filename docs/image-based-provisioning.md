@@ -15,10 +15,10 @@ Project repos now support a raw image build + upload flow:
 1) **Build image** from the flake (no secrets baked):
 
 ```bash
-clawdlets image build --host <host>
+clawlets image build --host <host>
 ```
 
-This builds `packages.x86_64-linux.<host>-image` (raw) and writes it to `.clawdlets/images/<host>/...`.
+This builds `packages.x86_64-linux.<host>-image` (raw) and writes it to `.clawlets/images/<host>/...`.
 
 2) **Publish** the raw image to a public URL (S3/Backblaze/etc). Large files upload faster if you
 compress them (`bz2`/`gz`/`xz`) before publishing.
@@ -26,7 +26,7 @@ compress them (`bz2`/`gz`/`xz`) before publishing.
 3) **Import** to Hetzner using `hcloud-upload-image`:
 
 ```bash
-clawdlets image upload --host <host> --image-url https://<bucket>/<image>.raw --compression bz2
+clawlets image upload --host <host> --image-url https://<bucket>/<image>.raw --compression bz2
 ```
 
 Requires `HCLOUD_TOKEN` in your environment.
@@ -34,19 +34,19 @@ Requires `HCLOUD_TOKEN` in your environment.
 4) **Pin** the image in config:
 
 ```bash
-clawdlets host set --host <host> --hetzner-image <image_id_or_name>
+clawlets host set --host <host> --hetzner-image <image_id_or_name>
 ```
 
 5) **Bootstrap** with the image:
 
 ```bash
-clawdlets bootstrap --mode image
+clawlets bootstrap --mode image
 ```
 
 6) **Apply updates** (same as normal updates):
 
 ```bash
-clawdlets server update apply --host <host> --target-host admin@<ipv4>
+clawlets server update apply --host <host> --target-host admin@<ipv4>
 ```
 
 ## Alternate POC (snapshot)
@@ -58,7 +58,7 @@ and risks leaking secrets if you don’t scrub the host first.
 
 - Never embed plaintext secrets in the image.
 - The raw image build uses a bootstrap module that disables secrets + fleet services.
-- Install encrypted secrets via CI-published bundles (preferred) or `clawdlets secrets sync` after the host is reachable.
+- Install encrypted secrets via CI-published bundles (preferred) or `clawlets secrets sync` after the host is reachable.
 
 ## Ops notes
 

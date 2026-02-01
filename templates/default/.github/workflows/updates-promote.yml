@@ -12,7 +12,7 @@ on:
         required: false
         default: "prod"
       host:
-        description: "Optional single host (defaults to all hosts in fleet/clawdlets.json)"
+        description: "Optional single host (defaults to all hosts in fleet/clawlets.json)"
         required: false
 
 permissions:
@@ -81,7 +81,7 @@ jobs:
 
           touch _gh-pages/.nojekyll
 
-          hosts="$(jq -r '.hosts | keys[]' fleet/clawdlets.json)"
+          hosts="$(jq -r '.hosts | keys[]' fleet/clawlets.json)"
           if [[ -n "${SINGLE_HOST:-}" ]]; then
             hosts="${SINGLE_HOST}"
           fi
@@ -148,23 +148,23 @@ jobs:
             mkdir -p "$(dirname "${to_pointer}")"
             to_manifest="_gh-pages/deploy/${host}/${to_channel}/${next}.json"
 
-            nix run .#clawdlets -- release manifest promote \
+            nix run .#clawlets -- release manifest promote \
               --host "${host}" \
               --in "${from_manifest}" \
               --channel "${to_channel}" \
               --release-id "${next}" \
               --out "${to_manifest}"
 
-            nix run .#clawdlets -- release manifest sign --in "${to_manifest}"
+            nix run .#clawlets -- release manifest sign --in "${to_manifest}"
 
-            nix run .#clawdlets -- release pointer write \
+            nix run .#clawlets -- release pointer write \
               --host "${host}" \
               --channel "${to_channel}" \
               --release-id "${next}" \
               --file "${next}.json" \
               --out "${to_pointer}"
 
-            nix run .#clawdlets -- release manifest sign --in "${to_pointer}"
+            nix run .#clawlets -- release manifest sign --in "${to_pointer}"
 
             echo "::endgroup::"
           done

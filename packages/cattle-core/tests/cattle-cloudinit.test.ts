@@ -14,14 +14,14 @@ describe("cattle-cloudinit", () => {
       tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
       tailscaleAuthKeyOneTime: true,
       task: { schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
-      publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
+      publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
       secretsBootstrap: {
-        baseUrl: "http://clawdlets-pet:18337",
+        baseUrl: "http://clawlets-pet:18337",
         token: "bootstrap-token",
         tokenExpiresAt: bootstrapExpiresAt,
         tokenOneTime: true,
       },
-      extraWriteFiles: [{ path: "/var/lib/clawdlets/cattle/persona/SOUL.md", permissions: "0600", owner: "root:root", content: "# Rex\n" }],
+      extraWriteFiles: [{ path: "/var/lib/clawlets/cattle/persona/SOUL.md", permissions: "0600", owner: "root:root", content: "# Rex\n" }],
     });
 
     expect(userData.startsWith("#cloud-config\n")).toBe(true);
@@ -49,7 +49,7 @@ describe("cattle-cloudinit", () => {
         task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
         publicEnv: { ZAI_API_KEY: "secret" } as any,
         secretsBootstrap: {
-          baseUrl: "http://clawdlets-pet:18337",
+          baseUrl: "http://clawlets-pet:18337",
           token: "bootstrap-token",
           tokenExpiresAt: bootstrapExpiresAt,
           tokenOneTime: true,
@@ -71,7 +71,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: true,
         task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
-        publicEnv: { CLAWDLETS_RANDOM: "1" } as any,
+        publicEnv: { CLAWLETS_RANDOM: "1" } as any,
       }),
     ).toThrow(/cloud-init env not supported/i);
   });
@@ -146,7 +146,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKeyOneTime: true,
         task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
         secretsBootstrap: {
-          baseUrl: "http://clawdlets-pet:18337",
+          baseUrl: "http://clawlets-pet:18337",
           token: "bootstrap-token",
           tokenExpiresAt: expired,
           tokenOneTime: true,

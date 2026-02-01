@@ -8,7 +8,7 @@ import { useConvexAuth } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { getDashboardOverview } from "~/sdk/dashboard"
-import { migrateClawdletsConfigFileToV12 } from "~/sdk/config-migrate"
+import { migrateClawletsConfigFileToV12 } from "~/sdk/config-migrate"
 import { Badge } from "~/components/ui/badge"
 import {
   Card,
@@ -87,7 +87,7 @@ export function ProjectDashboard(props: {
   const migrate = useMutation({
     mutationFn: async () => {
       if (!project) throw new Error("project not loaded")
-      return await migrateClawdletsConfigFileToV12({ data: { projectId: project.projectId } })
+      return await migrateClawletsConfigFileToV12({ data: { projectId: project.projectId } })
     },
     onSuccess: (res) => {
       if (res.ok) {
@@ -228,7 +228,7 @@ export function ProjectDashboard(props: {
                       Migrate to schemaVersion 12
                     </Button>
                     <div className="text-muted-foreground text-xs">
-                      CLI: <code>clawdlets config migrate --to v12</code>
+                      CLI: <code>clawlets config migrate --to v12</code>
                     </div>
                   </div>
                 ) : null}

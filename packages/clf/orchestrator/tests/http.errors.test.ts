@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 describe("clf-orchestrator http errors", () => {
   it("handles invalid JSON and missing jobs", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createOrchestratorHttpServer } = await import("../src/http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-http-"));
@@ -66,7 +66,7 @@ describe("clf-orchestrator http errors", () => {
   });
 
   it("rejects cancel for non-cancelable jobs", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createOrchestratorHttpServer } = await import("../src/http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-http-"));

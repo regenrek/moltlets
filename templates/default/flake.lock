@@ -1,6 +1,6 @@
 {
   "nodes": {
-    "clawdlets": {
+    "clawlets": {
       "inputs": {
         "disko": "disko",
         "nix-clawdbot": "nix-clawdbot",
@@ -12,20 +12,20 @@
         "lastModified": 1768731740,
         "narHash": "sha256-1dS33lF2mKmGfZ5pPrwJN2GPCXxeFCBhdnc6isNj+vg=",
         "owner": "regenrek",
-        "repo": "clawdlets",
+        "repo": "clawlets",
         "rev": "59456730ea27c0d96d60097e47a7ef43aeda4792",
         "type": "github"
       },
       "original": {
         "owner": "regenrek",
-        "repo": "clawdlets",
+        "repo": "clawlets",
         "type": "github"
       }
     },
     "disko": {
       "inputs": {
         "nixpkgs": [
-          "clawdlets",
+          "clawlets",
           "nixpkgs"
         ]
       },
@@ -64,7 +64,7 @@
     "home-manager": {
       "inputs": {
         "nixpkgs": [
-          "clawdlets",
+          "clawlets",
           "nix-clawdbot",
           "nixpkgs"
         ]
@@ -89,7 +89,7 @@
         "home-manager": "home-manager",
         "nix-steipete-tools": "nix-steipete-tools",
         "nixpkgs": [
-          "clawdlets",
+          "clawlets",
           "nixpkgs"
         ]
       },
@@ -144,7 +144,7 @@
       "inputs": {
         "nixlib": "nixlib",
         "nixpkgs": [
-          "clawdlets",
+          "clawlets",
           "nixpkgs"
         ]
       },
@@ -196,13 +196,13 @@
     },
     "root": {
       "inputs": {
-        "clawdlets": "clawdlets"
+        "clawlets": "clawlets"
       }
     },
     "sops-nix": {
       "inputs": {
         "nixpkgs": [
-          "clawdlets",
+          "clawlets",
           "nixpkgs"
         ]
       },

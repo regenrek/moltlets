@@ -29,8 +29,8 @@ describe("secrets write admin guard", () => {
       createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any,
     }))
 
-    vi.doMock("@clawdlets/core/lib/sops", () => ({ sopsEncryptYamlToFile }))
-    vi.doMock("@clawdlets/core/lib/fs-safe", () => ({ writeFileAtomic }))
+    vi.doMock("@clawlets/core/lib/sops", () => ({ sopsEncryptYamlToFile }))
+    vi.doMock("@clawlets/core/lib/fs-safe", () => ({ writeFileAtomic }))
 
     const { writeHostSecrets } = await import("~/sdk/secrets-write")
     await expect(

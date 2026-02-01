@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
 const applyOpenTofuVarsMock = vi.fn().mockResolvedValue(undefined);
 const runMock = vi.fn().mockResolvedValue(undefined);
@@ -15,25 +15,25 @@ const findRepoRootMock = vi.fn().mockReturnValue("/repo");
 const evalFleetConfigMock = vi.fn().mockResolvedValue({ bots: [] });
 const withFlakesEnvMock = vi.fn((env: NodeJS.ProcessEnv) => env);
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "" });
-const loadClawdletsConfigMock = vi.fn();
-const writeClawdletsConfigMock = vi.fn().mockResolvedValue(undefined);
+const loadClawletsConfigMock = vi.fn();
+const writeClawletsConfigMock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@clawdlets/core/lib/opentofu", () => ({
+vi.mock("@clawlets/core/lib/opentofu", () => ({
   applyOpenTofuVars: applyOpenTofuVarsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/git", () => ({
+vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
 }));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   run: runMock,
   capture: captureMock,
 }));
 
-vi.mock("@clawdlets/core/lib/ssh-remote", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/ssh-remote")>(
-    "@clawdlets/core/lib/ssh-remote",
+vi.mock("@clawlets/core/lib/ssh-remote", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/ssh-remote")>(
+    "@clawlets/core/lib/ssh-remote",
   );
   return {
     ...actual,
@@ -41,43 +41,43 @@ vi.mock("@clawdlets/core/lib/ssh-remote", async () => {
   };
 });
 
-vi.mock("@clawdlets/core/lib/github", () => ({
+vi.mock("@clawlets/core/lib/github", () => ({
   checkGithubRepoVisibility: checkGithubRepoVisibilityMock,
   tryParseGithubFlakeUri: tryParseGithubFlakeUriMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/path-expand", () => ({
+vi.mock("@clawlets/core/lib/path-expand", () => ({
   expandPath: expandPathMock,
 }));
 
-vi.mock("@clawdlets/core/lib/repo", () => ({
+vi.mock("@clawlets/core/lib/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("@clawdlets/core/lib/fleet-nix-eval", () => ({
+vi.mock("@clawlets/core/lib/fleet-nix-eval", () => ({
   evalFleetConfig: evalFleetConfigMock,
 }));
 
-vi.mock("@clawdlets/core/lib/nix-flakes", () => ({
+vi.mock("@clawlets/core/lib/nix-flakes", () => ({
   withFlakesEnv: withFlakesEnvMock,
 }));
 
-vi.mock("@clawdlets/core/lib/base-flake", () => ({
+vi.mock("@clawlets/core/lib/base-flake", () => ({
   resolveBaseFlake: resolveBaseFlakeMock,
 }));
 
-vi.mock("@clawdlets/core/lib/clawdlets-config", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-    "@clawdlets/core/lib/clawdlets-config",
+vi.mock("@clawlets/core/lib/clawlets-config", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+    "@clawlets/core/lib/clawlets-config",
   );
   return {
     ...actual,
-    loadClawdletsConfig: loadClawdletsConfigMock,
-    writeClawdletsConfig: writeClawdletsConfigMock,
+    loadClawletsConfig: loadClawletsConfigMock,
+    writeClawletsConfig: writeClawletsConfigMock,
   };
 });
 
@@ -102,9 +102,9 @@ const baseHost = {
 };
 
 function setConfig(hostOverrides: Partial<typeof baseHost>) {
-  loadClawdletsConfigMock.mockReturnValue({
+  loadClawletsConfigMock.mockReturnValue({
     layout: getRepoLayout("/repo"),
-    configPath: "/repo/fleet/clawdlets.json",
+    configPath: "/repo/fleet/clawlets.json",
     config: {
       schemaVersion: 12,
       fleet: { sshAuthorizedKeys: [], sshKnownHosts: [] },
@@ -123,7 +123,7 @@ describe("bootstrap command", () => {
     vi.clearAllMocks();
     existsSpy = vi.spyOn(fs, "existsSync").mockReturnValue(true);
     loadDeployCredsMock.mockReturnValue({
-      envFile: { status: "ok", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", GITHUB_TOKEN: "", NIX_BIN: "nix" },
     });
   });
@@ -172,7 +172,7 @@ describe("bootstrap command", () => {
     const output = logs.join("\n");
     expect(output).toMatch(/SSH WILL REMAIN OPEN/i);
     expect(output).toMatch(/--ssh-exposure tailnet/i);
-    expect(output).toMatch(/clawdlets lockdown/i);
+    expect(output).toMatch(/clawlets lockdown/i);
   });
 
   it("runs auto-lockdown when --lockdown-after is set", async () => {
@@ -191,9 +191,9 @@ describe("bootstrap command", () => {
     });
 
     expect(sshCaptureMock).toHaveBeenCalled();
-    expect(writeClawdletsConfigMock).toHaveBeenCalled();
-    const written = writeClawdletsConfigMock.mock.calls[0]?.[0];
-    expect(written?.configPath).toBe("/repo/fleet/clawdlets.json");
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
+    const written = writeClawletsConfigMock.mock.calls[0]?.[0];
+    expect(written?.configPath).toBe("/repo/fleet/clawlets.json");
     expect(written?.config?.hosts?.[hostName]?.sshExposure?.mode).toBe("tailnet");
     expect(written?.config?.hosts?.[hostName]?.targetHost).toBe("admin@100.64.0.10");
 
@@ -236,7 +236,7 @@ describe("bootstrap command", () => {
   it("rejects when HCLOUD_TOKEN is missing", async () => {
     setConfig({});
     loadDeployCredsMock.mockReturnValueOnce({
-      envFile: { status: "ok", path: "/repo/.clawdlets/env" },
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "", GITHUB_TOKEN: "", NIX_BIN: "nix" },
     });
     const { bootstrap } = await import("../src/commands/bootstrap.ts");

@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const loadHostContextMock = vi.fn();
 const sshRunMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/ssh-remote", () => ({
+vi.mock("@clawlets/core/lib/ssh-remote", () => ({
   sshRun: sshRunMock,
   sshCapture: vi.fn(),
   shellQuote: (s: string) => s,
@@ -25,7 +25,7 @@ describe("server update apply", () => {
     vi.clearAllMocks();
   });
 
-  it("starts clawdlets-update-fetch.service (no sudo)", async () => {
+  it("starts clawlets-update-fetch.service (no sudo)", async () => {
     loadHostContextMock.mockReturnValue({
       hostName: "alpha",
       hostCfg: { targetHost: "admin@host" },
@@ -38,7 +38,7 @@ describe("server update apply", () => {
 
     expect(sshRunMock).toHaveBeenCalledTimes(1);
     expect(sshRunMock.mock.calls[0]?.[0]).toBe("admin@host");
-    expect(sshRunMock.mock.calls[0]?.[1]).toMatch(/systemctl start clawdlets-update-fetch\.service/);
+    expect(sshRunMock.mock.calls[0]?.[1]).toMatch(/systemctl start clawlets-update-fetch\.service/);
   });
 
   it("uses sudo when required", async () => {
@@ -53,7 +53,7 @@ describe("server update apply", () => {
       args: { host: "alpha", sshTty: false },
     } as any);
 
-    expect(sshRunMock.mock.calls[0]?.[1]).toMatch(/sudo systemctl start clawdlets-update-fetch\.service/);
+    expect(sshRunMock.mock.calls[0]?.[1]).toMatch(/sudo systemctl start clawlets-update-fetch\.service/);
   });
 });
 

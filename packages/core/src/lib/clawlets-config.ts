@@ -4,12 +4,12 @@ import { z } from "zod";
 import { writeFileAtomic } from "./fs-safe.js";
 import type { RepoLayout } from "../repo-layout.js";
 import { getRepoLayout } from "../repo-layout.js";
-import { BotIdSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "@clawdlets/shared/lib/identifiers";
-import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawdlets-config-legacy.js";
+import { BotIdSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
+import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawlets-config-legacy.js";
 import { SecretEnvSchema, SecretFilesSchema } from "./secret-wiring.js";
 import { isValidTargetHost } from "./ssh-remote.js";
-import { TtlStringSchema } from "@clawdlets/cattle-core/lib/ttl";
-import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawdlets/cattle-core/lib/hcloud-labels";
+import { TtlStringSchema } from "@clawlets/cattle-core/lib/ttl";
+import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawlets/cattle-core/lib/hcloud-labels";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "./nix-cache.js";
 
 export const SSH_EXPOSURE_MODES = ["tailnet", "bootstrap", "public"] as const;
@@ -19,7 +19,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWDLETS_CONFIG_SCHEMA_VERSION = 12 as const;
+export const CLAWLETS_CONFIG_SCHEMA_VERSION = 12 as const;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
 
@@ -322,7 +322,7 @@ const CattleSchema = z
         location: z.string().trim().min(1).default("nbg1"),
         maxInstances: z.number().int().positive().default(10),
         defaultTtl: TtlStringSchema.default("2h"),
-        labels: HcloudLabelsSchema.default(() => ({ "managed-by": "clawdlets" })),
+        labels: HcloudLabelsSchema.default(() => ({ "managed-by": "clawlets" })),
       })
       .default(() => ({
         image: "",
@@ -330,7 +330,7 @@ const CattleSchema = z
         location: "nbg1",
         maxInstances: 10,
         defaultTtl: "2h",
-        labels: { "managed-by": "clawdlets" },
+        labels: { "managed-by": "clawlets" },
       })),
     defaults: z
       .object({
@@ -347,13 +347,13 @@ const CattleSchema = z
       location: "nbg1",
       maxInstances: 10,
       defaultTtl: "2h",
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     },
     defaults: { autoShutdown: true, callbackUrl: "" },
   }));
 
-export const ClawdletsConfigSchema = z.object({
-  schemaVersion: z.literal(CLAWDLETS_CONFIG_SCHEMA_VERSION),
+export const ClawletsConfigSchema = z.object({
+  schemaVersion: z.literal(CLAWLETS_CONFIG_SCHEMA_VERSION),
   defaultHost: HostNameSchema.optional(),
   baseFlake: z.string().trim().default(""),
   fleet: FleetSchema.default(() => ({
@@ -396,13 +396,13 @@ export const ClawdletsConfigSchema = z.object({
   }
 });
 
-export type ClawdletsConfig = z.infer<typeof ClawdletsConfigSchema>;
-export type ClawdletsHostConfig = z.infer<typeof HostSchema>;
+export type ClawletsConfig = z.infer<typeof ClawletsConfigSchema>;
+export type ClawletsHostConfig = z.infer<typeof HostSchema>;
 
 export const SafeHostNameSchema = HostNameSchema;
 export { assertSafeHostName };
 
-export function getSshExposureMode(hostCfg: ClawdletsHostConfig | null | undefined): SshExposureMode {
+export function getSshExposureMode(hostCfg: ClawletsHostConfig | null | undefined): SshExposureMode {
   const mode = hostCfg?.sshExposure?.mode;
   if (mode === "bootstrap" || mode === "public" || mode === "tailnet") return mode;
   return "tailnet";
@@ -412,18 +412,18 @@ export function isPublicSshExposure(mode: SshExposureMode): boolean {
   return mode === "bootstrap" || mode === "public";
 }
 
-export function getTailnetMode(hostCfg: ClawdletsHostConfig | null | undefined): TailnetMode {
+export function getTailnetMode(hostCfg: ClawletsHostConfig | null | undefined): TailnetMode {
   const mode = hostCfg?.tailnet?.mode;
   if (mode === "tailscale" || mode === "none") return mode;
   return "none";
 }
 
-export function createDefaultClawdletsConfig(params: { host: string; bots?: string[] }): ClawdletsConfig {
+export function createDefaultClawletsConfig(params: { host: string; bots?: string[] }): ClawletsConfig {
   const host = params.host.trim() || "clawdbot-fleet-host";
   const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((b) => b.trim()).filter(Boolean);
   const botsRecord = Object.fromEntries(bots.map((b) => [b, {}]));
-  return ClawdletsConfigSchema.parse({
-    schemaVersion: CLAWDLETS_CONFIG_SCHEMA_VERSION,
+  return ClawletsConfigSchema.parse({
+    schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
     defaultHost: host,
     baseFlake: "",
     fleet: {
@@ -444,7 +444,7 @@ export function createDefaultClawdletsConfig(params: { host: string; bots?: stri
         location: "nbg1",
         maxInstances: 10,
         defaultTtl: "2h",
-        labels: { "managed-by": "clawdlets" },
+        labels: { "managed-by": "clawlets" },
       },
       defaults: { autoShutdown: true, callbackUrl: "" },
     },
@@ -490,7 +490,7 @@ export type ResolveHostNameResult =
   | { ok: true; host: string; source: "flag" | "defaultHost" | "soleHost" }
   | { ok: false; message: string; tips: string[]; availableHosts: string[] };
 
-export function resolveHostName(params: { config: ClawdletsConfig; host?: unknown }): ResolveHostNameResult {
+export function resolveHostName(params: { config: ClawletsConfig; host?: unknown }): ResolveHostNameResult {
   const availableHosts = Object.keys(params.config.hosts || {});
   const provided = String(params.host ?? "").trim();
 
@@ -519,7 +519,7 @@ export function resolveHostName(params: { config: ClawdletsConfig; host?: unknow
       tips: [
         availableHosts.length > 0 ? `available hosts: ${availableHosts.join(", ")}` : "available hosts: (none)",
         `use --host <name> to select a host`,
-        `set defaultHost via: clawdlets host set-default --host <name>`,
+        `set defaultHost via: clawlets host set-default --host <name>`,
       ],
     };
   }
@@ -538,20 +538,20 @@ export function resolveHostName(params: { config: ClawdletsConfig; host?: unknow
     availableHosts,
     tips: [
       `pass --host <name>`,
-      `set defaultHost via: clawdlets host set-default --host <name>`,
+      `set defaultHost via: clawlets host set-default --host <name>`,
       availableHosts.length > 0 ? `available hosts: ${availableHosts.join(", ")}` : "available hosts: (none)",
     ],
   };
 }
 
-export function loadClawdletsConfigRaw(params: { repoRoot: string; runtimeDir?: string }): {
+export function loadClawletsConfigRaw(params: { repoRoot: string; runtimeDir?: string }): {
   layout: RepoLayout;
   configPath: string;
   config: unknown;
 } {
   const layout = getRepoLayout(params.repoRoot, params.runtimeDir);
-  const configPath = layout.clawdletsConfigPath;
-  if (!fs.existsSync(configPath)) throw new Error(`missing clawdlets config: ${configPath}`);
+  const configPath = layout.clawletsConfigPath;
+  if (!fs.existsSync(configPath)) throw new Error(`missing clawlets config: ${configPath}`);
   const raw = fs.readFileSync(configPath, "utf8");
   let parsed: unknown;
   try {
@@ -564,16 +564,16 @@ export function loadClawdletsConfigRaw(params: { repoRoot: string; runtimeDir?: 
   return { layout, configPath, config: parsed };
 }
 
-export function loadClawdletsConfig(params: { repoRoot: string; runtimeDir?: string }): {
+export function loadClawletsConfig(params: { repoRoot: string; runtimeDir?: string }): {
   layout: RepoLayout;
   configPath: string;
-  config: ClawdletsConfig;
+  config: ClawletsConfig;
 } {
-  const { layout, configPath, config: raw } = loadClawdletsConfigRaw(params);
-  const config = ClawdletsConfigSchema.parse(raw);
+  const { layout, configPath, config: raw } = loadClawletsConfigRaw(params);
+  const config = ClawletsConfigSchema.parse(raw);
   return { layout, configPath, config };
 }
 
-export async function writeClawdletsConfig(params: { configPath: string; config: ClawdletsConfig }): Promise<void> {
+export async function writeClawletsConfig(params: { configPath: string; config: ClawletsConfig }): Promise<void> {
   await writeFileAtomic(params.configPath, `${JSON.stringify(params.config, null, 2)}\n`);
 }

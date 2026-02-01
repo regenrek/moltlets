@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 import { makeConfig } from "./fixtures.js";
 
 const loadHostContextMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 

@@ -22,6 +22,6 @@ describe("doctor render", () => {
     const out = renderDoctorGateFailure({ checks, scope: "updates", strict: true });
     expect(out).toMatch(/doctor gate failed \(updates, strict\)/);
     expect(out).toMatch(/missing=1 warn=1/);
-    expect(out).toMatch(/hint: run clawdlets doctor --scope updates --strict/);
+    expect(out).toMatch(/hint: run clawlets doctor --scope updates --strict/);
   });
 });

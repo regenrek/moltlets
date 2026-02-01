@@ -3,7 +3,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
-import { openClfQueue } from "@clawdlets/clf-queue";
+import { openClfQueue } from "@clawlets/clf-queue";
 import { loadClfOrchestratorConfigFromEnv } from "./config.js";
 import { createOrchestratorHttpServer } from "./http.js";
 import { createCattleInternalHttpServer } from "./cattle-http.js";

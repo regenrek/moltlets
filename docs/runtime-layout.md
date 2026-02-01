@@ -13,9 +13,9 @@ Per-bot:
 Host-wide secrets/tools:
 
 - `/var/lib/sops-nix/key.txt`: host age key (installed via `nixos-anywhere --extra-files`)
-- `/var/lib/clawdlets/secrets/hosts/<host>/<secret>.yaml`: encrypted secrets (sops, out-of-store)
+- `/var/lib/clawlets/secrets/hosts/<host>/<secret>.yaml`: encrypted secrets (sops, out-of-store)
 - `/run/secrets/**`: decrypted/rendered secrets (activation-time, tmpfs)
-- `/etc/clawdlets/tools.md`: generated inventory of installed tools (read-only)
+- `/etc/clawlets/tools.md`: generated inventory of installed tools (read-only)
 
 ## Pet host (`clf-orchestrator`)
 
@@ -29,14 +29,14 @@ Host-wide secrets/tools:
 ## Cattle VM (ephemeral)
 
 - injected (disk):
-  - task: `/var/lib/clawdlets/cattle/task.json`
-  - persona: `/var/lib/clawdlets/cattle/persona/{SOUL.md,config.json}`
+  - task: `/var/lib/clawlets/cattle/task.json`
+  - persona: `/var/lib/clawlets/cattle/persona/{SOUL.md,config.json}`
 - runtime (tmpfs):
-  - bootstrap token: `/run/clawdlets/cattle/bootstrap.json` (deleted after first use)
-  - env overrides (public): `/run/clawdlets/cattle/env.public` (JSON)
-  - secrets env: `/run/clawdlets/cattle/env` (deleted when `autoShutdown=1`)
+  - bootstrap token: `/run/clawlets/cattle/bootstrap.json` (deleted after first use)
+  - env overrides (public): `/run/clawlets/cattle/env.public` (JSON)
+  - secrets env: `/run/clawlets/cattle/env` (deleted when `autoShutdown=1`)
 - workspace/logs:
-  - `/var/lib/clawdlets/cattle/workspace/` (gateway log, agent log, state)
-  - result: `/var/lib/clawdlets/cattle/result.json`
+  - `/var/lib/clawlets/cattle/workspace/` (gateway log, agent log, state)
+  - result: `/var/lib/clawlets/cattle/result.json`
 
 Invariant: bot processes should not write outside their `/srv/clawdbot/<bot>/` state dir (except Nix-managed paths like `/run/secrets/**`).

@@ -1,6 +1,6 @@
 import type { SecretSource, SecretSpec, SecretsPlanWarning } from "./secrets-plan.js";
 import type { SecretFileSpec } from "./secret-wiring.js";
-import { getKnownLlmProviders, getProviderCredentials } from "@clawdlets/shared/lib/llm-provider-env";
+import { getKnownLlmProviders, getProviderCredentials } from "@clawlets/shared/lib/llm-provider-env";
 
 export type SecretSpecAccumulator = {
   name: string;

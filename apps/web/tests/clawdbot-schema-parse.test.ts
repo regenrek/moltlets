@@ -103,8 +103,8 @@ describe("clawdbot schema output parsing", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -112,12 +112,12 @@ describe("clawdbot schema output parsing", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -146,8 +146,8 @@ describe("clawdbot schema output parsing", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -155,12 +155,12 @@ describe("clawdbot schema output parsing", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -189,8 +189,8 @@ describe("clawdbot schema output parsing", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -198,12 +198,12 @@ describe("clawdbot schema output parsing", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,
@@ -218,15 +218,15 @@ describe("clawdbot schema output parsing", () => {
 
   it("quotes bot id in gateway schema command", async () => {
     vi.resetModules()
-    vi.doMock("@clawdlets/core/lib/ssh-remote", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/ssh-remote")>(
-        "@clawdlets/core/lib/ssh-remote",
+    vi.doMock("@clawlets/core/lib/ssh-remote", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/ssh-remote")>(
+        "@clawlets/core/lib/ssh-remote",
       )
       return actual
     })
     const [{ __test_buildGatewaySchemaCommand }, { shellQuote }] = await Promise.all([
       import("~/server/clawdbot-schema.server"),
-      import("@clawdlets/core/lib/ssh-remote"),
+      import("@clawlets/core/lib/ssh-remote"),
     ])
     const cmd = __test_buildGatewaySchemaCommand({
       botId: "bot-1",
@@ -245,15 +245,15 @@ describe("clawdbot schema output parsing", () => {
 
   it("escapes bot id metacharacters in gateway schema command", async () => {
     vi.resetModules()
-    vi.doMock("@clawdlets/core/lib/ssh-remote", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/core/lib/ssh-remote")>(
-        "@clawdlets/core/lib/ssh-remote",
+    vi.doMock("@clawlets/core/lib/ssh-remote", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/ssh-remote")>(
+        "@clawlets/core/lib/ssh-remote",
       )
       return actual
     })
     const [{ __test_buildGatewaySchemaCommand }, { shellQuote }] = await Promise.all([
       import("~/server/clawdbot-schema.server"),
-      import("@clawdlets/core/lib/ssh-remote"),
+      import("@clawlets/core/lib/ssh-remote"),
     ])
     const botId = "bot 1;echo pwned"
     const cmd = __test_buildGatewaySchemaCommand({
@@ -286,8 +286,8 @@ describe("clawdbot schema output parsing", () => {
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
@@ -295,12 +295,12 @@ describe("clawdbot schema output parsing", () => {
         },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-config-invariants", () => ({
       buildClawdbotBotConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
-    vi.doMock("@clawdlets/core/lib/ssh-remote", () => ({
+    vi.doMock("@clawlets/core/lib/ssh-remote", () => ({
       shellQuote: (v: string) => v,
       validateTargetHost: (v: string) => v,
       sshCapture,

@@ -11,7 +11,7 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { Textarea } from "~/components/ui/textarea"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import { serverAuditExecute, serverAuditStart, serverStatusExecute, serverStatusStart } from "~/sdk/server-ops"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/audit")({
@@ -25,9 +25,9 @@ function AuditOperate() {
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
 

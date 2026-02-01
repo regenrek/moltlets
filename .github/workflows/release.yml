@@ -78,6 +78,6 @@ jobs:
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ env.TAG }}
-          name: clawdlets v${{ steps.notes.outputs.version }}
+          name: clawlets v${{ steps.notes.outputs.version }}
           body_path: release-notes.md
           prerelease: ${{ contains(env.TAG, '-') }}

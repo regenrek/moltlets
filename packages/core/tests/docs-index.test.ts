@@ -12,7 +12,7 @@ describe("docs index integrity", () => {
   });
 
   it("reports missing repo docs index", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r.ok).toBe(false);
@@ -20,14 +20,14 @@ describe("docs index integrity", () => {
   });
 
   it("skips validation when docs/ is absent", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     const r = validateDocsIndexIntegrity({ repoRoot });
     expect(r).toEqual({ ok: true, errors: [] });
   });
 
   it("reports template mismatch when templateRoot is provided", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
-    const templateRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-template-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
+    const templateRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-template-"));
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
     await mkdir(path.join(templateRoot, "docs"), { recursive: true });
 
@@ -51,7 +51,7 @@ describe("docs index integrity", () => {
   });
 
   it("reports duplicates and missing referenced files", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
 
     await writeFile(
@@ -76,7 +76,7 @@ describe("docs index integrity", () => {
   });
 
   it("rejects invalid docs index structure", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
 
     await writeFile(path.join(repoRoot, "docs", "docs.yaml"), "foo\n", "utf8");
@@ -87,7 +87,7 @@ describe("docs index integrity", () => {
   });
 
   it("rejects unsafe docs entry paths", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-docs-index-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-docs-index-"));
     await mkdir(path.join(repoRoot, "docs"), { recursive: true });
 
     await writeFile(

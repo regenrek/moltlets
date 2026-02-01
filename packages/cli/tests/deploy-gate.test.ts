@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const collectDoctorChecksMock = vi.fn();
 const renderDoctorGateFailureMock = vi.fn(() => "gate failed");
 
-vi.mock("@clawdlets/core/doctor", () => ({
+vi.mock("@clawlets/core/doctor", () => ({
   collectDoctorChecks: collectDoctorChecksMock,
 }));
 

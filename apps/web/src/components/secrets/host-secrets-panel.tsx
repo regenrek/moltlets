@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
-import type { MissingSecretConfig } from "@clawdlets/core/lib/secrets-plan"
+import type { MissingSecretConfig } from "@clawlets/core/lib/secrets-plan"
 import { RunLogTail } from "~/components/run-log-tail"
 import { SecretsInputs, type SecretsPlan, type SecretStatus } from "~/components/fleet/secrets-inputs"
 import { Button } from "~/components/ui/button"
@@ -13,7 +13,7 @@ import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import {
   getSecretsTemplate,
   secretsInitExecute,
@@ -33,8 +33,8 @@ type HostSecretsPanelProps = {
 
 export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
-    queryFn: async () => await getClawdletsConfig({ data: { projectId } }),
+    queryKey: ["clawletsConfig", projectId],
+    queryFn: async () => await getClawletsConfig({ data: { projectId } }),
   })
 
   const config = cfg.data?.config as any
@@ -234,7 +234,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
                   <div>
                     <div className="font-medium">Secrets init</div>
                     <div className="text-xs text-muted-foreground">
-                      Writes encrypted host secrets and extra-files scaffolds. Runs <code>clawdlets secrets init</code>.
+                      Writes encrypted host secrets and extra-files scaffolds. Runs <code>clawlets secrets init</code>.
                     </div>
                   </div>
                   <Button
@@ -408,7 +408,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
               <div className="rounded-lg border bg-card p-6 space-y-4">
                 <div className="font-medium">Secrets verify</div>
                 <div className="text-xs text-muted-foreground">
-                  Runs <code>clawdlets secrets verify --json</code> and summarizes missing secrets.
+                  Runs <code>clawlets secrets verify --json</code> and summarizes missing secrets.
                 </div>
                 <Button type="button" disabled={verifyQuery.isFetching || !host} onClick={() => void verifyQuery.refetch()}>
                   {verifyQuery.isFetching ? "Checking…" : "Run verify"}
@@ -424,7 +424,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
               <div className="rounded-lg border bg-card p-6 space-y-4">
                 <div className="font-medium">Secrets sync</div>
                 <div className="text-xs text-muted-foreground">
-                  Copies secrets to the server using <code>clawdlets secrets sync</code>. Requires SSH access.
+                  Copies secrets to the server using <code>clawlets secrets sync</code>. Requires SSH access.
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" variant="outline" disabled={syncPreviewRun.isPending || !host} onClick={() => syncPreviewRun.mutate()}>

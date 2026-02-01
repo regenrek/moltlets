@@ -14,8 +14,8 @@ import { setupFieldHelp } from "~/lib/setup-field-help"
 import {
   configDotGet,
   configDotSet,
-  getClawdletsConfig,
-  writeClawdletsConfigFile,
+  getClawletsConfig,
+  writeClawletsConfigFile,
 } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/setup/fleet")({
@@ -29,9 +29,9 @@ function FleetSetup() {
   const queryClient = useQueryClient()
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
 
@@ -70,7 +70,7 @@ function FleetSetup() {
           },
         },
       }
-      return await writeClawdletsConfigFile({
+      return await writeClawletsConfigFile({
         data: {
           projectId: projectId as Id<"projects">,
           next,
@@ -81,7 +81,7 @@ function FleetSetup() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else {
         toast.error("Validation failed")
       }
@@ -96,14 +96,14 @@ function FleetSetup() {
       } catch {
         return { ok: false as const, issues: [{ code: "json", path: [], message: "Invalid JSON" }] }
       }
-      return await writeClawdletsConfigFile({
+      return await writeClawletsConfigFile({
         data: { projectId: projectId as Id<"projects">, next: parsed, title: "Update config (JSON)" },
       })
     },
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else {
         toast.error("Validation failed")
       }
@@ -137,7 +137,7 @@ function FleetSetup() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Updated")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Validation failed")
     },
   })
@@ -153,7 +153,7 @@ function FleetSetup() {
     <div className="space-y-6">
       <h1 className="text-2xl font-black tracking-tight">Skills</h1>
       <p className="text-muted-foreground">
-        Configure skills and <code>fleet/clawdlets.json</code> for{" "}
+        Configure skills and <code>fleet/clawlets.json</code> for{" "}
         <span className="font-medium">{projectQuery.project?.name || projectSlug}</span>.
       </p>
 
@@ -180,7 +180,7 @@ function FleetSetup() {
           <TabsContent value="visual">
             <div className="rounded-lg border bg-card p-6 space-y-6">
               <div className="text-xs text-muted-foreground">
-                {repoRoot ? repoRoot : ""} · fleet/clawdlets.json
+                {repoRoot ? repoRoot : ""} · fleet/clawlets.json
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
@@ -253,7 +253,7 @@ function FleetSetup() {
                   type="button"
                   variant="outline"
                   disabled={cfg.isPending}
-                  onClick={() => void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })}
+                  onClick={() => void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })}
                 >
                   Reload
                 </Button>
@@ -310,7 +310,7 @@ function FleetSetup() {
           <TabsContent value="dot">
             <div className="rounded-lg border bg-card p-6 space-y-4">
               <div className="text-xs text-muted-foreground">
-                Mirrors <code>clawdlets config get/set</code>.
+                Mirrors <code>clawlets config get/set</code>.
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">

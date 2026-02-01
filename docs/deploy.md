@@ -1,13 +1,13 @@
 # Deploy / Updates (cache-only)
 
-Goal: keep the **repo public-safe** (no plaintext secrets) and keep local operator private keys in `.clawdlets/` (gitignored).
+Goal: keep the **repo public-safe** (no plaintext secrets) and keep local operator private keys in `.clawlets/` (gitignored).
 
 ## Recommended: CI build + cache-only deploy
 
 **Principle:** the host never evaluates a flake from GitHub. It only:
 
 - downloads signed store paths from trusted caches (Garnix, optionally Attic)
-- installs encrypted secrets to `/var/lib/clawdlets/secrets/hosts/<host>`
+- installs encrypted secrets to `/var/lib/clawlets/secrets/hosts/<host>`
 - switches to a prebuilt NixOS system closure by store path
 
 ### CI build + release manifest (v1)
@@ -23,10 +23,10 @@ Garnix is the canonical builder for `packages.x86_64-linux.<host>-system` (deriv
 Generate a signed desired-state release manifest:
 
 ```bash
-clawdlets release manifest build --host <host> --channel prod --system x86_64-linux --release-id <n> --out deploy/<host>/prod/<n>.json
-clawdlets release manifest sign --in deploy/<host>/prod/<n>.json
-clawdlets release pointer write --release-id <n> --out deploy/<host>/prod/latest.json
-clawdlets release manifest sign --in deploy/<host>/prod/latest.json
+clawlets release manifest build --host <host> --channel prod --system x86_64-linux --release-id <n> --out deploy/<host>/prod/<n>.json
+clawlets release manifest sign --in deploy/<host>/prod/<n>.json
+clawlets release pointer write --release-id <n> --out deploy/<host>/prod/latest.json
+clawlets release manifest sign --in deploy/<host>/prod/latest.json
 ```
 
 Manifest format (schemaVersion 1):
@@ -72,20 +72,20 @@ Promote without rebuild (manual, approved):
 ### Apply now (operator)
 
 ```bash
-clawdlets server update apply --host <host>
+clawlets server update apply --host <host>
 ```
 
-This triggers `systemctl start clawdlets-update-fetch.service` on the host (fetches pointer+manifest, verifies signature, then applies).
+This triggers `systemctl start clawlets-update-fetch.service` on the host (fetches pointer+manifest, verifies signature, then applies).
 
 ### Self-update (pull-based)
 
 Enable on a host to pull a manifest and switch by store path:
 
 ```nix
-clawdlets.selfUpdate.enable = true;
-clawdlets.selfUpdate.baseUrls = [ "https://<pages>/deploy/<host>/prod" ];
-clawdlets.selfUpdate.channel = "prod";
-clawdlets.selfUpdate.publicKeys = [ "<minisign-pubkey>" ];
+clawlets.selfUpdate.enable = true;
+clawlets.selfUpdate.baseUrls = [ "https://<pages>/deploy/<host>/prod" ];
+clawlets.selfUpdate.channel = "prod";
+clawlets.selfUpdate.publicKeys = [ "<minisign-pubkey>" ];
 ```
 
 Secrets behavior:
@@ -93,7 +93,7 @@ Secrets behavior:
 - `secrets.digest` is the sha256 of the published secrets bundle bytes (the bundle contains **sops-encrypted** `.yaml` files).
 - If `secrets.url` is set and installed secrets don't match `secrets.digest`, the updater downloads the bundle, verifies sha256, installs it, then proceeds.
 - `secrets.url` may be an absolute `https://...` URL or a relative path (resolved against `selfUpdate.baseUrls`; first success wins).
-- Secrets are never placed in the Nix store (downloaded to `/var/lib/clawdlets/updates/`, installed into `/var/lib/clawdlets/secrets/hosts/<host>`).
+- Secrets are never placed in the Nix store (downloaded to `/var/lib/clawlets/updates/`, installed into `/var/lib/clawlets/secrets/hosts/<host>`).
 
 Signature workflow:
 
@@ -104,7 +104,7 @@ minisign -G -n -p minisign.pub -s minisign.key
 ```
 
 2) Store `minisign.key` as `MINISIGN_PRIVATE_KEY` in GitHub Actions secrets.
-3) Copy the public key value into `fleet/clawdlets.json` (`hosts.<host>.selfUpdate.publicKeys = [ "<...>" ]`).
+3) Copy the public key value into `fleet/clawlets.json` (`hosts.<host>.selfUpdate.publicKeys = [ "<...>" ]`).
 
 Key management + rotation:
 
@@ -128,7 +128,7 @@ Key management + rotation:
 If you want to update secrets without switching:
 
 ```bash
-clawdlets secrets sync --rev <sha|HEAD>
+clawlets secrets sync --rev <sha|HEAD>
 ```
 
 ## Cache configuration (host)
@@ -137,11 +137,11 @@ Public cache only (default): just add substituters + trusted keys.
 
 Authenticated cache (private Garnix / Attic / Harmonia / etc):
 
-- set `hosts.<host>.cache.netrc.enable = true` in `fleet/clawdlets.json`
+- set `hosts.<host>.cache.netrc.enable = true` in `fleet/clawlets.json`
 - provide `/etc/nix/netrc` via sops secret (`hosts.<host>.cache.netrc.secretName`)
 - set `hosts.<host>.cache.netrc.narinfoCachePositiveTtl` to match your cache behavior (private Garnix requires this due to presigned URLs)
 
-See `nix/modules/clawdlets-host-baseline.nix` (in this repo) for the module options.
+See `nix/modules/clawlets-host-baseline.nix` (in this repo) for the module options.
 
 ## Self-hosted cache servers (optional)
 
@@ -151,20 +151,20 @@ If you cannot use Garnix, you can run your own binary cache server and point hos
 - `hosts.<host>.cache.trustedPublicKeys`
 - optional: `hosts.<host>.cache.netrc.*` for auth
 
-Clawdlets ships optional NixOS modules to run common cache servers:
+Clawlets ships optional NixOS modules to run common cache servers:
 
-- Harmonia: `clawdlets.nixosModules.clawdletsCacheHarmoniaServer`
-- Attic: `clawdlets.nixosModules.clawdletsCacheAtticServer`
+- Harmonia: `clawlets.nixosModules.clawletsCacheHarmoniaServer`
+- Attic: `clawlets.nixosModules.clawletsCacheAtticServer`
 
 Example (Harmonia behind nginx+ACME):
 
 ```nix
 {
   imports = [
-    clawdlets.nixosModules.clawdletsCacheHarmoniaServer
+    clawlets.nixosModules.clawletsCacheHarmoniaServer
   ];
 
-  clawdlets.cacheServers.harmonia = {
+  clawlets.cacheServers.harmonia = {
     enable = true;
     public = true;
     domain = "cache.example.com";
@@ -182,7 +182,7 @@ Example secrets (per-host sops file layout):
 
 ### Local build (workstation)
 
-If you have a Linux builder, `clawdlets release manifest build` can build the toplevel locally.
+If you have a Linux builder, `clawlets release manifest build` can build the toplevel locally.
 macOS builders are not supported for NixOS system builds.
 
 ### Private base repo + PAT (bootstrap/lockdown)

@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Id } from "../../../convex/_generated/dataModel"
-import type { MissingSecretConfig } from "@clawdlets/core/lib/secrets-plan"
+import type { MissingSecretConfig } from "@clawlets/core/lib/secrets-plan"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"

@@ -1,13 +1,13 @@
-# How To Release clawdlets
+# How To Release clawlets
 
-This repo publishes `clawdlets` to npm via GitHub Actions using npm Trusted Publishing (OIDC).
+This repo publishes `clawlets` to npm via GitHub Actions using npm Trusted Publishing (OIDC).
 
 ## About internal workspace packages (important)
 
 This repo uses workspace packages for code boundaries (`packages/core`, `packages/shared`, `packages/cattle-core`, `packages/clf/queue`), but we intentionally **do not publish them to npm**.
 
 Instead:
-- `clawdlets` and `@clawdlets/plugin-cattle` are bundled (tsdown bundles workspace deps into `dist/`)
+- `clawlets` and `@clawlets/plugin-cattle` are bundled (tsdown bundles workspace deps into `dist/`)
 - `scripts/prepare-package.mjs` drops all `workspace:*` deps and fails if any local protocol deps remain
 
 This keeps npm surface area small (only 2 packages) and avoids broken installs across package managers.
@@ -62,8 +62,8 @@ Before tagging/publishing (or when fixing a broken npm release), verify the prep
 
 ```bash
 pnpm -r build
-node scripts/prepare-package.mjs --out dist/npm/clawdlets
-cd dist/npm/clawdlets
+node scripts/prepare-package.mjs --out dist/npm/clawlets
+cd dist/npm/clawlets
 node -e 'const pkg=require("./package.json");for(const s of ["dependencies","devDependencies","optionalDependencies","peerDependencies"]){for(const [k,v] of Object.entries(pkg[s]||{})){const spec=String(v||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error(`bad dep: ${s}.${k}=${spec}`);}}}console.log("ok")'
 node dist/main.mjs --version
 ```
@@ -83,10 +83,10 @@ If any of these checks fail, **do not publish** (you will ship a package that ca
 ## After publish
 
 - Update the template repo pin so project CI/deploy uses the new CLI:
-  - In `clawdlets-template`, set `templates/default/config/clawdlets-cli-version.txt` to the clawdlets git ref you want projects to run (recommend: tag `vX.Y.Z`; for testing: full 40-hex SHA)
+  - In `clawlets-template`, set `templates/default/config/clawlets-cli-version.txt` to the clawlets git ref you want projects to run (recommend: tag `vX.Y.Z`; for testing: full 40-hex SHA)
   - Commit + push
 - If template changes were made, bump `config/template-source.json` in this repo (or use the
-  `bump-template-ref` workflow) so `clawdlets project init` stays pinned to the latest template.
+  `bump-template-ref` workflow) so `clawlets project init` stays pinned to the latest template.
   - Note: bump-template-ref PRs require `BUMP_TEMPLATE_REF_TOKEN` secret (so required PR checks run under strict branch protection).
 
 ## Troubleshooting

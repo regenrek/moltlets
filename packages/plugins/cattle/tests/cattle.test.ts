@@ -2,15 +2,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
 const loadHostContextOrExitMock = vi.fn();
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextOrExitMock,
 }));
 
 const createClfClientMock = vi.fn();
-vi.mock(import("@clawdlets/clf-queue"), async (importOriginal) => {
+vi.mock(import("@clawlets/clf-queue"), async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, CLF_PROTOCOL_VERSION: (actual as any).CLF_PROTOCOL_VERSION, createClfClient: createClfClientMock };
 });
@@ -21,7 +21,7 @@ vi.mock("../src/lib/cattle-state", () => ({
 }));
 
 const loadDeployCredsMock = vi.fn();
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
@@ -37,8 +37,8 @@ const reapExpiredCattleMock = vi.fn(async (params: { dryRun?: boolean; now?: Dat
   for (const s of expired) await destroyCattleServerMock({ id: s.id });
   return { expired, deletedIds: expired.map((s) => s.id) };
 });
-vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/cattle-core/lib/hcloud-cattle")>("@clawdlets/cattle-core/lib/hcloud-cattle");
+vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/cattle-core/lib/hcloud-cattle")>("@clawlets/cattle-core/lib/hcloud-cattle");
   return {
     ...actual,
     listCattleServers: listCattleServersMock,
@@ -48,7 +48,7 @@ vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
 });
 
 describe("cattle command", () => {
-  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-cattle-"));
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-cattle-"));
   const layout = getRepoLayout(repoRoot);
   const hostName = "clawdbot-fleet-host";
 
@@ -71,7 +71,7 @@ describe("cattle command", () => {
     },
     cattle: {
       enabled: true,
-      hetzner: { image: "img-1", serverType: "cx22", location: "nbg1", maxInstances: 10, defaultTtl: "2h", labels: { "managed-by": "clawdlets" } },
+      hetzner: { image: "img-1", serverType: "cx22", location: "nbg1", maxInstances: 10, defaultTtl: "2h", labels: { "managed-by": "clawlets" } },
       defaults: { autoShutdown: true, callbackUrl: "" },
     },
     hosts: { [hostName]: hostCfg },

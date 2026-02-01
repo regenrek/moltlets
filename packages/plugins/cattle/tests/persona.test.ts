@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 
 describe("cattle persona command", () => {
   it("persona add creates a skeleton", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-persona-"));
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
 
@@ -26,7 +26,7 @@ describe("cattle persona command", () => {
   });
 
   it("persona add dry-run prints plan without writing", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-persona-"));
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
 
@@ -47,7 +47,7 @@ describe("cattle persona command", () => {
   });
 
   it("persona add enforces overwrite unless forced", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-persona-"));
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
 
@@ -64,7 +64,7 @@ describe("cattle persona command", () => {
   });
 
   it("persona list filters invalid names", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-cli-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-persona-"));
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
 

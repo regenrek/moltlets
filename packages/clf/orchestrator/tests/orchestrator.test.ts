@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("clf-orchestrator http", () => {
   it("enqueues, lists, shows, cancels", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createOrchestratorHttpServer } = await import("../src/http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-orchestrator-"));
@@ -71,8 +71,8 @@ describe("clf-orchestrator http", () => {
 
 describe("clf-orchestrator worker", () => {
   it("processes a cattle.spawn job (mocked hcloud)", async () => {
-    vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", async () => {
-      const actual = await vi.importActual<typeof import("@clawdlets/cattle-core/lib/hcloud-cattle")>("@clawdlets/cattle-core/lib/hcloud-cattle");
+    vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/cattle-core/lib/hcloud-cattle")>("@clawlets/cattle-core/lib/hcloud-cattle");
       return {
         ...actual,
         listCattleServers: vi.fn(async () => []),
@@ -92,7 +92,7 @@ describe("clf-orchestrator worker", () => {
       };
     });
 
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { runClfWorkerLoop } = await import("../src/worker");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-orchestrator-"));
@@ -134,7 +134,7 @@ describe("clf-orchestrator worker", () => {
             defaultTtl: "2h",
             labels: {},
             defaultAutoShutdown: true,
-            secretsBaseUrl: "http://clawdlets-pet:18337",
+            secretsBaseUrl: "http://clawlets-pet:18337",
             bootstrapTtlMs: 60_000,
           },
           personasRoot,
@@ -167,7 +167,7 @@ describe("clf-orchestrator worker", () => {
 
 describe("clf-orchestrator cattle-http", () => {
   it("serves env for a valid one-time token", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createCattleInternalHttpServer } = await import("../src/cattle-http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-cattle-http-"));
@@ -197,7 +197,7 @@ describe("clf-orchestrator cattle-http", () => {
         requester: "maren",
         cattleName: "c1",
         envKeys: ["OPENAI_API_KEY"],
-        publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
+        publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
         ttlMs: 60_000,
       });
 
@@ -205,7 +205,7 @@ describe("clf-orchestrator cattle-http", () => {
       expect(ok.status).toBe(200);
       const okJson = (await ok.json()) as any;
       expect(okJson.ok).toBe(true);
-      expect(okJson.env).toEqual({ CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0", OPENAI_API_KEY: "secret" });
+      expect(okJson.env).toEqual({ CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0", OPENAI_API_KEY: "secret" });
 
       const okWithTab = await fetch(`${base}/v1/cattle/env`, { headers: { Authorization: `bearer\t${token}` } });
       expect(okWithTab.status).toBe(401);
@@ -221,7 +221,7 @@ describe("clf-orchestrator cattle-http", () => {
   });
 
   it("rejects expired tokens", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createCattleInternalHttpServer } = await import("../src/cattle-http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-cattle-http-"));
@@ -253,7 +253,7 @@ describe("clf-orchestrator cattle-http", () => {
   });
 
   it("rejects invalid env var names (db corruption defense-in-depth)", async () => {
-    const { openClfQueue } = await import("@clawdlets/clf-queue");
+    const { openClfQueue } = await import("@clawlets/clf-queue");
     const { createCattleInternalHttpServer } = await import("../src/cattle-http");
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-cattle-http-"));

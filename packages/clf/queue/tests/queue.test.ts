@@ -294,7 +294,7 @@ describe("clf queue", () => {
         requester: "maren",
         cattleName: "cattle-rex-1",
         envKeys: ["OPENAI_API_KEY", "GITHUB_TOKEN"],
-        publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
+        publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
         now,
         ttlMs: 60_000,
       });
@@ -304,7 +304,7 @@ describe("clf queue", () => {
       expect(consumed?.requester).toBe("maren");
       expect(consumed?.cattleName).toBe("cattle-rex-1");
       expect(consumed?.envKeys).toEqual(["OPENAI_API_KEY", "GITHUB_TOKEN"]);
-      expect(consumed?.publicEnv?.CLAWDLETS_CATTLE_AUTO_SHUTDOWN).toBe("0");
+      expect(consumed?.publicEnv?.CLAWLETS_CATTLE_AUTO_SHUTDOWN).toBe("0");
 
       const consumedAgain = q.consumeCattleBootstrapToken({ token: issued.token, now: now + 2000 });
       expect(consumedAgain).toBeNull();

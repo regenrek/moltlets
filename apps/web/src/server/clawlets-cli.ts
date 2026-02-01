@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export function resolveClawdletsCliEntry(): string {
+export function resolveClawletsCliEntry(): string {
   const candidates = [
     path.resolve(process.cwd(), "packages/cli/dist/main.mjs"),
     path.resolve(process.cwd(), "../packages/cli/dist/main.mjs"),
@@ -13,6 +13,6 @@ export function resolveClawdletsCliEntry(): string {
     if (fs.existsSync(p)) return p;
   }
 
-  throw new Error("unable to find clawdlets CLI entry (packages/cli/dist/main.mjs). Run `pnpm -C packages/cli build`.");
+  throw new Error("unable to find clawlets CLI entry (packages/cli/dist/main.mjs). Run `pnpm -C packages/cli build`.");
 }
 

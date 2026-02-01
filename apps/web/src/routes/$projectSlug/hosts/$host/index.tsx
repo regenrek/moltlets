@@ -10,7 +10,7 @@ import { RecentRunsTable, type RunRow } from "~/components/dashboard/recent-runs
 import { RunActivityChart } from "~/components/dashboard/run-activity-chart"
 import { useProjectBySlug } from "~/lib/project-data"
 import { api } from "../../../../../convex/_generated/api"
-import { clawdletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/")({
@@ -19,7 +19,8 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
-    await context.queryClient.ensureQueryData(clawdletsConfigQueryOptions(projectId))
+    if (project?.status !== "ready") return
+    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: HostOverview,
 })
@@ -30,10 +31,12 @@ function HostOverview() {
   const convexQueryClient = router.options.context.convexQueryClient
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
+  const projectStatus = projectQuery.project?.status
+  const isReady = projectStatus === "ready"
 
   const cfg = useQuery({
-    ...clawdletsConfigQueryOptions(projectId as Id<"projects"> | null),
-    enabled: Boolean(projectId),
+    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
+    enabled: Boolean(projectId && isReady),
   })
 
   const config = cfg.data?.config as any
@@ -63,6 +66,12 @@ function HostOverview() {
   }
   if (!projectId) {
     return <div className="text-muted-foreground">Project not found.</div>
+  }
+  if (projectStatus === "creating") {
+    return <div className="text-muted-foreground">Project setup in progress. Refresh after the run completes.</div>
+  }
+  if (projectStatus === "error") {
+    return <div className="text-sm text-destructive">Project setup failed. Check Runs for details.</div>
   }
 
   return (

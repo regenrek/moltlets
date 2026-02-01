@@ -8,23 +8,23 @@ usage: update-fetch
 Fetches the signed desired-state pointer + immutable release manifest into the updater state directory.
 
 Required env:
-- CLAWDLETS_UPDATER_BASE_URLS       space-separated (mirrors), e.g. https://a/deploy/<host>/<channel> https://b/deploy/<host>/<channel>
-- CLAWDLETS_UPDATER_STATE_DIR       e.g. /var/lib/clawdlets/updates
-- CLAWDLETS_UPDATER_KEYS_FILE       newline-delimited minisign public keys
+- CLAWLETS_UPDATER_BASE_URLS       space-separated (mirrors), e.g. https://a/deploy/<host>/<channel> https://b/deploy/<host>/<channel>
+- CLAWLETS_UPDATER_STATE_DIR       e.g. /var/lib/clawlets/updates
+- CLAWLETS_UPDATER_KEYS_FILE       newline-delimited minisign public keys
 
 Optional env:
-- CLAWDLETS_UPDATER_ALLOW_UNSIGNED  "true" (dev only; skips signature verification)
-- CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE         newline-delimited minisign public keys (previous/rotating out)
-- CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL  UTC timestamp (RFC3339/ISO); after this, previous keys are rejected
+- CLAWLETS_UPDATER_ALLOW_UNSIGNED  "true" (dev only; skips signature verification)
+- CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE         newline-delimited minisign public keys (previous/rotating out)
+- CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL  UTC timestamp (RFC3339/ISO); after this, previous keys are rejected
 USAGE
 }
 
-base_urls_raw="${CLAWDLETS_UPDATER_BASE_URLS:-}"
-state_dir="${CLAWDLETS_UPDATER_STATE_DIR:-/var/lib/clawdlets/updates}"
-keys_file="${CLAWDLETS_UPDATER_KEYS_FILE:-}"
-previous_keys_file="${CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE:-}"
-previous_keys_valid_until="${CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL:-}"
-allow_unsigned="${CLAWDLETS_UPDATER_ALLOW_UNSIGNED:-false}"
+base_urls_raw="${CLAWLETS_UPDATER_BASE_URLS:-}"
+state_dir="${CLAWLETS_UPDATER_STATE_DIR:-/var/lib/clawlets/updates}"
+keys_file="${CLAWLETS_UPDATER_KEYS_FILE:-}"
+previous_keys_file="${CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE:-}"
+previous_keys_valid_until="${CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL:-}"
+allow_unsigned="${CLAWLETS_UPDATER_ALLOW_UNSIGNED:-false}"
 
 read -r -a base_urls <<<"${base_urls_raw}"
 
@@ -34,7 +34,7 @@ if [[ "${#base_urls[@]}" -eq 0 || -z "${keys_file}" ]]; then
 fi
 
 if [[ "${allow_unsigned}" != "true" && "${allow_unsigned}" != "false" ]]; then
-  echo "error: CLAWDLETS_UPDATER_ALLOW_UNSIGNED must be true|false" >&2
+  echo "error: CLAWLETS_UPDATER_ALLOW_UNSIGNED must be true|false" >&2
   exit 2
 fi
 
@@ -50,12 +50,12 @@ if [[ -n "${previous_keys_file}" ]]; then
     exit 2
   fi
   if [[ -z "${previous_keys_valid_until}" ]]; then
-    echo "error: CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL must be set when CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE is set" >&2
+    echo "error: CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL must be set when CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE is set" >&2
     exit 2
   fi
   until_epoch=""
   if ! until_epoch="$(date -u -d "${previous_keys_valid_until}" +%s 2>/dev/null)"; then
-    echo "error: invalid CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL: ${previous_keys_valid_until}" >&2
+    echo "error: invalid CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL: ${previous_keys_valid_until}" >&2
     exit 2
   fi
   now_epoch="$(date -u +%s)"

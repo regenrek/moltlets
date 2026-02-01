@@ -1,17 +1,17 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
-  ClawdletsConfigSchema,
-  type ClawdletsConfig,
+  ClawletsConfigSchema,
+  type ClawletsConfig,
   assertSafeHostName,
-  loadClawdletsConfig,
-  loadClawdletsConfigRaw,
-  writeClawdletsConfig,
-} from "@clawdlets/core/lib/clawdlets-config"
-import { parseSshPublicKeysFromText } from "@clawdlets/core/lib/ssh"
-import { parseKnownHostsFromText } from "@clawdlets/core/lib/ssh-files"
+  loadClawletsConfig,
+  loadClawletsConfigRaw,
+  writeClawletsConfig,
+} from "@clawlets/core/lib/clawlets-config"
+import { parseSshPublicKeysFromText } from "@clawlets/core/lib/ssh"
+import { parseKnownHostsFromText } from "@clawlets/core/lib/ssh-files"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { parseProjectIdInput, parseProjectSshKeysInput } from "~/sdk/serverfn-validators"
 import { runWithEventsAndStatus } from "~/sdk/run-with-events"
@@ -25,8 +25,8 @@ export const addHost = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const host = data.host.trim()
     assertSafeHostName(host)
@@ -37,7 +37,7 @@ export const addHost = createServerFn({ method: "POST" })
     next.hosts[host] = {}
     if (!next.defaultHost) next.defaultHost = host
 
-    const validated = ClawdletsConfigSchema.parse(next)
+    const validated = ClawletsConfigSchema.parse(next)
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
@@ -49,7 +49,7 @@ export const addHost = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Adding host ${host}` })
-        await writeClawdletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -60,8 +60,8 @@ export const addProjectSshKeys = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config } = loadClawdletsConfig({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config } = loadClawletsConfig({ repoRoot })
 
     if (!data.keyText.trim() && !data.knownHostsText.trim()) {
       throw new Error("no ssh keys or known_hosts entries provided")
@@ -74,7 +74,7 @@ export const addProjectSshKeys = createServerFn({ method: "POST" })
       new Set([...(config.fleet.sshKnownHosts || []), ...knownHostsFromText]),
     )
 
-    const next: ClawdletsConfig = ClawdletsConfigSchema.parse({
+    const next: ClawletsConfig = ClawletsConfigSchema.parse({
       ...config,
       fleet: {
         ...config.fleet,
@@ -95,7 +95,7 @@ export const addProjectSshKeys = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: "Updating project SSH keys" })
-        await writeClawdletsConfig({ configPath, config: next })
+        await writeClawletsConfig({ configPath, config: next })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -110,8 +110,8 @@ export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config } = loadClawdletsConfig({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config } = loadClawletsConfig({ repoRoot })
 
     const key = data.key.trim()
     if (!key) throw new Error("missing key")
@@ -119,7 +119,7 @@ export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
     const existingKeys = config.fleet.sshAuthorizedKeys || []
     if (!existingKeys.includes(key)) throw new Error("key not found")
 
-    const next: ClawdletsConfig = ClawdletsConfigSchema.parse({
+    const next: ClawletsConfig = ClawletsConfigSchema.parse({
       ...config,
       fleet: {
         ...config.fleet,
@@ -139,7 +139,7 @@ export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: "Removing SSH authorized key" })
-        await writeClawdletsConfig({ configPath, config: next })
+        await writeClawletsConfig({ configPath, config: next })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -154,8 +154,8 @@ export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config } = loadClawdletsConfig({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config } = loadClawletsConfig({ repoRoot })
 
     const entry = data.entry.trim()
     if (!entry) throw new Error("missing known_hosts entry")
@@ -163,7 +163,7 @@ export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
     const existing = config.fleet.sshKnownHosts || []
     if (!existing.includes(entry)) throw new Error("known_hosts entry not found")
 
-    const next: ClawdletsConfig = ClawdletsConfigSchema.parse({
+    const next: ClawletsConfig = ClawletsConfigSchema.parse({
       ...config,
       fleet: {
         ...config.fleet,
@@ -183,7 +183,7 @@ export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: "Removing known_hosts entry" })
-        await writeClawdletsConfig({ configPath, config: next })
+        await writeClawletsConfig({ configPath, config: next })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })

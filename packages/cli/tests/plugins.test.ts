@@ -19,18 +19,18 @@ describe("plugins reserved commands", () => {
   });
 
   it("skips broken plugin manifests", () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugins-"));
-    const pluginsDir = path.join(repoRoot, ".clawdlets", "plugins");
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugins-"));
+    const pluginsDir = path.join(repoRoot, ".clawlets", "plugins");
     const goodDir = path.join(pluginsDir, "cattle");
     const badDir = path.join(pluginsDir, "broken");
     fs.mkdirSync(goodDir, { recursive: true });
     fs.mkdirSync(badDir, { recursive: true });
     fs.writeFileSync(
-      path.join(goodDir, "clawdlets-plugin.json"),
+      path.join(goodDir, "clawlets-plugin.json"),
       JSON.stringify(
         {
           slug: "cattle",
-          packageName: "@clawdlets/plugin-cattle",
+          packageName: "@clawlets/plugin-cattle",
           version: "0.1.0",
           command: "cattle",
           entry: "./dist/plugin.mjs",
@@ -39,7 +39,7 @@ describe("plugins reserved commands", () => {
         2,
       ),
     );
-    fs.writeFileSync(path.join(badDir, "clawdlets-plugin.json"), "{\"bad\":");
+    fs.writeFileSync(path.join(badDir, "clawlets-plugin.json"), "{\"bad\":");
     const errors: { slug: string }[] = [];
     const plugins = listInstalledPlugins({ cwd: repoRoot, onError: (err) => errors.push(err) });
     expect(plugins.map((p) => p.command)).toEqual(["cattle"]);
@@ -47,8 +47,8 @@ describe("plugins reserved commands", () => {
   });
 
   it("rejects path traversal in removePlugin", () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugins-"));
-    fs.mkdirSync(path.join(repoRoot, ".clawdlets", "plugins"), { recursive: true });
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugins-"));
+    fs.mkdirSync(path.join(repoRoot, ".clawlets", "plugins"), { recursive: true });
     const rmSpy = vi.spyOn(fs, "rmSync");
     expect(() => removePlugin({ cwd: repoRoot, slug: "../.." })).toThrow(/invalid plugin command|escapes/);
     expect(rmSpy).not.toHaveBeenCalled();
@@ -56,10 +56,10 @@ describe("plugins reserved commands", () => {
   });
 
   it("rejects plugin entry path traversal", async () => {
-    const pkgDir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugin-"));
+    const pkgDir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugin-"));
     const base = {
       slug: "cattle",
-      packageName: "@clawdlets/plugin-cattle",
+      packageName: "@clawlets/plugin-cattle",
       version: "0.1.0",
       command: "cattle",
       installDir: "/tmp/ignore",
@@ -82,12 +82,12 @@ describe("plugins reserved commands", () => {
   });
 
   it("skips invalid package names", () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugins-"));
-    const pluginsDir = path.join(repoRoot, ".clawdlets", "plugins");
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugins-"));
+    const pluginsDir = path.join(repoRoot, ".clawlets", "plugins");
     const badDir = path.join(pluginsDir, "invalid");
     fs.mkdirSync(badDir, { recursive: true });
     fs.writeFileSync(
-      path.join(badDir, "clawdlets-plugin.json"),
+      path.join(badDir, "clawlets-plugin.json"),
       JSON.stringify(
         {
           slug: "invalid",
@@ -107,11 +107,11 @@ describe("plugins reserved commands", () => {
   });
 
   it("rejects reserved command slugs on install", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-plugins-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugins-"));
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, "flake.nix"), "{ }\n", "utf8");
     await expect(
-      installPlugin({ cwd: repoRoot, slug: "doctor", packageName: "@clawdlets/plugin-doctor" }),
+      installPlugin({ cwd: repoRoot, slug: "doctor", packageName: "@clawlets/plugin-doctor" }),
     ).rejects.toThrow(/reserved/);
   });
 });

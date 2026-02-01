@@ -47,13 +47,13 @@ jobs:
       - name: Tests
         env:
           CI: "1"
-          CLAWDLETS_TEMPLATE_REF: ${{ github.sha }}
+          CLAWLETS_TEMPLATE_REF: ${{ github.sha }}
         run: pnpm -C packages/core run test:run
 
       - name: Coverage
         env:
           CI: "1"
-          CLAWDLETS_TEMPLATE_REF: ${{ github.sha }}
+          CLAWLETS_TEMPLATE_REF: ${{ github.sha }}
         run: pnpm -C packages/core run coverage
 
       - name: Plugin coverage (cattle)
@@ -208,13 +208,13 @@ jobs:
           set -euo pipefail
           tmpdir="$(mktemp -d)"
           node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" project init \
-            --dir "${tmpdir}/clawdlets-project" \
+            --dir "${tmpdir}/clawlets-project" \
             --git-init false \
             --template "${{ steps.template.outputs.repo }}" \
             --template-path "${{ steps.template.outputs.path }}" \
             --template-ref "${{ steps.template.outputs.ref }}"
-          (cd "${tmpdir}/clawdlets-project" && node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" doctor --scope repo)
-          (cd "${tmpdir}/clawdlets-project" && node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" config validate --strict)
+          (cd "${tmpdir}/clawlets-project" && node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" doctor --scope repo)
+          (cd "${tmpdir}/clawlets-project" && node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" config validate --strict)
 
   clawdbot-assets:
     runs-on: ubuntu-latest
@@ -289,7 +289,7 @@ jobs:
             pnpm-lock.yaml
             clawdbot-src/pnpm-lock.yaml
 
-      - name: Install clawdlets deps
+      - name: Install clawlets deps
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: pnpm install --frozen-lockfile
 
@@ -302,14 +302,14 @@ jobs:
         if: ${{ steps.assets.outputs.changed == 'true' }}
         env:
           CLAWDBOT_SRC: ${{ github.workspace }}/clawdbot-src
-        run: pnpm clawdlets:clawdbot-assets
+        run: pnpm clawlets:clawdbot-assets
 
       - name: Verify clawdbot assets are committed
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: |
           set -euo pipefail
           if git diff --name-only -- packages/core/src/assets/clawdbot-config.schema.json packages/core/src/assets/llm-providers.json | grep -q .; then
-            echo "error: clawdbot assets out of date; run pnpm clawdlets:clawdbot-assets and commit outputs" >&2
+            echo "error: clawdbot assets out of date; run pnpm clawlets:clawdbot-assets and commit outputs" >&2
             git diff --stat -- packages/core/src/assets/clawdbot-config.schema.json packages/core/src/assets/llm-providers.json
             exit 1
           fi

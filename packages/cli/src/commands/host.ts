@@ -1,19 +1,19 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { looksLikeSshPrivateKey, parseSshPublicKeysFromText } from "@clawdlets/core/lib/ssh";
-import { readKnownHostsFromFile, readSshPublicKeysFromFile } from "@clawdlets/core/lib/ssh-files";
-import { validateTargetHost } from "@clawdlets/core/lib/ssh-remote";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { looksLikeSshPrivateKey, parseSshPublicKeysFromText } from "@clawlets/core/lib/ssh";
+import { readKnownHostsFromFile, readSshPublicKeysFromFile } from "@clawlets/core/lib/ssh-files";
+import { validateTargetHost } from "@clawlets/core/lib/ssh-remote";
 import {
   assertSafeHostName,
-  ClawdletsConfigSchema,
+  ClawletsConfigSchema,
   SSH_EXPOSURE_MODES,
-  loadClawdletsConfig,
+  loadClawletsConfig,
   resolveHostName,
-  writeClawdletsConfig,
-  type ClawdletsHostConfig,
-} from "@clawdlets/core/lib/clawdlets-config";
-import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "@clawdlets/core/lib/nix-cache";
+  writeClawletsConfig,
+  type ClawletsHostConfig,
+} from "@clawlets/core/lib/clawlets-config";
+import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "@clawlets/core/lib/nix-cache";
 
 function parseBoolOrUndefined(v: unknown): boolean | undefined {
   if (v === undefined || v === null) return undefined;
@@ -31,19 +31,19 @@ function toStringArray(v: unknown): string[] {
 }
 
 const add = defineCommand({
-  meta: { name: "add", description: "Add a host entry to fleet/clawdlets.json." },
+  meta: { name: "add", description: "Add a host entry to fleet/clawlets.json." },
   args: {
     host: { type: "string", description: "Host name." },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
     const hostName = String(args.host || "").trim();
     if (!hostName) throw new Error("missing --host");
     assertSafeHostName(hostName);
-    if (config.hosts[hostName]) throw new Error(`host already exists in clawdlets.json: ${hostName}`);
+    if (config.hosts[hostName]) throw new Error(`host already exists in clawlets.json: ${hostName}`);
 
-    const nextHost: ClawdletsHostConfig = {
+    const nextHost: ClawletsHostConfig = {
       enable: false,
       diskDevice: "/dev/sda",
       flakeHost: "",
@@ -78,12 +78,12 @@ const add = defineCommand({
       agentModelPrimary: "zai/glm-4.7",
     };
 
-    const next = ClawdletsConfigSchema.parse({
+    const next = ClawletsConfigSchema.parse({
       ...config,
       defaultHost: config.defaultHost || hostName,
       hosts: { ...config.hosts, [hostName]: nextHost },
     });
-    await writeClawdletsConfig({ configPath, config: next });
+    await writeClawletsConfig({ configPath, config: next });
     console.log(`ok: added host ${hostName}`);
   },
 });
@@ -95,7 +95,7 @@ const setDefault = defineCommand({
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
 
     const resolved = resolveHostName({ config, host: args.host });
     if (!resolved.ok) {
@@ -105,16 +105,16 @@ const setDefault = defineCommand({
       return;
     }
 
-    const next = ClawdletsConfigSchema.parse({ ...config, defaultHost: resolved.host });
-    await writeClawdletsConfig({ configPath, config: next });
+    const next = ClawletsConfigSchema.parse({ ...config, defaultHost: resolved.host });
+    await writeClawletsConfig({ configPath, config: next });
     console.log(`ok: defaultHost = ${resolved.host}`);
   },
 });
 
 const set = defineCommand({
-  meta: { name: "set", description: "Set host config fields (in fleet/clawdlets.json)." },
+  meta: { name: "set", description: "Set host config fields (in fleet/clawlets.json)." },
   args: {
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     enable: { type: "string", description: "Enable fleet services (true/false)." },
     "ssh-exposure": { type: "string", description: "SSH exposure mode: tailnet|bootstrap|public." },
     "disk-device": { type: "string", description: "Disk device (Hetzner Cloud: /dev/sda).", },
@@ -151,7 +151,7 @@ const set = defineCommand({
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
 
     const resolved = resolveHostName({ config, host: args.host });
     if (!resolved.ok) {
@@ -164,13 +164,13 @@ const set = defineCommand({
     const hostName = resolved.host;
     const existing = config.hosts[hostName];
     if (!existing) {
-      console.error(`warn: unknown host in clawdlets.json: ${hostName}`);
+      console.error(`warn: unknown host in clawlets.json: ${hostName}`);
       console.error(`tip: available hosts: ${Object.keys(config.hosts).join(", ")}`);
       process.exitCode = 1;
       return;
     }
 
-    const next: ClawdletsHostConfig = structuredClone(existing) as ClawdletsHostConfig;
+    const next: ClawletsHostConfig = structuredClone(existing) as ClawletsHostConfig;
 
     const enable = parseBoolOrUndefined(args.enable);
     if (enable !== undefined) next.enable = enable;
@@ -297,17 +297,17 @@ const set = defineCommand({
       fleetNext.sshKnownHosts = Array.from(knownHosts);
     }
 
-    const nextConfig = ClawdletsConfigSchema.parse({
+    const nextConfig = ClawletsConfigSchema.parse({
       ...config,
       fleet: fleetNext,
       hosts: { ...config.hosts, [hostName]: next },
     });
-    await writeClawdletsConfig({ configPath, config: nextConfig });
+    await writeClawletsConfig({ configPath, config: nextConfig });
     console.log(`ok: updated host ${hostName}`);
   },
 });
 
 export const host = defineCommand({
-  meta: { name: "host", description: "Manage host config (fleet/clawdlets.json)." },
+  meta: { name: "host", description: "Manage host config (fleet/clawlets.json)." },
   subCommands: { add, "set-default": setDefault, set },
 });

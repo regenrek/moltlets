@@ -9,20 +9,20 @@ const captureMock = vi.fn();
 const runMock = vi.fn();
 const loadDeployCredsMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/git", () => ({
+vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
 }));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   capture: captureMock,
   run: runMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
@@ -35,7 +35,7 @@ describe("image command", () => {
     const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
     loadHostContextMock.mockReturnValue({
       repoRoot: "/repo",
-      layout: { runtimeDir: "/repo/.clawdlets" },
+      layout: { runtimeDir: "/repo/.clawlets" },
       hostName: "alpha",
     });
     resolveGitRevMock.mockResolvedValue("deadbeef");

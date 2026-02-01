@@ -8,7 +8,7 @@ import {
   waitForHcloudServerStatus,
   deleteHcloudServer,
   HCLOUD_REQUEST_TIMEOUT_MS,
-} from "@clawdlets/cattle-core/lib/hcloud";
+} from "@clawlets/cattle-core/lib/hcloud";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -44,7 +44,7 @@ describe("hcloud timeout", () => {
 
     const pending = ensureHcloudSshKeyId({
       token: "token",
-      name: "clawdlets",
+      name: "clawlets",
       publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey",
     });
 
@@ -74,7 +74,7 @@ describe("ensureHcloudSshKeyId", () => {
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
-      name: "clawdlets",
+      name: "clawlets",
       publicKey: "ssh-ed25519 AAA",
     });
 
@@ -95,7 +95,7 @@ describe("ensureHcloudSshKeyId", () => {
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
-      name: "clawdlets",
+      name: "clawlets",
       publicKey: "ssh-ed25519 BBB",
     });
 
@@ -117,7 +117,7 @@ describe("ensureHcloudSshKeyId", () => {
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
-      name: "clawdlets",
+      name: "clawlets",
       publicKey: "ssh-ed25519 CCC",
     });
 
@@ -144,7 +144,7 @@ describe("ensureHcloudSshKeyId", () => {
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
-      name: "clawdlets",
+      name: "clawlets",
       publicKey: "ssh-ed25519 DDD",
     });
 
@@ -159,7 +159,7 @@ describe("ensureHcloudSshKeyId", () => {
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
-        name: "clawdlets",
+        name: "clawlets",
         publicKey: "ssh-ed25519 EEE",
       }),
     ).rejects.toThrow(/HTTP 500: boom/);
@@ -173,7 +173,7 @@ describe("ensureHcloudSshKeyId", () => {
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
-        name: "clawdlets",
+        name: "clawlets",
         publicKey: "ssh-ed25519 ZZZ",
       }),
     ).rejects.toThrow(/truncated/);
@@ -189,7 +189,7 @@ describe("ensureHcloudSshKeyId", () => {
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
-        name: "clawdlets",
+        name: "clawlets",
         publicKey: "ssh-ed25519 ERR",
       }),
     ).rejects.toThrow(/create ssh key failed: HTTP 500: boom/);
@@ -207,7 +207,7 @@ describe("ensureHcloudSshKeyId", () => {
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
-        name: "clawdlets",
+        name: "clawlets",
         publicKey: "ssh-ed25519 ERR409",
       }),
     ).rejects.toThrow(/list ssh keys failed after 409: HTTP 500: boom/);
@@ -227,7 +227,7 @@ describe("ensureHcloudFirewallId", () => {
         token: "token",
         name: "fw",
         rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-        labels: { "managed-by": "clawdlets" },
+        labels: { "managed-by": "clawlets" },
       }),
     ).rejects.toThrow(/list firewalls failed: HTTP 500: nope/);
   });
@@ -237,7 +237,7 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawdlets-cattle-base", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -245,8 +245,8 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawdlets-cattle-base",
-            labels: { "managed-by": "clawdlets" },
+            name: "clawlets-cattle-base",
+            labels: { "managed-by": "clawlets" },
             rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
           },
         }),
@@ -255,9 +255,9 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawdlets-cattle-base",
+      name: "clawlets-cattle-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(id).toBe("99");
@@ -271,7 +271,7 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -283,7 +283,7 @@ describe("ensureHcloudFirewallId", () => {
         token: "token",
         name: "fw",
         rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-        labels: { "managed-by": "clawdlets" },
+        labels: { "managed-by": "clawlets" },
       }),
     ).rejects.toThrow(/get firewall failed: HTTP 500: boom/);
   });
@@ -293,13 +293,13 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewall: { id: 99, name: "fw", labels: { "managed-by": "clawdlets" }, rules: [] },
+          firewall: { id: 99, name: "fw", labels: { "managed-by": "clawlets" }, rules: [] },
         }),
       )
       .mockResolvedValueOnce(new Response("nope", { status: 500 }));
@@ -310,7 +310,7 @@ describe("ensureHcloudFirewallId", () => {
         token: "token",
         name: "fw",
         rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-        labels: { "managed-by": "clawdlets" },
+        labels: { "managed-by": "clawlets" },
       }),
     ).rejects.toThrow(/set firewall rules failed: HTTP 500: nope/);
   });
@@ -325,13 +325,13 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "fw", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewall: { id: 99, name: "fw", labels: { "managed-by": "clawdlets" }, rules: [rules[1]!, rules[0]!] },
+          firewall: { id: 99, name: "fw", labels: { "managed-by": "clawlets" }, rules: [rules[1]!, rules[0]!] },
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -340,7 +340,7 @@ describe("ensureHcloudFirewallId", () => {
       token: "token",
       name: "fw",
       rules,
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(id).toBe("99");
@@ -353,7 +353,7 @@ describe("ensureHcloudFirewallId", () => {
       .mockResolvedValueOnce(makeJsonResponse({ firewalls: [], meta: { pagination: { next_page: 2 } } }))
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawdlets-cattle-base", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -361,8 +361,8 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawdlets-cattle-base",
-            labels: { "managed-by": "clawdlets" },
+            name: "clawlets-cattle-base",
+            labels: { "managed-by": "clawlets" },
             rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
           },
         }),
@@ -371,9 +371,9 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawdlets-cattle-base",
+      name: "clawlets-cattle-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(id).toBe("99");
@@ -419,7 +419,7 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawdlets-cattle-base", labels: { "managed-by": "clawdlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -427,8 +427,8 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawdlets-cattle-base",
-            labels: { "managed-by": "clawdlets" },
+            name: "clawlets-cattle-base",
+            labels: { "managed-by": "clawlets" },
             rules: [],
           },
         }),
@@ -438,9 +438,9 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawdlets-cattle-base",
+      name: "clawlets-cattle-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(id).toBe("99");
@@ -460,7 +460,7 @@ describe("ensureHcloudFirewallId", () => {
       token: "token",
       name: "fw",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(id).toBe("7");
@@ -516,7 +516,7 @@ describe("hcloud servers", () => {
       image: "img",
       location: "nbg1",
       userData: "#cloud-config\n{}",
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
       firewallIds: ["123"],
     });
 
@@ -542,7 +542,7 @@ describe("hcloud servers", () => {
       image: "img",
       location: "nbg1",
       userData: "#cloud-config\n{}",
-      labels: { "managed-by": "clawdlets" },
+      labels: { "managed-by": "clawlets" },
     });
 
     expect(server.id).toBe(4);

@@ -16,7 +16,7 @@ export default defineConfig({
         "src/repo-layout.ts",
         "src/lib/age.ts",
         "src/lib/age-keygen.ts",
-        "src/lib/clawdlets-config.ts",
+        "src/lib/clawlets-config.ts",
         "src/lib/context.ts",
         "src/lib/dot-path.ts",
         "src/lib/docs-index.ts",

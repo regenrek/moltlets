@@ -13,7 +13,7 @@ import {
 } from "./lib/auth";
 import { fail } from "./lib/errors";
 import { rateLimit } from "./lib/rateLimit";
-import { BotIdSchema, HostNameSchema } from "@clawdlets/shared/lib/identifiers";
+import { BotIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 

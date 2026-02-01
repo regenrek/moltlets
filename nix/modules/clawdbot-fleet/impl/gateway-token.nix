@@ -13,13 +13,13 @@ let
           description = "Ensure Gateway auth token for bot ${b}";
           path = [ pkgs.bash pkgs.coreutils pkgs.openssl ];
           environment = {
-            CLAWDLETS_GATEWAY_ENV_FILE = envFile;
-            CLAWDLETS_BOT_USER = "bot-${b}";
-            CLAWDLETS_BOT_GROUP = "bot-${b}";
+            CLAWLETS_GATEWAY_ENV_FILE = envFile;
+            CLAWLETS_BOT_USER = "bot-${b}";
+            CLAWLETS_BOT_GROUP = "bot-${b}";
           };
           serviceConfig = {
             Type = "oneshot";
-            ExecStart = "/etc/clawdlets/bin/ensure-gateway-token";
+            ExecStart = "/etc/clawlets/bin/ensure-gateway-token";
 
             User = "root";
             Group = "root";

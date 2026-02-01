@@ -9,3 +9,6 @@ packages/**/node_modules/
 packages/**/coverage/
 packages/core/tests/.template/
 .tmp
+.env.local
+.clawlets/
+.clawdlets/

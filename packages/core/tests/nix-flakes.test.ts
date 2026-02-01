@@ -33,9 +33,9 @@ describe("nix-flakes", () => {
   });
 
   it("uses private XDG dirs when HOME is not writable", async () => {
-    const homeDir = await mkdtemp(path.join(tmpdir(), "clawdlets-home-ro-"));
-    const xdgParent = await mkdtemp(path.join(tmpdir(), "clawdlets-xdg-parent-"));
-    const xdgDataHome = await mkdtemp(path.join(tmpdir(), "clawdlets-xdg-data-"));
+    const homeDir = await mkdtemp(path.join(tmpdir(), "clawlets-home-ro-"));
+    const xdgParent = await mkdtemp(path.join(tmpdir(), "clawlets-xdg-parent-"));
+    const xdgDataHome = await mkdtemp(path.join(tmpdir(), "clawlets-xdg-data-"));
 
     try {
       await chmod(homeDir, 0o555);
@@ -48,7 +48,7 @@ describe("nix-flakes", () => {
         XDG_STATE_HOME: "",
       });
 
-      const xdgRoot = path.join(tmpdir(), "clawdlets-xdg");
+      const xdgRoot = path.join(tmpdir(), "clawlets-xdg");
       expect(out.XDG_CACHE_HOME).toBe(path.join(xdgParent, "cache"));
       expect(out.XDG_CONFIG_HOME).toBe(path.join(xdgRoot, "config"));
       expect(out.XDG_DATA_HOME).toBe(xdgDataHome);

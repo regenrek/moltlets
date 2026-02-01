@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
-import { getClawdletsCliEnv } from "~/server/run-env"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
+import { getClawletsCliEnv } from "~/server/run-env"
 import { spawnCommand } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { parseServerChannelsExecuteInput, parseServerChannelsStartInput } from "~/sdk/serverfn-validators"
@@ -16,7 +16,7 @@ export const serverChannelsStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
 
     const host = data.host || config.defaultHost || ""
     if (!host) throw new Error("missing host")
@@ -49,7 +49,7 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_channels",
     })
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
 
     const host = data.host || config.defaultHost || ""
     if (!host) throw new Error("missing host")
@@ -58,9 +58,9 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
     const botId = data.botId
     if (!config.fleet.bots[botId]) throw new Error(`unknown bot: ${botId}`)
 
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     const args = [
       cliEntry,

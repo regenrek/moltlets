@@ -25,28 +25,28 @@ async function loadSecretsInit(options: { mkpasswdThrows: boolean; writeThrows: 
       run: { kind: "secrets_init", status: "running" },
     }),
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-    loadClawdletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
+  vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+    loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
   }))
-  vi.doMock("@clawdlets/core/lib/secrets-allowlist", () => ({
+  vi.doMock("@clawlets/core/lib/secrets-allowlist", () => ({
     buildManagedHostSecretNameAllowlist: () => new Set<string>(),
     assertSecretsAreManaged: () => {},
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawdlets-cli", () => ({ resolveClawdletsCliEntry: () => "cli.js" }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents: async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
       await fn(async () => {})
     },
     spawnCommand: async () => {},
   }))
-  vi.doMock("@clawdlets/core/lib/mkpasswd", () => ({
+  vi.doMock("@clawlets/core/lib/mkpasswd", () => ({
     mkpasswdYescryptHash: async () => {
       if (options.mkpasswdThrows) throw new Error("hash failed")
       return "hash"
     },
   }))
-  vi.doMock("@clawdlets/core/lib/fs-safe", () => ({
+  vi.doMock("@clawlets/core/lib/fs-safe", () => ({
     writeFileAtomic: async () => {
       if (options.writeThrows) throw new Error("write failed")
     },

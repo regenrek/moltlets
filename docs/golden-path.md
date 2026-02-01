@@ -5,27 +5,27 @@ Goal: one boring, cache-only workflow for bootstrap + updates.
 ## 0) Bootstrap once
 
 ```bash
-clawdlets secrets init
-clawdlets doctor --scope bootstrap
-clawdlets bootstrap
+clawlets secrets init
+clawlets doctor --scope bootstrap
+clawlets bootstrap
 ```
 
 Optional (image-based bootstrap):
 
 ```bash
-clawdlets image build --host <host>
-clawdlets image upload --host <host> --image-url https://<bucket>/<image>.raw --compression bz2
-clawdlets host set --host <host> --hetzner-image <image_id_or_name>
-clawdlets bootstrap --mode image
+clawlets image build --host <host>
+clawlets image upload --host <host> --image-url https://<bucket>/<image>.raw --compression bz2
+clawlets host set --host <host> --hetzner-image <image_id_or_name>
+clawlets bootstrap --mode image
 ```
 
 After tailnet is up:
 
 ```bash
-clawdlets host set --target-host admin@<magicdns-or-100.x>
-clawdlets host set --ssh-exposure tailnet
-clawdlets server update apply --host <host>
-clawdlets lockdown
+clawlets host set --target-host admin@<magicdns-or-100.x>
+clawlets host set --ssh-exposure tailnet
+clawlets server update apply --host <host>
+clawlets lockdown
 ```
 
 ## 1) Push changes
@@ -41,18 +41,18 @@ CI (Garnix + GH Actions):
 
 ## 2) Apply updates (pull-only)
 
-Hosts apply desired state on a timer (`clawdlets.selfUpdate.interval`).
+Hosts apply desired state on a timer (`clawlets.selfUpdate.interval`).
 To apply immediately from your operator machine:
 
 ```bash
-clawdlets server update apply --host <host> --ssh-tty false
+clawlets server update apply --host <host> --ssh-tty false
 ```
 
 To inspect:
 
 ```bash
-clawdlets server update status --host <host>
-clawdlets server update logs --host <host> --since 5m
+clawlets server update status --host <host>
+clawlets server update logs --host <host> --since 5m
 ```
 
 ## 3) Promotion (staging → prod)
@@ -62,17 +62,17 @@ Promote to prod (manual approval) without rebuild:
 - Run workflow `updates: promote` (staging → prod) to publish a prod manifest pointing at an already-built toplevel (new `releaseId`).
 - Recommended rollout:
   - Keep a small canary set on `staging` (`hosts.<host>.selfUpdate.channel = "staging"`).
-  - Validate `clawdlets server update status|logs` + your health gate on canaries.
+  - Validate `clawlets server update status|logs` + your health gate on canaries.
   - Promote the exact same `toplevel` to `prod` (new `releaseId`, re-signed).
   - Rollback = publish a new prod manifest (higher `releaseId`) pointing at the previous `toplevel`.
 
 ## 4) Enable self-update (host)
 
 ```nix
-clawdlets.selfUpdate.enable = true;
-clawdlets.selfUpdate.baseUrls = [ "https://<pages>/deploy/<host>/prod" ];
-clawdlets.selfUpdate.channel = "prod";
-clawdlets.selfUpdate.publicKeys = [ "<minisign-pubkey>" ];
+clawlets.selfUpdate.enable = true;
+clawlets.selfUpdate.baseUrls = [ "https://<pages>/deploy/<host>/prod" ];
+clawlets.selfUpdate.channel = "prod";
+clawlets.selfUpdate.publicKeys = [ "<minisign-pubkey>" ];
 ```
 
 The host fetches the manifest on a timer and switches by `/nix/store/...` (cache-only).

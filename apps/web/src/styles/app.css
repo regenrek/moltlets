@@ -55,7 +55,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* clawdlets brand: warm peachy-coral orange */
+  /* clawlets brand: warm peachy-coral orange */
   --primary: oklch(0.72 0.14 50);
   --primary-foreground: oklch(0.98 0.01 50);
   --secondary: oklch(0.967 0.001 286.375);
@@ -91,7 +91,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* clawdlets brand: warm peachy-coral orange (brighter for dark mode) */
+  /* clawlets brand: warm peachy-coral orange (brighter for dark mode) */
   --primary: oklch(0.78 0.15 50);
   --primary-foreground: oklch(0.15 0.02 50);
   --secondary: oklch(0.274 0.006 286.033);

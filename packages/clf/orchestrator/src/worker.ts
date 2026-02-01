@@ -1,10 +1,10 @@
 import fs from "node:fs";
-import { type ClfQueue } from "@clawdlets/clf-queue";
-import { parseClfJobPayload } from "@clawdlets/clf-queue";
-import { buildCattleCloudInitUserData } from "@clawdlets/cattle-core/lib/cattle-cloudinit";
-import { parseTtlToSeconds } from "@clawdlets/cattle-core/lib/ttl";
-import { getModelRequiredEnvVars } from "@clawdlets/shared/lib/llm-provider-env";
-import { loadPersona } from "@clawdlets/cattle-core/lib/persona-loader";
+import { type ClfQueue } from "@clawlets/clf-queue";
+import { parseClfJobPayload } from "@clawlets/clf-queue";
+import { buildCattleCloudInitUserData } from "@clawlets/cattle-core/lib/cattle-cloudinit";
+import { parseTtlToSeconds } from "@clawlets/cattle-core/lib/ttl";
+import { getModelRequiredEnvVars } from "@clawlets/shared/lib/llm-provider-env";
+import { loadPersona } from "@clawlets/cattle-core/lib/persona-loader";
 import {
   createCattleServer,
   listCattleServers,
@@ -18,8 +18,8 @@ import {
   CATTLE_LABEL_MANAGED_BY,
   CATTLE_LABEL_MANAGED_BY_VALUE,
   CATTLE_LABEL_TASK_ID,
-} from "@clawdlets/cattle-core/lib/hcloud-cattle";
-import { buildCattleServerName, safeCattleLabelValue } from "@clawdlets/cattle-core/lib/cattle-planner";
+} from "@clawlets/cattle-core/lib/hcloud-cattle";
+import { buildCattleServerName, safeCattleLabelValue } from "@clawlets/cattle-core/lib/cattle-planner";
 
 export type ClfWorkerRuntime = {
   hcloudToken: string;
@@ -122,7 +122,7 @@ async function handleCattleSpawn(params: {
 
   const autoShutdown = p.autoShutdown ?? params.rt.cattle.defaultAutoShutdown;
   const publicEnv: Record<string, string> = {};
-  if (!autoShutdown) publicEnv["CLAWDLETS_CATTLE_AUTO_SHUTDOWN"] = "0";
+  if (!autoShutdown) publicEnv["CLAWLETS_CATTLE_AUTO_SHUTDOWN"] = "0";
 
   return await spawnMutex.runExclusive(async () => {
     const existing = await listCattleServers({ token: params.rt.hcloudToken });

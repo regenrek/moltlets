@@ -1,9 +1,9 @@
-import type { ClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
+import type { ClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 
 type ResolveHostOptions = { requireKnownHost?: boolean }
 
 export function resolveHostFromConfig(
-  config: ClawdletsConfig,
+  config: ClawletsConfig,
   host: string | null | undefined,
   options: ResolveHostOptions = {},
 ): string {

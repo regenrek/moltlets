@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeTemplateSource, type TemplateSource } from "@clawdlets/core/lib/template-source";
+import { normalizeTemplateSource, type TemplateSource } from "@clawlets/core/lib/template-source";
 
 type TemplateSpecArgs = {
   template?: string;
@@ -50,9 +50,9 @@ function loadTemplateSourceDefaults(): { repo: string; path: string; ref: string
 
 export function resolveTemplateSpec(args: TemplateSpecArgs): TemplateSource {
   const defaults = loadTemplateSourceDefaults();
-  const repo = firstNonEmpty(args.template, process.env["CLAWDLETS_TEMPLATE_REPO"], defaults.repo);
-  const tplPath = firstNonEmpty(args.templatePath, process.env["CLAWDLETS_TEMPLATE_PATH"], defaults.path);
-  const ref = firstNonEmpty(args.templateRef, process.env["CLAWDLETS_TEMPLATE_REF"], defaults.ref);
+  const repo = firstNonEmpty(args.template, process.env["CLAWLETS_TEMPLATE_REPO"], defaults.repo);
+  const tplPath = firstNonEmpty(args.templatePath, process.env["CLAWLETS_TEMPLATE_PATH"], defaults.path);
+  const ref = firstNonEmpty(args.templateRef, process.env["CLAWLETS_TEMPLATE_REF"], defaults.ref);
 
   return normalizeTemplateSource({
     repo: repo || "",

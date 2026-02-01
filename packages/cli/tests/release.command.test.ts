@@ -2,22 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 import { makeConfig } from "./fixtures.js";
 
 const loadHostContextMock = vi.fn();
 const resolveGitRevMock = vi.fn();
 const createSecretsTarMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/git", () => ({
+vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
 }));
 
-vi.mock("@clawdlets/core/lib/secrets-tar", () => ({
+vi.mock("@clawlets/core/lib/secrets-tar", () => ({
   createSecretsTar: createSecretsTarMock,
 }));
 
@@ -36,7 +36,7 @@ describe("release commands", () => {
     fs.writeFileSync(tarPath, "data");
     createSecretsTarMock.mockResolvedValue({ tarPath, digest: "b".repeat(64), files: ["x.yaml"] });
 
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-release-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-release-"));
     const outPath = path.join(dir, "deploy", "alpha", "staging", "1.json");
 
     const { releaseManifest } = await import("../src/commands/release/manifest.js");
@@ -66,7 +66,7 @@ describe("release commands", () => {
     const config = makeConfig({ hostName: "alpha" });
     loadHostContextMock.mockReturnValue({ repoRoot: "/repo", layout, hostName: "alpha", config });
 
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-pointer-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-pointer-"));
     const outPath = path.join(dir, "deploy", "alpha", "prod", "latest.json");
 
     const { releasePointer } = await import("../src/commands/release/pointer.js");
@@ -90,7 +90,7 @@ describe("release commands", () => {
     const config = makeConfig({ hostName: "alpha" });
     loadHostContextMock.mockReturnValue({ repoRoot: "/repo", layout, hostName: "alpha", config });
 
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-promote-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-promote-"));
     const inPath = path.join(dir, "deploy", "alpha", "staging", "1.json");
     fs.mkdirSync(path.dirname(inPath), { recursive: true });
     fs.writeFileSync(

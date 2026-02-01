@@ -6,7 +6,7 @@ const RESERVED_PROJECT_SLUGS = new Set([
   "dashboard",
   "settings",
 ])
-const LAST_PROJECT_SLUG_KEY = "clawdlets:last-project-slug"
+const LAST_PROJECT_SLUG_KEY = "clawlets:last-project-slug"
 
 export type ProjectLike = {
   name: string

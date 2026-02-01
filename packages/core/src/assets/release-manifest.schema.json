@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Clawdlets Release Manifest (v1)",
+  "title": "Clawlets Release Manifest (v1)",
   "type": "object",
   "additionalProperties": false,
   "required": [

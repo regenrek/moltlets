@@ -5,9 +5,9 @@ import { describe, it, expect } from "vitest";
 
 describe("persona-loader", () => {
   it("loads persona files + config", async () => {
-    const { loadPersona } = await import("@clawdlets/cattle-core/lib/persona-loader");
+    const { loadPersona } = await import("@clawlets/cattle-core/lib/persona-loader");
 
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-persona-"));
     const dir = path.join(repoRoot, "cattle", "personas", "rex");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "SOUL.md"), "# Rex\n", "utf8");
@@ -19,13 +19,13 @@ describe("persona-loader", () => {
     expect(persona.config.schemaVersion).toBe(1);
     expect(persona.config.model.primary).toBe("zai/glm-4.7");
     expect(persona.cloudInitFiles.length).toBe(2);
-    expect(persona.cloudInitFiles[0]?.path).toBe("/var/lib/clawdlets/cattle/persona/SOUL.md");
+    expect(persona.cloudInitFiles[0]?.path).toBe("/var/lib/clawlets/cattle/persona/SOUL.md");
   });
 
   it("enforces file size limits", async () => {
-    const { loadPersona } = await import("@clawdlets/cattle-core/lib/persona-loader");
+    const { loadPersona } = await import("@clawlets/cattle-core/lib/persona-loader");
 
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-persona-"));
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-persona-"));
     const dir = path.join(repoRoot, "cattle", "personas", "rex");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "SOUL.md"), "x".repeat(1024), "utf8");

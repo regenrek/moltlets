@@ -10,13 +10,13 @@ describe("template spec defaults", () => {
     const config = JSON.parse(raw) as { repo: string; path: string; ref: string };
 
     const saved = {
-      repo: process.env.CLAWDLETS_TEMPLATE_REPO,
-      path: process.env.CLAWDLETS_TEMPLATE_PATH,
-      ref: process.env.CLAWDLETS_TEMPLATE_REF,
+      repo: process.env.CLAWLETS_TEMPLATE_REPO,
+      path: process.env.CLAWLETS_TEMPLATE_PATH,
+      ref: process.env.CLAWLETS_TEMPLATE_REF,
     };
-    delete process.env.CLAWDLETS_TEMPLATE_REPO;
-    delete process.env.CLAWDLETS_TEMPLATE_PATH;
-    delete process.env.CLAWDLETS_TEMPLATE_REF;
+    delete process.env.CLAWLETS_TEMPLATE_REPO;
+    delete process.env.CLAWLETS_TEMPLATE_PATH;
+    delete process.env.CLAWLETS_TEMPLATE_REF;
 
     try {
       const resolved = resolveTemplateSpec({});
@@ -24,9 +24,9 @@ describe("template spec defaults", () => {
       expect(resolved.path).toBe(config.path);
       expect(resolved.ref).toBe(config.ref);
     } finally {
-      process.env.CLAWDLETS_TEMPLATE_REPO = saved.repo;
-      process.env.CLAWDLETS_TEMPLATE_PATH = saved.path;
-      process.env.CLAWDLETS_TEMPLATE_REF = saved.ref;
+      process.env.CLAWLETS_TEMPLATE_REPO = saved.repo;
+      process.env.CLAWLETS_TEMPLATE_PATH = saved.path;
+      process.env.CLAWLETS_TEMPLATE_REF = saved.ref;
     }
   });
 });

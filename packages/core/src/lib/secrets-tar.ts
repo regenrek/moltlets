@@ -45,9 +45,9 @@ export async function createSecretsTar(params: {
     throw new Error(`no secrets found in ${params.localDir}`);
   }
 
-  const tarPath = path.join(os.tmpdir(), `clawdlets-secrets.${params.hostName}.${process.pid}.tgz`);
-  const tarPathRaw = path.join(os.tmpdir(), `clawdlets-secrets.${params.hostName}.${process.pid}.tar`);
-  const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), `clawdlets-secrets-stage.${params.hostName}.`));
+  const tarPath = path.join(os.tmpdir(), `clawlets-secrets.${params.hostName}.${process.pid}.tgz`);
+  const tarPathRaw = path.join(os.tmpdir(), `clawlets-secrets.${params.hostName}.${process.pid}.tar`);
+  const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), `clawlets-secrets-stage.${params.hostName}.`));
 
   try {
     for (const file of files) {

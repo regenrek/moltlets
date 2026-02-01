@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { planProjectInit, initProject } from "@clawdlets/core/lib/project-init";
+import { planProjectInit, initProject } from "@clawlets/core/lib/project-init";
 import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { createConvexClient } from "~/server/convex";
 import { resolveWorkspacePath } from "~/server/paths";
-import { readClawdletsEnvTokens } from "~/server/redaction";
+import { readClawletsEnvTokens } from "~/server/redaction";
 import { runWithEvents } from "~/server/run-manager";
 import { resolveTemplateSpec } from "~/server/template-spec";
 import { getAdminProjectContext } from "~/sdk/repo-root";
@@ -95,7 +95,7 @@ export const projectCreateExecute = createServerFn({ method: "POST" })
     const run = await client.query(api.runs.get, { runId: data.runId });
     if (run.run.projectId !== data.projectId) throw new Error("runId does not match project");
     const repoRoot = context.repoRoot;
-    const redactTokens = await readClawdletsEnvTokens(repoRoot);
+    const redactTokens = await readClawletsEnvTokens(repoRoot);
 
     try {
       await runWithEvents({

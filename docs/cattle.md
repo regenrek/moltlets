@@ -6,10 +6,10 @@ This is separate from “Pet” hosts (long-running fleet servers).
 
 ## Plugin
 
-Install the cattle CLI plugin before running `clawdlets cattle *` commands:
+Install the cattle CLI plugin before running `clawlets cattle *` commands:
 
 ```
-clawdlets plugin add cattle
+clawlets plugin add cattle
 ```
 
 ## Principles
@@ -24,7 +24,7 @@ clawdlets plugin add cattle
 
 ## Config
 
-Enable + configure in `fleet/clawdlets.json`:
+Enable + configure in `fleet/clawlets.json`:
 
 ```json
 {
@@ -37,7 +37,7 @@ Enable + configure in `fleet/clawdlets.json`:
       "location": "nbg1",
       "maxInstances": 10,
       "defaultTtl": "2h",
-      "labels": { "managed-by": "clawdlets" }
+      "labels": { "managed-by": "clawlets" }
     },
     "defaults": { "autoShutdown": true, "callbackUrl": "" }
   }
@@ -45,13 +45,13 @@ Enable + configure in `fleet/clawdlets.json`:
 ```
 
 Notes
-- `cattle.hetzner.image` must point at a NixOS cattle image (see template output `clawdlets-cattle-image`).
+- `cattle.hetzner.image` must point at a NixOS cattle image (see template output `clawlets-cattle-image`).
 - Labels must be safe: ascii alnum + `._-`, max 63 chars, start/end alnum.
 
 ## Prereqs (operator)
 
 - Run these commands on the **Pet host** (or in an SSH session on the Pet host).
-  - `clawdlets cattle *` talks to `clf-orchestrator` via Unix socket (`/run/clf/orchestrator.sock`).
+  - `clawlets cattle *` talks to `clf-orchestrator` via Unix socket (`/run/clf/orchestrator.sock`).
 - `clf-orchestrator` deployed + running:
   - `systemctl status clf-orchestrator`
   - `systemctl status clf-orchestrator.socket`
@@ -73,51 +73,51 @@ Build + upload (Linux/CI recommended)
 - build from the project repo flake:
 
 ```bash
-nix build -L .#clawdlets-cattle-image
+nix build -L .#clawlets-cattle-image
 ```
 
 - upload to Hetzner (example uses local path; adjust `--location`):
 
 ```bash
 export HCLOUD_TOKEN=...
-hcloud-upload-image upload --image-path ./result --architecture x86 --location nbg1 --labels managed-by=clawdlets,role=cattle-image
+hcloud-upload-image upload --image-path ./result --architecture x86 --location nbg1 --labels managed-by=clawlets,role=cattle-image
 ```
 
-Then set `fleet/clawdlets.json`:
+Then set `fleet/clawlets.json`:
 - `cattle.enabled=true`
 - `cattle.hetzner.image="<image-id-or-name>"`
 
 ## Commands
 
 ```bash
-clawdlets cattle persona add --name rex
-clawdlets cattle persona list
+clawlets cattle persona add --name rex
+clawlets cattle persona list
 
-clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h
-clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --with-github-token
-clawdlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --dry-run
-clawdlets cattle list
-clawdlets cattle logs <name-or-id> --follow
-clawdlets cattle ssh <name-or-id>
-clawdlets cattle destroy <name-or-id>
-clawdlets cattle reap --dry-run
+clawlets cattle spawn --persona rex --task-file ./task.json --ttl 2h
+clawlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --with-github-token
+clawlets cattle spawn --persona rex --task-file ./task.json --ttl 2h --dry-run
+clawlets cattle list
+clawlets cattle logs <name-or-id> --follow
+clawlets cattle ssh <name-or-id>
+clawlets cattle destroy <name-or-id>
+clawlets cattle reap --dry-run
 ```
 
 Notes
-- `clawdlets cattle spawn` enqueues a `cattle.spawn` job into `clf-orchestrator` (it does not talk to Hetzner directly).
+- `clawlets cattle spawn` enqueues a `cattle.spawn` job into `clf-orchestrator` (it does not talk to Hetzner directly).
 - Bots should use `clf jobs ...` directly; see `docs/orchestrator.md`.
 
 ## Access model (recommended)
 
 - Cattle uses Tailscale for SSH/logging (tailnet-only).
-- `clawdlets cattle ssh` resolves the Tailscale IP via `tailscale ip -4 <hostname>`.
+- `clawlets cattle ssh` resolves the Tailscale IP via `tailscale ip -4 <hostname>`.
 
 Optional breakglass (not default): allow temporary public SSH from `adminCidr` (short TTL).
 
 ## Local state
 
-- Local DB: `.clawdlets/cattle/state.sqlite`
-- Source of truth for lifecycle: Hetzner labels (`managed-by=clawdlets,cattle=true`)
+- Local DB: `.clawlets/cattle/state.sqlite`
+- Source of truth for lifecycle: Hetzner labels (`managed-by=clawlets,cattle=true`)
 
 ## Task format
 
@@ -141,13 +141,13 @@ cattle/personas/
     memory/
 ```
 
-`clawdlets cattle spawn --persona <name>` loads:
+`clawlets cattle spawn --persona <name>` loads:
 - `cattle/personas/<name>/SOUL.md`
 - `cattle/personas/<name>/config.json` (`schemaVersion: 1`, `model.primary` optional)
 
 Injected into the VM:
-- `/var/lib/clawdlets/cattle/persona/SOUL.md`
-- `/var/lib/clawdlets/cattle/persona/config.json`
+- `/var/lib/clawlets/cattle/persona/SOUL.md`
+- `/var/lib/clawlets/cattle/persona/config.json`
 
 Notes
 - Cattle personas are separate from fleet bot workspaces (and clawdbot `IDENTITY.md`).
@@ -158,7 +158,7 @@ Notes
 
 - `cattle.hetzner.maxInstances`: hard cap (spawn refuses beyond limit).
 - `--ttl`: required on spawn (or `cattle.hetzner.defaultTtl`).
-- `clawdlets cattle reap`: deletes expired instances (use `--dry-run` first).
+- `clawlets cattle reap`: deletes expired instances (use `--dry-run` first).
 
 ## Failure modes / debug
 
@@ -168,7 +168,7 @@ Common errors
 - `tailscale ip returned empty output`: the VM didn’t join tailnet (check `tailscale_auth_key`, then use Hetzner console for boot logs).
 
 Debug commands
-- list: `clawdlets cattle list`
-- logs: `clawdlets cattle logs <id-or-name> --follow`
-- ssh: `clawdlets cattle ssh <id-or-name>`
-- reap: `clawdlets cattle reap --dry-run`
+- list: `clawlets cattle list`
+- logs: `clawlets cattle logs <id-or-name> --follow`
+- ssh: `clawlets cattle ssh <id-or-name>`
+- reap: `clawlets cattle reap --dry-run`

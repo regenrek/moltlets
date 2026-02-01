@@ -243,7 +243,7 @@ function AppSidebar() {
                     className="hover:bg-muted/60 hover:text-foreground active:bg-muted/70 active:text-foreground data-[state=open]:bg-muted/70 data-[state=open]:text-foreground"
                   >
                     <div className="bg-muted text-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                      <img src="/clawdlets-icon.svg" alt="" aria-hidden="true" className="size-4" />
+                      <img src="/clawlets-icon.svg" alt="" aria-hidden="true" className="size-4" />
                     </div>
                     <div className="flex flex-col gap-0.5 leading-none">
                       <span className="font-medium">{activeProject?.name || "Select project"}</span>

@@ -1,4 +1,4 @@
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import { getAtPath } from "./object-path.js";
 
 const DEFAULT_GATEWAY_PORT_BASE = 18789;
@@ -50,14 +50,14 @@ function deepMerge(base: Record<string, unknown>, override: Record<string, unkno
   return out;
 }
 
-function resolveBotIndex(config: ClawdletsConfig, bot: string): number {
+function resolveBotIndex(config: ClawletsConfig, bot: string): number {
   const bots = Array.isArray(config.fleet.botOrder) ? config.fleet.botOrder : [];
   const index = bots.indexOf(bot);
   if (index === -1) throw new Error(`bot not found in fleet.botOrder: ${bot}`);
   return index;
 }
 
-function resolveGatewayPort(params: { config: ClawdletsConfig; bot: string; profile: Record<string, unknown> }): number {
+function resolveGatewayPort(params: { config: ClawletsConfig; bot: string; profile: Record<string, unknown> }): number {
   const override = toCleanNumber(params.profile["gatewayPort"]);
   if (override != null) return Math.floor(override);
   const index = resolveBotIndex(params.config, params.bot);
@@ -88,7 +88,7 @@ function warnOverrides(params: {
   const existing = getAtPath(params.base, params.path);
   if (existing === undefined) return null;
   const pathLabel = params.path.join(".");
-  const message = `clawdbot.${pathLabel} is managed by clawdlets invariants and will be overwritten`;
+  const message = `clawdbot.${pathLabel} is managed by clawlets invariants and will be overwritten`;
   return {
     bot: params.bot,
     path: pathLabel,
@@ -99,7 +99,7 @@ function warnOverrides(params: {
 }
 
 export function buildClawdbotBotConfig(params: {
-  config: ClawdletsConfig;
+  config: ClawletsConfig;
   bot: string;
 }): {
   bot: string;

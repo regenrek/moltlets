@@ -3,7 +3,7 @@
   config = {
     formatConfigs.raw = { ... }: {
       imports = [
-        ./clawdlets-image-bootstrap.nix
+        ./clawlets-image-bootstrap.nix
       ];
 
       boot.growPartition = lib.mkDefault true;

@@ -11,7 +11,7 @@ import {
 
 const runMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   run: runMock,
 }));
 
@@ -21,7 +21,7 @@ describe("manifest signature helpers", () => {
     runMock.mockResolvedValue(undefined);
   });
   it("defaults signature path to <manifest>.minisig", () => {
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-manifest-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-manifest-"));
     const manifest = path.join(dir, "deploy.json");
     const sig = `${manifest}.minisig`;
     fs.writeFileSync(sig, "sig", "utf8");
@@ -29,13 +29,13 @@ describe("manifest signature helpers", () => {
   });
 
   it("rejects missing signature", () => {
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-manifest-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-manifest-"));
     const manifest = path.join(dir, "deploy.json");
     expect(() => resolveManifestSignaturePath({ cwd: dir, manifestPath: manifest })).toThrow(/signature missing/);
   });
 
   it("resolves public key from file or config", () => {
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-key-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-key-"));
     const keyPath = path.join(dir, "minisign.pub");
     fs.writeFileSync(keyPath, "PUBKEY", "utf8");
     expect(resolveManifestPublicKeys({ publicKeyFileArg: keyPath })).toEqual(["PUBKEY"]);
@@ -71,7 +71,7 @@ describe("manifest signature helpers", () => {
       return undefined;
     });
 
-    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-sign-"));
+    const dir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-sign-"));
     const filePath = path.join(dir, "manifest.json");
     const sigPath = path.join(dir, "manifest.json.minisig");
     fs.writeFileSync(filePath, "{}\n", "utf8");

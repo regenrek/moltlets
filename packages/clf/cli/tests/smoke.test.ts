@@ -3,8 +3,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 const lastEnqueue: { value: unknown } = { value: null };
 const enqueueReturn: { value: unknown } = { value: { protocolVersion: 1, jobId: "job-1" } };
 
-vi.mock("@clawdlets/clf-queue", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/clf-queue")>("@clawdlets/clf-queue");
+vi.mock("@clawlets/clf-queue", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/clf-queue")>("@clawlets/clf-queue");
   return {
     ...actual,
     createClfClient: () => ({

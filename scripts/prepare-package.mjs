@@ -97,7 +97,7 @@ function dropWorkspaceDeps(pkg) {
 
 function resolveDefaultOutDir(pkgDir, pkg) {
   const defaultCliDir = path.join(repoRoot, "packages", "cli");
-  if (pkgDir === defaultCliDir) return path.join(repoRoot, "dist", "npm", "clawdlets");
+  if (pkgDir === defaultCliDir) return path.join(repoRoot, "dist", "npm", "clawlets");
   const name = String(pkg?.name || "").trim();
   const safe = name ? name.replace(/\//g, "-") : "package";
   return path.join(repoRoot, "dist", "npm", safe);

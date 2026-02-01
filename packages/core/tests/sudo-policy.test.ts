@@ -7,7 +7,11 @@ import { withFlakesEnv } from "../src/lib/nix-flakes";
 const NIX_EVAL_TIMEOUT_MS = 120_000;
 
 function resolveRepoRoot(): string {
-  return path.resolve(process.env.CLAWDLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));
+  return path.resolve(process.env.CLAWLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));
+}
+
+function resolveClawletsRepoRoot(): string {
+  return path.resolve(__dirname, "..", "..", "..");
 }
 
 function hasNix(): boolean {
@@ -26,45 +30,53 @@ describe("sudo policy (host)", () => {
     "does not allow wildcard nixos-rebuild flake rebuilds in sudoers",
     () => {
       const repoRoot = resolveRepoRoot();
-      const cfgPath = path.join(repoRoot, "fleet", "clawdlets.json");
+      const clawletsRepo = resolveClawletsRepoRoot();
+      const clawletsRef = JSON.stringify(`path:${clawletsRepo}`);
+      const cfgPath = path.join(repoRoot, "fleet", "clawlets.json");
       const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as any;
       const host = Object.keys((cfg && typeof cfg === "object" ? (cfg as any).hosts : null) || {})[0] || "clawdbot-fleet-host";
 
       const expr = `
 let
-  flake = builtins.getFlake (toString ./.);
+  baseFlake = builtins.getFlake (toString ./.);
+  clawlets = builtins.getFlake ${clawletsRef};
+  flake = baseFlake // { inputs = baseFlake.inputs // { clawlets = clawlets; }; };
   system = "x86_64-linux";
   hostName = ${JSON.stringify(host)};
-  nixpkgs = flake.inputs.clawdlets.inputs.nixpkgs;
+  nixpkgs = flake.inputs.clawlets.inputs.nixpkgs;
   lib = nixpkgs.lib;
   project = {
     root = flake.outPath;
-    config = builtins.fromJSON (builtins.readFile (flake.outPath + "/fleet/clawdlets.json"));
+    config = builtins.fromJSON (builtins.readFile (flake.outPath + "/fleet/clawlets.json"));
   };
   cfg = (lib.nixosSystem {
     inherit system;
     specialArgs = {
-      clawdlets = flake.inputs.clawdlets;
-      nix-clawdbot = flake.inputs.clawdlets.inputs.nix-clawdbot;
+      clawlets = flake.inputs.clawlets;
+      nix-clawdbot = flake.inputs.clawlets.inputs.nix-clawdbot;
       inherit project;
-      flakeInfo = { clawdlets = { rev = null; lastModifiedDate = null; }; };
+      flakeInfo = { clawlets = { rev = null; lastModifiedDate = null; }; };
     };
     modules = [
-      flake.inputs.clawdlets.inputs.disko.nixosModules.disko
-      flake.inputs.clawdlets.inputs.nixos-generators.nixosModules.all-formats
-      flake.inputs.clawdlets.inputs.sops-nix.nixosModules.sops
-      flake.inputs.clawdlets.nixosModules.clawdletsProjectHost
-      ({ ... }: { clawdlets.hostName = hostName; })
+      flake.inputs.clawlets.inputs.disko.nixosModules.disko
+      flake.inputs.clawlets.inputs.nixos-generators.nixosModules.all-formats
+      flake.inputs.clawlets.inputs.sops-nix.nixosModules.sops
+      flake.inputs.clawlets.nixosModules.clawletsProjectHost
+      ({ ... }: { clawlets.hostName = hostName; })
     ];
   }).config;
 in cfg.security.sudo.extraConfig
 `;
 
-      const extra = execFileSync("nix", ["eval", "--impure", "--raw", "--expr", expr], {
-        cwd: repoRoot,
-        env: withFlakesEnv(process.env),
-        encoding: "utf8",
-      }).trim();
+      const extra = execFileSync(
+        "nix",
+        ["eval", "--impure", "--raw", "--expr", expr],
+        {
+          cwd: repoRoot,
+          env: withFlakesEnv(process.env),
+          encoding: "utf8",
+        },
+      ).trim();
 
       expect(extra.includes("--flake *")).toBe(false);
       expect(/Cmnd_Alias\s+CLAWDBOT_REBUILD\b/.test(extra)).toBe(false);

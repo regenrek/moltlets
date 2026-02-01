@@ -1,8 +1,8 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { shellQuote, sshCapture, sshRun } from "@clawdlets/core/lib/ssh-remote";
+import { shellQuote, sshCapture, sshRun } from "@clawlets/core/lib/ssh-remote";
 import { needsSudo, requireTargetHost } from "./common.js";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 function normalizeSince(value: string): string {
   const v = value.trim();
@@ -21,12 +21,12 @@ function normalizeSince(value: string): string {
 const serverUpdateStatus = defineCommand({
   meta: {
     name: "status",
-    description: "Show updater status JSON (/var/lib/clawdlets/updates/status.json).",
+    description: "Show updater status JSON (/var/lib/clawlets/updates/status.json).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -39,7 +39,7 @@ const serverUpdateStatus = defineCommand({
     const sudo = needsSudo(targetHost);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
-      "/etc/clawdlets/bin/update-status",
+      "/etc/clawlets/bin/update-status",
     ].join(" ");
     const out = await sshCapture(targetHost, remoteCmd, { tty: sudo && args.sshTty });
     console.log(out);
@@ -49,12 +49,12 @@ const serverUpdateStatus = defineCommand({
 const serverUpdateLogs = defineCommand({
   meta: {
     name: "logs",
-    description: "Show updater logs (journalctl -u clawdlets-update-*).",
+    description: "Show updater logs (journalctl -u clawlets-update-*).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     lines: { type: "string", description: "Number of lines (default: 200).", default: "200" },
     since: { type: "string", description: "Time window (supports 5m/1h/2d or journalctl syntax)." },
     follow: { type: "boolean", description: "Follow logs.", default: false },
@@ -76,7 +76,7 @@ const serverUpdateLogs = defineCommand({
       ...(sudo ? ["sudo"] : []),
       "journalctl",
       "-u",
-      shellQuote("clawdlets-update-*"),
+      shellQuote("clawlets-update-*"),
       "-n",
       shellQuote(n),
       ...(since ? ["--since", shellQuote(since)] : []),
@@ -91,12 +91,12 @@ const serverUpdateLogs = defineCommand({
 const serverUpdateApply = defineCommand({
   meta: {
     name: "apply",
-    description: "Trigger updater fetch+apply now (systemctl start clawdlets-update-fetch.service).",
+    description: "Trigger updater fetch+apply now (systemctl start clawlets-update-fetch.service).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -111,13 +111,13 @@ const serverUpdateApply = defineCommand({
       ...(sudo ? ["sudo"] : []),
       "systemctl",
       "start",
-      "clawdlets-update-fetch.service",
+      "clawlets-update-fetch.service",
     ].map(shellQuote).join(" ");
     await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
 
     console.log("ok: triggered updater (fetch+apply)");
-    console.log(`tip: clawdlets server update status --host ${hostName}`);
-    console.log(`tip: clawdlets server update logs --host ${hostName} --since 5m`);
+    console.log(`tip: clawlets server update status --host ${hostName}`);
+    console.log(`tip: clawlets server update logs --host ${hostName} --since 5m`);
   },
 });
 

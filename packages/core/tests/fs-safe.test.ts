@@ -8,7 +8,7 @@ describe("fs-safe", () => {
   let dir = "";
 
   beforeAll(async () => {
-    dir = await mkdtemp(path.join(tmpdir(), "clawdlets-fs-"));
+    dir = await mkdtemp(path.join(tmpdir(), "clawlets-fs-"));
   });
 
   afterAll(async () => {

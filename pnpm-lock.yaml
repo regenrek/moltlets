@@ -20,10 +20,10 @@ importers:
       '@base-ui/react':
         specifier: ^1.1.0
         version: 1.1.0(@types/react@19.2.9)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clawdlets/core':
+      '@clawlets/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@convex-dev/better-auth':
@@ -195,7 +195,7 @@ importers:
 
   packages/cattle-core:
     dependencies:
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../shared
       yaml:
@@ -217,10 +217,10 @@ importers:
 
   packages/clf/cli:
     dependencies:
-      '@clawdlets/cattle-core':
+      '@clawlets/cattle-core':
         specifier: workspace:*
         version: link:../../cattle-core
-      '@clawdlets/clf-queue':
+      '@clawlets/clf-queue':
         specifier: workspace:*
         version: link:../queue
       citty:
@@ -242,13 +242,13 @@ importers:
 
   packages/clf/orchestrator:
     dependencies:
-      '@clawdlets/cattle-core':
+      '@clawlets/cattle-core':
         specifier: workspace:*
         version: link:../../cattle-core
-      '@clawdlets/clf-queue':
+      '@clawlets/clf-queue':
         specifier: workspace:*
         version: link:../queue
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../../shared
     devDependencies:
@@ -267,10 +267,10 @@ importers:
 
   packages/clf/queue:
     dependencies:
-      '@clawdlets/cattle-core':
+      '@clawlets/cattle-core':
         specifier: workspace:*
         version: link:../../cattle-core
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../../shared
       better-sqlite3:
@@ -301,10 +301,10 @@ importers:
       '@clack/prompts':
         specifier: ^0.11.0
         version: 0.11.0
-      '@clawdlets/core':
+      '@clawlets/core':
         specifier: workspace:*
         version: link:../core
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../shared
       ajv:
@@ -341,10 +341,10 @@ importers:
 
   packages/core:
     dependencies:
-      '@clawdlets/cattle-core':
+      '@clawlets/cattle-core':
         specifier: workspace:*
         version: link:../cattle-core
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../shared
       ajv:
@@ -378,16 +378,16 @@ importers:
 
   packages/plugins/cattle:
     dependencies:
-      '@clawdlets/cattle-core':
+      '@clawlets/cattle-core':
         specifier: workspace:*
         version: link:../../cattle-core
-      '@clawdlets/clf-queue':
+      '@clawlets/clf-queue':
         specifier: workspace:*
         version: link:../../clf/queue
-      '@clawdlets/core':
+      '@clawlets/core':
         specifier: workspace:*
         version: link:../../core
-      '@clawdlets/shared':
+      '@clawlets/shared':
         specifier: workspace:*
         version: link:../../shared
       better-sqlite3:

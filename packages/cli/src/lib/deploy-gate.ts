@@ -1,5 +1,5 @@
 import process from "node:process";
-import { collectDoctorChecks } from "@clawdlets/core/doctor";
+import { collectDoctorChecks } from "@clawlets/core/doctor";
 import { renderDoctorGateFailure } from "./doctor-render.js";
 
 export async function requireDeployGate(params: {

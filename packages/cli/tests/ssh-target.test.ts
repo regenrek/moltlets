@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const validateTargetHostMock = vi.fn((v: string) => v);
 
-vi.mock("@clawdlets/core/lib/ssh-remote", () => ({
+vi.mock("@clawlets/core/lib/ssh-remote", () => ({
   validateTargetHost: validateTargetHostMock,
 }));
 

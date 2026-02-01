@@ -1,20 +1,20 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { ClawdletsConfigSchema, loadClawdletsConfig, writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { ClawletsConfigSchema, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 
 const show = defineCommand({
-  meta: { name: "show", description: "Print fleet config (from fleet/clawdlets.json)." },
+  meta: { name: "show", description: "Print fleet config (from fleet/clawlets.json)." },
   args: {},
   async run() {
     const repoRoot = findRepoRoot(process.cwd());
-    const { config } = loadClawdletsConfig({ repoRoot });
+    const { config } = loadClawletsConfig({ repoRoot });
     console.log(JSON.stringify(config.fleet, null, 2));
   },
 });
 
 const set = defineCommand({
-  meta: { name: "set", description: "Set fleet config fields (in fleet/clawdlets.json)." },
+  meta: { name: "set", description: "Set fleet config fields (in fleet/clawlets.json)." },
   args: {
     "codex-enable": { type: "string", description: "Enable codex (true/false)." },
     "restic-enable": { type: "string", description: "Enable restic backups (true/false)." },
@@ -22,7 +22,7 @@ const set = defineCommand({
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
 
     const next = structuredClone(config) as typeof config;
 
@@ -46,13 +46,13 @@ const set = defineCommand({
 
     if ((args as any)["restic-repository"] !== undefined) next.fleet.backups.restic.repository = String((args as any)["restic-repository"]).trim();
 
-    const validated = ClawdletsConfigSchema.parse(next);
-    await writeClawdletsConfig({ configPath, config: validated });
+    const validated = ClawletsConfigSchema.parse(next);
+    await writeClawletsConfig({ configPath, config: validated });
     console.log("ok");
   },
 });
 
 export const fleet = defineCommand({
-  meta: { name: "fleet", description: "Manage fleet config (fleet/clawdlets.json)." },
+  meta: { name: "fleet", description: "Manage fleet config (fleet/clawlets.json)." },
   subCommands: { show, set },
 });

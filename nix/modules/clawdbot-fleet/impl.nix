@@ -14,7 +14,7 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = (flakeInfo.clawdlets.rev or null) != null;
+        assertion = (flakeInfo.clawlets.rev or null) != null;
         message = "refusing to build: flake source has no git revision (dirty tree or non-git source); deploy by pinning a git commit (?rev=<sha>)";
       }
       {
@@ -175,52 +175,52 @@ in
       ];
 
     environment.etc = {
-      "clawdlets/tools.md" = {
+      "clawlets/tools.md" = {
         source = defs.toolsInventoryMd;
         mode = "0444";
       };
 
-        "clawdlets/build-info.json" = {
+        "clawlets/build-info.json" = {
           source = defs.buildInfoJson;
           mode = "0444";
         };
 
-        "clawdlets/bin/gh-sync" = {
+        "clawlets/bin/gh-sync" = {
           source = ../../scripts/gh-sync.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/gh-sync-read" = {
+        "clawlets/bin/gh-sync-read" = {
           source = ../../scripts/gh-sync-read.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/gh-mint-app-token" = {
+        "clawlets/bin/gh-mint-app-token" = {
           source = ../../scripts/gh-mint-app-token.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/ops-snapshot" = {
+        "clawlets/bin/ops-snapshot" = {
           source = ../../scripts/ops-snapshot.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/seed-workspace" = {
+        "clawlets/bin/seed-workspace" = {
           source = ../../scripts/seed-workspace.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/ensure-gateway-token" = {
+        "clawlets/bin/ensure-gateway-token" = {
           source = ../../scripts/ensure-gateway-token.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/clawdbot-channels" = {
+        "clawlets/bin/clawdbot-channels" = {
           source = ../../scripts/clawdbot-channels.sh;
           mode = "0755";
         };
 
-        "clawdlets/bin/sync-managed-docs" = {
+        "clawlets/bin/sync-managed-docs" = {
           source = ../../scripts/sync-managed-docs.sh;
           mode = "0755";
         };
@@ -242,8 +242,8 @@ in
       (lib.mkMerge (map github.mkGithubTokenService cfg.bots))
       (lib.mkMerge (map github.mkGithubSyncService cfg.bots))
       (lib.optionalAttrs cfg.opsSnapshot.enable {
-        clawdlets-ops-snapshot = {
-          description = "Clawdlets ops snapshot (no secrets)";
+        clawlets-ops-snapshot = {
+          description = "Clawlets ops snapshot (no secrets)";
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];
           serviceConfig = {
@@ -273,7 +273,7 @@ in
             KEEP_LAST = toString cfg.opsSnapshot.keepLast;
           };
           script = ''
-            exec /etc/clawdlets/bin/ops-snapshot
+            exec /etc/clawlets/bin/ops-snapshot
           '';
         };
       })
@@ -283,14 +283,14 @@ in
       (lib.mkMerge (map github.mkGithubTokenTimer cfg.bots))
       (lib.mkMerge (map github.mkGithubSyncTimer cfg.bots))
       (lib.optionalAttrs cfg.opsSnapshot.enable {
-        clawdlets-ops-snapshot = {
-          description = "Periodic clawdlets ops snapshot";
+        clawlets-ops-snapshot = {
+          description = "Periodic clawlets ops snapshot";
           wantedBy = [ "timers.target" ];
           timerConfig = {
             OnCalendar = cfg.opsSnapshot.schedule;
             RandomizedDelaySec = "5m";
             Persistent = true;
-            Unit = "clawdlets-ops-snapshot.service";
+            Unit = "clawlets-ops-snapshot.service";
           };
         };
       })

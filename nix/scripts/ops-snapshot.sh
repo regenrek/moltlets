@@ -2,7 +2,7 @@
 # ops-snapshot.sh — Write a host snapshot to disk (no secrets).
 set -euo pipefail
 
-OUT_DIR="${OUT_DIR:-/var/lib/clawdlets/ops/snapshots}"
+OUT_DIR="${OUT_DIR:-/var/lib/clawlets/ops/snapshots}"
 KEEP_DAYS="${KEEP_DAYS:-30}"
 KEEP_LAST="${KEEP_LAST:-200}"
 
@@ -15,7 +15,7 @@ tmp="$(mktemp)"
 cleanup() { rm -f "$tmp"; }
 trap cleanup EXIT
 
-build_info="/etc/clawdlets/build-info.json"
+build_info="/etc/clawlets/build-info.json"
 
 sysbin="/run/current-system/sw/bin"
 

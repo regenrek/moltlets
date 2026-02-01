@@ -3,31 +3,31 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
-import { ageKeygen, agePublicKeyFromIdentityFile } from "@clawdlets/core/lib/age-keygen";
-import { parseAgeKeyFile } from "@clawdlets/core/lib/age";
-import { ensureDir, writeFileAtomic } from "@clawdlets/core/lib/fs-safe";
-import { mkpasswdYescryptHash } from "@clawdlets/core/lib/mkpasswd";
-import { upsertSopsCreationRule } from "@clawdlets/core/lib/sops-config";
-import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawdlets/core/lib/sops";
-import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdlets/core/lib/sops-rules";
-import { sanitizeOperatorId } from "@clawdlets/shared/lib/identifiers";
-import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets-plan";
-import { applySecretsAutowire, planSecretsAutowire } from "@clawdlets/core/lib/secrets-autowire";
-import { buildSecretsInitTemplate, isPlaceholderSecretValue, listSecretsInitPlaceholders, parseSecretsInitJson, resolveSecretsInitFromJsonArg, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawdlets/core/lib/secrets-init";
-import { buildSecretsInitTemplateSets } from "@clawdlets/core/lib/secrets-init-template";
-import { readYamlScalarFromMapping } from "@clawdlets/core/lib/yaml-scalar";
-import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout";
-import { expandPath } from "@clawdlets/core/lib/path-expand";
-import { mapWithConcurrency } from "@clawdlets/core/lib/concurrency";
-import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawdlets/core/lib/secrets-allowlist";
+import { ageKeygen, agePublicKeyFromIdentityFile } from "@clawlets/core/lib/age-keygen";
+import { parseAgeKeyFile } from "@clawlets/core/lib/age";
+import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/fs-safe";
+import { mkpasswdYescryptHash } from "@clawlets/core/lib/mkpasswd";
+import { upsertSopsCreationRule } from "@clawlets/core/lib/sops-config";
+import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawlets/core/lib/sops";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawlets/core/lib/sops-rules";
+import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { applySecretsAutowire, planSecretsAutowire } from "@clawlets/core/lib/secrets-autowire";
+import { buildSecretsInitTemplate, isPlaceholderSecretValue, listSecretsInitPlaceholders, parseSecretsInitJson, resolveSecretsInitFromJsonArg, validateSecretsInitNonInteractive, type SecretsInitJson } from "@clawlets/core/lib/secrets-init";
+import { buildSecretsInitTemplateSets } from "@clawlets/core/lib/secrets-init-template";
+import { readYamlScalarFromMapping } from "@clawlets/core/lib/yaml-scalar";
+import { getHostEncryptedAgeKeyFile, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawlets/core/repo-layout";
+import { expandPath } from "@clawlets/core/lib/path-expand";
+import { mapWithConcurrency } from "@clawlets/core/lib/concurrency";
+import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawlets/core/lib/secrets-allowlist";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 import { upsertYamlScalarLine } from "./common.js";
-import { writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
+import { writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 
 function wantsInteractive(flag: boolean | undefined): boolean {
   if (flag) return true;
-  const env = String(process.env["CLAWDLETS_INTERACTIVE"] || "").trim();
+  const env = String(process.env["CLAWLETS_INTERACTIVE"] || "").trim();
   return env === "1" || env.toLowerCase() === "true";
 }
 
@@ -50,11 +50,11 @@ function readSecretsInitJson(fromJson: string): SecretsInitJson {
 export const secretsInit = defineCommand({
   meta: {
     name: "init",
-    description: "Create/update secrets in /secrets (sops+age) and generate .clawdlets/extra-files/<host>/...",
+    description: "Create/update secrets in /secrets (sops+age) and generate .clawlets/extra-files/<host>/...",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     interactive: { type: "boolean", description: "Prompt for secret values (requires TTY).", default: false },
     fromJson: { type: "string", description: "Read secret values from JSON file (or '-' for stdin) (non-interactive)." },
     allowPlaceholders: { type: "boolean", description: "Allow placeholders for missing tokens.", default: false },
@@ -83,7 +83,7 @@ export const secretsInit = defineCommand({
     const cwd = process.cwd();
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: a.runtimeDir, hostArg: a.host });
     if (!ctx) return;
-    let { layout, config: clawdletsConfig, hostName, hostCfg } = ctx;
+    let { layout, config: clawletsConfig, hostName, hostCfg } = ctx;
 
     const hasTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
     let interactive = wantsInteractive(Boolean(a.interactive));
@@ -101,41 +101,41 @@ export const secretsInit = defineCommand({
 
     const localSecretsDir = getHostSecretsDir(layout, hostName);
 
-	    const bots = clawdletsConfig.fleet.botOrder;
-	    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawdlets.json)");
+	    const bots = clawletsConfig.fleet.botOrder;
+	    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
 
 	    const cacheNetrc = hostCfg.cache?.netrc;
 	    const cacheNetrcEnabled = Boolean(cacheNetrc?.enable);
 	    const cacheNetrcPath = cacheNetrcEnabled ? String(cacheNetrc?.path || "/etc/nix/netrc").trim() : "";
 
-	    let secretsPlan = buildFleetSecretsPlan({ config: clawdletsConfig, hostName });
+	    let secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
 	    if (secretsPlan.missingSecretConfig.length > 0) {
 	      if (a.autowire) {
-	        const plan = planSecretsAutowire({ config: clawdletsConfig, hostName });
+	        const plan = planSecretsAutowire({ config: clawletsConfig, hostName });
         if (plan.updates.length === 0) {
           const first = secretsPlan.missingSecretConfig[0]!;
           throw new Error(
             first.kind === "envVar"
-              ? `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); run: clawdlets config wire-secrets --write`
+              ? `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); run: clawlets config wire-secrets --write`
               : `invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`,
           );
         }
-        const nextConfig = applySecretsAutowire({ config: clawdletsConfig, plan });
-	        await writeClawdletsConfig({ configPath: layout.clawdletsConfigPath, config: nextConfig });
-	        clawdletsConfig = nextConfig;
-	        secretsPlan = buildFleetSecretsPlan({ config: clawdletsConfig, hostName });
+        const nextConfig = applySecretsAutowire({ config: clawletsConfig, plan });
+	        await writeClawletsConfig({ configPath: layout.clawletsConfigPath, config: nextConfig });
+	        clawletsConfig = nextConfig;
+	        secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
 	      } else {
         const first = secretsPlan.missingSecretConfig[0]!;
         if (first.kind === "envVar") {
           throw new Error(
-            `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); set fleet.secretEnv.${first.envVar} or fleet.bots.${first.bot}.profile.secretEnv.${first.envVar} (or run: clawdlets config wire-secrets --write)`,
+            `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); set fleet.secretEnv.${first.envVar} or fleet.bots.${first.bot}.profile.secretEnv.${first.envVar} (or run: clawlets config wire-secrets --write)`,
           );
         }
 	        throw new Error(`invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`);
 	      }
 	    }
 
-	    hostCfg = (clawdletsConfig.hosts as any)?.[hostName] || hostCfg;
+	    hostCfg = (clawletsConfig.hosts as any)?.[hostName] || hostCfg;
 	    const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg });
 	    const cacheNetrcSecretName = sets.cacheNetrcSecretName;
 
@@ -171,7 +171,7 @@ export const secretsInit = defineCommand({
 
         console.error(`${a.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);
         if (a.dryRun) console.error("run without --dry-run to write it");
-        else console.error(`fill it, then run: clawdlets secrets init --from-json ${defaultSecretsJsonDisplay}`);
+        else console.error(`fill it, then run: clawlets secrets init --from-json ${defaultSecretsJsonDisplay}`);
         process.exitCode = 1;
         return;
       }
@@ -410,7 +410,7 @@ export const secretsInit = defineCommand({
       values.secrets = input.secrets || {};
     }
 
-    const allowlist = buildManagedHostSecretNameAllowlist({ config: clawdletsConfig, host: hostName });
+    const allowlist = buildManagedHostSecretNameAllowlist({ config: clawletsConfig, host: hostName });
     assertSecretsAreManaged({ allowlist, secrets: values.secrets });
 
     const secretsToWrite = Array.from(new Set([

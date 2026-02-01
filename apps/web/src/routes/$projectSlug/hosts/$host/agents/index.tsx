@@ -1,20 +1,24 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useConvexAuth } from "convex/react"
 import type { Id } from "../../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../../convex/_generated/api"
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group"
+import { Label } from "~/components/ui/label"
 import { PageHeader } from "~/components/ui/page-header"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
 import { StackedField } from "~/components/ui/stacked-field"
 import { useProjectBySlug } from "~/lib/project-data"
-import { BotRoster } from "~/components/fleet/bot-roster"
-import { addBot, getClawdletsConfig } from "~/sdk/config"
+import { BotRoster, getBotChannels } from "~/components/fleet/bot-roster"
+import { addBot, getClawletsConfig } from "~/sdk/config"
 import { authClient } from "~/lib/auth-client"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/agents/")({
@@ -64,15 +68,44 @@ function AgentsSetup() {
   const canEdit = project.data?.role === "admin"
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId) && canQuery,
   })
   const config = cfg.data?.config
   const bots = useMemo(() => (config?.fleet?.botOrder as string[]) || [], [config])
 
   const takenIds = useMemo(() => new Set(bots.map((b) => String(b || "").trim()).filter(Boolean)), [bots])
+
+  const [rosterQuery, setRosterQuery] = useState("")
+  const [channelFilter, setChannelFilter] = useState("all")
+
+  const normalizedQuery = rosterQuery.trim().toLowerCase()
+  const hasRosterQuery = Boolean(normalizedQuery)
+
+  const allChannels = useMemo(() => {
+    if (!config) return []
+    const found = new Set<string>()
+    for (const botId of bots) {
+      for (const channel of getBotChannels({ config, botId })) {
+        found.add(channel)
+      }
+    }
+    return Array.from(found).sort()
+  }, [bots, config])
+
+  const filteredBots = useMemo(() => {
+    const query = normalizedQuery
+    const filter = channelFilter
+
+    return bots.filter((botId) => {
+      if (query && !botId.toLowerCase().includes(query)) return false
+      if (filter === "all") return true
+      if (!config) return false
+      return getBotChannels({ config, botId }).includes(filter)
+    })
+  }, [bots, channelFilter, config, normalizedQuery])
 
   const [addOpen, setAddOpen] = useState(false)
   const [displayName, setDisplayName] = useState("")
@@ -94,7 +127,7 @@ function AgentsSetup() {
       setDisplayName("")
       setBotIdOverride("")
       setBotIdOverrideEnabled(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -219,34 +252,57 @@ function AgentsSetup() {
       ) : !config ? (
         <div className="text-muted-foreground">Missing config.</div>
       ) : (
-        <div className="rounded-lg border bg-card p-6 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-medium">Agent roster</div>
-              <div className="text-xs text-muted-foreground">{bots.length} agents</div>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/$projectSlug/hosts/$host/secrets"
-                  params={{ projectSlug, host }}
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <Label htmlFor="agents-search" className="sr-only">
+                Search agents
+              </Label>
+              <InputGroup className="bg-input/30 border-input/30 shadow-none">
+                <InputGroupAddon className="pl-2">
+                  <MagnifyingGlassIcon className="size-4 shrink-0 opacity-50" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="agents-search"
+                  type="search"
+                  placeholder="Search agents…"
+                  value={rosterQuery}
+                  onChange={(e) => setRosterQuery(e.target.value)}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
-              }
-            >
-              Secrets
-            </Button>
+              </InputGroup>
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <Select value={channelFilter} onValueChange={(value) => setChannelFilter(value ?? "all")}>
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="All channels" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectGroup>
+                    <SelectItem value="all">All channels</SelectItem>
+                    {allChannels.map((channel) => (
+                      <SelectItem key={channel} value={channel}>
+                        {channel}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <BotRoster
             projectSlug={projectSlug}
             host={host}
             projectId={projectId}
-            bots={bots}
+            bots={filteredBots}
             config={config}
             canEdit={canEdit}
+            emptyText={hasRosterQuery || channelFilter !== "all" ? "No matches." : "No agents yet."}
           />
         </div>
       )}

@@ -2,22 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { applyOpenTofuVars } from "@clawdlets/core/lib/opentofu";
-import { resolveGitRev } from "@clawdlets/core/lib/git";
-import { capture, run } from "@clawdlets/core/lib/run";
-import { sshCapture } from "@clawdlets/core/lib/ssh-remote";
-import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawdlets/core/lib/github";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
-import { expandPath } from "@clawdlets/core/lib/path-expand";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets-plan";
-import { withFlakesEnv } from "@clawdlets/core/lib/nix-flakes";
-import { ClawdletsConfigSchema, getSshExposureMode, getTailnetMode, loadClawdletsConfig, writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
-import { resolveBaseFlake } from "@clawdlets/core/lib/base-flake";
-import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostOpenTofuDir } from "@clawdlets/core/repo-layout";
+import { applyOpenTofuVars } from "@clawlets/core/lib/opentofu";
+import { resolveGitRev } from "@clawlets/core/lib/git";
+import { capture, run } from "@clawlets/core/lib/run";
+import { sshCapture } from "@clawlets/core/lib/ssh-remote";
+import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawlets/core/lib/github";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
+import { expandPath } from "@clawlets/core/lib/path-expand";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { withFlakesEnv } from "@clawlets/core/lib/nix-flakes";
+import { ClawletsConfigSchema, getSshExposureMode, getTailnetMode, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
+import { resolveBaseFlake } from "@clawlets/core/lib/base-flake";
+import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostOpenTofuDir } from "@clawlets/core/repo-layout";
 import { requireDeployGate } from "../lib/deploy-gate.js";
-import { resolveHostNameOrExit } from "@clawdlets/core/lib/host-resolve";
-import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawdlets/core/lib/host-connectivity";
+import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
+import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host-connectivity";
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,11 +99,11 @@ export const bootstrap = defineCommand({
     description: "Provision Hetzner VM + install NixOS (nixos-anywhere or image).",
 	  },
 	  args: {
-	    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+	    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
 	    envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-	    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+	    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
 	    mode: { type: "string", description: "Bootstrap mode: nixos-anywhere|image.", default: "nixos-anywhere" },
-	    flake: { type: "string", description: "Override base flake (default: clawdlets.json baseFlake or git origin)." },
+	    flake: { type: "string", description: "Override base flake (default: clawlets.json baseFlake or git origin)." },
 	    rev: { type: "string", description: "Git rev to pin (HEAD/sha/tag).", default: "HEAD" },
 	    ref: { type: "string", description: "Git ref to pin (branch or tag)." },
 	    lockdownAfter: { type: "boolean", description: "After bootstrap, wait for tailnet and remove public SSH (updates config + runs OpenTofu apply).", default: false },
@@ -117,9 +117,9 @@ export const bootstrap = defineCommand({
 	    const repoRoot = findRepoRoot(cwd);
 	    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
 	    if (!hostName) return;
-	    const { layout, configPath, config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-	    const hostCfg = clawdletsConfig.hosts[hostName];
-	    if (!hostCfg) throw new Error(`missing host in fleet/clawdlets.json: ${hostName}`);
+	    const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+	    const hostCfg = clawletsConfig.hosts[hostName];
+	    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
 	    const sshExposureMode = getSshExposureMode(hostCfg);
 	    const tailnetMode = getTailnetMode(hostCfg);
 	    const lockdownAfter = Boolean((args as any).lockdownAfter);
@@ -156,31 +156,31 @@ export const bootstrap = defineCommand({
 	    if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
 	    const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-	    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+	    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 	    const githubToken = String(deployCreds.values.GITHUB_TOKEN || "").trim();
 
 	    const nixBin = String(deployCreds.values.NIX_BIN || "nix").trim() || "nix";
 	    const opentofuDir = getHostOpenTofuDir(layout, hostName);
 
 	    const serverType = String(hostCfg.hetzner.serverType || "").trim();
-	    if (!serverType) throw new Error(`missing hetzner.serverType for ${hostName} (set via: clawdlets host set --server-type ...)`);
+	    if (!serverType) throw new Error(`missing hetzner.serverType for ${hostName} (set via: clawlets host set --server-type ...)`);
 	    const image = String(hostCfg.hetzner.image || "").trim();
 	    const location = String(hostCfg.hetzner.location || "").trim();
 	    if (mode === "image" && !image) {
-	      throw new Error(`missing hetzner.image for ${hostName} (set via: clawdlets host set --hetzner-image <image_id>)`);
+	      throw new Error(`missing hetzner.image for ${hostName} (set via: clawlets host set --hetzner-image <image_id>)`);
 	    }
 
 	    const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
-	    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+	    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawlets host set --admin-cidr ...)`);
 
 	    const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
-	    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+	    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawlets host set --ssh-pubkey-file ...)`);
 	    const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
 	    const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded) ? sshPubkeyFileExpanded : path.resolve(repoRoot, sshPubkeyFileExpanded);
 	    if (!fs.existsSync(sshPubkeyFile)) throw new Error(`ssh pubkey file not found: ${sshPubkeyFile}`);
 
 	    if (sshExposureMode === "tailnet") {
-	      throw new Error(`sshExposure.mode=tailnet; bootstrap requires public SSH. Set: clawdlets host set --host ${hostName} --ssh-exposure bootstrap`);
+	      throw new Error(`sshExposure.mode=tailnet; bootstrap requires public SSH. Set: clawlets host set --host ${hostName} --ssh-exposure bootstrap`);
 	    }
 
 	    await applyOpenTofuVars({
@@ -230,19 +230,19 @@ export const bootstrap = defineCommand({
       console.log("");
       console.log("Next:");
       console.log(`1) Set targetHost for ops:`);
-      console.log(`   clawdlets host set --host ${hostName} --target-host admin@${ipv4}`);
+      console.log(`   clawlets host set --host ${hostName} --target-host admin@${ipv4}`);
       console.log("2) Trigger updater (fetch+apply):");
-      console.log(`   clawdlets server update apply --host ${hostName} --target-host admin@${ipv4}`);
+      console.log(`   clawlets server update apply --host ${hostName} --target-host admin@${ipv4}`);
       console.log("");
       console.log("After tailnet is healthy, lock down SSH:");
-      console.log(`  clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
-      console.log(`  clawdlets lockdown --host ${hostName}`);
+      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+      console.log(`  clawlets lockdown --host ${hostName}`);
       return;
     }
 
-	    const baseResolved = await resolveBaseFlake({ repoRoot, config: clawdletsConfig });
+	    const baseResolved = await resolveBaseFlake({ repoRoot, config: clawletsConfig });
 	    const flakeBase = String(args.flake || baseResolved.flake || "").trim();
-	    if (!flakeBase) throw new Error("missing base flake (set baseFlake in fleet/clawdlets.json, set git origin, or pass --flake)");
+	    if (!flakeBase) throw new Error("missing base flake (set baseFlake in fleet/clawlets.json, set git origin, or pass --flake)");
 
     const rev = String(args.rev || "").trim();
     const ref = String(args.ref || "").trim();
@@ -289,10 +289,10 @@ export const bootstrap = defineCommand({
 	    const extraFiles = getHostExtraFilesDir(layout, hostName);
 	    const requiredKey = getHostExtraFilesKeyPath(layout, hostName);
 	    if (!fs.existsSync(requiredKey)) {
-	      throw new Error(`missing extra-files key: ${requiredKey} (run: clawdlets secrets init)`);
+	      throw new Error(`missing extra-files key: ${requiredKey} (run: clawlets secrets init)`);
 	    }
 
-    const secretsPlan = buildFleetSecretsPlan({ config: clawdletsConfig, hostName });
+    const secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
 
     const requiredSecrets = [
       ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
@@ -302,13 +302,13 @@ export const bootstrap = defineCommand({
 
 	    const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, hostName);
 	    if (!fs.existsSync(extraFilesSecretsDir)) {
-	      throw new Error(`missing extra-files secrets dir: ${extraFilesSecretsDir} (run: clawdlets secrets init)`);
+	      throw new Error(`missing extra-files secrets dir: ${extraFilesSecretsDir} (run: clawlets secrets init)`);
 	    }
 
     for (const secretName of requiredSecrets) {
       const f = path.join(extraFilesSecretsDir, `${secretName}.yaml`);
       if (!fs.existsSync(f)) {
-        throw new Error(`missing extra-files secret: ${f} (run: clawdlets secrets init)`);
+        throw new Error(`missing extra-files secret: ${f} (run: clawlets secrets init)`);
       }
     }
 
@@ -384,7 +384,7 @@ export const bootstrap = defineCommand({
         console.log(`  ssh admin@${ipv4} 'tailscale ip -4'  # wait for 100.x`);
         console.log(`  set hosts.${hostName}.targetHost = admin@<tailscale-ip>`);
         console.log(`  set hosts.${hostName}.sshExposure.mode = tailnet`);
-        console.log(`  clawdlets lockdown --host ${hostName}`);
+        console.log(`  clawlets lockdown --host ${hostName}`);
       } else {
         console.log("");
         console.log(`Waiting for tailnet (timeout ${lockdownTimeoutRaw}, poll ${lockdownPollRaw})...`);
@@ -400,12 +400,12 @@ export const bootstrap = defineCommand({
         nextHostCfg.targetHost = `admin@${tailscaleIpv4}`;
         nextHostCfg.sshExposure = { ...(nextHostCfg.sshExposure || {}), mode: "tailnet" };
         nextHostCfg.tailnet = { ...(nextHostCfg.tailnet || {}), mode: "tailscale" };
-        const nextConfig = ClawdletsConfigSchema.parse({
-          ...clawdletsConfig,
-          hosts: { ...clawdletsConfig.hosts, [hostName]: nextHostCfg },
+        const nextConfig = ClawletsConfigSchema.parse({
+          ...clawletsConfig,
+          hosts: { ...clawletsConfig.hosts, [hostName]: nextHostCfg },
         });
-        await writeClawdletsConfig({ configPath, config: nextConfig });
-        console.log(`ok: updated fleet/clawdlets.json (targetHost + sshExposure=tailnet)`);
+        await writeClawletsConfig({ configPath, config: nextConfig });
+        console.log(`ok: updated fleet/clawlets.json (targetHost + sshExposure=tailnet)`);
 
         await applyOpenTofuVars({
           opentofuDir,
@@ -441,8 +441,8 @@ export const bootstrap = defineCommand({
     if (!lockdownAfter) {
       console.log("");
       console.log("⚠ SSH WILL REMAIN OPEN until you switch to tailnet and run lockdown:");
-      console.log(`  clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
-      console.log(`  clawdlets lockdown --host ${hostName}`);
+      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+      console.log(`  clawlets lockdown --host ${hostName}`);
     }
 
     if (tailnetMode === "tailscale") {
@@ -452,29 +452,29 @@ export const bootstrap = defineCommand({
         console.log(`1) Verify access via tailnet (targetHost updated):`);
         console.log(`   ssh admin@<tailscale-ip> 'hostname; uptime'`);
         console.log("2) Apply updates so NixOS SSH exposure becomes tailnet-only:");
-        console.log(`   clawdlets server update apply --host ${hostName}`);
+        console.log(`   clawlets server update apply --host ${hostName}`);
         console.log("3) Optional checks:");
-        console.log("   clawdlets server audit --host " + hostName);
+        console.log("   clawlets server audit --host " + hostName);
       } else {
         console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
         console.log("   tailscale status  # look for the 100.x address");
         console.log(`2) Set future SSH target to tailnet:`);
-        console.log(`   clawdlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
+        console.log(`   clawlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
         console.log("3) Verify access:");
         console.log("   ssh admin@<tailscale-ip> 'hostname; uptime'");
         console.log("4) Switch SSH exposure to tailnet and lock down:");
-        console.log(`   clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
-        console.log(`   clawdlets lockdown --host ${hostName}`);
+        console.log(`   clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+        console.log(`   clawlets lockdown --host ${hostName}`);
         console.log("5) Optional checks:");
-        console.log("   clawdlets server audit --host " + hostName);
+        console.log("   clawlets server audit --host " + hostName);
       }
 	    } else {
       console.log("");
       console.log("Notes:");
       console.log(`- SSH exposure is ${sshExposureMode}.`);
       console.log("- If you want tailnet-only SSH, set tailnet.mode=tailscale, verify access, then:");
-      console.log(`  clawdlets host set --host ${hostName} --ssh-exposure tailnet`);
-	      console.log(`  clawdlets lockdown --host ${hostName}`);
+      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+	      console.log(`  clawlets lockdown --host ${hostName}`);
 	    }
 	  },
 	});

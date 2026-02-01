@@ -71,17 +71,17 @@ jobs:
       - name: Build
         run: pnpm -r build
 
-      - name: Prepare publish dir (clawdlets)
-        run: node scripts/prepare-package.mjs --out dist/npm/clawdlets
+      - name: Prepare publish dir (clawlets)
+        run: node scripts/prepare-package.mjs --out dist/npm/clawlets
 
-      - name: Verify prepared clawdlets package has no local protocol deps
-        working-directory: dist/npm/clawdlets
+      - name: Verify prepared clawlets package has no local protocol deps
+        working-directory: dist/npm/clawlets
         run: |
           set -euo pipefail
           node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish to npm (OIDC)
-        working-directory: dist/npm/clawdlets
+        working-directory: dist/npm/clawlets
         run: |
           set -euo pipefail
           pkg="$(node -p "require('./package.json').name")"
@@ -95,16 +95,16 @@ jobs:
           NODE_AUTH_TOKEN: ""
 
       - name: Prepare plugin publish dir (cattle)
-        run: node scripts/prepare-package.mjs --pkg packages/plugins/cattle --out dist/npm/clawdlets-plugin-cattle
+        run: node scripts/prepare-package.mjs --pkg packages/plugins/cattle --out dist/npm/clawlets-plugin-cattle
 
       - name: Verify prepared plugin package has no local protocol deps
-        working-directory: dist/npm/clawdlets-plugin-cattle
+        working-directory: dist/npm/clawlets-plugin-cattle
         run: |
           set -euo pipefail
           node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
 
       - name: Publish plugin to npm (OIDC)
-        working-directory: dist/npm/clawdlets-plugin-cattle
+        working-directory: dist/npm/clawlets-plugin-cattle
         run: |
           set -euo pipefail
           pkg="$(node -p "require('./package.json').name")"

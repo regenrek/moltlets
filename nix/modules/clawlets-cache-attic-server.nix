@@ -1,17 +1,17 @@
 { config, lib, ... }:
 
 let
-  cfg = config.clawdlets.cacheServers.attic;
-  allowMissingSecrets = config.clawdlets.bootstrap.allowMissingSecrets or false;
+  cfg = config.clawlets.cacheServers.attic;
+  allowMissingSecrets = config.clawlets.bootstrap.allowMissingSecrets or false;
 
-  defaultHostSecretsDir = "/var/lib/clawdlets/secrets/hosts/${config.networking.hostName}";
+  defaultHostSecretsDir = "/var/lib/clawlets/secrets/hosts/${config.networking.hostName}";
   hostSecretsDir =
-    if (config.clawdlets.secrets.hostDir or null) != null
-    then config.clawdlets.secrets.hostDir
+    if (config.clawlets.secrets.hostDir or null) != null
+    then config.clawlets.secrets.hostDir
     else defaultHostSecretsDir;
 in
 {
-  options.clawdlets.cacheServers.attic = {
+  options.clawlets.cacheServers.attic = {
     enable = lib.mkEnableOption "Attic binary cache server";
 
     environmentSecretName = lib.mkOption {
@@ -70,11 +70,11 @@ in
     assertions = [
       {
         assertion = !allowMissingSecrets;
-        message = "clawdlets.cacheServers.attic.enable requires secrets (disable clawdlets.bootstrap.allowMissingSecrets).";
+        message = "clawlets.cacheServers.attic.enable requires secrets (disable clawlets.bootstrap.allowMissingSecrets).";
       }
       {
         assertion = (!cfg.public) || (cfg.domain != null && cfg.domain != "" && cfg.acmeEmail != null && cfg.acmeEmail != "");
-        message = "clawdlets.cacheServers.attic: domain + acmeEmail are required when public=true.";
+        message = "clawlets.cacheServers.attic: domain + acmeEmail are required when public=true.";
       }
     ];
 

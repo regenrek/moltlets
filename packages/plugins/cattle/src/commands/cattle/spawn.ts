@@ -1,18 +1,18 @@
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { CLF_PROTOCOL_VERSION, createClfClient } from "@clawdlets/clf-queue";
-import { sanitizeOperatorId } from "@clawdlets/shared/lib/identifiers";
+import { CLF_PROTOCOL_VERSION, createClfClient } from "@clawlets/clf-queue";
+import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
 import { openCattleState } from "../../lib/cattle-state.js";
-import { type CattleTask } from "@clawdlets/cattle-core/lib/cattle-task";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { type CattleTask } from "@clawlets/cattle-core/lib/cattle-task";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 import { loadTaskFromFile, requireEnabled, requireFile, requireTtlSeconds, unixSecondsNow, waitForClfJobTerminal } from "./common.js";
 
 export const cattleSpawn = defineCommand({
   meta: { name: "spawn", description: "Enqueue a cattle.spawn job via clf-orchestrator (no secrets in user_data)." },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     persona: { type: "string", description: "Persona name.", required: true },
     taskFile: { type: "string", description: "Task JSON file (schemaVersion 1).", required: true },
     ttl: { type: "string", description: "TTL override (default: cattle.hetzner.defaultTtl)." },
@@ -36,7 +36,7 @@ export const cattleSpawn = defineCommand({
 
     requireEnabled({
       enabled: Boolean(config.cattle?.enabled),
-      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawdlets.json)",
+      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawlets.json)",
     });
 
     const persona = String((args as any).persona || "").trim();

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-bin_dir="${CLAWDLETS_BIN_DIR:-"$HOME/bin"}"
-wrapper="$bin_dir/clawdlets"
+bin_dir="${CLAWLETS_BIN_DIR:-"$HOME/bin"}"
+wrapper="$bin_dir/clawlets"
 
 mkdir -p "$bin_dir"
 

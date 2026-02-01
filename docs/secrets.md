@@ -5,7 +5,7 @@ Files:
 - `secrets/.sops.yaml` (recipients + rules; committed)
 - `secrets/hosts/<host>/` (encrypted secrets payload; committed)
 - `secrets/keys/hosts/<host>.agekey.yaml` (encrypted host age key; committed; operator recipients only)
-- `.clawdlets/keys/operators/<operator>.agekey` (operator private key; local only; never commit)
+- `.clawlets/keys/operators/<operator>.agekey` (operator private key; local only; never commit)
 
 ## Scope: fleet vs bot
 
@@ -15,12 +15,12 @@ All secret values live under `secrets/hosts/<host>/...`. Scope is about wiring, 
 - bot scope: `fleet.bots.<bot>.profile.secretEnv` and `fleet.bots.<bot>.profile.secretFiles`
 
 Secret file targets:
-- `fleet.secretFiles.*.targetPath` must be under `/var/lib/clawdlets/`
-- `fleet.bots.<bot>.profile.secretFiles.*.targetPath` must be under `/var/lib/clawdlets/secrets/bots/<bot>/`
+- `fleet.secretFiles.*.targetPath` must be under `/var/lib/clawlets/`
+- `fleet.bots.<bot>.profile.secretFiles.*.targetPath` must be under `/var/lib/clawlets/secrets/bots/<bot>/`
 
 ## `${ENV}` wiring + autowire
 
-Clawdlets detects `${ENV_VAR}` refs inside `fleet.bots.<bot>.clawdbot`, plus known channel tokens, hooks, skills, and provider `apiKey` fields.
+Clawlets detects `${ENV_VAR}` refs inside `fleet.bots.<bot>.clawdbot`, plus known channel tokens, hooks, skills, and provider `apiKey` fields.
 
 - use uppercase env vars (`${ENV_VAR}` only)
 - escape literal `${ENV_VAR}` as `$${ENV_VAR}`
@@ -29,32 +29,32 @@ Clawdlets detects `${ENV_VAR}` refs inside `fleet.bots.<bot>.clawdbot`, plus kno
 - `secrets init` + UI reject custom secret names; add `${ENV_VAR}` refs to extend allowlist
 
 Missing mappings:
-- CLI: `clawdlets config wire-secrets --write` or `clawdlets secrets init --autowire`
+- CLI: `clawlets config wire-secrets --write` or `clawlets secrets init --autowire`
 - UI: Host secrets panel Missing secret wiring; Bot integrations panel Secret wiring
 
 ## Recommended: use the CLI
 
 ```bash
-clawdlets secrets init
+clawlets secrets init
 ```
 
 This generates:
-- local operator age keypair in `.clawdlets/keys/operators/`
+- local operator age keypair in `.clawlets/keys/operators/`
 - encrypted host age key at `secrets/keys/hosts/<host>.agekey.yaml`
 - `secrets/.sops.yaml` rules for host secrets + host key file
 - encrypts `secrets/hosts/<host>/*.yaml`
-- generates `.clawdlets/extra-files/<host>/...` (host key + encrypted host secrets) for first install
+- generates `.clawlets/extra-files/<host>/...` (host key + encrypted host secrets) for first install
 
 Then sync to the host (used by sops-nix on the server):
 
 ```bash
-clawdlets secrets sync
+clawlets secrets sync
 ```
 
 Verify (recommended before deploy):
 
 ```bash
-clawdlets secrets verify
+clawlets secrets verify
 ```
 
 ## Manual steps (if needed)
@@ -62,7 +62,7 @@ clawdlets secrets verify
 Edit a secret (example):
 
 ```bash
-SOPS_AGE_KEY_FILE=.clawdlets/keys/operators/<you>.agekey \
+SOPS_AGE_KEY_FILE=.clawlets/keys/operators/<you>.agekey \
   sops edit secrets/hosts/<host>/admin_password_hash.yaml
 ```
 
@@ -75,7 +75,7 @@ error loading config: no matching creation rules found
 ```
 
 Your `secrets/.sops.yaml` rule did not match the file path you are encrypting.
-Fast fix: re-run `clawdlets secrets init` (it regenerates/upgrades `.sops.yaml`).
+Fast fix: re-run `clawlets secrets init` (it regenerates/upgrades `.sops.yaml`).
 
 If you see:
 
@@ -89,17 +89,17 @@ This means your age identity cannot decrypt the file (wrong key or wrong recipie
 Fast fix:
 
 ```bash
-clawdlets secrets init --yes
+clawlets secrets init --yes
 ```
 
 Sanity check your local operator keypair:
 
 ```bash
-age-keygen -y .clawdlets/keys/operators/<you>.agekey
-cat .clawdlets/keys/operators/<you>.age.pub
+age-keygen -y .clawlets/keys/operators/<you>.agekey
+cat .clawlets/keys/operators/<you>.age.pub
 ```
 
-The two public keys must match. If they don’t, `clawdlets secrets init` rewrites the `.age.pub` file from the private key and re-encrypts secrets with the correct recipients.
+The two public keys must match. If they don’t, `clawlets secrets init` rewrites the `.age.pub` file from the private key and re-encrypts secrets with the correct recipients.
 
 ## Common keys
 

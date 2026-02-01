@@ -1,49 +1,49 @@
-# CLI (`clawdlets`)
+# CLI (`clawlets`)
 
-Canonical source: `clawdlets --help`.
+Canonical source: `clawlets --help`.
 
 Related
 - `clf` is the bot-facing CLI (`clf jobs ...`). See `docs/orchestrator.md`.
 
 ## Core workflow
 
-- project scaffold: `clawdlets project init --dir ./clawdlets-myproject`
-- note: `project init` already includes `fleet/clawdlets.json` (skip `clawdlets config init` unless resetting with `--force`)
+- project scaffold: `clawlets project init --dir ./clawlets-myproject`
+- note: `project init` already includes `fleet/clawlets.json` (skip `clawlets config init` unless resetting with `--force`)
 - template source defaults to `config/template-source.json` (repo + path + 40-hex ref); override with `--template`, `--template-path`, `--template-ref`
-- set fleet guild id: `clawdlets fleet set --guild-id <id>`
-- add bots: `clawdlets bot add --bot <id>`
-- harden Clawdbot config (optional): `clawdlets clawdbot harden` (dry-run) / `clawdlets clawdbot harden --write`
-- set host basics: `clawdlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub --disk-device /dev/sda --enable true`
-- set SSH exposure for bootstrap: `clawdlets host set --ssh-exposure bootstrap`
-- init secrets: `clawdlets secrets init` (TTY defaults to interactive; non-interactive uses `--from-json .clawdlets/secrets.json`)
-- preflight: `clawdlets doctor --scope bootstrap`
-- updates gate: `clawdlets doctor --scope updates --strict`
-- bootstrap: `clawdlets bootstrap`
-- image build (optional): `clawdlets image build --host <host>`
-- image upload (optional): `clawdlets image upload --host <host> --image-url <url>`
-- bootstrap (image): `clawdlets bootstrap --mode image`
-- set target host: `clawdlets host set --target-host admin@<tailscale-ip>`
-- set SSH exposure to tailnet: `clawdlets host set --ssh-exposure tailnet`
-- lockdown: `clawdlets lockdown`
+- set fleet guild id: `clawlets fleet set --guild-id <id>`
+- add bots: `clawlets bot add --bot <id>`
+- harden Clawdbot config (optional): `clawlets clawdbot harden` (dry-run) / `clawlets clawdbot harden --write`
+- set host basics: `clawlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub --disk-device /dev/sda --enable true`
+- set SSH exposure for bootstrap: `clawlets host set --ssh-exposure bootstrap`
+- init secrets: `clawlets secrets init` (TTY defaults to interactive; non-interactive uses `--from-json .clawlets/secrets.json`)
+- preflight: `clawlets doctor --scope bootstrap`
+- updates gate: `clawlets doctor --scope updates --strict`
+- bootstrap: `clawlets bootstrap`
+- image build (optional): `clawlets image build --host <host>`
+- image upload (optional): `clawlets image upload --host <host> --image-url <url>`
+- bootstrap (image): `clawlets bootstrap --mode image`
+- set target host: `clawlets host set --target-host admin@<tailscale-ip>`
+- set SSH exposure to tailnet: `clawlets host set --ssh-exposure tailnet`
+- lockdown: `clawlets lockdown`
 
 ## Server ops
 
-- status: `clawdlets server status --target-host <host>`
-- audit (includes `clawdbot security audit`): `clawdlets server audit --host <host>` (or `--target-host <ssh-alias>`)
-- logs: `clawdlets server logs --target-host <host> --unit clawdbot-melinda.service --since 10m --follow`
-- restart: `clawdlets server restart --target-host <host> --unit clawdbot-melinda.service`
-- release manifest: `clawdlets release manifest build --host <host> --channel prod --release-id <releaseId> --out deploy/<host>/prod/<releaseId>.json`
-- sign manifest: `clawdlets release manifest sign --in deploy/<host>/prod/<releaseId>.json`
-- pointer: `clawdlets release pointer write --release-id <releaseId> --out deploy/<host>/prod/latest.json`
-- apply updates: `clawdlets server update apply --host <host>`
-- GitHub sync timers: `clawdlets server github-sync status --target-host <host>`
-- GitHub sync run: `clawdlets server github-sync run --target-host <host> --bot melinda`
-- GitHub sync logs: `clawdlets server github-sync logs --target-host <host> --bot melinda --follow`
-- GitHub sync snapshot: `clawdlets server github-sync show --target-host <host> --bot melinda --kind prs`
+- status: `clawlets server status --target-host <host>`
+- audit (includes `clawdbot security audit`): `clawlets server audit --host <host>` (or `--target-host <ssh-alias>`)
+- logs: `clawlets server logs --target-host <host> --unit clawdbot-melinda.service --since 10m --follow`
+- restart: `clawlets server restart --target-host <host> --unit clawdbot-melinda.service`
+- release manifest: `clawlets release manifest build --host <host> --channel prod --release-id <releaseId> --out deploy/<host>/prod/<releaseId>.json`
+- sign manifest: `clawlets release manifest sign --in deploy/<host>/prod/<releaseId>.json`
+- pointer: `clawlets release pointer write --release-id <releaseId> --out deploy/<host>/prod/latest.json`
+- apply updates: `clawlets server update apply --host <host>`
+- GitHub sync timers: `clawlets server github-sync status --target-host <host>`
+- GitHub sync run: `clawlets server github-sync run --target-host <host> --bot melinda`
+- GitHub sync logs: `clawlets server github-sync logs --target-host <host> --bot melinda --follow`
+- GitHub sync snapshot: `clawlets server github-sync show --target-host <host> --bot melinda --kind prs`
 
 ## Infra ops
 
-- provisioning apply: `clawdlets infra apply`
+- provisioning apply: `clawlets infra apply`
 
 ## Justfile shortcuts
 

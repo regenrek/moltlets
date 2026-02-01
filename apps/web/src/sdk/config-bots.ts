@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
-  ClawdletsConfigSchema,
-  loadClawdletsConfigRaw,
-  writeClawdletsConfig,
-} from "@clawdlets/core/lib/clawdlets-config"
-import { BotIdSchema } from "@clawdlets/shared/lib/identifiers"
+  ClawletsConfigSchema,
+  loadClawletsConfigRaw,
+  writeClawletsConfig,
+} from "@clawlets/core/lib/clawlets-config"
+import { BotIdSchema } from "@clawlets/shared/lib/identifiers"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { runWithEventsAndStatus } from "~/sdk/run-with-events"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
@@ -21,8 +21,8 @@ export const addBot = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const botId = data.bot.trim()
     const parsedBot = BotIdSchema.safeParse(botId)
@@ -38,7 +38,7 @@ export const addBot = createServerFn({ method: "POST" })
     // Integrations can be enabled later via per-bot config (and then wire secrets as needed).
     next.fleet.bots[botId] = {}
 
-    const validated = ClawdletsConfigSchema.parse(next)
+    const validated = ClawletsConfigSchema.parse(next)
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
@@ -50,7 +50,7 @@ export const addBot = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Adding bot ${botId}` })
-        await writeClawdletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -65,8 +65,8 @@ export const removeBot = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const botId = data.bot.trim()
     const next = structuredClone(raw) as any
@@ -83,7 +83,7 @@ export const removeBot = createServerFn({ method: "POST" })
       next.fleet.codex.bots = next.fleet.codex.bots.filter((b: string) => b !== botId)
     }
 
-    const validated = ClawdletsConfigSchema.parse(next)
+    const validated = ClawletsConfigSchema.parse(next)
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
@@ -95,7 +95,7 @@ export const removeBot = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Removing bot ${botId}` })
-        await writeClawdletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-describe("clawdlets config migrate", () => {
+describe("clawlets config migrate", () => {
   it("migrates v8 -> v9 (removes legacy keys, wires discord token ref)", async () => {
-    const { migrateClawdletsConfigToV9 } = await import("../src/lib/clawdlets-config-migrate");
+    const { migrateClawletsConfigToV9 } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
       schemaVersion: 8,
@@ -21,7 +21,7 @@ describe("clawdlets config migrate", () => {
       hosts: { alpha: {} },
     };
 
-    const res = migrateClawdletsConfigToV9(raw);
+    const res = migrateClawletsConfigToV9(raw);
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
     expect(res.warnings).toEqual([]);
@@ -41,7 +41,7 @@ describe("clawdlets config migrate", () => {
   });
 
   it("warns on discordTokenSecret mismatch and keeps secretEnv", async () => {
-    const { migrateClawdletsConfigToV9 } = await import("../src/lib/clawdlets-config-migrate");
+    const { migrateClawletsConfigToV9 } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
       schemaVersion: 8,
@@ -60,7 +60,7 @@ describe("clawdlets config migrate", () => {
       hosts: { alpha: {} },
     };
 
-    const res = migrateClawdletsConfigToV9(raw);
+    const res = migrateClawletsConfigToV9(raw);
     const migrated = res.migrated as any;
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
@@ -72,7 +72,7 @@ describe("clawdlets config migrate", () => {
   });
 
   it("migrates v9 -> v10 (moves host ssh keys to fleet)", async () => {
-    const { migrateClawdletsConfigToV10 } = await import("../src/lib/clawdlets-config-migrate");
+    const { migrateClawletsConfigToV10 } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
       schemaVersion: 9,
@@ -93,7 +93,7 @@ describe("clawdlets config migrate", () => {
       },
     };
 
-    const res = migrateClawdletsConfigToV10(raw);
+    const res = migrateClawletsConfigToV10(raw);
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
     expect(res.warnings.length).toBeGreaterThan(0);
@@ -111,7 +111,7 @@ describe("clawdlets config migrate", () => {
   });
 
   it("migrates v10 -> v12 (cache + selfUpdate mirrors)", async () => {
-    const { migrateClawdletsConfigToV12 } = await import("../src/lib/clawdlets-config-migrate");
+    const { migrateClawletsConfigToV12 } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
       schemaVersion: 10,
@@ -144,7 +144,7 @@ describe("clawdlets config migrate", () => {
       },
     };
 
-    const res = migrateClawdletsConfigToV12(raw);
+    const res = migrateClawletsConfigToV12(raw);
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
     expect(res.warnings.length).toBeGreaterThan(0);

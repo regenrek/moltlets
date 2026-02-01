@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { RUN_EVENT_LEVELS, RUN_KINDS, RUN_STATUSES } from "@clawdlets/core/lib/run-constants";
+import { RUN_EVENT_LEVELS, RUN_KINDS, RUN_STATUSES } from "@clawlets/core/lib/run-constants";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest"
 
 describe("secrets write allowlist", () => {
   it("rejects unmanaged secret names", async () => {
-    const { ClawdletsConfigSchema } = await import("@clawdlets/core/lib/clawdlets-config")
+    const { ClawletsConfigSchema } = await import("@clawlets/core/lib/clawlets-config")
     const { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
 
-    const config = ClawdletsConfigSchema.parse({
+    const config = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: { botOrder: [], bots: {}, secretEnv: {} },
       hosts: { alpha: { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" } },
@@ -18,10 +18,10 @@ describe("secrets write allowlist", () => {
   })
 
   it("includes required host secrets", async () => {
-    const { ClawdletsConfigSchema } = await import("@clawdlets/core/lib/clawdlets-config")
+    const { ClawletsConfigSchema } = await import("@clawlets/core/lib/clawlets-config")
     const { buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
 
-    const config = ClawdletsConfigSchema.parse({
+    const config = ClawletsConfigSchema.parse({
       schemaVersion: 12,
       fleet: {
         botOrder: [],

@@ -2,12 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { writeFileAtomic } from "@clawdlets/core/lib/fs-safe";
-import { parseDotenv } from "@clawdlets/core/lib/dotenv-file";
-import { expandPath } from "@clawdlets/core/lib/path-expand";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { loadDeployCreds, renderDeployCredsEnvFile, type DeployCredsEnvFileKeys } from "@clawdlets/core/lib/deploy-creds";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { writeFileAtomic } from "@clawlets/core/lib/fs-safe";
+import { parseDotenv } from "@clawlets/core/lib/dotenv-file";
+import { expandPath } from "@clawlets/core/lib/path-expand";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { loadDeployCreds, renderDeployCredsEnvFile, type DeployCredsEnvFileKeys } from "@clawlets/core/lib/deploy-creds";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 
 function resolveEnvFilePath(params: { cwd: string; runtimeDir?: string; envFileArg?: unknown }): { path: string; origin: "default" | "explicit" } {
   const repoRoot = findRepoRoot(params.cwd);
@@ -37,7 +37,7 @@ export const envInit = defineCommand({
     description: "Create/update <runtimeDir>/env for deploy creds (gitignored).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file path override (advanced; default: <runtimeDir>/env)." },
   },
   async run({ args }) {
@@ -80,7 +80,7 @@ export const envShow = defineCommand({
     description: "Show resolved deploy creds (redacted) + their sources (env/file/default).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
   },
   async run({ args }) {
@@ -92,7 +92,7 @@ export const envShow = defineCommand({
       const detail = loaded.envFile.error ? ` (${loaded.envFile.error})` : "";
       console.log(`env file: ${status} (${loaded.envFile.origin}) ${loaded.envFile.path}${detail}`);
     } else {
-      console.log("env file: (default missing; set vars via process env or run: clawdlets env init)");
+      console.log("env file: (default missing; set vars via process env or run: clawlets env init)");
     }
 
     const line = (k: "HCLOUD_TOKEN" | "GITHUB_TOKEN" | "NIX_BIN" | "SOPS_AGE_KEY_FILE", redact: boolean) => {
@@ -113,7 +113,7 @@ export const envShow = defineCommand({
 export const env = defineCommand({
   meta: {
     name: "env",
-    description: "Local deploy credentials (.clawdlets/env).",
+    description: "Local deploy credentials (.clawlets/env).",
   },
   subCommands: {
     init: envInit,

@@ -1,15 +1,15 @@
 import fs from "node:fs/promises"
 
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { createSecretsTar } from "@clawdlets/core/lib/secrets-tar"
-import { getRepoLayout, getHostRemoteSecretsDir, getHostSecretsDir } from "@clawdlets/core/repo-layout"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { createSecretsTar } from "@clawlets/core/lib/secrets-tar"
+import { getRepoLayout, getHostRemoteSecretsDir, getHostSecretsDir } from "@clawlets/core/repo-layout"
 
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
-import { getClawdletsCliEnv } from "~/server/run-env"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
+import { getClawletsCliEnv } from "~/server/run-env"
 import { spawnCommand } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { parseProjectHostInput, parseProjectRunHostInput } from "~/sdk/serverfn-validators"
@@ -21,7 +21,7 @@ export const secretsSyncStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -43,7 +43,7 @@ export const secretsSyncPreview = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const host = resolveHostFromConfig(config, data.host)
 
     const layout = getRepoLayout(repoRoot)
@@ -87,11 +87,11 @@ export const secretsSyncExecute = createServerFn({ method: "POST" })
     })
 
     try {
-      const { config } = loadClawdletsConfig({ repoRoot })
+      const { config } = loadClawletsConfig({ repoRoot })
       if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
-      const redactTokens = await readClawdletsEnvTokens(repoRoot)
-      const cliEntry = resolveClawdletsCliEntry()
-      const cliEnv = getClawdletsCliEnv()
+      const redactTokens = await readClawletsEnvTokens(repoRoot)
+      const cliEntry = resolveClawletsCliEntry()
+      const cliEnv = getClawletsCliEnv()
 
       await spawnCommand({
         client,

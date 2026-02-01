@@ -3,7 +3,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { createConvexClient } from "~/server/convex";
 import { cancelActiveRun, runWithEvents } from "~/server/run-manager";
-import { readClawdletsEnvTokens } from "~/server/redaction";
+import { readClawletsEnvTokens } from "~/server/redaction";
 import { assertRepoRootPath } from "~/server/paths";
 
 export const cancelRun = createServerFn({ method: "POST" })
@@ -20,7 +20,7 @@ export const cancelRun = createServerFn({ method: "POST" })
       return { canceled: false };
     }
     const repoRoot = assertRepoRootPath(project.localPath, { allowMissing: false, requireRepoLayout: true });
-    const redactTokens = await readClawdletsEnvTokens(repoRoot);
+    const redactTokens = await readClawletsEnvTokens(repoRoot);
 
     const canceled = cancelActiveRun(data.runId);
     await runWithEvents({

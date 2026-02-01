@@ -7,7 +7,7 @@ export default defineConfig({
   platform: "node",
   // Bundle internal workspace packages into the plugin build output.
   // Keep external deps (including native modules) external and installed via npm.
-  noExternal: [/^@clawdlets\//],
+  noExternal: [/^@clawlets\//],
   inlineOnly: false,
   clean: true,
   // Keep native module external; npm will install it for the user.

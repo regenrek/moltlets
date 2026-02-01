@@ -25,7 +25,7 @@ function shouldScanFile(filePath: string): boolean {
   if (base === "node_modules") return false;
   if (filePath.includes(`${path.sep}node_modules${path.sep}`)) return false;
   if (filePath.includes(`${path.sep}.git${path.sep}`)) return false;
-  if (filePath.includes(`${path.sep}.clawdlets${path.sep}`)) return false;
+  if (filePath.includes(`${path.sep}.clawlets${path.sep}`)) return false;
   return filePath.endsWith(".nix") || filePath.endsWith(".sh") || filePath.endsWith(".bash");
 }
 
@@ -39,7 +39,7 @@ function walk(root: string): string[] {
     for (const ent of entries) {
       const p = path.join(dir, ent.name);
       if (ent.isDirectory()) {
-        if (ent.name === "node_modules" || ent.name === ".git" || ent.name === ".clawdlets") continue;
+        if (ent.name === "node_modules" || ent.name === ".git" || ent.name === ".clawlets") continue;
         stack.push(p);
         continue;
       }

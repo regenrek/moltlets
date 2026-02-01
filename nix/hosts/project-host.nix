@@ -2,69 +2,69 @@
 
 let
   cfg = project.config;
-  hostCfg = (cfg.hosts.${config.clawdlets.hostName} or { });
+  hostCfg = (cfg.hosts.${config.clawlets.hostName} or { });
   tailnet = (hostCfg.tailnet or { });
   tailnetMode = tailnet.mode or "none";
   sshExposureMode = ((hostCfg.sshExposure or { }).mode or "tailnet");
   cacheCfg = (hostCfg.cache or { });
   cacheNetrc = (cacheCfg.netrc or { });
   selfUpdate = (hostCfg.selfUpdate or { });
-  allowMissingSecrets = config.clawdlets.bootstrap.allowMissingSecrets;
+  allowMissingSecrets = config.clawlets.bootstrap.allowMissingSecrets;
   fleet = import ../lib/fleet-config.nix { inherit lib project; };
   enableRootPassword = false;
 in {
   imports = [
     ../disko/hetzner-ext4.nix
-    ../modules/clawdlets-image-formats.nix
-    ../modules/clawdlets-host-baseline.nix
-    ../modules/clawdlets-self-update.nix
+    ../modules/clawlets-image-formats.nix
+    ../modules/clawlets-host-baseline.nix
+    ../modules/clawlets-self-update.nix
     ../modules/clawdbot-fleet.nix
     ../modules/clf-orchestrator.nix
-    ../modules/clawdlets-host-meta.nix
+    ../modules/clawlets-host-meta.nix
   ];
 
-  clawdlets.diskDevice = hostCfg.diskDevice or "/dev/sda";
+  clawlets.diskDevice = hostCfg.diskDevice or "/dev/sda";
 
-  clawdlets.sshExposure.mode = sshExposureMode;
+  clawlets.sshExposure.mode = sshExposureMode;
 
-  clawdlets.tailnet.mode = tailnetMode;
-  clawdlets.tailnet.tailscale.authKeySecret =
+  clawlets.tailnet.mode = tailnetMode;
+  clawlets.tailnet.tailscale.authKeySecret =
     if tailnetMode == "tailscale" then "tailscale_auth_key" else null;
-  clawdlets.operator.deploy.enable =
+  clawlets.operator.deploy.enable =
     ((hostCfg.operator or { }).deploy or { }).enable or false;
-  clawdlets.cache.substituters =
+  clawlets.cache.substituters =
     if (cacheCfg.substituters or null) != null then (cacheCfg.substituters or [ ]) else [
       "https://cache.nixos.org"
       "https://cache.garnix.io"
     ];
-  clawdlets.cache.trustedPublicKeys =
+  clawlets.cache.trustedPublicKeys =
     if (cacheCfg.trustedPublicKeys or null) != null then (cacheCfg.trustedPublicKeys or [ ]) else [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
     ];
 
-  clawdlets.cache.netrc.enable = (cacheNetrc.enable or false);
-  clawdlets.cache.netrc.secretName = (cacheNetrc.secretName or "garnix_netrc");
-  clawdlets.cache.netrc.path = (cacheNetrc.path or "/etc/nix/netrc");
-  clawdlets.cache.netrc.narinfoCachePositiveTtl = (cacheNetrc.narinfoCachePositiveTtl or 3600);
+  clawlets.cache.netrc.enable = (cacheNetrc.enable or false);
+  clawlets.cache.netrc.secretName = (cacheNetrc.secretName or "garnix_netrc");
+  clawlets.cache.netrc.path = (cacheNetrc.path or "/etc/nix/netrc");
+  clawlets.cache.netrc.narinfoCachePositiveTtl = (cacheNetrc.narinfoCachePositiveTtl or 3600);
 
-  clawdlets.selfUpdate.enable = (selfUpdate.enable or false);
-  clawdlets.selfUpdate.interval = (selfUpdate.interval or "30min");
-  clawdlets.selfUpdate.baseUrls = (selfUpdate.baseUrls or [ ]);
-  clawdlets.selfUpdate.channel = (selfUpdate.channel or "prod");
-  clawdlets.selfUpdate.publicKeys = (selfUpdate.publicKeys or [ ]);
-  clawdlets.selfUpdate.previousPublicKeys = (selfUpdate.previousPublicKeys or [ ]);
-  clawdlets.selfUpdate.previousPublicKeysValidUntil =
+  clawlets.selfUpdate.enable = (selfUpdate.enable or false);
+  clawlets.selfUpdate.interval = (selfUpdate.interval or "30min");
+  clawlets.selfUpdate.baseUrls = (selfUpdate.baseUrls or [ ]);
+  clawlets.selfUpdate.channel = (selfUpdate.channel or "prod");
+  clawlets.selfUpdate.publicKeys = (selfUpdate.publicKeys or [ ]);
+  clawlets.selfUpdate.previousPublicKeys = (selfUpdate.previousPublicKeys or [ ]);
+  clawlets.selfUpdate.previousPublicKeysValidUntil =
     let v = (selfUpdate.previousPublicKeysValidUntil or ""); in if v != "" then v else null;
-  clawdlets.selfUpdate.allowUnsigned = (selfUpdate.allowUnsigned or false);
-  clawdlets.selfUpdate.allowRollback = (selfUpdate.allowRollback or false);
-  clawdlets.selfUpdate.healthCheckUnit =
+  clawlets.selfUpdate.allowUnsigned = (selfUpdate.allowUnsigned or false);
+  clawlets.selfUpdate.allowRollback = (selfUpdate.allowRollback or false);
+  clawlets.selfUpdate.healthCheckUnit =
     let v = (selfUpdate.healthCheckUnit or ""); in if v != "" then v else null;
 
   # Set these in your own repo (or via a host-specific module).
   # Defaults are provided for Hetzner, but hostName must be set.
-  networking.hostName = config.clawdlets.hostName;
-  networking.nameservers = config.clawdlets.nameservers;
+  networking.hostName = config.clawlets.hostName;
+  networking.nameservers = config.clawlets.nameservers;
 
   networking.useDHCP = false;
   networking.useNetworkd = true;
@@ -87,7 +87,7 @@ in {
     group = "root";
     mode = "0400";
     neededForUsers = true;
-    sopsFile = "${config.clawdlets.secrets.hostDir}/admin_password_hash.yaml";
+    sopsFile = "${config.clawlets.secrets.hostDir}/admin_password_hash.yaml";
   };
 
   sops.secrets.root_password_hash = lib.mkIf (!allowMissingSecrets && enableRootPassword) {
@@ -95,7 +95,7 @@ in {
     group = "root";
     mode = "0400";
     neededForUsers = true;
-    sopsFile = "${config.clawdlets.secrets.hostDir}/root_password_hash.yaml";
+    sopsFile = "${config.clawlets.secrets.hostDir}/root_password_hash.yaml";
   };
 
   users.users.admin = {
@@ -129,14 +129,14 @@ in {
   security.sudo.extraConfig =
     let
       deploySudo =
-        lib.optionalString config.clawdlets.operator.deploy.enable ''
-          Cmnd_Alias CLAWDLETS_DEPLOY = \
-            /etc/clawdlets/bin/install-secrets --host * --tar * --rev *, \
-            /etc/clawdlets/bin/install-secrets --host * --tar * --rev * --digest *
+        lib.optionalString config.clawlets.operator.deploy.enable ''
+          Cmnd_Alias CLAWLETS_DEPLOY = \
+            /etc/clawlets/bin/install-secrets --host * --tar * --rev *, \
+            /etc/clawlets/bin/install-secrets --host * --tar * --rev * --digest *
         '';
       deployAlias =
-        if config.clawdlets.operator.deploy.enable
-        then ", CLAWDLETS_DEPLOY"
+        if config.clawlets.operator.deploy.enable
+        then ", CLAWLETS_DEPLOY"
         else "";
     in ''
     Cmnd_Alias CLAWDBOT_SYSTEMCTL = \
@@ -173,31 +173,31 @@ in {
       /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * --no-pager, \
       /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * -f --no-pager
     Cmnd_Alias CLAWDBOT_SS = /run/current-system/sw/bin/ss -ltnp
-    Cmnd_Alias CLAWDBOT_GH_SYNC_READ = /etc/clawdlets/bin/gh-sync-read *
-    Cmnd_Alias CLAWDBOT_CHANNELS = /etc/clawdlets/bin/clawdbot-channels *
-    Cmnd_Alias CLAWDLETS_UPDATE_STATUS = /etc/clawdlets/bin/update-status
-    Cmnd_Alias CLAWDLETS_UPDATE_SYSTEMCTL = \
-      /run/current-system/sw/bin/systemctl is-active clawdlets-update-*, \
-      /run/current-system/sw/bin/systemctl is-active clawdlets-update-*.service, \
-      /run/current-system/sw/bin/systemctl show clawdlets-update-*, \
-      /run/current-system/sw/bin/systemctl show clawdlets-update-*.service, \
-      /run/current-system/sw/bin/systemctl status clawdlets-update-*, \
-      /run/current-system/sw/bin/systemctl status clawdlets-update-* --no-pager, \
-      /run/current-system/sw/bin/systemctl status clawdlets-update-*.service, \
-      /run/current-system/sw/bin/systemctl status clawdlets-update-*.service --no-pager, \
-      /run/current-system/sw/bin/systemctl start clawdlets-update-fetch.service, \
-      /run/current-system/sw/bin/systemctl start clawdlets-update-apply.service, \
-      /run/current-system/sw/bin/systemctl list-timers clawdlets-update-*, \
-      /run/current-system/sw/bin/systemctl list-timers clawdlets-update-* --all, \
-      /run/current-system/sw/bin/systemctl list-timers clawdlets-update-* --all --no-pager
-    Cmnd_Alias CLAWDLETS_UPDATE_JOURNAL = \
-      /run/current-system/sw/bin/journalctl -u clawdlets-update-* --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdlets-update-* -n * --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdlets-update-* -n * -f --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdlets-update-* -n * --since * --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdlets-update-* -n * --since * -f --no-pager
+    Cmnd_Alias CLAWDBOT_GH_SYNC_READ = /etc/clawlets/bin/gh-sync-read *
+    Cmnd_Alias CLAWDBOT_CHANNELS = /etc/clawlets/bin/clawdbot-channels *
+    Cmnd_Alias CLAWLETS_UPDATE_STATUS = /etc/clawlets/bin/update-status
+    Cmnd_Alias CLAWLETS_UPDATE_SYSTEMCTL = \
+      /run/current-system/sw/bin/systemctl is-active clawlets-update-*, \
+      /run/current-system/sw/bin/systemctl is-active clawlets-update-*.service, \
+      /run/current-system/sw/bin/systemctl show clawlets-update-*, \
+      /run/current-system/sw/bin/systemctl show clawlets-update-*.service, \
+      /run/current-system/sw/bin/systemctl status clawlets-update-*, \
+      /run/current-system/sw/bin/systemctl status clawlets-update-* --no-pager, \
+      /run/current-system/sw/bin/systemctl status clawlets-update-*.service, \
+      /run/current-system/sw/bin/systemctl status clawlets-update-*.service --no-pager, \
+      /run/current-system/sw/bin/systemctl start clawlets-update-fetch.service, \
+      /run/current-system/sw/bin/systemctl start clawlets-update-apply.service, \
+      /run/current-system/sw/bin/systemctl list-timers clawlets-update-*, \
+      /run/current-system/sw/bin/systemctl list-timers clawlets-update-* --all, \
+      /run/current-system/sw/bin/systemctl list-timers clawlets-update-* --all --no-pager
+    Cmnd_Alias CLAWLETS_UPDATE_JOURNAL = \
+      /run/current-system/sw/bin/journalctl -u clawlets-update-* --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * -f --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * --since * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * --since * -f --no-pager
     ${deploySudo}
-    admin ALL=(root) NOPASSWD: CLAWDBOT_SYSTEMCTL, CLAWDBOT_JOURNAL, CLAWDBOT_SS, CLAWDBOT_GH_SYNC_READ, CLAWDBOT_CHANNELS, CLAWDLETS_UPDATE_STATUS, CLAWDLETS_UPDATE_SYSTEMCTL, CLAWDLETS_UPDATE_JOURNAL${deployAlias}
+    admin ALL=(root) NOPASSWD: CLAWDBOT_SYSTEMCTL, CLAWDBOT_JOURNAL, CLAWDBOT_SS, CLAWDBOT_GH_SYNC_READ, CLAWDBOT_CHANNELS, CLAWLETS_UPDATE_STATUS, CLAWLETS_UPDATE_SYSTEMCTL, CLAWLETS_UPDATE_JOURNAL${deployAlias}
   '';
 
   services.clawdbotFleet = {

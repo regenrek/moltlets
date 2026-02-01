@@ -1,6 +1,6 @@
 # Upstream tracking (nix-clawdbot)
 
-`nix-clawdbot` is pinned in the **project repo** (from `clawdlets-template`), not this CLI repo.
+`nix-clawdbot` is pinned in the **project repo** (from `clawlets-template`), not this CLI repo.
 
 ## Update procedure (project repo)
 
@@ -13,9 +13,9 @@ nix flake lock --update-input nix-clawdbot
 2) Apply updates on a staging host (pinned):
 
 ```bash
-clawdlets release manifest build --host <host> --channel staging --system x86_64-linux --release-id <releaseId> --out deploy/<host>/staging/<releaseId>.json
-clawdlets release manifest sign --in deploy/<host>/staging/<releaseId>.json
-clawdlets server update apply --host <host>
+clawlets release manifest build --host <host> --channel staging --system x86_64-linux --release-id <releaseId> --out deploy/<host>/staging/<releaseId>.json
+clawlets release manifest sign --in deploy/<host>/staging/<releaseId>.json
+clawlets server update apply --host <host>
 ```
 
 3) Verify:

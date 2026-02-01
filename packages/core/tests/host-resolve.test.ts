@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const findRepoRootMock = vi.fn(() => "/repo");
-const loadClawdletsConfigMock = vi.fn(() => ({ config: {} }));
+const loadClawletsConfigMock = vi.fn(() => ({ config: {} }));
 const resolveHostNameMock = vi.fn();
 
 vi.mock("../src/lib/repo.js", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("../src/lib/clawdlets-config.js", () => ({
-  loadClawdletsConfig: loadClawdletsConfigMock,
+vi.mock("../src/lib/clawlets-config.js", () => ({
+  loadClawletsConfig: loadClawletsConfigMock,
   resolveHostName: resolveHostNameMock,
 }));
 

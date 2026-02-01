@@ -1,6 +1,6 @@
 import http from "node:http";
 import { URL } from "node:url";
-import { openClfQueue, type ClfQueue } from "@clawdlets/clf-queue";
+import { openClfQueue, type ClfQueue } from "@clawlets/clf-queue";
 import {
   CLF_PROTOCOL_VERSION,
   ClfJobsEnqueueRequestSchema,
@@ -12,8 +12,8 @@ import {
   type ClfJobsListResponse,
   type ClfJobsShowResponse,
   type ClfJobsCancelResponse,
-} from "@clawdlets/clf-queue";
-import { parseClfJobPayload } from "@clawdlets/clf-queue";
+} from "@clawlets/clf-queue";
+import { parseClfJobPayload } from "@clawlets/clf-queue";
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   const safeBody = body instanceof Error ? { error: { message: body.message } } : body;

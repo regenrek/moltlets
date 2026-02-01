@@ -2,7 +2,7 @@ import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import type { createConvexClient } from "~/server/convex"
 import { runWithEvents } from "~/server/run-manager"
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 export type ValidationIssue = { code: string; path: Array<string | number>; message: string }
 
