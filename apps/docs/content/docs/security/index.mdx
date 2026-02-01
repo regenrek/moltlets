@@ -1,0 +1,23 @@
+---
+title: Overview
+description: Threat model, boundaries, and operator checks.
+---
+
+Nothing is 100% safe. Clawlets includes controls intended to reduce common fleet risks
+(for example: secrets handling, update verification, and minimizing long-lived
+credentials on hosts), but your configuration and operational discipline still
+determine the outcome.
+
+<Callout type="info" title="Recommended reading order">
+If you are setting up a fleet, start with Architecture, then Updates, then Secrets.
+After that, use Audits + Ops invariants as a day-2 checklist.
+</Callout>
+
+<Cards>
+  <Card title="Architecture" href="/security/architecture" description="Trust zones, bootstrapping boundaries, network posture." />
+  <Card title="Updates" href="/security/updates" description="Pull-based updates, verification, replay protection, state." />
+  <Card title="Secrets" href="/security/secrets" description="SOPS flow, install-time boundaries, runtime paths." />
+  <Card title="Audits" href="/security/audits" description="Commands and checks to validate state." />
+  <Card title="Ops invariants" href="/security/ops-invariants" description="Non-negotiable rules to keep the fleet stable." />
+  <Card title="Troubleshooting" href="/security/troubleshooting" description="Security-related failure modes and what to check." />
+</Cards>

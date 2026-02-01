@@ -123,7 +123,7 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Base flake resolution: `fleet/clawlets.json.baseFlake` (fallback: `git remote origin`) used by deploy commands (`bootstrap`, `lockdown`).
 - Non-interactive secrets provisioning: `clawlets secrets init --from-json <path|->`.
 - Fleet-level secret env wiring: `fleet/clawlets.json.fleet.envSecrets` (env var → sops secret name), used for LLM API keys.
-- New docs: `docs/config.md` (canonical config + host knobs).
+- New docs: `apps/docs/content/docs/configuration/config.mdx` (canonical config + host knobs).
 - Doctor check: `discord routing` now verifies `fleet.guildId` and per-bot `fleet.routingOverrides.<bot>.channels` to prevent “silent” bots.
 - `clawlets bootstrap --force` skips doctor preflight gate (advanced usage).
 - Destroy command: `clawlets infra destroy` (with `--force` for non-interactive automation).

@@ -1,0 +1,25 @@
+{
+  "pages": [
+    "index",
+    "ai-agent-setup",
+    "---Dashboard---",
+    "dashboard",
+    "---Configuration---",
+    "configuration",
+    "---CLI---",
+    "cli",
+    "---Operations---",
+    "operations",
+    "---Security---",
+    "security",
+    "---Plugins---",
+    "plugins",
+    "---Concepts---",
+    "concepts",
+    "---Reference---",
+    "reference",
+    "---Contribute---",
+    "contribution",
+    "thanks"
+  ]
+}

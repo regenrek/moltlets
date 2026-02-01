@@ -1,0 +1,13 @@
+{
+  "title": "Configuration",
+  "description": "fleet/clawlets.json and Clawdbot config integration",
+  "icon": "SlidersHorizontal",
+  "pages": [
+    "index",
+    "config",
+    "clawdbot-config",
+    "agent-config",
+    "openclaw-compat",
+    "nix-openclaw"
+  ]
+}

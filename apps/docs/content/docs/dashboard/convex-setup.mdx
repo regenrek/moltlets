@@ -1,0 +1,93 @@
+---
+title: Convex setup
+description: Create a Convex account and wire Better Auth.
+---
+
+Clawlets uses [Convex](https://www.convex.dev/) for the dashboard backend and Better
+Auth. For local setup you will configure **two places**:
+
+1) **Your local** `apps/web/.env.local` (what the web app reads)
+2) **Your Convex project env** (what the Convex backend reads)
+
+This duplication is intentional: the web app and the Convex backend are separate
+runtimes and both need the same core auth settings.
+
+<Callout type="info" title="Convex account required">
+  You will create or sign in to a Convex account during `npx convex login`. A free
+  tier project is enough for local development.
+</Callout>
+
+## 1) Log in
+
+```bash
+cd apps/web
+npx convex login
+```
+
+## 2) Create a dev deployment
+
+```bash
+cd apps/web
+npx convex dev --once
+```
+
+On first run, Convex will create (or update) `apps/web/.env.local` with:
+
+```bash
+CONVEX_DEPLOYMENT=dev:some-random-name-123
+VITE_CONVEX_URL=https://some-random-name-123.convex.cloud
+```
+
+You will use the same deployment name to build the `.convex.site` URL in the next
+step.
+
+<Callout type="warning" title="Don’t overwrite .env.local after this step">
+If `npx convex dev --once` created `.env.local`, don’t replace it by copying an
+example file over it. Merge missing variables instead.
+</Callout>
+
+## 3) Finish `.env.local` (web app)
+
+Convex only writes `CONVEX_DEPLOYMENT` and `VITE_CONVEX_URL`. You must add the rest:
+
+```bash
+# Local TanStack Start server URL
+VITE_SITE_URL=http://localhost:3000
+
+# Better Auth (web app runtime)
+SITE_URL=http://localhost:3000
+BETTER_AUTH_SECRET=<generate-a-random-secret>
+
+# Convex Site URL (same deployment, but .convex.site)
+VITE_CONVEX_SITE_URL=https://some-random-name-123.convex.site
+```
+
+Generate a secret (keep it stable; you will reuse it in the next step):
+
+```bash
+openssl rand -base64 32
+```
+
+To get `VITE_CONVEX_SITE_URL`, take `VITE_CONVEX_URL` and change `.convex.cloud` to
+`.convex.site`.
+
+## 4) Set Convex env vars (Convex backend)
+
+These env vars are stored inside the Convex project (not your local `.env`):
+
+```bash
+cd apps/web
+npx convex env set SITE_URL http://localhost:3000
+npx convex env set CONVEX_SITE_URL https://some-random-name-123.convex.site
+npx convex env set BETTER_AUTH_SECRET "<same-secret-as-.env.local>"
+```
+
+If you need to bypass auth locally while wiring the UI, you can disable it for the
+dev deployment:
+
+```bash
+npx convex env set CLAWLETS_AUTH_DISABLED true
+```
+
+Then also set `VITE_CLAWLETS_AUTH_DISABLED=true` in `.env.local` so the web app matches
+the Convex setting.

@@ -16,7 +16,7 @@ Quickstart
 7) `clawlets bootstrap`
 8) join tailnet, then: `clawlets host set --target-host admin@<tailscale-ip>` then `clawlets server update apply --host <host>` and `clawlets lockdown`
 
-Docs: see the clawlets repo `docs/README.md`
+Docs: see the clawlets repo `apps/docs/content/docs/index.mdx`
 
 Updates
 - `flake.lock` pins `clawlets` and `nix-clawdbot`; use the repo’s `bump-clawlets` and `bump-nix-clawdbot` PRs to stay current.

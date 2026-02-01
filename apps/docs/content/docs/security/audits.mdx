@@ -1,0 +1,51 @@
+---
+title: Audits
+description: Commands and checks to validate state and surface risky configuration.
+---
+
+Audits are how you keep drift visible. They should be run:
+
+- right after bootstrap,
+- after any change to `fleet/clawlets.json` or secrets,
+- and periodically as part of maintenance.
+
+## CLI audits
+
+### `clawlets doctor`
+
+Runs repo-level checks (linting, structure, and configuration sanity checks).
+
+### `clawlets server audit`
+
+Audits a host over SSH and reports invariants (for example tailscale state and bot
+service expectations).
+
+### `clawlets clawdbot harden`
+
+Applies conservative defaults to `fleet/clawlets.json` (dry-run unless `--write`).
+
+## Updater visibility
+
+Self-update writes state on the host. These are the first places to look when updates
+do not behave as expected:
+
+- `clawlets server update status --host <host>`
+- `clawlets server update logs --host <host> --since 10m`
+
+## Operator checklist (recommended)
+
+<Steps>
+  <Step>
+    After bootstrap: confirm public SSH is closed again and SSH access is tailnet-only.
+  </Step>
+  <Step>
+    After deploying bots: confirm orchestrator socket perms and that only intended users/groups can access it.
+  </Step>
+  <Step>
+    After secrets changes: confirm the host has the expected secrets digest and services restart cleanly.
+  </Step>
+  <Step>
+    After update pipeline changes: confirm updater status is clean and `releaseId` moves forward as expected.
+  </Step>
+</Steps>
+

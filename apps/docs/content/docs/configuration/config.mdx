@@ -1,0 +1,230 @@
+---
+title: Config (fleet/clawlets.json)
+description: Schema and canonical config.
+---
+
+`fleet/clawlets.json` is the single source of truth for fleet and host settings. The
+CLI and dashboard write to it; the Nix layer renders from it. Secrets do **not** live
+here (see [Secrets](/security/secrets)).
+
+<Callout type="warning" title="No secrets in config">
+  Keep tokens and credentials in `secrets/` only. `fleet/clawlets.json` should contain
+  references to secret names, not plaintext values.
+</Callout>
+
+## Related dirs
+
+Configuration is split into a few predictable directories. The repo holds the desired
+state; the local runtime dir holds generated artifacts and operator keys.
+
+- `fleet/clawlets.json`: canonical config (validated)
+- `secrets/`: canonical encrypted secrets (sops + age; intended to be committed)
+- `.clawlets/`: local runtime dir (gitignored)
+  - operator age keys (`.clawlets/keys/operators/`)
+  - `nixos-anywhere --extra-files` payload (`.clawlets/extra-files/<host>/...`)
+  - image builds (`.clawlets/images/<host>/...`)
+  - provisioning state (gitignored): `.clawlets/infra/opentofu/<host>/...`
+
+## Schema overview
+
+The top-level keys split the fleet model, cattle, and per-host settings:
+
+- `schemaVersion`: currently `12`
+- `defaultHost` (optional): used when `--host` is omitted
+- `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
+- `fleet.*`: bots + infra policy + raw Clawdbot config
+- `cattle.*`: ephemeral agent instances (Hetzner)
+- `hosts.<host>`: host entries keyed by host name
+
+Fleet (`fleet.*`):
+
+Fleet settings define bot order, secret wiring, and the raw Clawdbot configuration
+that gets rendered into services.
+
+- `fleet.secretEnv`: env var name → sops secret name (global defaults)
+- `fleet.secretFiles`: host‑scoped secret files (id → `{ secretName, targetPath, ... }`)
+- `fleet.botOrder`: ordered bot ids (deterministic ports/services)
+- `fleet.bots.<bot>`: per‑bot config object
+  - `profile`: clawlets/template infra knobs (systemd/env/secrets/limits)
+    - `profile.secretEnv`: per‑bot env var → sops secret name overrides
+    - `profile.secretEnvAllowlist`: optional allowlist of env vars written into the bot env file
+    - `profile.secretFiles`: bot‑scoped secret files
+    - other keys are forwarded into Nix `services.clawdbotFleet.botProfiles.<bot>`
+  - `clawdbot`: raw Clawdbot config (canonical; channels/routing/agents/tools/etc)
+  - `clf`: clawlets/clf policy (bot access to orchestrator/queue)
+
+Host entry (`hosts.<host>`):
+
+Host settings control provisioning, SSH exposure, caches, and update behavior. These
+keys are required for bootstrap and day-2 operations.
+
+- `enable`: whether fleet services should run
+- `diskDevice`: passed into the disko module (required for install)
+- `flakeHost` (optional): nixosConfiguration output name override
+- `targetHost` (optional): SSH target for server ops (ssh alias or `user@host`)
+- `hetzner.serverType`: e.g. `cx43`
+- `hetzner.image`: custom image ID/name (optional; used for image‑based bootstrap)
+- `hetzner.location`: e.g. `nbg1` (provisioning + image upload helpers)
+- `provisioning.adminCidr`: CIDR allowed to SSH during bootstrap (e.g. `203.0.113.10/32`)
+- `provisioning.adminCidrAllowWorldOpen`: allow `0.0.0.0/0` or `::/0` (default: `false`)
+- `provisioning.sshPubkeyFile`: local path to `.pub` used for provisioning
+- `operator.deploy.enable`: allow `admin` to run `install-secrets` (constrained allowlist)
+- `sshExposure.mode`: `tailnet|bootstrap|public`
+- `tailnet.mode`: `tailscale` or `none`
+- `cache.substituters`: binary cache URLs (default includes NixOS + Garnix)
+- `cache.trustedPublicKeys`: binary cache public keys
+- `cache.netrc.*`: authenticated cache access (optional)
+- `selfUpdate.*`: pull‑based updates (base URLs, channel, keys)
+
+Cattle (`cattle.*`):
+
+Cattle settings are optional and only needed if you run short-lived instances for
+special tasks.
+
+- `cattle.enabled`: enable cattle commands (requires `cattle.hetzner.image`)
+- `cattle.hetzner.*`: image/serverType/location/maxInstances/defaultTtl/labels
+- `cattle.defaults.*`: autoShutdown + callbackUrl
+
+## Secret scoping + `${ENV}` wiring
+
+Secret mappings are declared in config and resolved into sops files under `secrets/`.
+Clawdbot config should use `${ENV_VAR}` (uppercase). Clawlets scans
+`fleet.bots.<bot>.clawdbot` to build the secrets plan.
+
+- inline tokens/API keys emit warnings; strict mode fails them
+- escape literal `${ENV_VAR}` as `$${ENV_VAR}`
+
+Hooks + skills env wiring:
+
+- `hooks.token` → `${CLAWDBOT_HOOKS_TOKEN}`
+- `hooks.gmail.pushToken` → `${CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN}`
+- `skills.entries.<skill>.apiKey` → `${CLAWDBOT_SKILL_<SKILL>_API_KEY}`
+
+If you set `profile.hooks.*Secret` or `profile.skills.entries.*.apiKeySecret`, Clawlets
+derives the env mapping automatically.
+
+## Autowire missing secretEnv
+
+If you are migrating from inline tokens or hand-written env maps, use autowire to
+fill gaps. It scans Clawdbot config and generates missing mappings so the secrets
+plan stays complete.
+
+CLI:
+
+- `clawlets config wire-secrets --write` (adds missing mappings)
+- `clawlets secrets init --autowire` (runs autowire before init)
+
+UI:
+
+- Host secrets panel: Missing secret wiring → Wire all
+- Bot integrations panel: Secret wiring (advanced)
+
+## Least‑privilege env injection (optional)
+
+You can restrict which env vars are injected into each bot to reduce blast radius if
+an env file is exposed.
+
+- Set `profile.secretEnvAllowlist` to restrict which env vars are written into each bot env file.
+- Generate from current config: `clawlets config derive-allowlist --write`.
+- `clawlets config validate --strict` fails if the allowlist doesn’t match derived requirements.
+
+## Strict mode
+
+Strict mode turns warnings into failures so CI can gate on configuration quality.
+
+- `clawlets config validate --strict`: treat inline secrets + invariant overrides + allowlist mismatches as errors.
+- `clawlets doctor --scope updates --strict`: updates gate; fails on warn.
+
+## Migration notes
+
+Schema versions change as the configuration model evolves. When you upgrade the CLI,
+scan these notes to see whether any keys moved or renamed.
+
+- v12: Self‑updates use `hosts.<host>.selfUpdate.baseUrls` (mirror list).
+- v11: Cache settings are `hosts.<host>.cache.{substituters,trustedPublicKeys,netrc}`.
+- v10: SSH keys are project‑scoped under `fleet.sshAuthorizedKeys`/`fleet.sshKnownHosts`.
+- v9: inline secrets are deprecated; move tokens/api keys to `${ENV_VAR}` wiring and secretEnv mappings.
+
+## Example
+
+```json
+{
+  "schemaVersion": 12,
+  "defaultHost": "clawdbot-fleet-host",
+  "baseFlake": "",
+  "fleet": {
+    "secretEnv": { "ZAI_API_KEY": "z_ai_api_key" },
+    "secretFiles": {},
+    "sshAuthorizedKeys": [],
+    "sshKnownHosts": [],
+    "botOrder": ["maren"],
+    "bots": {
+      "maren": {
+        "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" }, "secretFiles": {} },
+        "clawdbot": {
+          "channels": {
+            "discord": {
+              "enabled": true,
+              "token": "${DISCORD_BOT_TOKEN}",
+              "dm": { "enabled": true, "policy": "pairing" }
+            }
+          }
+        }
+      }
+    },
+    "codex": { "enable": false, "bots": [] },
+    "backups": { "restic": { "enable": false, "repository": "" } }
+  },
+  "cattle": {
+    "enabled": false,
+    "hetzner": {
+      "image": "",
+      "serverType": "cx22",
+      "location": "nbg1",
+      "maxInstances": 10,
+      "defaultTtl": "2h",
+      "labels": { "managed-by": "clawlets" }
+    },
+    "defaults": { "autoShutdown": true, "callbackUrl": "" }
+  },
+  "hosts": {
+    "clawdbot-fleet-host": {
+      "enable": false,
+      "diskDevice": "/dev/sda",
+      "flakeHost": "",
+      "hetzner": { "serverType": "cx43", "image": "", "location": "nbg1" },
+      "provisioning": {
+        "adminCidr": "",
+        "adminCidrAllowWorldOpen": false,
+        "sshPubkeyFile": "~/.ssh/id_ed25519.pub"
+      },
+      "cache": {
+        "substituters": ["https://cache.nixos.org", "https://cache.garnix.io"],
+        "trustedPublicKeys": [
+          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=",
+          "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
+        ],
+        "netrc": {
+          "enable": false,
+          "secretName": "garnix_netrc",
+          "path": "/etc/nix/netrc",
+          "narinfoCachePositiveTtl": 3600
+        }
+      },
+      "sshExposure": { "mode": "bootstrap" },
+      "tailnet": { "mode": "tailscale" },
+      "selfUpdate": {
+        "enable": false,
+        "interval": "30min",
+        "baseUrls": [],
+        "channel": "prod",
+        "publicKeys": [],
+        "allowUnsigned": false,
+        "allowRollback": false,
+        "healthCheckUnit": ""
+      },
+      "agentModelPrimary": "zai/glm-4.7"
+    }
+  }
+}
+```

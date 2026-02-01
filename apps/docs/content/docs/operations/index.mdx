@@ -1,0 +1,202 @@
+---
+title: Operations
+description: Day‑2 operations and maintenance.
+---
+
+This page collects the most common day‑2 workflows: updating config, rotating secrets,
+adding bots, and checking host health.
+
+## Update Clawdbot config (routing/channels)
+
+Clawlets does not own routing. Update routing and channels through Clawdbot config,
+then publish and apply an update so the host picks up the new desired state:
+
+- edit `fleet/clawlets.json` → `fleet.bots.<bot>.clawdbot`
+
+Then publish + apply updates (pinned):
+
+```bash
+clawlets release manifest build --host <host> --channel prod --release-id <releaseId> --out deploy/<host>/prod/<releaseId>.json
+clawlets release manifest sign --in deploy/<host>/prod/<releaseId>.json
+clawlets server update apply --host <host>
+```
+
+`--rev HEAD` resolves to the full SHA locally before the deploy.
+
+## Rotate tokens/secrets
+
+Token rotation follows the same flow every time: update the encrypted file, sync it to
+the host, verify, then apply an update.
+
+1) Edit files under `secrets/hosts/<host>/` (example: `discord_token_maren.yaml`)
+2) Re‑encrypt (or use `clawlets secrets init` to regenerate)
+3) `clawlets secrets sync`
+4) `clawlets secrets verify`
+5) Apply updates:
+
+```bash
+clawlets server update apply --host <host>
+```
+
+## Add a bot
+
+Adding a bot means adding its ID, wiring secrets, and pushing a new deploy. The
+dashboard can do most of this for you; the CLI steps are here for repeatability.
+
+1) Add bot id:
+
+```bash
+clawlets bot add --bot <id>
+```
+
+2) Add secret + config:
+
+- `fleet.bots.<id>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<id>"`
+- Clawdbot config: `fleet.bots.<id>.clawdbot.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
+
+Then:
+
+```bash
+clawlets secrets sync
+clawlets server update apply --host <host>
+```
+
+## Add/enable a skill
+
+Skills are controlled by an allowlist and may require per-bot secrets. Once you wire
+the secret and allowlist, deploy the updated config.
+
+1) If bundled: add id to `fleet/bundled-skills.json`
+2) Allow per‑bot (example):
+
+```bash
+clawlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search"]'
+```
+
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.profile.skills.entries."<skill>".*Secret`
+4) Sync + deploy:
+
+```bash
+clawlets secrets sync
+clawlets server update apply --host <host>
+```
+
+## Verify host health
+
+These commands give a quick signal of service health, logs, and audit status:
+```bash
+clawlets server status --target-host admin@<ipv4>
+clawlets server logs --target-host admin@<ipv4> --unit clawdbot-maren.service --follow
+clawlets server audit --target-host admin@<ipv4>
+```
+
+Justfile helpers:
+
+```bash
+just server-units admin@<ipv4>
+just server-logs admin@<ipv4> "--unit clawdbot-maren.service --follow"
+```
+
+## Codex CLI (headless)
+
+If you enable Codex on a bot, the device login is a one-time step per bot user.
+
+One‑time device auth per bot:
+
+```bash
+sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
+sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
+```
+
+## Orchestrator (`clf`)
+
+Use these commands to check the control plane and inspect jobs.
+
+Service health:
+
+```bash
+systemctl status clf-orchestrator.socket
+systemctl status clf-orchestrator
+journalctl -u clf-orchestrator --since 10m --no-pager
+```
+
+Bot/job inspection:
+
+```bash
+sudo -u bot-maren clf jobs list --json
+sudo -u bot-maren clf jobs show --job-id <jobId> --json
+```
+
+## Tailscale
+
+Basic tailnet health checks:
+```bash
+tailscale status
+tailscale ip -4
+```
+
+## GitHub App token refresher (example)
+
+Token refreshers run as systemd units; check status when GitHub auth fails.
+
+```bash
+systemctl status clawdbot-gh-token-maren
+systemctl status clawdbot-gh-token-maren.timer
+```
+
+## GitHub inventory sync (optional)
+
+If enabled, the host periodically writes GitHub issues and PRs into the bot workspace.
+If enabled (`services.clawdbotFleet.githubSync.enable = true`), each bot writes:
+
+- `/srv/clawdbot/<bot>/workspace/memory/github/prs.md`
+- `/srv/clawdbot/<bot>/workspace/memory/github/issues.md`
+
+Ops helpers:
+
+```bash
+clawlets server github-sync status --target-host admin@<ipv4>
+clawlets server github-sync run --target-host admin@<ipv4> --bot maren
+clawlets server github-sync show --target-host admin@<ipv4> --bot maren --kind prs --lines 80
+```
+
+## Ops snapshots (optional)
+
+Snapshots are optional and designed for quick ops state inspection and backups.
+If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`), the host writes JSON snapshots to:
+
+- `/var/lib/clawlets/ops/snapshots/latest.json`
+- `/var/lib/clawlets/ops/snapshots/<timestamp>-<host>.json`
+
+Retention:
+
+- `services.clawdbotFleet.opsSnapshot.keepDays` (default: 30)
+- `services.clawdbotFleet.opsSnapshot.keepLast` (default: 200)
+
+Backup:
+
+- When restic is enabled and `backups.restic.paths` is empty, ops snapshots are included automatically.
+
+Run now:
+
+```bash
+sudo systemctl start clawlets-ops-snapshot.service
+```
+
+## Backups (restic)
+
+Restic is opt-in. Enable it in the fleet config, wire its secrets, then deploy.
+Enable via CLI:
+
+```bash
+clawlets fleet set --restic-enable true --restic-repository "s3:s3.amazonaws.com/<bucket>/clawdbot"
+```
+
+Add secrets under `secrets/hosts/clawdbot-fleet-host/` (example: `restic_password.yaml`), sync, then deploy.
+
+Restore (example, run as root on the host):
+
+```bash
+restic snapshots
+restic restore latest --target / --include /srv/clawdbot
+```

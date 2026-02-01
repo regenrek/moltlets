@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -C apps/web dev",
+    "docs:dev": "pnpm -C apps/docs dev",
+    "docs:build": "pnpm -C apps/docs build",
     "postinstall": "pnpm -r build",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
