@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { ensureDir, writeFileAtomic } from "@clawdlets/core/lib/fs-safe";
-import { PersonaNameSchema } from "@clawdlets/shared/lib/identifiers";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
+import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/fs-safe";
+import { PersonaNameSchema } from "@clawlets/shared/lib/identifiers";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
 
 function getPersonasDir(repoRoot: string): string {
   return path.join(repoRoot, "cattle", "personas");

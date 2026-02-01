@@ -23,7 +23,7 @@ import {
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import { getDeployCredsStatus } from "~/sdk/deploy-creds"
 import { gitPushExecute, gitRepoStatus } from "~/sdk/git"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/operations"
@@ -40,9 +40,9 @@ function BootstrapSetup() {
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
   const creds = useQuery({
@@ -142,7 +142,7 @@ function BootstrapSetup() {
   const canBootstrap = doctorGateOk && !repoGateBlocked
   const cliCmd = useMemo(() => {
     if (!host) return ""
-    const parts = ["clawdlets", "bootstrap", "--host", host, "--mode", mode]
+    const parts = ["clawlets", "bootstrap", "--host", host, "--mode", mode]
     if (selectedRev) parts.push("--rev", selectedRev)
     if (lockdownAfter) parts.push("--lockdown-after")
     if (force) parts.push("--force")
@@ -309,7 +309,7 @@ function BootstrapSetup() {
               <div>
                 <div className="font-medium">Deploy credentials</div>
                 <div className="text-xs text-muted-foreground">
-                  Bootstrap requires <code>HCLOUD_TOKEN</code> and a secure <code>.clawdlets/env</code>.
+                  Bootstrap requires <code>HCLOUD_TOKEN</code> and a secure <code>.clawlets/env</code>.
                 </div>
               </div>
               <Button
@@ -374,7 +374,7 @@ function BootstrapSetup() {
           {runId ? (
             <RunLogTail
               runId={runId}
-              onDone={() => void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })}
+              onDone={() => void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })}
             />
           ) : null}
 

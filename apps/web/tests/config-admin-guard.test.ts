@@ -22,22 +22,22 @@ async function loadConfig(role: "admin" | "viewer") {
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents,
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-      "@clawdlets/core/lib/clawdlets-config",
+  vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+    const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+      "@clawlets/core/lib/clawlets-config",
     )
     return {
       ...actual,
-      ClawdletsConfigSchema: {
+      ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadClawdletsConfig: () => ({ configPath: "/tmp/fleet/clawdlets.json", config: {} }),
-      loadClawdletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawdlets.json", config: {} }),
-      writeClawdletsConfig: async () => {},
+      loadClawletsConfig: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
+      loadClawletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
+      writeClawletsConfig: async () => {},
     }
   })
 
@@ -52,7 +52,7 @@ describe("config admin guard", () => {
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
         async () =>
-          await mod.writeClawdletsConfigFile({
+          await mod.writeClawletsConfigFile({
             data: { projectId: "p1" as any, next: {}, title: "write config" },
           }),
       ),
@@ -81,7 +81,7 @@ describe("config admin guard", () => {
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
-        await mod.writeClawdletsConfigFile({
+        await mod.writeClawletsConfigFile({
           data: { projectId: "p1" as any, next: {}, title: "write config" },
         }),
     )

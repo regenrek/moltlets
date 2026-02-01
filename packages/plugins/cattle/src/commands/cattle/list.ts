@@ -1,17 +1,17 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
 import { openCattleState } from "../../lib/cattle-state.js";
-import { buildCattleLabelSelector, listCattleServers, type CattleServer } from "@clawdlets/cattle-core/lib/hcloud-cattle";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { buildCattleLabelSelector, listCattleServers, type CattleServer } from "@clawlets/cattle-core/lib/hcloud-cattle";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 import { formatAgeSeconds, formatTable, requireEnabled, unixSecondsNow } from "./common.js";
 
 export const cattleList = defineCommand({
   meta: { name: "list", description: "List active cattle servers (Hetzner + local state reconciliation)." },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     json: { type: "boolean", description: "Output JSON.", default: false },
   },
   async run({ args }) {
@@ -22,12 +22,12 @@ export const cattleList = defineCommand({
 
     requireEnabled({
       enabled: Boolean(config.cattle?.enabled),
-      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawdlets.json)",
+      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawlets.json)",
     });
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 
     const servers = await listCattleServers({ token: hcloudToken, labelSelector: buildCattleLabelSelector() });
 

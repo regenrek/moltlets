@@ -2,7 +2,7 @@
 
 Single source of truth:
 
-- `fleet/clawdlets.json` (canonical fleet + host config)
+- `fleet/clawlets.json` (canonical fleet + host config)
 - `fleet/bundled-skills.json` (canonical allowlist for Nix assertions + doctor)
 - `fleet/workspaces/**` (prompt/policy docs + skills)
 
@@ -16,7 +16,7 @@ Single input:
 
 - inline: `fleet.bots.<bot>.clawdbot` (JSON object)
 
-Clawdlets invariants override (gateway bind/port/auth; workspace path).
+Clawlets invariants override (gateway bind/port/auth; workspace path).
 
 ### Example: Discord token via secret
 
@@ -113,7 +113,7 @@ Gateway ports are auto-assigned from `fleet.botOrder`.
 Per-bot override (example):
 
 ```bash
-clawdlets config set --path fleet.bots.melinda.profile.gatewayPort --value 18819
+clawlets config set --path fleet.bots.melinda.profile.gatewayPort --value 18819
 ```
 
 ## Model defaults (provider/model)
@@ -121,27 +121,27 @@ clawdlets config set --path fleet.bots.melinda.profile.gatewayPort --value 18819
 Set a default model for the host:
 
 ```bash
-clawdlets host set --agent-model-primary zai/glm-4.7
+clawlets host set --agent-model-primary zai/glm-4.7
 ```
 
 Optional extra model entries (per-bot):
 
 ```bash
-clawdlets config set --path fleet.bots.melinda.clawdbot.agents.defaults.models.fast --value-json '{"alias":"fast"}'
+clawlets config set --path fleet.bots.melinda.clawdbot.agents.defaults.models.fast --value-json '{"alias":"fast"}'
 ```
 
 Per-bot override:
 
 ```bash
-clawdlets config set --path fleet.bots.melinda.clawdbot.agents.defaults.model.primary --value zai/glm-4.7
+clawlets config set --path fleet.bots.melinda.clawdbot.agents.defaults.model.primary --value zai/glm-4.7
 ```
 
 Provider API keys (provider -> sops secret name):
 
 ```bash
-clawdlets config set --path fleet.secretEnv.ZAI_API_KEY --value z_ai_api_key
-clawdlets config set --path fleet.secretEnv.ANTHROPIC_API_KEY --value anthropic_api_key
-clawdlets config set --path fleet.secretEnv.OPENAI_API_KEY --value openai_api_key
+clawlets config set --path fleet.secretEnv.ZAI_API_KEY --value z_ai_api_key
+clawlets config set --path fleet.secretEnv.ANTHROPIC_API_KEY --value anthropic_api_key
+clawlets config set --path fleet.secretEnv.OPENAI_API_KEY --value openai_api_key
 ```
 
 These are injected into per-bot `EnvironmentFile=` entries via sops-nix templates.
@@ -151,15 +151,15 @@ These are injected into per-bot `EnvironmentFile=` entries via sops-nix template
 Enable Codex CLI for selected bots:
 
 ```bash
-clawdlets fleet set --codex-enable true
-clawdlets config set --path fleet.codex.bots --value-json '["gunnar","maren"]'
+clawlets fleet set --codex-enable true
+clawlets config set --path fleet.codex.bots --value-json '["gunnar","maren"]'
 ```
 
 Then allow bundled `coding-agent` for those bots:
 
 ```bash
-clawdlets config set --path fleet.bots.gunnar.profile.skills.allowBundled --value-json '["github","coding-agent"]'
-clawdlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search","coding-agent"]'
+clawlets config set --path fleet.bots.gunnar.profile.skills.allowBundled --value-json '["github","coding-agent"]'
+clawlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search","coding-agent"]'
 ```
 
 One-time login (headless):
@@ -178,7 +178,7 @@ If mDNS errors appear, Bonjour is disabled by default in the template host confi
 Run GitHub inventory sync (on-demand):
 
 ```bash
-clawdlets server github-sync --target-host admin@<host>
+clawlets server github-sync --target-host admin@<host>
 ```
 
 Requires at least one bot with GitHub App config (`fleet.bots.<bot>.profile.github.*`).
@@ -250,7 +250,7 @@ Non-secret config:
 Configure:
 
 ```bash
-clawdlets config set --path fleet.bots.maren.profile.github --value-json '{"appId":123456,"installationId":12345678,"privateKeySecret":"gh_app_private_key_maren","refreshMinutes":45}'
+clawlets config set --path fleet.bots.maren.profile.github --value-json '{"appId":123456,"installationId":12345678,"privateKeySecret":"gh_app_private_key_maren","refreshMinutes":45}'
 ```
 
 Effect on host:
@@ -275,6 +275,6 @@ sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
 
 Tailscale is used for admin SSH:
 
-- set tailnet mode: `clawdlets host set --tailnet tailscale`
+- set tailnet mode: `clawlets host set --tailnet tailscale`
 - store a Tailscale auth key in secrets (`tailscale_auth_key.yaml`)
 - first boot auto-joins via NixOS `services.tailscale.authKeyFile` (no manual `tailscale up`)

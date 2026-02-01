@@ -6,7 +6,7 @@ describe("secret wiring targetPath validation", () => {
     expect(() =>
       SecretFileSpecSchema.parse({
         secretName: "discord_token_maren",
-        targetPath: "/var/lib/clawdlets/../etc/shadow",
+        targetPath: "/var/lib/clawlets/../etc/shadow",
         mode: "0400",
       }),
     ).toThrow(/targetPath/);
@@ -17,7 +17,7 @@ describe("secret wiring targetPath validation", () => {
     expect(() =>
       SecretFileSpecSchema.parse({
         secretName: "discord_token_maren",
-        targetPath: "/var/lib/clawdlets/..",
+        targetPath: "/var/lib/clawlets/..",
         mode: "0400",
       }),
     ).toThrow(/targetPath/);
@@ -28,7 +28,7 @@ describe("secret wiring targetPath validation", () => {
     expect(() =>
       SecretFileSpecSchema.parse({
         secretName: "discord_token_maren",
-        targetPath: "/var/lib/clawdlets/secrets/ok\u0000bad",
+        targetPath: "/var/lib/clawlets/secrets/ok\u0000bad",
         mode: "0400",
       }),
     ).toThrow(/targetPath/);

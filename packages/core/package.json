@@ -1,5 +1,5 @@
 {
-  "name": "@clawdlets/core",
+  "name": "@clawlets/core",
   "version": "0.4.3",
   "private": true,
   "type": "module",
@@ -24,8 +24,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@clawdlets/cattle-core": "workspace:*",
-    "@clawdlets/shared": "workspace:*",
+    "@clawlets/cattle-core": "workspace:*",
+    "@clawlets/shared": "workspace:*",
     "ajv": "^8.17.1",
     "dotenv": "^17.2.3",
     "giget": "^3.1.1",

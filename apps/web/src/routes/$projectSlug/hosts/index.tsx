@@ -12,7 +12,7 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { useProjectBySlug } from "~/lib/project-data"
 import { addHost } from "~/sdk/config"
-import { clawdletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/hosts/")({
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
-    await context.queryClient.ensureQueryData(clawdletsConfigQueryOptions(projectId))
+    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: HostsOverview,
 })
@@ -32,7 +32,7 @@ function HostsOverview() {
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
   const cfg = useQuery({
-    ...clawdletsConfigQueryOptions(projectId as Id<"projects"> | null),
+    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
     enabled: Boolean(projectId),
   })
 
@@ -55,7 +55,7 @@ function HostsOverview() {
       toast.success("Host added")
       setNewHost("")
       setNewHostOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -105,7 +105,7 @@ function HostsOverview() {
                   <Label htmlFor="new-host-name">Host name</Label>
                   <Input
                     id="new-host-name"
-                    placeholder="clawdlets-prod-01"
+                    placeholder="clawlets-prod-01"
                     value={newHost}
                     onChange={(e) => setNewHost(e.target.value)}
                   />

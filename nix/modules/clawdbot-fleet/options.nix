@@ -63,8 +63,8 @@ in {
             description = "Sops secret name for this file.";
           };
           targetPath = lib.mkOption {
-            type = lib.types.strMatching "^/var/lib/clawdlets/.*";
-            description = "Absolute target path for the rendered secret file (host-scoped; must be under /var/lib/clawdlets/).";
+            type = lib.types.strMatching "^/var/lib/clawlets/.*";
+            description = "Absolute target path for the rendered secret file (host-scoped; must be under /var/lib/clawlets/).";
           };
           mode = lib.mkOption {
             type = lib.types.str;
@@ -140,7 +140,7 @@ in {
       };
       outDir = lib.mkOption {
         type = lib.types.str;
-        default = "/var/lib/clawdlets/ops/snapshots";
+        default = "/var/lib/clawlets/ops/snapshots";
         description = "Directory holding JSON snapshots (latest.json + timestamped files).";
       };
       keepDays = lib.mkOption {

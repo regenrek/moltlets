@@ -1,4 +1,4 @@
-import { validateTargetHost } from "@clawdlets/core/lib/ssh-remote";
+import { validateTargetHost } from "@clawlets/core/lib/ssh-remote";
 
 export function needsSudo(targetHost: string): boolean {
   return !/^root@/i.test(targetHost.trim());
@@ -10,7 +10,7 @@ export function requireTargetHost(targetHost: string, hostName: string): string 
   throw new Error(
     [
       `missing target host for ${hostName}`,
-      "set it in fleet/clawdlets.json (hosts.<host>.targetHost) or pass --target-host",
+      "set it in fleet/clawlets.json (hosts.<host>.targetHost) or pass --target-host",
       "recommended: use an SSH config alias (e.g. botsmj)",
     ].join("; "),
   );

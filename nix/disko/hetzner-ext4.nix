@@ -1,9 +1,9 @@
 { config, ... }:
 {
-  # Example disk layout (Hetzner). Override `clawdlets.diskDevice` if needed.
+  # Example disk layout (Hetzner). Override `clawlets.diskDevice` if needed.
   disko.devices = {
     disk.main = {
-      device = config.clawdlets.diskDevice;
+      device = config.clawlets.diskDevice;
       type = "disk";
       content = {
         type = "gpt";

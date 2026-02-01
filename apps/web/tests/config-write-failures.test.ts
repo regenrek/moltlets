@@ -22,21 +22,21 @@ async function loadConfigForWrite() {
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents,
   }))
-  vi.doMock("@clawdlets/core/lib/clawdlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawdlets/core/lib/clawdlets-config")>(
-      "@clawdlets/core/lib/clawdlets-config",
+  vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+    const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+      "@clawlets/core/lib/clawlets-config",
     )
     return {
       ...actual,
-      ClawdletsConfigSchema: {
+      ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadClawdletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawdlets.json", config: {} }),
-      writeClawdletsConfig: async () => {
+      loadClawletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
+      writeClawletsConfig: async () => {
         throw new Error("permission denied: /etc/hosts")
       },
     }
@@ -47,12 +47,12 @@ async function loadConfigForWrite() {
 }
 
 describe("config write failures", () => {
-  it("writeClawdletsConfigFile returns ok:false and marks run failed", async () => {
+  it("writeClawletsConfigFile returns ok:false and marks run failed", async () => {
     const { mod, mutation, runWithEvents } = await loadConfigForWrite()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
-        await mod.writeClawdletsConfigFile({
+        await mod.writeClawletsConfigFile({
           data: { projectId: "p1" as any, next: {}, title: "write config" },
         }),
     )

@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { run } from "@clawdlets/core/lib/run";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { run } from "@clawlets/core/lib/run";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
 import { baseCommandNames } from "../commands/registry.js";
 
-const PLUGIN_MANIFEST = "clawdlets-plugin.json";
+const PLUGIN_MANIFEST = "clawlets-plugin.json";
 const RESERVED_COMMANDS = new Set(baseCommandNames);
 const SAFE_SLUG_RE = /^[a-z][a-z0-9_-]*$/;
 const PACKAGE_NAME_RE =
@@ -75,11 +75,11 @@ function readPluginPackageMeta(packageDir: string): { command: string; entry: st
   if (!fs.existsSync(pkgPath)) {
     throw new Error(`plugin package.json missing: ${pkgPath}`);
   }
-  const pkg = readJsonFile<{ clawdlets?: { command?: unknown; entry?: unknown } }>(pkgPath);
-  const command = String(pkg?.clawdlets?.command || "").trim();
-  const entry = String(pkg?.clawdlets?.entry || "").trim();
-  if (!command) throw new Error(`plugin missing clawdlets.command in ${pkgPath}`);
-  if (!entry) throw new Error(`plugin missing clawdlets.entry in ${pkgPath}`);
+  const pkg = readJsonFile<{ clawlets?: { command?: unknown; entry?: unknown } }>(pkgPath);
+  const command = String(pkg?.clawlets?.command || "").trim();
+  const entry = String(pkg?.clawlets?.entry || "").trim();
+  if (!command) throw new Error(`plugin missing clawlets.command in ${pkgPath}`);
+  if (!entry) throw new Error(`plugin missing clawlets.entry in ${pkgPath}`);
   assertCommandName(command);
   return { command, entry };
 }
@@ -237,7 +237,7 @@ export async function installPlugin(params: {
   const packageName = params.packageName.trim();
   if (!packageName) throw new Error("package name required");
   assertPackageName(packageName);
-  if (!params.allowThirdParty && !packageName.startsWith("@clawdlets/")) {
+  if (!params.allowThirdParty && !packageName.startsWith("@clawlets/")) {
     throw new Error("third-party plugins disabled (pass --allow-third-party to override)");
   }
 
@@ -251,10 +251,10 @@ export async function installPlugin(params: {
   const depVersion = params.version?.trim() || "latest";
 
   const pkgJson = {
-    name: `clawdlets-plugin-${slug}`,
+    name: `clawlets-plugin-${slug}`,
     private: true,
     type: "module",
-    description: `clawdlets plugin install (${slug})`,
+    description: `clawlets plugin install (${slug})`,
     dependencies: {
       [packageName]: depVersion,
     },

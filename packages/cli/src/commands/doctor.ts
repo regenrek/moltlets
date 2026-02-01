@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { collectDoctorChecks } from "@clawdlets/core/doctor";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { resolveHostNameOrExit } from "@clawdlets/core/lib/host-resolve";
+import { collectDoctorChecks } from "@clawlets/core/doctor";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 import { renderDoctorReport } from "../lib/doctor-render.js";
 
 export const doctor = defineCommand({
@@ -13,9 +13,9 @@ export const doctor = defineCommand({
     description: "Validate repo + runtime inputs for deploying a host.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     scope: {
       type: "string",
       description: "Which checks to run: repo | bootstrap | updates | cattle | all (default: all).",
@@ -36,8 +36,8 @@ export const doctor = defineCommand({
     if (scope === "repo") {
       const repoRoot = findRepoRoot(cwd);
       const templateSource = path.join(repoRoot, "config", "template-source.json");
-      const clawdletsConfig = path.join(repoRoot, "fleet", "clawdlets.json");
-      if (fs.existsSync(templateSource) && !fs.existsSync(clawdletsConfig)) {
+      const clawletsConfig = path.join(repoRoot, "fleet", "clawlets.json");
+      if (fs.existsSync(templateSource) && !fs.existsSync(clawletsConfig)) {
         console.log("note: CLI repo detected; run doctor in a project repo or via template-e2e.");
         return;
       }

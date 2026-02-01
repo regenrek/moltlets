@@ -2,20 +2,20 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeConfig } from "./fixtures.js";
 
 const findRepoRootMock = vi.fn(() => "/repo");
-const loadClawdletsConfigMock = vi.fn();
+const loadClawletsConfigMock = vi.fn();
 const resolveHostNameOrExitMock = vi.fn();
 
 vi.mock("../src/lib/repo.js", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("../src/lib/clawdlets-config.js", async () => {
-  const actual = await vi.importActual<typeof import("../src/lib/clawdlets-config.js")>(
-    "../src/lib/clawdlets-config.js",
+vi.mock("../src/lib/clawlets-config.js", async () => {
+  const actual = await vi.importActual<typeof import("../src/lib/clawlets-config.js")>(
+    "../src/lib/clawlets-config.js",
   );
   return {
     ...actual,
-    loadClawdletsConfig: loadClawdletsConfigMock,
+    loadClawletsConfig: loadClawletsConfigMock,
   };
 });
 
@@ -30,7 +30,7 @@ describe("context helpers", () => {
 
   it("loadRepoContext returns repoRoot/layout/config", async () => {
     const config = makeConfig();
-    loadClawdletsConfigMock.mockReturnValue({ layout: { repoRoot: "/repo" }, config });
+    loadClawletsConfigMock.mockReturnValue({ layout: { repoRoot: "/repo" }, config });
     const { loadRepoContext } = await import("../src/lib/context.js");
     const ctx = loadRepoContext({ cwd: "/repo" });
     expect(ctx.repoRoot).toBe("/repo");
@@ -47,7 +47,7 @@ describe("context helpers", () => {
 
   it("loadHostContextOrExit throws when host missing in config", async () => {
     const config = makeConfig({ hostName: "alpha" });
-    loadClawdletsConfigMock.mockReturnValue({ layout: { repoRoot: "/repo" }, config });
+    loadClawletsConfigMock.mockReturnValue({ layout: { repoRoot: "/repo" }, config });
     resolveHostNameOrExitMock.mockReturnValue("missing");
     const { loadHostContextOrExit } = await import("../src/lib/context.js");
     expect(() => loadHostContextOrExit({ cwd: "/repo", hostArg: "missing" })).toThrow(/missing host/i);

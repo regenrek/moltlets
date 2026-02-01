@@ -1,17 +1,17 @@
 { config, lib, ... }:
 
 let
-  cfg = config.clawdlets.cacheServers.harmonia;
-  allowMissingSecrets = config.clawdlets.bootstrap.allowMissingSecrets or false;
+  cfg = config.clawlets.cacheServers.harmonia;
+  allowMissingSecrets = config.clawlets.bootstrap.allowMissingSecrets or false;
 
-  defaultHostSecretsDir = "/var/lib/clawdlets/secrets/hosts/${config.networking.hostName}";
+  defaultHostSecretsDir = "/var/lib/clawlets/secrets/hosts/${config.networking.hostName}";
   hostSecretsDir =
-    if (config.clawdlets.secrets.hostDir or null) != null
-    then config.clawdlets.secrets.hostDir
+    if (config.clawlets.secrets.hostDir or null) != null
+    then config.clawlets.secrets.hostDir
     else defaultHostSecretsDir;
 in
 {
-  options.clawdlets.cacheServers.harmonia = {
+  options.clawlets.cacheServers.harmonia = {
     enable = lib.mkEnableOption "Harmonia binary cache server";
 
     signKeySecretName = lib.mkOption {
@@ -61,11 +61,11 @@ in
     assertions = [
       {
         assertion = !allowMissingSecrets;
-        message = "clawdlets.cacheServers.harmonia.enable requires secrets (disable clawdlets.bootstrap.allowMissingSecrets).";
+        message = "clawlets.cacheServers.harmonia.enable requires secrets (disable clawlets.bootstrap.allowMissingSecrets).";
       }
       {
         assertion = (!cfg.public) || (cfg.domain != null && cfg.domain != "" && cfg.acmeEmail != null && cfg.acmeEmail != "");
-        message = "clawdlets.cacheServers.harmonia: domain + acmeEmail are required when public=true.";
+        message = "clawlets.cacheServers.harmonia: domain + acmeEmail are required when public=true.";
       }
     ];
 

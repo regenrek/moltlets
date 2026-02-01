@@ -97,7 +97,7 @@ export function BootstrapChecklist({
         toast.error("Config update failed")
         return
       }
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))

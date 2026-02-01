@@ -1,15 +1,15 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { getRepoLayout, getHostOpenTofuDir } from "@clawdlets/core/repo-layout"
-import { capture } from "@clawdlets/core/lib/run"
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds"
-import { sshCapture, validateTargetHost } from "@clawdlets/core/lib/ssh-remote"
+import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { getRepoLayout, getHostOpenTofuDir } from "@clawlets/core/repo-layout"
+import { capture } from "@clawlets/core/lib/run"
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds"
+import { sshCapture, validateTargetHost } from "@clawlets/core/lib/ssh-remote"
 import {
   extractFirstIpv4,
   isTailscaleIpv4,
   normalizeSingleLineOutput,
   parseBootstrapIpv4FromLogs,
-} from "@clawdlets/core/lib/host-connectivity"
+} from "@clawlets/core/lib/host-connectivity"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
@@ -53,7 +53,7 @@ export const getHostPublicIpv4 = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
 
     const layout = getRepoLayout(repoRoot)
@@ -83,7 +83,7 @@ export const probeHostTailscaleIpv4 = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
     const targetHost = validateTargetHost(data.targetHost)
 
@@ -109,7 +109,7 @@ export const probeSshReachability = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
     const targetHost = validateTargetHost(data.targetHost)
 

@@ -3,23 +3,23 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
-import { applyOpenTofuVars, destroyOpenTofuVars } from "@clawdlets/core/lib/opentofu";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
-import { expandPath } from "@clawdlets/core/lib/path-expand";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { getSshExposureMode, getTailnetMode, loadClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
-import { getHostOpenTofuDir } from "@clawdlets/core/repo-layout";
-import { resolveHostNameOrExit } from "@clawdlets/core/lib/host-resolve";
+import { applyOpenTofuVars, destroyOpenTofuVars } from "@clawlets/core/lib/opentofu";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
+import { expandPath } from "@clawlets/core/lib/path-expand";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { getSshExposureMode, getTailnetMode, loadClawletsConfig } from "@clawlets/core/lib/clawlets-config";
+import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
+import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 
 const infraApply = defineCommand({
   meta: {
     name: "apply",
-    description: "Apply Hetzner OpenTofu for a host (driven by fleet/clawdlets.json).",
+    description: "Apply Hetzner OpenTofu for a host (driven by fleet/clawlets.json).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
   },
   async run({ args }) {
@@ -27,9 +27,9 @@ const infraApply = defineCommand({
     const repoRoot = findRepoRoot(cwd);
     const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
-    const { layout, config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawdletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawdlets.json: ${hostName}`);
+    const { layout, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+    const hostCfg = clawletsConfig.hosts[hostName];
+    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
@@ -37,13 +37,13 @@ const infraApply = defineCommand({
     if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 
     const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
-    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawlets host set --admin-cidr ...)`);
 
     const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
-    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawlets host set --ssh-pubkey-file ...)`);
     const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
     const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded)
       ? sshPubkeyFileExpanded
@@ -82,9 +82,9 @@ const infraDestroy = defineCommand({
     description: "Destroy Hetzner OpenTofu resources for a host (DANGEROUS).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     force: { type: "boolean", description: "Skip confirmation prompt (non-interactive).", default: false },
     dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
   },
@@ -93,9 +93,9 @@ const infraDestroy = defineCommand({
     const repoRoot = findRepoRoot(cwd);
     const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
-    const { layout, config: clawdletsConfig } = loadClawdletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawdletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawdlets.json: ${hostName}`);
+    const { layout, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+    const hostCfg = clawletsConfig.hosts[hostName];
+    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
@@ -103,13 +103,13 @@ const infraDestroy = defineCommand({
     if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 
     const adminCidr = String(hostCfg.provisioning.adminCidr || "").trim();
-    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawdlets host set --admin-cidr ...)`);
+    if (!adminCidr) throw new Error(`missing provisioning.adminCidr for ${hostName} (set via: clawlets host set --admin-cidr ...)`);
 
     const sshPubkeyFileRaw = String(hostCfg.provisioning.sshPubkeyFile || "").trim();
-    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawdlets host set --ssh-pubkey-file ...)`);
+    if (!sshPubkeyFileRaw) throw new Error(`missing provisioning.sshPubkeyFile for ${hostName} (set via: clawlets host set --ssh-pubkey-file ...)`);
     const sshPubkeyFileExpanded = expandPath(sshPubkeyFileRaw);
     const sshPubkeyFile = path.isAbsolute(sshPubkeyFileExpanded)
       ? sshPubkeyFileExpanded
@@ -122,7 +122,7 @@ const infraDestroy = defineCommand({
     const interactive = process.stdin.isTTY && process.stdout.isTTY;
     if (!force) {
       if (!interactive) throw new Error("refusing to destroy without --force (no TTY)");
-      p.intro("clawdlets infra destroy");
+      p.intro("clawlets infra destroy");
       const ok = await p.confirm({
         message: `Destroy Hetzner resources for host ${hostName}?`,
         initialValue: false,

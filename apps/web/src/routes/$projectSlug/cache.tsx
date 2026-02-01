@@ -7,9 +7,9 @@ import { HostCacheSettingsSection } from "~/components/hosts/cache-settings-sect
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { parseLineList } from "~/lib/form-utils"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawdletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
-import { writeClawdletsConfigFile } from "~/sdk/config"
+import { writeClawletsConfigFile } from "~/sdk/config"
 
 function normalizeCache(cache: any): {
   substituters: string[]
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/$projectSlug/cache")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
-    await context.queryClient.ensureQueryData(clawdletsConfigQueryOptions(projectId))
+    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: CachePage,
 })
@@ -48,7 +48,7 @@ function CachePage() {
   const queryClient = useQueryClient()
 
   const cfg = useQuery({
-    ...clawdletsConfigQueryOptions((projectId as Id<"projects"> | null) ?? null),
+    ...clawletsConfigQueryOptions((projectId as Id<"projects"> | null) ?? null),
     enabled: Boolean(projectId),
   })
 
@@ -138,14 +138,14 @@ function CachePage() {
         hosts: nextHosts,
       }
 
-      return await writeClawdletsConfigFile({
+      return await writeClawletsConfigFile({
         data: { projectId: projectId as Id<"projects">, next, title: "Update cache policy" },
       })
     },
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
       } else toast.error("Validation failed")
     },
     onError: (err) => {

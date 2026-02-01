@@ -1,5 +1,5 @@
 {
-  description = "ClawdletFleet (CLF) - opt-in cattle orchestrator";
+  description = "ClawletFleet (CLF) - opt-in cattle orchestrator";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
@@ -8,16 +8,16 @@
   outputs = { self, nixpkgs }:
     let
       lib = nixpkgs.lib;
-      clawdletsSrc = ../../..;
+      clawletsSrc = ../../..;
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: lib.genAttrs systems (system: f system);
 
-      rootSrc = lib.cleanSource clawdletsSrc;
+      rootSrc = lib.cleanSource clawletsSrc;
 
       pnpmWorkspacesClf = [
-        "@clawdlets/shared"
-        "@clawdlets/cattle-core"
-        "@clawdlets/clf-queue"
+        "@clawlets/shared"
+        "@clawlets/cattle-core"
+        "@clawlets/clf-queue"
         "clf"
         "clf-orchestrator"
       ];
@@ -29,7 +29,7 @@
           nodejs = pkgs.nodejs_22;
 
           pnpmDepsClf = pkgs.fetchPnpmDeps {
-            pname = "clawdlets-clf";
+            pname = "clawlets-clf";
             version = "0.1.0";
             src = rootSrc;
             inherit pnpm;
@@ -62,9 +62,9 @@
             runHook preBuild
 
             # Dependencies are installed by pnpmConfigHook (offline, workspace-scoped via pnpmWorkspacesClf).
-            pnpm --filter=@clawdlets/shared build
-            pnpm --filter=@clawdlets/cattle-core build
-            pnpm --filter=@clawdlets/clf-queue build
+            pnpm --filter=@clawlets/shared build
+            pnpm --filter=@clawlets/cattle-core build
+            pnpm --filter=@clawlets/clf-queue build
             pnpm --filter=clf build
             pnpm --filter=clf-orchestrator build
 
@@ -92,7 +92,7 @@
           '';
 
           meta = {
-            description = "ClawdletFleet (bot-facing control plane + orchestrator)";
+            description = "ClawletFleet (bot-facing control plane + orchestrator)";
             mainProgram = "clf";
           };
         };

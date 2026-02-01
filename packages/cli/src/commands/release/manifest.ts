@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { resolveGitRev } from "@clawdlets/core/lib/git";
-import { getHostSecretsDir } from "@clawdlets/core/repo-layout";
-import { createSecretsTar } from "@clawdlets/core/lib/secrets-tar";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
-import { formatReleaseManifest, parseReleaseManifestFile, ReleaseManifestV1Schema } from "@clawdlets/core/lib/release-manifest";
+import { resolveGitRev } from "@clawlets/core/lib/git";
+import { getHostSecretsDir } from "@clawlets/core/repo-layout";
+import { createSecretsTar } from "@clawlets/core/lib/secrets-tar";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
+import { formatReleaseManifest, parseReleaseManifestFile, ReleaseManifestV1Schema } from "@clawlets/core/lib/release-manifest";
 import { buildHostSystemToplevelFromPackage } from "../../lib/nix-toplevel.js";
 import { requireLinuxForLocalNixosBuild } from "../../lib/linux-build.js";
 import { resolveManifestPublicKeys, resolveManifestSignaturePath, signFileWithMinisign, verifyManifestSignature } from "../../lib/manifest-signature.js";
@@ -47,8 +47,8 @@ const manifestBuild = defineCommand({
     description: "Build a signed desired-state release manifest (v1).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     channel: { type: "string", description: "Release channel (staging|prod|...)." },
     system: { type: "string", description: "Nix system (x86_64-linux).", default: "x86_64-linux" },
     releaseId: { type: "string", description: "Monotonic issuance id for this host+channel (integer)." },
@@ -94,7 +94,7 @@ const manifestBuild = defineCommand({
     const nixBin = String(args.nixBin || process.env.NIX_BIN || "nix").trim() || "nix";
     const toplevelArg = String(args.toplevel || "").trim();
     if (!toplevelArg) {
-      requireLinuxForLocalNixosBuild({ platform: process.platform, command: "clawdlets release manifest build" });
+      requireLinuxForLocalNixosBuild({ platform: process.platform, command: "clawlets release manifest build" });
     }
     const toplevel = toplevelArg
       ? String(toplevelArg)
@@ -202,8 +202,8 @@ const manifestVerify = defineCommand({
     description: "Verify a release manifest or pointer signature (minisign).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     in: { type: "string", description: "Input file path (manifest/pointer JSON)." },
     signature: { type: "string", description: "Signature path override (default: <in>.minisig)." },
     publicKey: { type: "string", description: "Minisign public key string (verify)." },
@@ -241,8 +241,8 @@ const manifestPromote = defineCommand({
     description: "Promote an existing release manifest to a different channel (no rebuild; new releaseId).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     in: { type: "string", description: "Input release manifest path." },
     channel: { type: "string", description: "Target release channel (staging|prod|...)." },
     releaseId: { type: "string", description: "Target monotonic issuance id (integer)." },

@@ -3,8 +3,8 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import YAML from "yaml";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { getRepoLayout } from "@clawdlets/core/repo-layout";
-import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdlets/core/lib/sops-rules";
+import { getRepoLayout } from "@clawlets/core/repo-layout";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawlets/core/lib/sops-rules";
 import { makeConfig, baseHost } from "./fixtures.js";
 
 const loadHostContextMock = vi.fn();
@@ -13,23 +13,23 @@ const buildFleetSecretsPlanMock = vi.fn();
 const sopsDecryptMock = vi.fn();
 const agePublicKeyFromIdentityFileMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawdlets/core/lib/fleet-secrets-plan", () => ({
+vi.mock("@clawlets/core/lib/fleet-secrets-plan", () => ({
   buildFleetSecretsPlan: buildFleetSecretsPlanMock,
 }));
 
-vi.mock("@clawdlets/core/lib/age-keygen", () => ({
+vi.mock("@clawlets/core/lib/age-keygen", () => ({
   agePublicKeyFromIdentityFile: agePublicKeyFromIdentityFileMock,
 }));
 
-vi.mock("@clawdlets/core/lib/sops", () => ({
+vi.mock("@clawlets/core/lib/sops", () => ({
   sopsDecryptYamlFile: sopsDecryptMock,
 }));
 
@@ -75,7 +75,7 @@ describe("secrets verify", () => {
   });
 
   it("verifies secrets and prints json", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-verify-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-verify-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
@@ -110,7 +110,7 @@ describe("secrets verify", () => {
   });
 
   it("fails when operator key does not match sops recipients", async () => {
-    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-secrets-verify-"));
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-verify-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",

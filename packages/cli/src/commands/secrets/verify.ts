@@ -3,17 +3,17 @@ import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import YAML from "yaml";
-import { agePublicKeyFromIdentityFile } from "@clawdlets/core/lib/age-keygen";
-import { sopsDecryptYamlFile } from "@clawdlets/core/lib/sops";
-import { sanitizeOperatorId } from "@clawdlets/shared/lib/identifiers";
-import { buildFleetSecretsPlan } from "@clawdlets/core/lib/fleet-secrets-plan";
-import { isPlaceholderSecretValue } from "@clawdlets/core/lib/secrets-init";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
-import { getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
-import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawdlets/core/lib/sops-rules";
-import { getSopsCreationRuleAgeRecipients } from "@clawdlets/core/lib/sops-config";
-import { mapWithConcurrency } from "@clawdlets/core/lib/concurrency";
+import { agePublicKeyFromIdentityFile } from "@clawlets/core/lib/age-keygen";
+import { sopsDecryptYamlFile } from "@clawlets/core/lib/sops";
+import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { isPlaceholderSecretValue } from "@clawlets/core/lib/secrets-init";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
+import { getHostSecretsDir, getLocalOperatorAgeKeyPath } from "@clawlets/core/repo-layout";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
+import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawlets/core/lib/sops-rules";
+import { getSopsCreationRuleAgeRecipients } from "@clawlets/core/lib/sops-config";
+import { mapWithConcurrency } from "@clawlets/core/lib/concurrency";
 
 export const secretsVerify = defineCommand({
   meta: {
@@ -21,9 +21,9 @@ export const secretsVerify = defineCommand({
     description: "Verify secrets decrypt correctly and contain no placeholders.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     operator: {
       type: "string",
       description: "Operator id for age key name (default: $USER). Used if SOPS_AGE_KEY_FILE is not set.",
@@ -94,14 +94,14 @@ export const secretsVerify = defineCommand({
         preflight.push({
           secret: "sops recipients (host secrets)",
           status: "missing",
-          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
         });
       }
       if (hostKeyRecipients.length > 0 && !hostKeyRecipients.includes(operatorPublicKey)) {
         preflight.push({
           secret: "sops recipients (host age key)",
           status: "missing",
-          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+          detail: `operator key ${operatorPublicKey} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
         });
       }
     }

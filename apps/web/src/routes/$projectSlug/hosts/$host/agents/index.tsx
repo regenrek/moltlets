@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { StackedField } from "~/components/ui/stacked-field"
 import { useProjectBySlug } from "~/lib/project-data"
 import { BotRoster, getBotChannels } from "~/components/fleet/bot-roster"
-import { addBot, getClawdletsConfig } from "~/sdk/config"
+import { addBot, getClawletsConfig } from "~/sdk/config"
 import { authClient } from "~/lib/auth-client"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/agents/")({
@@ -68,9 +68,9 @@ function AgentsSetup() {
   const canEdit = project.data?.role === "admin"
 
   const cfg = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     queryFn: async () =>
-      await getClawdletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId) && canQuery,
   })
   const config = cfg.data?.config
@@ -127,7 +127,7 @@ function AgentsSetup() {
       setDisplayName("")
       setBotIdOverride("")
       setBotIdOverrideEnabled(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))

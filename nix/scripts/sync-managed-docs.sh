@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ws="${CLAWDLETS_WORKSPACE_DIR:-}"
-seed_root="${CLAWDLETS_SEED_DIR:-}"
-bot_id="${CLAWDLETS_BOT_ID:-}"
-tools_md="${CLAWDLETS_TOOLS_MD:-/etc/clawdlets/tools.md}"
+ws="${CLAWLETS_WORKSPACE_DIR:-}"
+seed_root="${CLAWLETS_SEED_DIR:-}"
+bot_id="${CLAWLETS_BOT_ID:-}"
+tools_md="${CLAWLETS_TOOLS_MD:-/etc/clawlets/tools.md}"
 
 if [[ -z "${ws}" || -z "${seed_root}" || -z "${bot_id}" ]]; then
-  echo "error: CLAWDLETS_WORKSPACE_DIR, CLAWDLETS_SEED_DIR, and CLAWDLETS_BOT_ID must be set" >&2
+  echo "error: CLAWLETS_WORKSPACE_DIR, CLAWLETS_SEED_DIR, and CLAWLETS_BOT_ID must be set" >&2
   exit 2
 fi
 
@@ -82,11 +82,11 @@ done
 sync_overlay_dir "skills" "${ws}/skills"
 
 if [[ -f "${ws}/TOOLS.md" && -r "${tools_md}" ]]; then
-  if ! grep -q 'clawdlets-tools:begin' "${ws}/TOOLS.md"; then
+  if ! grep -q 'clawlets-tools:begin' "${ws}/TOOLS.md"; then
     {
-      printf '\n<!-- clawdlets-tools:begin -->\n'
+      printf '\n<!-- clawlets-tools:begin -->\n'
       cat "${tools_md}"
-      printf '\n<!-- clawdlets-tools:end -->\n'
+      printf '\n<!-- clawlets-tools:end -->\n'
     } >>"${ws}/TOOLS.md"
   fi
 fi

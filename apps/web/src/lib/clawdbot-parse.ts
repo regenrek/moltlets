@@ -1,4 +1,4 @@
-import { lintClawdbotSecurityConfig } from "@clawdlets/core/lib/clawdbot-security-lint"
+import { lintClawdbotSecurityConfig } from "@clawlets/core/lib/clawdbot-security-lint"
 import { createDebouncedIdleRunner, type IdleDebounceHandle } from "~/lib/idle-debounce"
 
 export type ParsedClawdbotConfig =

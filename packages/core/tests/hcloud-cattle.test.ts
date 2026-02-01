@@ -6,8 +6,8 @@ const ensureHcloudFirewallIdMock = vi.fn();
 const createHcloudServerMock = vi.fn();
 const waitForHcloudServerStatusMock = vi.fn();
 
-vi.mock("@clawdlets/cattle-core/lib/hcloud", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@clawdlets/cattle-core/lib/hcloud")>();
+vi.mock("@clawlets/cattle-core/lib/hcloud", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@clawlets/cattle-core/lib/hcloud")>();
   return {
     ...actual,
     listHcloudServers: listHcloudServersMock,
@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("reapExpiredCattle", () => {
   it("deletes with bounded concurrency", async () => {
-    const { reapExpiredCattle } = await import("@clawdlets/cattle-core/lib/hcloud-cattle");
+    const { reapExpiredCattle } = await import("@clawlets/cattle-core/lib/hcloud-cattle");
     const now = new Date(1_700_000_000_000);
     const nowSec = Math.floor(now.getTime() / 1000);
 
@@ -36,7 +36,7 @@ describe("reapExpiredCattle", () => {
         status: "running",
         created: new Date((nowSec - 1000) * 1000).toISOString(),
         labels: {
-          "managed-by": "clawdlets",
+          "managed-by": "clawlets",
           cattle: "true",
           "created-at": String(nowSec - 1000),
           "expires-at": String(nowSec - 1),
@@ -62,7 +62,7 @@ describe("reapExpiredCattle", () => {
 
 describe("listExpiredCattle", () => {
   it("treats malformed expires-at labels as expired (never-reap hardening)", async () => {
-    const { listExpiredCattle } = await import("@clawdlets/cattle-core/lib/hcloud-cattle");
+    const { listExpiredCattle } = await import("@clawlets/cattle-core/lib/hcloud-cattle");
     const now = new Date(1_700_000_000_000);
     const nowSec = Math.floor(now.getTime() / 1000);
 
@@ -73,7 +73,7 @@ describe("listExpiredCattle", () => {
         status: "running",
         created: new Date((nowSec - 1000) * 1000).toISOString(),
         labels: {
-          "managed-by": "clawdlets",
+          "managed-by": "clawlets",
           cattle: "true",
           "created-at": String(nowSec - 1000),
           "expires-at": "not-a-number",
@@ -89,7 +89,7 @@ describe("listExpiredCattle", () => {
 
 describe("createCattleServer", () => {
   it("caches firewall id between spawns", async () => {
-    const { createCattleServer } = await import("@clawdlets/cattle-core/lib/hcloud-cattle");
+    const { createCattleServer } = await import("@clawlets/cattle-core/lib/hcloud-cattle");
 
     ensureHcloudFirewallIdMock.mockResolvedValue("99");
     createHcloudServerMock.mockImplementation(async (params: any) => ({
@@ -105,7 +105,7 @@ describe("createCattleServer", () => {
       name: "cattle-rex-1",
       status: "running",
       created: new Date("2026-01-01T00:00:00Z").toISOString(),
-      labels: { "created-at": "1", "expires-at": "2", "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t" },
+      labels: { "created-at": "1", "expires-at": "2", "managed-by": "clawlets", cattle: "true", persona: "rex", "task-id": "t" },
       public_net: { ipv4: { ip: "1.2.3.4" } },
     }));
 
@@ -116,7 +116,7 @@ describe("createCattleServer", () => {
       serverType: "cx22",
       location: "nbg1",
       userData: "#cloud-config\n",
-      labels: { "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
+      labels: { "managed-by": "clawlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
     });
 
     await createCattleServer({
@@ -126,7 +126,7 @@ describe("createCattleServer", () => {
       serverType: "cx22",
       location: "nbg1",
       userData: "#cloud-config\n",
-      labels: { "managed-by": "clawdlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
+      labels: { "managed-by": "clawlets", cattle: "true", persona: "rex", "task-id": "t", "created-at": "1", "expires-at": "2" },
     });
 
     expect(ensureHcloudFirewallIdMock).toHaveBeenCalledTimes(1);

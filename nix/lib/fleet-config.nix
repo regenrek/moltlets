@@ -6,9 +6,7 @@ let
   _ =
     if builtins.hasAttr "guildId" fleetCfg
     then builtins.throw "fleet.guildId was removed; configure Discord in fleet.bots.<bot>.clawdbot instead"
-    else null;
-  _ =
-    if builtins.hasAttr "modelSecrets" fleetCfg
+    else if builtins.hasAttr "modelSecrets" fleetCfg
     then builtins.throw "fleet.modelSecrets was removed; use fleet.secretEnv (ENV_VAR -> sops secret name)"
     else null;
 
@@ -46,9 +44,7 @@ let
       _ =
         if builtins.hasAttr "discordTokenSecret" profile
         then builtins.throw "fleet.bots.<bot>.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN"
-        else null;
-      _ =
-        if builtins.hasAttr "modelSecrets" profile
+        else if builtins.hasAttr "modelSecrets" profile
         then builtins.throw "fleet.bots.<bot>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
         else null;
       clawdbot = botCfg.clawdbot or { };

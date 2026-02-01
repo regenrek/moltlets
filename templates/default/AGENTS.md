@@ -6,6 +6,6 @@ rules
 - no shims/workarounds; single source of truth
 
 never commit
-- .clawdlets/
+- .clawlets/
 - *.tfstate*
 - any keys/tokens/ids

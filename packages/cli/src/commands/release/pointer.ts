@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
-import { formatReleasePointer, ReleasePointerV1Schema } from "@clawdlets/core/lib/release-manifest";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
+import { formatReleasePointer, ReleasePointerV1Schema } from "@clawlets/core/lib/release-manifest";
 
 function requireChannel(value: string): string {
   const v = value.trim();
@@ -30,8 +30,8 @@ const pointerWrite = defineCommand({
     description: "Write latest.json pointer for a host+channel (signed separately).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     channel: { type: "string", description: "Release channel (staging|prod|...)." },
     releaseId: { type: "string", description: "Monotonic issuance id for this host+channel (integer)." },
     file: { type: "string", description: "Optional immutable manifest filename (default: <releaseId>.json)." },

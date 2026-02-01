@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { z } from "zod";
-import { HostNameSchema } from "@clawdlets/shared/lib/identifiers";
+import { HostNameSchema } from "@clawlets/shared/lib/identifiers";
 
 const SYSTEM_RE = /^[a-z0-9_]+-[a-z0-9_]+$/;
 const CHANNEL_RE = /^[a-z][a-z0-9-]*$/;

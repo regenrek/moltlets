@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
-import { findEnvVarRefs } from "@clawdlets/core/lib/env-var-refs"
-import { suggestSecretNameForEnvVar } from "@clawdlets/core/lib/fleet-secrets-plan-helpers"
-import { getKnownLlmProviders, getProviderRequiredEnvVars } from "@clawdlets/shared/lib/llm-provider-env"
+import { findEnvVarRefs } from "@clawlets/core/lib/env-var-refs"
+import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/fleet-secrets-plan-helpers"
+import { getKnownLlmProviders, getProviderRequiredEnvVars } from "@clawlets/shared/lib/llm-provider-env"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -183,7 +183,7 @@ export function BotIntegrations(props: {
         return
       }
       toast.success("Secret wiring updated")
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", props.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
     },
     onError: (err) => toast.error(String(err)),
   })
@@ -222,7 +222,7 @@ export function BotIntegrations(props: {
     },
     onSuccess: () => {
       toast.success("Promoted to fleet")
-      void queryClient.invalidateQueries({ queryKey: ["clawdletsConfig", props.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
     },
     onError: (err) => toast.error(String(err)),
   })

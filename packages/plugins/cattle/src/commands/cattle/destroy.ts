@@ -1,7 +1,7 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { loadDeployCreds } from "@clawdlets/core/lib/deploy-creds";
-import { safeCattleLabelValue } from "@clawdlets/cattle-core/lib/cattle-planner";
+import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
+import { safeCattleLabelValue } from "@clawlets/cattle-core/lib/cattle-planner";
 import { openCattleState } from "../../lib/cattle-state.js";
 import {
   CATTLE_LABEL_PERSONA,
@@ -9,16 +9,16 @@ import {
   destroyCattleServer,
   listCattleServers,
   type CattleServer,
-} from "@clawdlets/cattle-core/lib/hcloud-cattle";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+} from "@clawlets/cattle-core/lib/hcloud-cattle";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 import { formatTable, requireEnabled, resolveOne, unixSecondsNow } from "./common.js";
 
 export const cattleDestroy = defineCommand({
   meta: { name: "destroy", description: "Destroy cattle servers (Hetzner delete)." },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     idOrName: { type: "string", description: "Cattle server id or name." },
     all: { type: "boolean", description: "Destroy all cattle servers.", default: false },
     persona: { type: "string", description: "Filter by persona (with --all)." },
@@ -32,12 +32,12 @@ export const cattleDestroy = defineCommand({
 
     requireEnabled({
       enabled: Boolean(config.cattle?.enabled),
-      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawdlets.json)",
+      hint: "cattle is disabled (set cattle.enabled=true in fleet/clawlets.json)",
     });
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawdlets/env or env var; run: clawdlets env init)");
+    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
 
     const personaFilterRaw = String((args as any).persona || "").trim();
     const personaFilter = personaFilterRaw ? safeCattleLabelValue(personaFilterRaw, "persona") : "";

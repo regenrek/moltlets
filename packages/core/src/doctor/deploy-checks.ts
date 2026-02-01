@@ -18,10 +18,10 @@ import type { DoctorCheck } from "./types.js";
 import {
   getSshExposureMode,
   isPublicSshExposure,
-  loadClawdletsConfig,
-  type ClawdletsConfig,
-  type ClawdletsHostConfig,
-} from "../lib/clawdlets-config.js";
+  loadClawletsConfig,
+  type ClawletsConfig,
+  type ClawletsHostConfig,
+} from "../lib/clawlets-config.js";
 import { isPlaceholderSecretValue } from "../lib/secrets-init.js";
 import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "../lib/github.js";
 import { tryGetOriginFlake } from "../lib/git.js";
@@ -70,7 +70,7 @@ export async function addDeployChecks(params: {
     push({
       status: params.hcloudToken ? "ok" : "missing",
       label: "HCLOUD_TOKEN",
-      detail: params.hcloudToken ? "(set)" : "(set in .clawdlets/env or env var; run: clawdlets env init)",
+      detail: params.hcloudToken ? "(set)" : "(set in .clawlets/env or env var; run: clawlets env init)",
     });
   }
 
@@ -114,36 +114,36 @@ export async function addDeployChecks(params: {
     detail: params.layout.sopsConfigPath,
   });
 
-  let clawdletsCfg: ClawdletsConfig | null = null;
-  let clawdletsHostCfg: ClawdletsHostConfig | null = null;
-  let clawdletsConfigError: string | null = null;
+  let clawletsCfg: ClawletsConfig | null = null;
+  let clawletsHostCfg: ClawletsHostConfig | null = null;
+  let clawletsConfigError: string | null = null;
   try {
-    const loaded = loadClawdletsConfig({ repoRoot: params.repoRoot });
-    clawdletsCfg = loaded.config;
-    clawdletsHostCfg = loaded.config.hosts?.[host] ?? null;
+    const loaded = loadClawletsConfig({ repoRoot: params.repoRoot });
+    clawletsCfg = loaded.config;
+    clawletsHostCfg = loaded.config.hosts?.[host] ?? null;
   } catch (err) {
-    clawdletsConfigError = String((err as Error)?.message || err);
+    clawletsConfigError = String((err as Error)?.message || err);
   }
 
-  if (clawdletsConfigError) {
+  if (clawletsConfigError) {
     push({
       status: "warn",
-      label: "clawdlets config",
-      detail: clawdletsConfigError,
+      label: "clawlets config",
+      detail: clawletsConfigError,
     });
   }
 
-  if (!clawdletsConfigError && !clawdletsHostCfg) {
-    push({ status: "warn", label: "host config", detail: `(missing host in fleet/clawdlets.json: ${host})` });
-  } else if (clawdletsHostCfg) {
+  if (!clawletsConfigError && !clawletsHostCfg) {
+    push({ status: "warn", label: "host config", detail: `(missing host in fleet/clawlets.json: ${host})` });
+  } else if (clawletsHostCfg) {
     push({
-      status: clawdletsHostCfg.enable ? "ok" : "warn",
+      status: clawletsHostCfg.enable ? "ok" : "warn",
       label: "services.clawdbotFleet.enable",
-      detail: clawdletsHostCfg.enable ? "(true)" : "(false; host will install but fleet services/VPN won't run until enabled)",
+      detail: clawletsHostCfg.enable ? "(true)" : "(false; host will install but fleet services/VPN won't run until enabled)",
     });
 
     {
-      const mode = getSshExposureMode(clawdletsHostCfg);
+      const mode = getSshExposureMode(clawletsHostCfg);
       const isPublic = isPublicSshExposure(mode);
       push({
         status: isPublic ? "warn" : "ok",
@@ -152,7 +152,7 @@ export async function addDeployChecks(params: {
       });
     }
 
-    const mode = String(clawdletsHostCfg.tailnet?.mode || "none");
+    const mode = String(clawletsHostCfg.tailnet?.mode || "none");
     if (mode === "none") {
       push({ status: "warn", label: "tailnet configured", detail: "(tailnet.mode=none)" });
     } else if (mode === "tailscale") {
@@ -162,8 +162,8 @@ export async function addDeployChecks(params: {
     }
   }
 
-  if (clawdletsCfg) {
-    const baseResolved = await resolveBaseFlake({ repoRoot: params.repoRoot, config: clawdletsCfg });
+  if (clawletsCfg) {
+    const baseResolved = await resolveBaseFlake({ repoRoot: params.repoRoot, config: clawletsCfg });
     push({
       status: baseResolved.flake ? "ok" : "warn",
       label: "base flake",
@@ -171,17 +171,17 @@ export async function addDeployChecks(params: {
     });
   }
 
-  if (clawdletsHostCfg) {
+  if (clawletsHostCfg) {
     if (isUpdates) {
       push({
-        status: clawdletsHostCfg.targetHost ? "ok" : "warn",
+        status: clawletsHostCfg.targetHost ? "ok" : "warn",
         label: "targetHost",
-        detail: clawdletsHostCfg.targetHost || "(unset; required for lockdown/server ops)",
+        detail: clawletsHostCfg.targetHost || "(unset; required for lockdown/server ops)",
       });
     }
 
     if (isBootstrap) {
-      const serverType = String(clawdletsHostCfg.hetzner?.serverType || "").trim();
+      const serverType = String(clawletsHostCfg.hetzner?.serverType || "").trim();
       push({
         status: serverType ? "ok" : "missing",
         label: "hetzner.serverType",
@@ -189,19 +189,19 @@ export async function addDeployChecks(params: {
       });
 
       {
-        const diskDevice = String((clawdletsHostCfg as any).diskDevice || "").trim();
+        const diskDevice = String((clawletsHostCfg as any).diskDevice || "").trim();
         if (!diskDevice) {
-          push({ status: "missing", label: "diskDevice", detail: "(unset; set via: clawdlets host set --disk-device /dev/sda)" });
+          push({ status: "missing", label: "diskDevice", detail: "(unset; set via: clawlets host set --disk-device /dev/sda)" });
         } else if (!diskDevice.startsWith("/dev/")) {
           push({ status: "missing", label: "diskDevice", detail: `(invalid: ${diskDevice}; expected /dev/... )` });
         } else if (diskDevice.includes("CHANGE_ME")) {
-          push({ status: "missing", label: "diskDevice", detail: `(placeholder: ${diskDevice}; set via: clawdlets host set --disk-device /dev/sda)` });
+          push({ status: "missing", label: "diskDevice", detail: `(placeholder: ${diskDevice}; set via: clawlets host set --disk-device /dev/sda)` });
         } else {
           push({ status: "ok", label: "diskDevice", detail: diskDevice });
         }
       }
 
-      const adminCidr = String(clawdletsHostCfg.provisioning?.adminCidr || "").trim();
+      const adminCidr = String(clawletsHostCfg.provisioning?.adminCidr || "").trim();
       push({
         status: adminCidr ? "ok" : "missing",
         label: "provisioning.adminCidr",
@@ -209,7 +209,7 @@ export async function addDeployChecks(params: {
       });
 
       {
-        const raw = String(clawdletsHostCfg.provisioning?.sshPubkeyFile || "").trim();
+        const raw = String(clawletsHostCfg.provisioning?.sshPubkeyFile || "").trim();
         if (!raw) {
           push({ status: "missing", label: "provisioning ssh pubkey file", detail: "(unset)" });
         } else if (looksLikeSshKeyContents(raw)) {
@@ -225,12 +225,12 @@ export async function addDeployChecks(params: {
 
           const sshKey = fs.existsSync(abs) ? normalizeSshPublicKey(fs.readFileSync(abs, "utf8")) : null;
           if (sshKey) {
-            const authorized = ((clawdletsCfg as any).fleet?.sshAuthorizedKeys || []) as string[];
+            const authorized = ((clawletsCfg as any).fleet?.sshAuthorizedKeys || []) as string[];
             const has = authorized.some((k) => normalizeSshPublicKey(k) === sshKey);
             push({
               status: has ? "ok" : "warn",
               label: "admin authorizedKeys includes ssh pubkey file",
-              detail: has ? "(ok)" : `(add your key via: clawdlets host set --add-ssh-key-file ${raw})`,
+              detail: has ? "(ok)" : `(add your key via: clawlets host set --add-ssh-key-file ${raw})`,
             });
           }
         }
@@ -265,7 +265,7 @@ export async function addDeployChecks(params: {
 
     let secretsPlan: ReturnType<typeof buildFleetSecretsPlan> | null = null;
     try {
-      if (clawdletsCfg) secretsPlan = buildFleetSecretsPlan({ config: clawdletsCfg as any, hostName: host });
+      if (clawletsCfg) secretsPlan = buildFleetSecretsPlan({ config: clawletsCfg as any, hostName: host });
     } catch (e) {
       push({ status: "warn", label: "fleet secrets plan", detail: String((e as Error)?.message || e) });
       secretsPlan = null;
@@ -387,14 +387,14 @@ export async function addDeployChecks(params: {
               push({
                 status: "missing",
                 label: "sops recipients (host secrets)",
-                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostSecretsRecipients)}; run: clawlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
               });
             }
             if (hostKeyRecipients.length > 0 && !hostKeyRecipients.includes(operatorPub)) {
               push({
                 status: "missing",
                 label: "sops recipients (host age key)",
-                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawdlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
+                detail: `operator key ${operatorPub} not in recipients: ${formatRecipients(hostKeyRecipients)}; run: clawlets secrets init --yes (or set SOPS_AGE_KEY_FILE to the matching key)`,
               });
             }
           } catch (e) {
@@ -418,7 +418,7 @@ export async function addDeployChecks(params: {
         try {
           const rel = getHostSecretsSopsCreationRulePathSuffix(params.layout, host);
           const expected = getHostSecretsSopsCreationRulePathRegex(params.layout, host);
-          checkRule("sops creation rule (host secrets)", expected, `(missing rule for ${rel}/*.yaml; run: clawdlets secrets init)`);
+          checkRule("sops creation rule (host secrets)", expected, `(missing rule for ${rel}/*.yaml; run: clawlets secrets init)`);
         } catch (e) {
           push({ status: "warn", label: "sops creation rule (host secrets)", detail: String((e as Error)?.message || e) });
         }
@@ -426,7 +426,7 @@ export async function addDeployChecks(params: {
         try {
           const rel = getHostAgeKeySopsCreationRulePathSuffix(params.layout, host);
           const expected = getHostAgeKeySopsCreationRulePathRegex(params.layout, host);
-          checkRule("sops creation rule (host age key)", expected, `(missing rule for ${rel}; run: clawdlets secrets init)`);
+          checkRule("sops creation rule (host age key)", expected, `(missing rule for ${rel}; run: clawlets secrets init)`);
         } catch (e) {
           push({ status: "warn", label: "sops creation rule (host age key)", detail: String((e as Error)?.message || e) });
         }
@@ -452,7 +452,7 @@ export async function addDeployChecks(params: {
     return;
   }
 
-  const flakeResolved = clawdletsCfg ? (await resolveBaseFlake({ repoRoot: params.repoRoot, config: clawdletsCfg })).flake : null;
+  const flakeResolved = clawletsCfg ? (await resolveBaseFlake({ repoRoot: params.repoRoot, config: clawletsCfg })).flake : null;
   const flakeBase = flakeResolved || (await tryGetOriginFlake(params.repoRoot)) || params.repoRoot;
   const githubRepo = tryParseGithubFlakeUri(flakeBase);
 

@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureHcloudSshKeyId } from "@clawdlets/cattle-core/lib/hcloud";
-import type { SshExposureMode, TailnetMode } from "./clawdlets-config.js";
+import { ensureHcloudSshKeyId } from "@clawlets/cattle-core/lib/hcloud";
+import type { SshExposureMode, TailnetMode } from "./clawlets-config.js";
 import { run } from "./run.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 

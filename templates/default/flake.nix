@@ -2,19 +2,19 @@
   description = "__PROJECT_NAME__";
 
   inputs = {
-    clawdlets.url = "github:regenrek/clawdlets";
+    clawlets.url = "github:regenrek/clawlets";
   };
 
-  outputs = { self, clawdlets, ... }:
+  outputs = { self, clawlets, ... }:
     let
       system = "x86_64-linux";
-      nixpkgs = clawdlets.inputs.nixpkgs;
+      nixpkgs = clawlets.inputs.nixpkgs;
       lib = nixpkgs.lib;
 
-      cfg = builtins.fromJSON (builtins.readFile ./fleet/clawdlets.json);
+      cfg = builtins.fromJSON (builtins.readFile ./fleet/clawlets.json);
       hostNames =
         if builtins.attrNames (cfg.hosts or { }) == [ ] then
-          throw "fleet/clawdlets.json must define at least one host under .hosts"
+          throw "fleet/clawlets.json must define at least one host under .hosts"
         else
           builtins.attrNames cfg.hosts;
       imageHostNames =
@@ -35,7 +35,7 @@
       };
 
       flakeInfo = {
-        clawdlets = {
+        clawlets = {
           rev = self.rev or null;
           lastModifiedDate = self.lastModifiedDate or null;
         };
@@ -44,13 +44,13 @@
           lastModifiedDate = nixpkgs.lastModifiedDate or null;
         };
         nix-clawdbot = {
-          rev = clawdlets.inputs.nix-clawdbot.rev or null;
-          lastModifiedDate = clawdlets.inputs.nix-clawdbot.lastModifiedDate or null;
+          rev = clawlets.inputs.nix-clawdbot.rev or null;
+          lastModifiedDate = clawlets.inputs.nix-clawdbot.lastModifiedDate or null;
         };
         clawdbot =
-          if clawdlets.inputs ? clawdbot-src then {
-            rev = clawdlets.inputs.clawdbot-src.rev or null;
-            lastModifiedDate = clawdlets.inputs.clawdbot-src.lastModifiedDate or null;
+          if clawlets.inputs ? clawdbot-src then {
+            rev = clawlets.inputs.clawdbot-src.rev or null;
+            lastModifiedDate = clawlets.inputs.clawdbot-src.lastModifiedDate or null;
           } else {
             rev = null;
             lastModifiedDate = null;
@@ -62,28 +62,28 @@
           hostConfigs = lib.genAttrs hostNames (hostName:
             lib.nixosSystem {
               inherit system;
-              specialArgs = { inherit clawdlets flakeInfo project; nix-clawdbot = clawdlets.inputs.nix-clawdbot; };
+              specialArgs = { inherit clawlets flakeInfo project; nix-clawdbot = clawlets.inputs.nix-clawdbot; };
               modules = [
-                clawdlets.inputs.disko.nixosModules.disko
-                clawdlets.inputs.nixos-generators.nixosModules.all-formats
-                clawdlets.inputs.sops-nix.nixosModules.sops
-                ({ ... }: { clawdlets.hostName = hostName; })
-                clawdlets.nixosModules.clawdletsProjectHost
+                clawlets.inputs.disko.nixosModules.disko
+                clawlets.inputs.nixos-generators.nixosModules.all-formats
+                clawlets.inputs.sops-nix.nixosModules.sops
+                ({ ... }: { clawlets.hostName = hostName; })
+                clawlets.nixosModules.clawletsProjectHost
               ];
             });
 
           cattleConfig = lib.nixosSystem {
             inherit system;
-            specialArgs = { inherit clawdlets flakeInfo project; nix-clawdbot = clawdlets.inputs.nix-clawdbot; };
+            specialArgs = { inherit clawlets flakeInfo project; nix-clawdbot = clawlets.inputs.nix-clawdbot; };
             modules = [
-              clawdlets.inputs.disko.nixosModules.disko
-              clawdlets.inputs.nixos-generators.nixosModules.all-formats
-              clawdlets.nixosModules.clawdletsCattleImage
+              clawlets.inputs.disko.nixosModules.disko
+              clawlets.inputs.nixos-generators.nixosModules.all-formats
+              clawlets.nixosModules.clawletsCattleImage
             ];
           };
         in
           hostConfigs // {
-            clawdlets-cattle = cattleConfig;
+            clawlets-cattle = cattleConfig;
           };
 
       packages = {
@@ -103,9 +103,9 @@
             byHost
             // byHostImages
             // {
-              clawdlets-cattle-image = self.nixosConfigurations.clawdlets-cattle.config.formats.raw;
-              clawdlets-cattle-system = self.nixosConfigurations.clawdlets-cattle.config.system.build.toplevel;
-              clawdlets = clawdlets.packages.${system}.clawdlets;
+              clawlets-cattle-image = self.nixosConfigurations.clawlets-cattle.config.formats.raw;
+              clawlets-cattle-system = self.nixosConfigurations.clawlets-cattle.config.system.build.toplevel;
+              clawlets = clawlets.packages.${system}.clawlets;
             }
             // (
               if first == null then
@@ -117,7 +117,7 @@
             )
             // (
               if firstImage == null then
-                { defaultImage = self.nixosConfigurations.clawdlets-cattle.config.formats.raw; }
+                { defaultImage = self.nixosConfigurations.clawlets-cattle.config.formats.raw; }
               else
                 { defaultImage = byHostImages."${firstImage}-image"; }
             );

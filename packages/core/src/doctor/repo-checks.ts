@@ -6,12 +6,12 @@ import { findInlineScriptingViolations } from "../lib/inline-script-ban.js";
 import { validateDocsIndexIntegrity } from "../lib/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/fleet-policy.js";
 import { evalFleetConfig } from "../lib/fleet-nix-eval.js";
-import { ClawdletsConfigSchema, type ClawdletsConfig } from "../lib/clawdlets-config.js";
+import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/clawlets-config.js";
 import { buildClawdbotBotConfig } from "../lib/clawdbot-config-invariants.js";
 import { lintClawdbotSecurityConfig } from "../lib/clawdbot-security-lint.js";
 import { checkSchemaVsNixClawdbot } from "./schema-checks.js";
 import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
-import { evalWheelAccess, getClawdletsRevFromFlakeLock } from "./repo-checks-nix.js";
+import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
 import type { DoctorPush } from "./types.js";
 import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./util.js";
 
@@ -37,7 +37,7 @@ export async function addRepoChecks(params: {
 
   let fleet: FleetConfig | null = null;
   let fleetBots: string[] | null = null;
-  let clawdletsConfig: ClawdletsConfig | null = null;
+  let clawletsConfig: ClawletsConfig | null = null;
 
   params.push({
     scope: "repo",
@@ -46,25 +46,25 @@ export async function addRepoChecks(params: {
     detail: repoRoot,
   });
 
-  // Check clawdlets input in flake.lock (informational)
+  // Check clawlets input in flake.lock (informational)
   {
-    const flakeRev = getClawdletsRevFromFlakeLock(repoRoot);
+    const flakeRev = getClawletsRevFromFlakeLock(repoRoot);
     if (flakeRev) {
       params.push({
         scope: "repo",
         status: "ok",
-        label: "clawdlets flake input",
+        label: "clawlets flake input",
         detail: `rev: ${flakeRev.slice(0, 12)}...`,
       });
     } else {
       const flakeLockExists = fs.existsSync(path.join(repoRoot, "flake.lock"));
       if (flakeLockExists) {
-        // flake.lock exists but no clawdlets input - might be a different project type
+        // flake.lock exists but no clawlets input - might be a different project type
         params.push({
           scope: "repo",
           status: "warn",
-          label: "clawdlets flake input",
-          detail: "(no clawdlets input found in flake.lock)",
+          label: "clawlets flake input",
+          detail: "(no clawlets input found in flake.lock)",
         });
       }
       // If flake.lock doesn't exist, skip this check silently (test environments, etc.)
@@ -113,14 +113,14 @@ export async function addRepoChecks(params: {
       });
     } else {
       try {
-        const out = await capture("git", ["ls-files", "-z", "--", ".clawdlets", "infra/secrets", "secrets"], { cwd: repoRoot });
+        const out = await capture("git", ["ls-files", "-z", "--", ".clawlets", "infra/secrets", "secrets"], { cwd: repoRoot });
         const tracked = out.split("\0").filter(Boolean);
-        const trackedClawdlets = tracked.filter((p) => p === ".clawdlets" || p.startsWith(".clawdlets/"));
+        const trackedClawlets = tracked.filter((p) => p === ".clawlets" || p.startsWith(".clawlets/"));
         const trackedLegacySecrets = tracked.filter((p) => p === "infra/secrets" || p.startsWith("infra/secrets/"));
         const trackedPlainAgeKeys = tracked.filter((p) => p.startsWith("secrets/") && p.endsWith(".agekey"));
 
-        if (trackedClawdlets.length > 0 || trackedLegacySecrets.length > 0 || trackedPlainAgeKeys.length > 0) {
-          const bad = [...trackedClawdlets, ...trackedLegacySecrets, ...trackedPlainAgeKeys];
+        if (trackedClawlets.length > 0 || trackedLegacySecrets.length > 0 || trackedPlainAgeKeys.length > 0) {
+          const bad = [...trackedClawlets, ...trackedLegacySecrets, ...trackedPlainAgeKeys];
           params.push({
             scope: "repo",
             status: "missing",
@@ -132,7 +132,7 @@ export async function addRepoChecks(params: {
             scope: "repo",
             status: "ok",
             label: "public repo hygiene",
-            detail: "(no tracked .clawdlets; no infra/secrets; no plaintext *.agekey in /secrets)",
+            detail: "(no tracked .clawlets; no infra/secrets; no plaintext *.agekey in /secrets)",
           });
         }
       } catch {
@@ -268,7 +268,7 @@ export async function addRepoChecks(params: {
         scope: "repo",
         status: "ok",
         label: "fleet config secrets",
-        detail: scan.files.length > 0 ? `(scanned ${scan.files.length} clawdlets.json)` : "(no clawdlets.json found)",
+        detail: scan.files.length > 0 ? `(scanned ${scan.files.length} clawlets.json)` : "(no clawlets.json found)",
       });
     }
 
@@ -288,47 +288,47 @@ export async function addRepoChecks(params: {
           status: "ok",
           label: "template fleet config secrets",
           detail:
-            scanTemplate.files.length > 0 ? `(scanned ${scanTemplate.files.length} clawdlets.json)` : "(no clawdlets.json found)",
+            scanTemplate.files.length > 0 ? `(scanned ${scanTemplate.files.length} clawlets.json)` : "(no clawlets.json found)",
         });
       }
     }
   }
 
   {
-    const configPath = layout.clawdletsConfigPath;
+    const configPath = layout.clawletsConfigPath;
     if (!fs.existsSync(configPath)) {
-      params.push({ scope: "repo", status: "missing", label: "clawdlets config", detail: configPath });
+      params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: configPath });
     } else {
       try {
         const raw = fs.readFileSync(configPath, "utf8");
         const parsed = JSON.parse(raw);
-        clawdletsConfig = ClawdletsConfigSchema.parse(parsed);
-        params.push({ scope: "repo", status: "ok", label: "clawdlets config", detail: path.relative(repoRoot, configPath) });
+        clawletsConfig = ClawletsConfigSchema.parse(parsed);
+        params.push({ scope: "repo", status: "ok", label: "clawlets config", detail: path.relative(repoRoot, configPath) });
       } catch (e) {
-        params.push({ scope: "repo", status: "missing", label: "clawdlets config", detail: String((e as Error)?.message || e) });
+        params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: String((e as Error)?.message || e) });
       }
     }
 
     if (templateRoot) {
-      const templateConfigPath = path.join(templateRoot, "fleet", "clawdlets.json");
+      const templateConfigPath = path.join(templateRoot, "fleet", "clawlets.json");
       if (!fs.existsSync(templateConfigPath)) {
-        params.push({ scope: "repo", status: "missing", label: "template clawdlets config", detail: templateConfigPath });
+        params.push({ scope: "repo", status: "missing", label: "template clawlets config", detail: templateConfigPath });
       } else {
         try {
           const raw = fs.readFileSync(templateConfigPath, "utf8");
           const parsed = JSON.parse(raw);
-          ClawdletsConfigSchema.parse(parsed);
+          ClawletsConfigSchema.parse(parsed);
           params.push({
             scope: "repo",
             status: "ok",
-            label: "template clawdlets config",
+            label: "template clawlets config",
             detail: path.relative(repoRoot, templateConfigPath),
           });
         } catch (e) {
           params.push({
             scope: "repo",
             status: "missing",
-            label: "template clawdlets config",
+            label: "template clawlets config",
             detail: String((e as Error)?.message || e),
           });
         }
@@ -337,13 +337,13 @@ export async function addRepoChecks(params: {
 
   }
 
-  if (clawdletsConfig) {
-    const bots = Array.isArray(clawdletsConfig?.fleet?.botOrder) ? clawdletsConfig.fleet.botOrder : [];
+  if (clawletsConfig) {
+    const bots = Array.isArray(clawletsConfig?.fleet?.botOrder) ? clawletsConfig.fleet.botOrder : [];
     for (const botRaw of bots) {
       const bot = String(botRaw || "").trim();
       if (!bot) continue;
       try {
-        const merged = buildClawdbotBotConfig({ config: clawdletsConfig, bot }).merged;
+        const merged = buildClawdbotBotConfig({ config: clawletsConfig, bot }).merged;
         const report = lintClawdbotSecurityConfig({ clawdbot: merged, botId: bot });
         const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
         const top = report.findings
@@ -388,7 +388,7 @@ export async function addRepoChecks(params: {
     });
 
     {
-      const r = validateFleetPolicy({ filePath: layout.clawdletsConfigPath, fleet, knownBundledSkills: bundledSkills.skills });
+      const r = validateFleetPolicy({ filePath: layout.clawletsConfigPath, fleet, knownBundledSkills: bundledSkills.skills });
       if (!r.ok) {
         const first = r.violations[0]!;
         params.push({
@@ -411,7 +411,7 @@ export async function addRepoChecks(params: {
         detail: `(bots: ${tplFleet.bots.length})`,
       });
 
-      const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawdlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
+      const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
       if (!r.ok) {
         const first = r.violations[0]!;
         params.push({

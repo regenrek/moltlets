@@ -1,16 +1,16 @@
 import { createServerFn } from "@tanstack/react-start"
-import { migrateClawdletsConfigToV12 } from "@clawdlets/core/lib/clawdlets-config-migrate"
-import { ClawdletsConfigSchema, writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config"
-import { getRepoLayout } from "@clawdlets/core/repo-layout"
+import { migrateClawletsConfigToV12 } from "@clawlets/core/lib/clawlets-config-migrate"
+import { ClawletsConfigSchema, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { getRepoLayout } from "@clawlets/core/repo-layout"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { getRepoRoot } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
 import { readFile } from "node:fs/promises"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
 
-export const migrateClawdletsConfigFileToV12 = createServerFn({ method: "POST" })
+export const migrateClawletsConfigFileToV12 = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     return parseProjectIdInput(data)
   })
@@ -21,9 +21,9 @@ export const migrateClawdletsConfigFileToV12 = createServerFn({ method: "POST" }
 
     const repoRoot = await getRepoRoot(client, data.projectId)
     const layout = getRepoLayout(repoRoot)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
 
-    const rawText = await readFile(layout.clawdletsConfigPath, "utf8")
+    const rawText = await readFile(layout.clawletsConfigPath, "utf8")
     let parsed: unknown
     try {
       parsed = JSON.parse(rawText)
@@ -34,10 +34,10 @@ export const migrateClawdletsConfigFileToV12 = createServerFn({ method: "POST" }
       }
     }
 
-    const res = migrateClawdletsConfigToV12(parsed)
+    const res = migrateClawletsConfigToV12(parsed)
     if (!res.changed) return { ok: true as const, changed: false as const, warnings: res.warnings }
 
-    const validated = ClawdletsConfigSchema.safeParse(res.migrated)
+    const validated = ClawletsConfigSchema.safeParse(res.migrated)
     if (!validated.success) {
       return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
     }
@@ -45,7 +45,7 @@ export const migrateClawdletsConfigFileToV12 = createServerFn({ method: "POST" }
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: "Migrate fleet/clawdlets.json to schemaVersion 12",
+      title: "Migrate fleet/clawlets.json to schemaVersion 12",
     })
 
     type MigrateRunResult =
@@ -59,14 +59,14 @@ export const migrateClawdletsConfigFileToV12 = createServerFn({ method: "POST" }
       fn: async (emit) => {
         await emit({ level: "info", message: "Migrating config…" })
         for (const w of res.warnings) await emit({ level: "warn", message: w })
-        await writeClawdletsConfig({ configPath: layout.clawdletsConfigPath, config: validated.data })
+        await writeClawletsConfig({ configPath: layout.clawletsConfigPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onAfterEvents: async () => {
         await client.mutation(api.auditLogs.append, {
           projectId: data.projectId,
           action: "config.migrate",
-          target: { to: 12, file: "fleet/clawdlets.json" },
+          target: { to: 12, file: "fleet/clawlets.json" },
           data: { runId, warnings: res.warnings },
         })
       },

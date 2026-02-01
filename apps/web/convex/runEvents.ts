@@ -1,4 +1,4 @@
-import { RUN_EVENT_LEVELS } from "@clawdlets/core/lib/run-constants";
+import { RUN_EVENT_LEVELS } from "@clawlets/core/lib/run-constants";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 

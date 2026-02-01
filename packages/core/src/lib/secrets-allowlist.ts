@@ -1,8 +1,8 @@
-import type { ClawdletsConfig } from "./clawdlets-config.js";
+import type { ClawletsConfig } from "./clawlets-config.js";
 import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
 
 export function buildManagedHostSecretNameAllowlist(params: {
-  config: ClawdletsConfig;
+  config: ClawletsConfig;
   host: string;
 }): Set<string> {
   const host = params.host.trim();

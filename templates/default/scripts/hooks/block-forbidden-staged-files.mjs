@@ -32,6 +32,6 @@ if (blocked.length === 0) process.exit(0);
 console.error("blocked: forbidden file(s) staged:");
 for (const f of blocked) console.error(`- ${f}`);
 console.error("");
-console.error("fix: unstage/remove, or move to .clawdlets/ (ignored).");
+console.error("fix: unstage/remove, or move to .clawlets/ (ignored).");
 console.error("If this is intentional, update .forbidden-paths.regex.");
 process.exit(1);

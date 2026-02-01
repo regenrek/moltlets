@@ -2,15 +2,15 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import crypto from "node:crypto"
 
-import { getRepoLayout, getBotWorkspaceDir } from "@clawdlets/core/repo-layout"
-import { ensureDir, pathExists, writeFileAtomic } from "@clawdlets/core/lib/fs-safe"
-import { isFleetWorkspaceEditableDoc, FLEET_WORKSPACE_EDITABLE_DOCS } from "@clawdlets/core/lib/fleet-workspaces"
-import { moveToTrash } from "@clawdlets/core/lib/fs-trash"
+import { getRepoLayout, getBotWorkspaceDir } from "@clawlets/core/repo-layout"
+import { ensureDir, pathExists, writeFileAtomic } from "@clawlets/core/lib/fs-safe"
+import { isFleetWorkspaceEditableDoc, FLEET_WORKSPACE_EDITABLE_DOCS } from "@clawlets/core/lib/fleet-workspaces"
+import { moveToTrash } from "@clawlets/core/lib/fs-trash"
 
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { runWithEventsAndStatus } from "~/sdk/run-with-events"
 import { getRepoRoot } from "~/sdk/repo-root"
 import type {
@@ -160,7 +160,7 @@ export async function writeWorkspaceDocServer(params: {
     }
   }
 
-  const redactTokens = await readClawdletsEnvTokens(repoRoot)
+  const redactTokens = await readClawletsEnvTokens(repoRoot)
   const { runId } = await client.mutation(api.runs.create, {
     projectId: params.projectId,
     kind: "workspace_write",
@@ -224,7 +224,7 @@ export async function resetWorkspaceDocOverrideServer(params: {
     }
   }
 
-  const redactTokens = await readClawdletsEnvTokens(repoRoot)
+  const redactTokens = await readClawletsEnvTokens(repoRoot)
   const { runId } = await client.mutation(api.runs.create, {
     projectId: params.projectId,
     kind: "workspace_write",

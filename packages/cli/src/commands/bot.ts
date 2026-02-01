@@ -1,8 +1,8 @@
 import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { ClawdletsConfigSchema, loadClawdletsConfig, writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { ClawletsConfigSchema, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
 
 function validateBotId(value: string): string | undefined {
@@ -13,30 +13,30 @@ function validateBotId(value: string): string | undefined {
 }
 
 const list = defineCommand({
-  meta: { name: "list", description: "List bots (from fleet/clawdlets.json)." },
+  meta: { name: "list", description: "List bots (from fleet/clawlets.json)." },
   args: {},
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { config } = loadClawdletsConfig({ repoRoot });
+    const { config } = loadClawletsConfig({ repoRoot });
     console.log((config.fleet.botOrder || []).join("\n"));
   },
 });
 
 const add = defineCommand({
-  meta: { name: "add", description: "Add a bot id to fleet/clawdlets.json." },
+  meta: { name: "add", description: "Add a bot id to fleet/clawlets.json." },
   args: {
     bot: { type: "string", description: "Bot id (e.g. maren)." },
     interactive: { type: "boolean", description: "Prompt for missing inputs (requires TTY).", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
 
     let botId = String(args.bot || "").trim();
     if (!botId) {
       if (!args.interactive) throw new Error("missing --bot (or pass --interactive)");
       if (!process.stdout.isTTY) throw new Error("--interactive requires a TTY");
-      p.intro("clawdlets bot add");
+      p.intro("clawlets bot add");
       const v = await p.text({ message: "Bot id", placeholder: "maren", validate: validateBotId });
       if (p.isCancel(v)) {
         const nav = await navOnCancel({ flow: "bot add", canBack: false });
@@ -63,20 +63,20 @@ const add = defineCommand({
         bots: { ...config.fleet.bots, [botId]: {} },
       },
     };
-    const validated = ClawdletsConfigSchema.parse(next);
-    await writeClawdletsConfig({ configPath, config: validated });
+    const validated = ClawletsConfigSchema.parse(next);
+    await writeClawletsConfig({ configPath, config: validated });
     console.log(`ok: added bot ${botId}`);
   },
 });
 
 const rm = defineCommand({
-  meta: { name: "rm", description: "Remove a bot id from fleet/clawdlets.json." },
+  meta: { name: "rm", description: "Remove a bot id from fleet/clawlets.json." },
   args: {
     bot: { type: "string", description: "Bot id to remove.", },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config } = loadClawdletsConfig({ repoRoot });
+    const { configPath, config } = loadClawletsConfig({ repoRoot });
     const botId = String(args.bot || "").trim();
     if (!botId) throw new Error("missing --bot");
     const existingBots = config.fleet.botOrder;
@@ -85,8 +85,8 @@ const rm = defineCommand({
     const nextBotsRecord = { ...config.fleet.bots };
     delete (nextBotsRecord as any)[botId];
     const next = { ...config, fleet: { ...config.fleet, botOrder: nextBots, bots: nextBotsRecord } };
-    const validated = ClawdletsConfigSchema.parse(next);
-    await writeClawdletsConfig({ configPath, config: validated });
+    const validated = ClawletsConfigSchema.parse(next);
+    await writeClawletsConfig({ configPath, config: validated });
     console.log(`ok: removed bot ${botId}`);
   },
 });

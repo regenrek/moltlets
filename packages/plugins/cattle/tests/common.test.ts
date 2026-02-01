@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { captureMock } = vi.hoisted(() => ({ captureMock: vi.fn() }));
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   capture: captureMock,
 }));
 
@@ -33,12 +33,12 @@ describe("cattle common helpers", () => {
   });
 
   it("requireFile throws when missing", () => {
-    const missing = path.join(os.tmpdir(), "clawdlets-missing.json");
+    const missing = path.join(os.tmpdir(), "clawlets-missing.json");
     expect(() => requireFile(missing, "file")).toThrow(/file missing/);
   });
 
   it("readJsonFile reports invalid json", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-json-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-json-"));
     const bad = path.join(dir, "bad.json");
     fs.writeFileSync(bad, "{bad", "utf8");
     expect(() => readJsonFile(bad)).toThrow(/invalid JSON:/);
@@ -89,7 +89,7 @@ describe("cattle common helpers", () => {
   });
 
   it("loadTaskFromFile validates schema", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawdlets-task-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-task-"));
     const bad = path.join(dir, "bad.json");
     fs.writeFileSync(bad, JSON.stringify({ schemaVersion: 2, taskId: "t", type: "clawdbot.gateway.agent", message: "hi" }));
     expect(() => loadTaskFromFile(bad)).toThrow(/invalid task file/);

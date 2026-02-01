@@ -20,7 +20,7 @@ vi.mock("giget", () => ({
   downloadTemplate: downloadTemplateMock,
 }));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   capture: captureMock,
   run: runMock,
 }));
@@ -35,7 +35,7 @@ describe("project init", () => {
   function writeTemplate(dir: string) {
     fs.mkdirSync(path.join(dir, "fleet"), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, "fleet", "clawdlets.json"),
+      path.join(dir, "fleet", "clawlets.json"),
       JSON.stringify(
         {
           schemaVersion: 8,
@@ -56,10 +56,10 @@ describe("project init", () => {
   }
 
   it("dry-run prints planned files", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-template-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-template-"));
     writeTemplate(temp);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
-    const dest = path.join(tmpdir(), "clawdlets-project-dry");
+    const dest = path.join(tmpdir(), "clawlets-project-dry");
     const { project } = await import("../src/commands/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: dest, dryRun: true, gitInit: false } } as any);
     expect(noteMock).toHaveBeenCalled();
@@ -67,17 +67,17 @@ describe("project init", () => {
   });
 
   it("writes files and substitutes placeholders", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-template-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-template-"));
     writeTemplate(temp);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
-    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-project-"));
+    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     const target = path.join(dest, "my-fleet");
     const { project } = await import("../src/commands/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: target, gitInit: false } } as any);
     expect(fs.existsSync(path.join(target, ".gitignore"))).toBe(true);
     const readme = fs.readFileSync(path.join(target, "README.md"), "utf8");
     expect(readme).toMatch(/my-fleet/);
-    const cfg = JSON.parse(fs.readFileSync(path.join(target, "fleet", "clawdlets.json"), "utf8"));
+    const cfg = JSON.parse(fs.readFileSync(path.join(target, "fleet", "clawlets.json"), "utf8"));
     expect(cfg.hosts["clawdbot-fleet-host"].cache.netrc.enable).toBe(false);
   });
 
@@ -87,17 +87,17 @@ describe("project init", () => {
   });
 
   it("rejects non-empty target dir", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-project-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     fs.writeFileSync(path.join(temp, "README.md"), "existing", "utf8");
     const { project } = await import("../src/commands/project.js");
     await expect(project.subCommands?.init?.run?.({ args: { dir: temp } } as any)).rejects.toThrow(/not empty/i);
   });
 
   it("requires TTY for interactive mode", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-template-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-template-"));
     writeTemplate(temp);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
-    const dest = path.join(tmpdir(), "clawdlets-project-tty");
+    const dest = path.join(tmpdir(), "clawlets-project-tty");
     const stdoutTty = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
     const { project } = await import("../src/commands/project.js");
@@ -108,11 +108,11 @@ describe("project init", () => {
   });
 
   it("notes when git is unavailable in interactive mode", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-template-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-template-"));
     writeTemplate(temp);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
     captureMock.mockRejectedValueOnce(new Error("git missing"));
-    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-project-"));
+    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     const target = path.join(dest, "my-fleet");
     const stdoutTty = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
@@ -123,15 +123,15 @@ describe("project init", () => {
   });
 
   it("finds nested template root", async () => {
-    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-template-"));
+    const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-template-"));
     const nested = path.join(temp, "nested");
     fs.mkdirSync(nested, { recursive: true });
     writeTemplate(nested);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
-    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawdlets-project-"));
+    const dest = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     const target = path.join(dest, "my-fleet");
     const { project } = await import("../src/commands/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: target, gitInit: false } } as any);
-    expect(fs.existsSync(path.join(target, "fleet", "clawdlets.json"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "fleet", "clawlets.json"))).toBe(true);
   });
 });

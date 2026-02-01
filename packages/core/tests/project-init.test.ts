@@ -7,7 +7,7 @@ import { initProject } from "../src/lib/project-init";
 
 describe("project init", () => {
   it("creates expected file tree from local template spec", async () => {
-    const tempRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-project-init-"));
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "clawlets-project-init-"));
     try {
       const destDir = path.join(tempRoot, "my-project");
       const templateDir = path.join(__dirname, ".template");
@@ -21,13 +21,13 @@ describe("project init", () => {
       expect(res.destDir).toBe(destDir);
       expect(res.host).toBe("my-host");
       expect(res.gitInitialized).toBe(false);
-      expect(res.plannedFiles).toContain("fleet/clawdlets.json");
+      expect(res.plannedFiles).toContain("fleet/clawlets.json");
 
-      expect(fs.existsSync(path.join(destDir, "fleet", "clawdlets.json"))).toBe(true);
+      expect(fs.existsSync(path.join(destDir, "fleet", "clawlets.json"))).toBe(true);
       expect(fs.existsSync(path.join(destDir, ".gitignore"))).toBe(true);
       expect(fs.existsSync(path.join(destDir, "_gitignore"))).toBe(false);
 
-      const cfg = JSON.parse(await readFile(path.join(destDir, "fleet", "clawdlets.json"), "utf8")) as any;
+      const cfg = JSON.parse(await readFile(path.join(destDir, "fleet", "clawlets.json"), "utf8")) as any;
       expect(cfg.defaultHost).toBe("my-host");
       expect(cfg.hosts?.["my-host"]).toBeTruthy();
       expect(cfg.hosts?.["clawdbot-fleet-host"]).toBeUndefined();

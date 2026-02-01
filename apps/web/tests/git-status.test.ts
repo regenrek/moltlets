@@ -29,7 +29,7 @@ function createCapture(config: CaptureConfig) {
 async function loadWithCapture(config: CaptureConfig) {
   vi.resetModules()
   const capture = createCapture(config)
-  vi.doMock("@clawdlets/core/lib/run", () => ({ capture }))
+  vi.doMock("@clawlets/core/lib/run", () => ({ capture }))
   const mod = await import("~/server/git.server")
   return { ...mod, capture }
 }
@@ -154,7 +154,7 @@ describe("git status parsing", () => {
           return ""
         },
       )
-      vi.doMock("@clawdlets/core/lib/run", () => ({ capture }))
+      vi.doMock("@clawlets/core/lib/run", () => ({ capture }))
       const mod = await import("~/server/git.server")
       mod.__test_gitStatusCache.clear()
 
@@ -248,7 +248,7 @@ describe("git status parsing", () => {
       if (args[0] === "for-each-ref") return "origin/main origin-head"
       return ""
     })
-    vi.doMock("@clawdlets/core/lib/run", () => ({ capture }))
+    vi.doMock("@clawlets/core/lib/run", () => ({ capture }))
     const mod = await import("~/server/git.server")
     mod.__test_gitStatusCache.clear()
     const first = mod.readGitStatus("/tmp/repo")

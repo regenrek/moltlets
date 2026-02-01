@@ -1,22 +1,22 @@
-{ config, lib, pkgs, clawdlets ? null, project, ... }:
+{ config, lib, pkgs, clawlets ? null, project, ... }:
 
 let
   system = pkgs.system;
 
   # CLF package resolution:
-  # 1. Try clawdlets.inputs.clf (subflake - recommended)
-  # 2. Fall back to clawdlets.packages.clf (if provided)
+  # 1. Try clawlets.inputs.clf (subflake - recommended)
+  # 2. Fall back to clawlets.packages.clf (if provided)
   # 3. null if neither available
   clfSubflake =
-    if clawdlets != null && (clawdlets ? inputs) && (clawdlets.inputs ? clf)
-    then clawdlets.inputs.clf
+    if clawlets != null && (clawlets ? inputs) && (clawlets.inputs ? clf)
+    then clawlets.inputs.clf
     else null;
 
   defaultClfPackage =
     if clfSubflake != null
     then clfSubflake.packages.${system}.clf or null
-    else if clawdlets != null && (clawdlets ? packages) && (clawdlets.packages ? ${system})
-    then clawdlets.packages.${system}.clf or null
+    else if clawlets != null && (clawlets ? packages) && (clawlets.packages ? ${system})
+    then clawlets.packages.${system}.clf or null
     else null;
 
   fleetCfg = project.config;
@@ -29,8 +29,8 @@ let
     lib.unique (builtins.filter (s: s != null && s != "") (builtins.attrValues secretEnv));
 
   tailscaleSecret =
-    if (config ? clawdlets) && (config.clawdlets ? tailnet) && (config.clawdlets.tailnet ? tailscale)
-    then config.clawdlets.tailnet.tailscale.authKeySecret or null
+    if (config ? clawlets) && (config.clawlets ? tailnet) && (config.clawlets.tailnet ? tailscale)
+    then config.clawlets.tailnet.tailscale.authKeySecret or null
     else null;
 
   personasDir = project.root + "/cattle/personas";
@@ -65,7 +65,7 @@ let
 in
 {
   options.services.clfOrchestrator = {
-    enable = lib.mkEnableOption "ClawdletFleet orchestrator (jobs queue + cattle spawner)";
+    enable = lib.mkEnableOption "ClawletFleet orchestrator (jobs queue + cattle spawner)";
 
     package = lib.mkOption {
       type = lib.types.nullOr lib.types.package;
@@ -161,15 +161,15 @@ in
       assertions = [
         {
           assertion = cfg.package != null;
-          message = "services.clfOrchestrator.package must be set (provide clawdlets flake input or set services.clfOrchestrator.package explicitly).";
+          message = "services.clfOrchestrator.package must be set (provide clawlets flake input or set services.clfOrchestrator.package explicitly).";
         }
         {
           assertion = cfg.cattle.image != "";
-          message = "services.clfOrchestrator.cattle.image must be set (or set cattle.hetzner.image in fleet/clawdlets.json).";
+          message = "services.clfOrchestrator.cattle.image must be set (or set cattle.hetzner.image in fleet/clawlets.json).";
         }
         {
           assertion = tailscaleSecret != null && tailscaleSecret != "";
-          message = "clawdlets.tailnet.tailscale.authKeySecret must be set (needed to spawn cattle with tailscale).";
+          message = "clawlets.tailnet.tailscale.authKeySecret must be set (needed to spawn cattle with tailscale).";
         }
       ];
     })
@@ -220,7 +220,7 @@ in
             owner = "root";
             group = "root";
             mode = "0400";
-            sopsFile = "${config.clawdlets.secrets.hostDir}/${cfg.hcloudTokenSecret}.yaml";
+            sopsFile = "${config.clawlets.secrets.hostDir}/${cfg.hcloudTokenSecret}.yaml";
           };
         })
         (builtins.listToAttrs (map (secretName: {
@@ -229,7 +229,7 @@ in
             owner = "root";
             group = "root";
             mode = "0400";
-            sopsFile = "${config.clawdlets.secrets.hostDir}/${secretName}.yaml";
+            sopsFile = "${config.clawlets.secrets.hostDir}/${secretName}.yaml";
           };
         }) secretEnvSecretNames))
       ];
@@ -263,7 +263,7 @@ in
       };
 
       systemd.services.clf-orchestrator = {
-        description = "ClawdletFleet orchestrator (jobs + cattle)";
+        description = "ClawletFleet orchestrator (jobs + cattle)";
         wantedBy = [ "multi-user.target" ];
         after = [ "network-online.target" "sops-nix.service" "tailscaled.service" ];
         wants = [ "network-online.target" "sops-nix.service" "tailscaled.service" ];

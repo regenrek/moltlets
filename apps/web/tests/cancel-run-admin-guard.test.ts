@@ -22,7 +22,7 @@ async function loadCancelRun(options: { role: "admin" | "viewer"; status: string
   }))
 
   vi.doMock("~/server/run-manager", () => ({ cancelActiveRun, runWithEvents }))
-  vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
   vi.doMock("~/server/paths", () => ({ assertRepoRootPath: () => "/tmp/repo" }))
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,

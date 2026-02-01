@@ -1,4 +1,4 @@
-import { getProviderRequiredEnvVars } from "@clawdlets/shared/lib/llm-provider-env";
+import { getProviderRequiredEnvVars } from "@clawlets/shared/lib/llm-provider-env";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "./nix-cache.js";
 import { assertSafeRecordKey, createNullProtoRecord } from "./safe-record.js";
 
@@ -107,7 +107,7 @@ export type MigrateToV12Result = {
   migrated: unknown;
 };
 
-export function migrateClawdletsConfigToV9(raw: unknown): MigrateToV9Result {
+export function migrateClawletsConfigToV9(raw: unknown): MigrateToV9Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
   const next = structuredClone(raw) as Record<string, unknown>;
@@ -189,7 +189,7 @@ export function migrateClawdletsConfigToV9(raw: unknown): MigrateToV9Result {
   return { ok: true, changed, warnings, migrated: next };
 }
 
-export function migrateClawdletsConfigToV10(raw: unknown): MigrateToV10Result {
+export function migrateClawletsConfigToV10(raw: unknown): MigrateToV10Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
   let next = structuredClone(raw) as Record<string, unknown>;
@@ -200,7 +200,7 @@ export function migrateClawdletsConfigToV10(raw: unknown): MigrateToV10Result {
 
   let changed = false;
   if (schemaVersion === 8) {
-    const res = migrateClawdletsConfigToV9(next);
+    const res = migrateClawletsConfigToV9(next);
     warnings.push(...res.warnings);
     next = structuredClone(res.migrated) as Record<string, unknown>;
     changed = res.changed;
@@ -308,7 +308,7 @@ function migrateHostSelfUpdateToV11(params: {
   return true;
 }
 
-export function migrateClawdletsConfigToV11(raw: unknown): MigrateToV11Result {
+export function migrateClawletsConfigToV11(raw: unknown): MigrateToV11Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
   let next = structuredClone(raw) as Record<string, unknown>;
@@ -319,7 +319,7 @@ export function migrateClawdletsConfigToV11(raw: unknown): MigrateToV11Result {
 
   let changed = false;
   if (schemaVersion === 8 || schemaVersion === 9) {
-    const res = migrateClawdletsConfigToV10(next);
+    const res = migrateClawletsConfigToV10(next);
     warnings.push(...res.warnings);
     next = structuredClone(res.migrated) as Record<string, unknown>;
     changed = res.changed;
@@ -377,7 +377,7 @@ function migrateHostSelfUpdateToV12(params: {
   return true;
 }
 
-export function migrateClawdletsConfigToV12(raw: unknown): MigrateToV12Result {
+export function migrateClawletsConfigToV12(raw: unknown): MigrateToV12Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
   let next = structuredClone(raw) as Record<string, unknown>;
@@ -388,7 +388,7 @@ export function migrateClawdletsConfigToV12(raw: unknown): MigrateToV12Result {
 
   let changed = false;
   if (schemaVersion === 8 || schemaVersion === 9 || schemaVersion === 10) {
-    const res = migrateClawdletsConfigToV11(next);
+    const res = migrateClawletsConfigToV11(next);
     warnings.push(...res.warnings);
     next = structuredClone(res.migrated) as Record<string, unknown>;
     changed = res.changed;

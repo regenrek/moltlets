@@ -15,7 +15,7 @@ in
 
     baseDir = lib.mkOption {
       type = lib.types.str;
-      default = "/var/lib/clawdlets/cattle";
+      default = "/var/lib/clawlets/cattle";
       description = "Base directory for cattle runtime files (task, workspace, result).";
     };
 
@@ -33,7 +33,7 @@ in
 
     envFile = lib.mkOption {
       type = lib.types.str;
-      default = "/run/clawdlets/cattle/env";
+      default = "/run/clawlets/cattle/env";
       description = "Path for cattle-run to write fetched secret env exports (tmpfs).";
     };
 
@@ -59,7 +59,7 @@ in
   config = lib.mkIf cfg.enable {
     services.cloud-init.enable = true;
 
-    environment.etc."clawdlets/bin/cattle-run" = {
+    environment.etc."clawlets/bin/cattle-run" = {
       source = ../scripts/cattle-run.sh;
       mode = "0755";
     };
@@ -76,23 +76,23 @@ in
     systemd.tmpfiles.rules = [
       "d ${cfg.baseDir} 0700 root root - -"
       "d ${cfg.workspaceDir} 0700 root root - -"
-      "d /run/clawdlets 0755 root root - -"
-      "d /run/clawdlets/cattle 0700 root root - -"
+      "d /run/clawlets 0755 root root - -"
+      "d /run/clawlets/cattle 0700 root root - -"
     ];
 
-    systemd.services.clawdlets-cattle = {
-      description = "Clawdlets cattle (single task)";
+    systemd.services.clawlets-cattle = {
+      description = "Clawlets cattle (single task)";
       wants = [ "network-online.target" "cloud-final.service" ];
       after = [ "network-online.target" "cloud-final.service" "tailscaled.service" ];
       wantedBy = [ "multi-user.target" ];
 
       environment = {
-        CLAWDLETS_CATTLE_TASK_FILE = cfg.taskFile;
-        CLAWDLETS_CATTLE_RESULT_FILE = cfg.resultFile;
-        CLAWDLETS_CATTLE_WORKSPACE_DIR = cfg.workspaceDir;
-        CLAWDLETS_CATTLE_GATEWAY_PORT = toString cfg.gatewayPort;
-        CLAWDLETS_CATTLE_AUTO_SHUTDOWN = if cfg.autoShutdown then "1" else "0";
-        CLAWDLETS_CATTLE_ENV_FILE = cfg.envFile;
+        CLAWLETS_CATTLE_TASK_FILE = cfg.taskFile;
+        CLAWLETS_CATTLE_RESULT_FILE = cfg.resultFile;
+        CLAWLETS_CATTLE_WORKSPACE_DIR = cfg.workspaceDir;
+        CLAWLETS_CATTLE_GATEWAY_PORT = toString cfg.gatewayPort;
+        CLAWLETS_CATTLE_AUTO_SHUTDOWN = if cfg.autoShutdown then "1" else "0";
+        CLAWLETS_CATTLE_ENV_FILE = cfg.envFile;
         CLAWDBOT_DISABLE_BONJOUR = "1";
       };
 
@@ -102,7 +102,7 @@ in
         Group = "root";
         WorkingDirectory = cfg.baseDir;
 
-        ExecStart = "/etc/clawdlets/bin/cattle-run";
+        ExecStart = "/etc/clawlets/bin/cattle-run";
 
         NoNewPrivileges = true;
         PrivateTmp = true;
@@ -111,7 +111,7 @@ in
         ReadWritePaths = [
           cfg.baseDir
           cfg.workspaceDir
-          "/run/clawdlets/cattle"
+          "/run/clawlets/cattle"
         ];
         UMask = "0077";
 

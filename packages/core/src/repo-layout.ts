@@ -1,10 +1,10 @@
 import path from "node:path";
-import { assertSafeHostName, assertSafeOperatorId, assertSafeSecretName, BotIdSchema } from "@clawdlets/shared/lib/identifiers";
+import { assertSafeHostName, assertSafeOperatorId, assertSafeSecretName, BotIdSchema } from "@clawlets/shared/lib/identifiers";
 
 export type RepoLayout = {
   repoRoot: string;
 
-  // Local runtime dir (gitignored). Defaults to <repoRoot>/.clawdlets.
+  // Local runtime dir (gitignored). Defaults to <repoRoot>/.clawlets.
   runtimeDir: string;
 
   // Local deploy creds env file (gitignored). Defaults to <runtimeDir>/env.
@@ -26,7 +26,7 @@ export type RepoLayout = {
   fleetWorkspacesDir: string;
   fleetWorkspacesCommonDir: string;
   fleetWorkspacesBotsDir: string;
-  clawdletsConfigPath: string;
+  clawletsConfigPath: string;
   bundledSkillsPath: string;
 
   // Canonical secrets dir (committed; encrypted-at-rest via sops).
@@ -43,7 +43,7 @@ export type RepoLayout = {
 };
 
 export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout {
-  const resolvedRuntimeDir = runtimeDir ?? path.join(repoRoot, ".clawdlets");
+  const resolvedRuntimeDir = runtimeDir ?? path.join(repoRoot, ".clawlets");
   const envFilePath = path.join(resolvedRuntimeDir, "env");
   const cattleDir = path.join(resolvedRuntimeDir, "cattle");
   const cattleDbPath = path.join(cattleDir, "state.sqlite");
@@ -54,7 +54,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
   const fleetWorkspacesDir = path.join(fleetDir, "workspaces");
   const fleetWorkspacesCommonDir = path.join(fleetWorkspacesDir, "common");
   const fleetWorkspacesBotsDir = path.join(fleetWorkspacesDir, "bots");
-  const clawdletsConfigPath = path.join(fleetDir, "clawdlets.json");
+  const clawletsConfigPath = path.join(fleetDir, "clawlets.json");
   const bundledSkillsPath = path.join(fleetDir, "bundled-skills.json");
   const secretsDir = path.join(repoRoot, "secrets");
   const secretsHostsDir = path.join(secretsDir, "hosts");
@@ -78,7 +78,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
     fleetWorkspacesDir,
     fleetWorkspacesCommonDir,
     fleetWorkspacesBotsDir,
-    clawdletsConfigPath,
+    clawletsConfigPath,
     bundledSkillsPath,
     secretsDir,
     secretsHostsDir,
@@ -124,12 +124,12 @@ export function getHostExtraFilesKeyPath(layout: RepoLayout, host: string): stri
 
 export function getHostExtraFilesSecretsDir(layout: RepoLayout, host: string): string {
   assertSafeHostName(host);
-  return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "clawdlets", "secrets", "hosts", host);
+  return path.join(getHostExtraFilesDir(layout, host), "var", "lib", "clawlets", "secrets", "hosts", host);
 }
 
 export function getHostRemoteSecretsDir(host: string): string {
   assertSafeHostName(host);
-  return `/var/lib/clawdlets/secrets/hosts/${host}`;
+  return `/var/lib/clawlets/secrets/hosts/${host}`;
 }
 
 export function getLocalOperatorAgeKeyPath(layout: RepoLayout, operatorId: string): string {

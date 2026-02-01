@@ -2,14 +2,14 @@ import path from "node:path"
 import fs from "node:fs"
 
 import { createServerFn } from "@tanstack/react-start"
-import { loadDeployCreds, DEPLOY_CREDS_KEYS, renderDeployCredsEnvFile, type DeployCredsEnvFileKeys } from "@clawdlets/core/lib/deploy-creds"
-import { getRepoLayout } from "@clawdlets/core/repo-layout"
-import { ensureDir, writeFileAtomic } from "@clawdlets/core/lib/fs-safe"
-import { parseDotenv } from "@clawdlets/core/lib/dotenv-file"
-import { ageKeygen } from "@clawdlets/core/lib/age-keygen"
-import { parseAgeKeyFile } from "@clawdlets/core/lib/age"
-import { getLocalOperatorAgeKeyPath } from "@clawdlets/core/repo-layout"
-import { sanitizeOperatorId } from "@clawdlets/shared/lib/identifiers"
+import { loadDeployCreds, DEPLOY_CREDS_KEYS, renderDeployCredsEnvFile, type DeployCredsEnvFileKeys } from "@clawlets/core/lib/deploy-creds"
+import { getRepoLayout } from "@clawlets/core/repo-layout"
+import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/fs-safe"
+import { parseDotenv } from "@clawlets/core/lib/dotenv-file"
+import { ageKeygen } from "@clawlets/core/lib/age-keygen"
+import { parseAgeKeyFile } from "@clawlets/core/lib/age"
+import { getLocalOperatorAgeKeyPath } from "@clawlets/core/repo-layout"
+import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers"
 import os from "node:os"
 
 import { api } from "../../convex/_generated/api"
@@ -49,7 +49,7 @@ type DeployCredsWriteResult = {
 function renderTemplate(defaultEnvPath: string): string {
   const rel = path.relative(process.cwd(), defaultEnvPath) || defaultEnvPath
   const lines = [
-    "# clawdlets deploy creds (local-only; never commit)",
+    "# clawlets deploy creds (local-only; never commit)",
     "# Used by: bootstrap, infra, lockdown, doctor",
     "#",
     `# Default path: ${rel}`,

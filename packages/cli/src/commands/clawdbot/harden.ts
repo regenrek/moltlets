@@ -1,29 +1,29 @@
 import process from "node:process";
 import path from "node:path";
 import { defineCommand } from "citty";
-import { applySecurityDefaults } from "@clawdlets/core/lib/config-patch";
-import { findRepoRoot } from "@clawdlets/core/lib/repo";
-import { ClawdletsConfigSchema, loadClawdletsConfigRaw, writeClawdletsConfig } from "@clawdlets/core/lib/clawdlets-config";
+import { applySecurityDefaults } from "@clawlets/core/lib/config-patch";
+import { findRepoRoot } from "@clawlets/core/lib/repo";
+import { ClawletsConfigSchema, loadClawletsConfigRaw, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 
 export const clawdbotHarden = defineCommand({
   meta: {
     name: "harden",
-    description: "Apply safe Clawdbot security defaults to fleet/clawdlets.json (opt-in).",
+    description: "Apply safe Clawdbot security defaults to fleet/clawlets.json (opt-in).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     bot: { type: "string", description: "Only apply hardening to this bot id." },
-    write: { type: "boolean", description: "Apply changes to fleet/clawdlets.json.", default: false },
+    write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const validated = ClawdletsConfigSchema.parse(raw);
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot, runtimeDir: (args as any).runtimeDir });
+    const validated = ClawletsConfigSchema.parse(raw);
 
     const botArg = String(args.bot || "").trim();
     const bots = botArg ? [botArg] : validated.fleet.botOrder || [];
-    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawdlets.json)");
+    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
 
     const next = structuredClone(validated) as any;
 
@@ -72,8 +72,8 @@ export const clawdbotHarden = defineCommand({
       return;
     }
 
-    const finalConfig = ClawdletsConfigSchema.parse(next);
-    await writeClawdletsConfig({ configPath, config: finalConfig });
+    const finalConfig = ClawletsConfigSchema.parse(next);
+    await writeClawletsConfig({ configPath, config: finalConfig });
 
     if (args.json) {
       console.log(JSON.stringify({ ok: true, write: true, updates }, null, 2));

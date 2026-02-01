@@ -51,7 +51,7 @@ import {
   storeLastProjectSlug,
 } from "~/lib/project-routing"
 import { cn } from "~/lib/utils"
-import { getClawdletsConfig } from "~/sdk/config"
+import { getClawletsConfig } from "~/sdk/config"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 
@@ -99,10 +99,10 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
   const projectId = activeProject?._id ?? null
 
   const configQuery = useQuery({
-    queryKey: ["clawdletsConfig", projectId],
+    queryKey: ["clawletsConfig", projectId],
     enabled: Boolean(projectId),
     queryFn: async () =>
-      await getClawdletsConfig({
+      await getClawletsConfig({
         data: { projectId: projectId as Id<"projects"> },
       }),
   })
@@ -169,9 +169,9 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
         <Link
           to={projectSlug ? buildProjectBasePath(projectSlug) : "/"}
           className="font-black tracking-tight text-lg leading-none shrink-0"
-          aria-label="Clawdlets"
+          aria-label="Clawlets"
         >
-          Clawdlets
+          Clawlets
         </Link>
         <BreadcrumbSlash />
         <ProjectSwitcher
@@ -243,7 +243,7 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                render={<a href="https://github.com/regenrek/clawdlets" />}
+                render={<a href="https://github.com/regenrek/clawlets" />}
               >
                 <HugeiconsIcon icon={GithubIcon} strokeWidth={2} />
                 GitHub

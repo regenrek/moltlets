@@ -151,7 +151,7 @@ const ensureDir = (p: string) => fs.mkdirSync(p, { recursive: true });
 
 const ensureOpenclawConfigPath = () => {
   if (process.env.OPENCLAW_CONFIG_PATH) return;
-  const tmpDir = path.join(os.tmpdir(), "clawdlets-openclaw");
+  const tmpDir = path.join(os.tmpdir(), "clawlets-openclaw");
   const configPath = path.join(tmpDir, "openclaw.json");
   ensureDir(tmpDir);
   if (!fs.existsSync(configPath)) {

@@ -1,1 +1,1 @@
-export { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+export { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"

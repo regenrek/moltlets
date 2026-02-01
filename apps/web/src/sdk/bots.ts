@@ -1,20 +1,20 @@
 import { createServerFn } from "@tanstack/react-start"
-import { applySecurityDefaults } from "@clawdlets/core/lib/config-patch"
-import { applyCapabilityPreset, getChannelCapabilityPreset, type CapabilityPreset } from "@clawdlets/core/lib/capability-presets"
-import { diffConfig, type ConfigDiffEntry } from "@clawdlets/core/lib/config-diff"
-import { validateClawdbotConfig } from "@clawdlets/core/lib/clawdbot-schema-validate"
-import { diffChannelSchemasFromArtifacts } from "@clawdlets/core/lib/clawdbot-schema-diff"
-import { getPinnedClawdbotSchema } from "@clawdlets/core/lib/clawdbot-schema"
-import { suggestSecretNameForEnvVar } from "@clawdlets/core/lib/fleet-secrets-plan-helpers"
+import { applySecurityDefaults } from "@clawlets/core/lib/config-patch"
+import { applyCapabilityPreset, getChannelCapabilityPreset, type CapabilityPreset } from "@clawlets/core/lib/capability-presets"
+import { diffConfig, type ConfigDiffEntry } from "@clawlets/core/lib/config-diff"
+import { validateClawdbotConfig } from "@clawlets/core/lib/clawdbot-schema-validate"
+import { diffChannelSchemasFromArtifacts } from "@clawlets/core/lib/clawdbot-schema-diff"
+import { getPinnedClawdbotSchema } from "@clawlets/core/lib/clawdbot-schema"
+import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/fleet-secrets-plan-helpers"
 import {
-  ClawdletsConfigSchema,
-  loadClawdletsConfigRaw,
-  writeClawdletsConfig,
-} from "@clawdlets/core/lib/clawdlets-config"
+  ClawletsConfigSchema,
+  loadClawletsConfigRaw,
+  writeClawletsConfig,
+} from "@clawlets/core/lib/clawlets-config"
 
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import {
   parseBotClawdbotConfigInput,
@@ -24,7 +24,7 @@ import {
   parseProjectHostBotInput,
 } from "~/sdk/serverfn-validators"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 export const LIVE_SCHEMA_ERROR_FALLBACK = "Unable to fetch schema. Check logs."
 
@@ -84,8 +84,8 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
     const existingBot = next?.fleet?.bots?.[botId]
@@ -125,7 +125,7 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const validated = ClawdletsConfigSchema.safeParse(next)
+    const validated = ClawletsConfigSchema.safeParse(next)
     if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -149,7 +149,7 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating fleet.bots.${botId}.clawdbot` })
-        await writeClawdletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId }),
@@ -168,8 +168,8 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
     const existingBot = next?.fleet?.bots?.[botId]
@@ -214,7 +214,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
       }
     }
 
-    const validated = ClawdletsConfigSchema.safeParse(next)
+    const validated = ClawletsConfigSchema.safeParse(next)
     if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -239,7 +239,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
       fn: async (emit) => {
         await emit({ level: "info", message: `Applying ${preset.id} preset for ${botId}` })
         for (const w of warnings) await emit({ level: "warn", message: w })
-        await writeClawdletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId, warnings }),
@@ -252,7 +252,7 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
     const preset = resolvePreset(data.kind, data.presetId)
-    const { config: raw } = loadClawdletsConfigRaw({
+    const { config: raw } = loadClawletsConfigRaw({
       repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
     })
     const existingBot = (raw as any)?.fleet?.bots?.[botId]
@@ -295,7 +295,7 @@ export const verifyBotClawdbotSchema = createServerFn({ method: "POST" })
     }
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const { config: raw } = loadClawletsConfigRaw({ repoRoot })
     const existingBot = (raw as any)?.fleet?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
@@ -333,8 +333,8 @@ export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
     const existingBot = next?.fleet?.bots?.[botId]
@@ -344,7 +344,7 @@ export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
     if (hardened.changes.length === 0) return { ok: true as const, changes: [], warnings: [] }
 
     existingBot.clawdbot = hardened.clawdbot
-    const validated = ClawdletsConfigSchema.safeParse(next)
+    const validated = ClawletsConfigSchema.safeParse(next)
     if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -374,7 +374,7 @@ export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
       fn: async (emit) => {
         await emit({ level: "info", message: `Hardening fleet.bots.${botId}.clawdbot` })
         for (const w of hardened.warnings) await emit({ level: "warn", message: w })
-        await writeClawdletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId, changes: hardened.changes, warnings: hardened.warnings }),

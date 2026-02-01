@@ -30,7 +30,7 @@ function NewProject() {
 
   const directoryInputRef = useRef<HTMLInputElement>(null)
   const nameSlug = useMemo(() => slugifyProjectName(name || "project"), [name])
-  const defaultBaseDir = "~/.clawdlets/projects"
+  const defaultBaseDir = "~/.clawlets/projects"
   const defaultHost = nameSlug
   const normalizedBaseDir = (baseDir.trim() || defaultBaseDir).replace(/\/$/, "")
   const effectiveLocalPath = normalizedBaseDir.endsWith(`/${nameSlug}`)
@@ -85,7 +85,7 @@ function NewProject() {
       <div>
         <h1 className="text-2xl font-black tracking-tight">Create Project</h1>
         <p className="text-muted-foreground mt-1">
-          Scaffold a new clawdlets infra repository on this machine.
+          Scaffold a new clawlets infra repository on this machine.
         </p>
       </div>
 

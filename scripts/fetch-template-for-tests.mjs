@@ -26,12 +26,26 @@ async function loadTemplateLib(repoRoot) {
   return { ...source, ...testDir };
 }
 
+async function resolveLocalTemplateDir(repoRoot) {
+  const envDir = String(process.env.CLAWLETS_TEMPLATE_LOCAL_DIR || "").trim();
+  const candidates = [
+    envDir,
+    path.join(repoRoot, "templates", "default"),
+  ].filter((p) => p);
+  for (const dir of candidates) {
+    const marker = path.join(dir, "fleet", "clawlets.json");
+    const ok = await fs.stat(marker).then(() => true).catch(() => false);
+    if (ok) return dir;
+  }
+  return null;
+}
+
 async function loadTemplateSource(repoRoot, lib) {
   const configPath = path.join(repoRoot, "config", "template-source.json");
   const cfg = await readJson(configPath);
-  const repo = process.env.CLAWDLETS_TEMPLATE_REPO || cfg.repo;
-  const tplPath = process.env.CLAWDLETS_TEMPLATE_PATH || cfg.path;
-  const ref = process.env.CLAWDLETS_TEMPLATE_REF || cfg.ref;
+  const repo = process.env.CLAWLETS_TEMPLATE_REPO || cfg.repo;
+  const tplPath = process.env.CLAWLETS_TEMPLATE_PATH || cfg.path;
+  const ref = process.env.CLAWLETS_TEMPLATE_REF || cfg.ref;
   return lib.normalizeTemplateSource({ repo, path: tplPath, ref });
 }
 
@@ -54,10 +68,28 @@ async function ensureTemplate() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(scriptDir, "..");
   const destRoot = path.resolve(
-    String(process.env.CLAWDLETS_TEMPLATE_TEST_DIR || path.join(repoRoot, "packages", "core", "tests", ".template")),
+    String(process.env.CLAWLETS_TEMPLATE_TEST_DIR || path.join(repoRoot, "packages", "core", "tests", ".template")),
   );
   const lib = await loadTemplateLib(repoRoot);
   const safeDestRoot = lib.resolveTemplateTestDir({ repoRoot, destRoot });
+  const localTemplateDir = await resolveLocalTemplateDir(repoRoot);
+  if (localTemplateDir) {
+    const source = {
+      repo: "local",
+      path: path.relative(repoRoot, localTemplateDir) || localTemplateDir,
+      ref: "local",
+    };
+    const existing = await readMetadata(safeDestRoot);
+    if (existing && existing.repo === source.repo && existing.path === source.path && existing.ref === source.ref) {
+      return;
+    }
+    await fs.rm(safeDestRoot, { recursive: true, force: true });
+    await fs.mkdir(safeDestRoot, { recursive: true });
+    await fs.cp(localTemplateDir, safeDestRoot, { recursive: true });
+    await writeMetadata(safeDestRoot, source);
+    return;
+  }
+
   const source = await loadTemplateSource(repoRoot, lib);
   const tarCacheDir = path.join(repoRoot, ".cache", "template");
   const tarCachePath = path.join(tarCacheDir, `${source.ref}.tar.gz`);
@@ -69,7 +101,7 @@ async function ensureTemplate() {
   await fs.rm(safeDestRoot, { recursive: true, force: true });
   await fs.mkdir(safeDestRoot, { recursive: true });
 
-  const tempDir = await fs.mkdtemp(path.join(tmpdir(), "clawdlets-template-"));
+  const tempDir = await fs.mkdtemp(path.join(tmpdir(), "clawlets-template-"));
   try {
     const tarPath = path.join(tempDir, "template.tar.gz");
     const tarUrl = `https://codeload.github.com/${source.repo}/tar.gz/${source.ref}`;
@@ -114,7 +146,7 @@ async function ensureTemplate() {
 
     await exec("tar", ["-xzf", tarPath, "-C", safeDestRoot, "--strip-components", String(strip), archivePath]);
 
-    const marker = path.join(safeDestRoot, "fleet", "clawdlets.json");
+    const marker = path.join(safeDestRoot, "fleet", "clawlets.json");
     await fs.access(marker);
     await writeMetadata(safeDestRoot, source);
   } finally {

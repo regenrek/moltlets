@@ -1,6 +1,6 @@
 # Runbook (Day 0 / Day 2)
 
-Goal: deterministic, deploy-only ops. Repo + `.clawdlets/` are the only sources of truth.
+Goal: deterministic, deploy-only ops. Repo + `.clawlets/` are the only sources of truth.
 
 ## Repo guardrails (one-time)
 
@@ -19,24 +19,24 @@ If/when you want required status checks, re-run with explicit contexts:
 ## Day 0 (bootstrap)
 
 1) Enter deterministic toolchain (optional): `devenv shell`
-2) `export CLAWDLETS_INTERACTIVE=1` (optional; forces prompts)
-3) `clawdlets secrets init`
-4) `clawdlets doctor --scope bootstrap`
-5) `clawdlets host set --ssh-exposure bootstrap`
-6) `clawdlets bootstrap`
-7) Verify tailnet, then: `clawdlets doctor --scope updates --strict`
+2) `export CLAWLETS_INTERACTIVE=1` (optional; forces prompts)
+3) `clawlets secrets init`
+4) `clawlets doctor --scope bootstrap`
+5) `clawlets host set --ssh-exposure bootstrap`
+6) `clawlets bootstrap`
+7) Verify tailnet, then: `clawlets doctor --scope updates --strict`
 8) Switch admin access to VPN + close public SSH:
-   - `clawdlets host set --target-host admin@<vpn-ip>`
-   - `clawdlets host set --ssh-exposure tailnet`
-   - `clawdlets server update apply --host <host> --target-host admin@<vpn-ip>`
-   - `clawdlets lockdown`
-9) `clawdlets server audit --target-host admin@<vpn-ip>`
+   - `clawlets host set --target-host admin@<vpn-ip>`
+   - `clawlets host set --ssh-exposure tailnet`
+   - `clawlets server update apply --host <host> --target-host admin@<vpn-ip>`
+   - `clawlets lockdown`
+9) `clawlets server audit --target-host admin@<vpn-ip>`
 
 ## Day 2 (routine ops)
 
 Apply updates:
 
-- `clawdlets server update apply --host <host> --target-host admin@<vpn-ip>`
+- `clawlets server update apply --host <host> --target-host admin@<vpn-ip>`
 
 Orchestrator (if cattle enabled):
 
@@ -46,7 +46,7 @@ Orchestrator (if cattle enabled):
 
 Secrets rotation:
 
-- edit `secrets/hosts/<host>/*.yaml` → publish → `clawdlets server update apply`
+- edit `secrets/hosts/<host>/*.yaml` → publish → `clawlets server update apply`
 
 ## Rollback (must exist before prod)
 
@@ -67,13 +67,13 @@ GC policy:
 
 If enabled (`services.clawdbotFleet.githubSync.enable = true`):
 
-- `clawdlets server github-sync status --target-host admin@<vpn-ip>`
-- `clawdlets server github-sync run --target-host admin@<vpn-ip> --bot <bot>`
-- `clawdlets server github-sync show --target-host admin@<vpn-ip> --bot <bot> --kind prs --lines 80`
+- `clawlets server github-sync status --target-host admin@<vpn-ip>`
+- `clawlets server github-sync run --target-host admin@<vpn-ip> --bot <bot>`
+- `clawlets server github-sync show --target-host admin@<vpn-ip> --bot <bot> --kind prs --lines 80`
 
 ## Ops snapshots (recommended)
 
 If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`):
 
-- snapshots at `/var/lib/clawdlets/ops/snapshots/latest.json`
+- snapshots at `/var/lib/clawlets/ops/snapshots/latest.json`
 - retention via `services.clawdbotFleet.opsSnapshot.keepDays/keepLast`

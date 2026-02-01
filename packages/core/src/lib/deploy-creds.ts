@@ -43,7 +43,7 @@ export type DeployCredsResult = {
 
 export function renderDeployCredsEnvFile(keys: DeployCredsEnvFileKeys): string {
   const lines = [
-    "# clawdlets deploy creds (local-only; never commit)",
+    "# clawlets deploy creds (local-only; never commit)",
     "# Used by: bootstrap, infra, lockdown, doctor",
     "",
     `HCLOUD_TOKEN=${formatDotenvValue(keys.HCLOUD_TOKEN)}`,

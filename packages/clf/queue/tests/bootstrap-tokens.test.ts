@@ -41,7 +41,7 @@ describe("clf queue bootstrap tokens", () => {
         requester: "maren",
         cattleName: "cattle-rex",
         envKeys: ["OPENAI_API_KEY", " OPENAI_API_KEY ", "GITHUB_TOKEN"],
-        publicEnv: { CLAWDLETS_CATTLE_AUTO_SHUTDOWN: "0" },
+        publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
         now: 0,
         ttlMs: 30_000,
       });
@@ -67,18 +67,18 @@ describe("clf queue bootstrap tokens", () => {
         requester: "maren",
         cattleName: "cattle-rex",
         envKeys: [],
-        publicEnv: { "": "x", CLAWDLETS_OK: "1" },
+        publicEnv: { "": "x", CLAWLETS_OK: "1" },
         now: 0,
         ttlMs: 30_000,
       });
       const consumedBlank = q.consumeCattleBootstrapToken({ token: withBlankKey.token, now: 1 });
-      expect(consumedBlank?.publicEnv).toEqual({ CLAWDLETS_OK: "1" });
+      expect(consumedBlank?.publicEnv).toEqual({ CLAWLETS_OK: "1" });
     } finally {
       q.close();
     }
   });
 
-  it("rejects public env without CLAWDLETS_ prefix", async () => {
+  it("rejects public env without CLAWLETS_ prefix", async () => {
     const { openClfQueue } = await import("../src/queue");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clf-queue-"));
     const dbPath = path.join(dir, "state.sqlite");

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { assertSafePersonaName } from "@clawdlets/shared/lib/identifiers";
+import { assertSafePersonaName } from "@clawlets/shared/lib/identifiers";
 
 export const PERSONA_CONFIG_SCHEMA_VERSION = 1 as const;
 
@@ -80,8 +80,8 @@ export function loadPersona(params: {
   const config = PersonaConfigSchema.parse(configJson);
 
   const cloudInitFiles: LoadedPersona["cloudInitFiles"] = [
-    { path: "/var/lib/clawdlets/cattle/persona/SOUL.md", permissions: "0600", owner: "root:root", content: `${soulText}\n` },
-    { path: "/var/lib/clawdlets/cattle/persona/config.json", permissions: "0600", owner: "root:root", content: `${JSON.stringify(configJson, null, 2)}\n` },
+    { path: "/var/lib/clawlets/cattle/persona/SOUL.md", permissions: "0600", owner: "root:root", content: `${soulText}\n` },
+    { path: "/var/lib/clawlets/cattle/persona/config.json", permissions: "0600", owner: "root:root", content: `${JSON.stringify(configJson, null, 2)}\n` },
   ];
 
   return {

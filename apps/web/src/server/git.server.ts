@@ -1,11 +1,11 @@
 import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { spawnCommandCapture } from "~/server/run-manager"
-import { capture } from "@clawdlets/core/lib/run"
+import { capture } from "@clawlets/core/lib/run"
 import { getAdminProjectContext, getRepoRoot } from "~/sdk/repo-root"
-import { sanitizeErrorMessage } from "@clawdlets/core/lib/safe-error"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 export type GitRepoStatus = {
   branch: string | null
@@ -300,7 +300,7 @@ export async function executeGitPush(params: { projectId: Id<"projects"> }) {
       })
       runId = run.runId
 
-      const redactTokens = await readClawdletsEnvTokens(repoRoot)
+      const redactTokens = await readClawletsEnvTokens(repoRoot)
       const args = status.upstream ? ["push"] : ["push", "--set-upstream", "origin", status.branch]
       const env: Record<string, string> = {
         GIT_TERMINAL_PROMPT: "0",

@@ -4,7 +4,7 @@ docs:
     summary: entrypoint; repo model; operator vs bot split; threat model notes
   - path: docs/overview.md
     when: mental model, repo layout, lifecycle
-    summary: git-safe infra; encrypted secrets in /secrets; runtime in .clawdlets; bootstrap -> lockdown -> ops
+    summary: git-safe infra; encrypted secrets in /secrets; runtime in .clawlets; bootstrap -> lockdown -> ops
   - path: docs/golden-path.md
     when: first-class workflow
     summary: bootstrap once, then push -> CI build+manifest -> deploy by store path (cache-only)
@@ -16,16 +16,16 @@ docs:
     summary: acceptance criteria for first host
   - path: docs/cli.md
     when: you need the right command
-    summary: clawdlets and just cookbook
+    summary: clawlets and just cookbook
   - path: docs/config.md
-    when: editing fleet/clawdlets.json
+    when: editing fleet/clawlets.json
     summary: schema/fields/example
   - path: docs/clawdbot-config.md
     when: configuring channels/routing/tools
     summary: clawdbot schema passthrough (inline vs json5, merge order, secrets)
   - path: docs/agent-config.md
     when: skills, workspaces, per-bot profiles
-    summary: clawdlets profile knobs + docs/skills seeding
+    summary: clawlets profile knobs + docs/skills seeding
   - path: docs/gateway.md
     when: multiple gateways per host
     summary: per-bot gateways, ports, auth token, isolation invariants
@@ -49,7 +49,7 @@ docs:
     summary: clf + orchestrator (job queue, cattle spawn handlers, local unix socket)
   - path: docs/concepts/index.md
     when: concepts hub
-    summary: background concepts for clawdlets/clf
+    summary: background concepts for clawlets/clf
   - path: docs/concepts/queue.md
     when: how jobs run
     summary: clf queue semantics (leases/retry/idempotency) + security boundary

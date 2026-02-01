@@ -129,8 +129,8 @@ export function createBootstrapTokenOps(db: import("better-sqlite3").Database): 
         const key = String(k || "").trim();
         if (!key) continue;
         if (!isSafeEnvVarName(key)) throw new Error(`createCattleBootstrapToken.publicEnv contains invalid env var name: ${key}`);
-        if (!key.startsWith("CLAWDLETS_")) {
-          throw new Error(`createCattleBootstrapToken.publicEnv not allowed: ${key} (public env must use CLAWDLETS_*)`);
+        if (!key.startsWith("CLAWLETS_")) {
+          throw new Error(`createCattleBootstrapToken.publicEnv not allowed: ${key} (public env must use CLAWLETS_*)`);
         }
         publicEnv[key] = String(v ?? "");
       }

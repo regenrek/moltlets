@@ -1,15 +1,15 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
-  ClawdletsConfigSchema,
-  loadClawdletsConfig,
-  loadClawdletsConfigRaw,
-  writeClawdletsConfig,
-} from "@clawdlets/core/lib/clawdlets-config"
-import { splitDotPath } from "@clawdlets/core/lib/dot-path"
-import { deleteAtPath, getAtPath, setAtPath } from "@clawdlets/core/lib/object-path"
+  ClawletsConfigSchema,
+  loadClawletsConfig,
+  loadClawletsConfigRaw,
+  writeClawletsConfig,
+} from "@clawlets/core/lib/clawlets-config"
+import { splitDotPath } from "@clawlets/core/lib/dot-path"
+import { deleteAtPath, getAtPath, setAtPath } from "@clawlets/core/lib/object-path"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { BOT_CLAWDBOT_POLICY_MESSAGE, isBotClawdbotPath } from "~/sdk/config-helpers"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
@@ -24,7 +24,7 @@ export const configDotGet = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawdletsConfig({ repoRoot })
+    const { config } = loadClawletsConfig({ repoRoot })
     const parts = splitDotPath(data.path)
     const value = getAtPath(config as any, parts)
     return { path: parts.join("."), value: value as any }
@@ -45,8 +45,8 @@ export const configDotSet = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawdletsConfigRaw({ repoRoot })
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
     const parts = splitDotPath(data.path)
     const next = structuredClone(raw) as any
 
@@ -80,7 +80,7 @@ export const configDotSet = createServerFn({ method: "POST" })
       throw new Error("missing value (or set del=true)")
     }
 
-    const validated = ClawdletsConfigSchema.safeParse(next)
+    const validated = ClawletsConfigSchema.safeParse(next)
     if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
 
     const { runId } = await client.mutation(api.runs.create, {
@@ -97,7 +97,7 @@ export const configDotSet = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating ${parts.join(".")}` })
-        await writeClawdletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath, config: validated.data })
       },
       onSuccess: () => ({ ok: true as const, runId }),
       onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),

@@ -12,7 +12,7 @@ vi.mock("../src/lib/run.js", () => ({
   captureWithInput: vi.fn(async () => ""),
 }));
 
-vi.mock("@clawdlets/cattle-core/lib/hcloud", () => ({
+vi.mock("@clawlets/cattle-core/lib/hcloud", () => ({
   ensureHcloudSshKeyId: ensureKeyMock,
 }));
 
@@ -23,9 +23,9 @@ describe("opentofu", () => {
   });
 
   it("destroyOpenTofuVars runs init + destroy with vars", async () => {
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawdlets-opentofu-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-opentofu-"));
     try {
-      const opentofuDir = path.join(repoRoot, ".clawdlets", "infra", "opentofu");
+      const opentofuDir = path.join(repoRoot, ".clawlets", "infra", "opentofu");
       const sshPubkeyFile = path.join(repoRoot, "id_ed25519.pub");
       await writeFile(sshPubkeyFile, "ssh-ed25519 AAAATEST test\n", "utf8");
 

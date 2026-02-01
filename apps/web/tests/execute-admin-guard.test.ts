@@ -26,8 +26,8 @@ describe("execute admin guard", () => {
       },
     }))
     vi.doMock("~/server/run-manager", () => ({ spawnCommand, spawnCommandCapture }))
-    vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-    vi.doMock("~/server/clawdlets-cli", () => ({ resolveClawdletsCliEntry: () => "cli.js" }))
+    vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+    vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
     vi.doMock("~/server/convex", () => ({ createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any }))
 
     const mod = await import("~/sdk/server-ops")
@@ -69,12 +69,12 @@ describe("execute admin guard", () => {
       },
     }))
     vi.doMock("~/server/run-manager", () => ({ spawnCommand, spawnCommandCapture, runWithEvents: vi.fn(async () => {}) }))
-    vi.doMock("~/server/redaction", () => ({ readClawdletsEnvTokens: async () => [] }))
-    vi.doMock("~/server/clawdlets-cli", () => ({ resolveClawdletsCliEntry: () => "cli.js" }))
+    vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+    vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
     vi.doMock("~/server/convex", () => ({ createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any }))
 
-    vi.doMock("@clawdlets/core/lib/clawdlets-config", () => ({
-      loadClawdletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} }, fleet: { bots: { bot1: {} } } } }),
+    vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
+      loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} }, fleet: { bots: { bot1: {} } } } }),
     }))
 
     const [{ secretsInitExecute }, { serverChannelsExecute }, { bootstrapExecute }] = await Promise.all([

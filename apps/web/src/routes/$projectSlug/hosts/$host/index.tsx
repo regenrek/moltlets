@@ -10,7 +10,7 @@ import { RecentRunsTable, type RunRow } from "~/components/dashboard/recent-runs
 import { RunActivityChart } from "~/components/dashboard/run-activity-chart"
 import { useProjectBySlug } from "~/lib/project-data"
 import { api } from "../../../../../convex/_generated/api"
-import { clawdletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/")({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/")({
     const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
-    await context.queryClient.ensureQueryData(clawdletsConfigQueryOptions(projectId))
+    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: HostOverview,
 })
@@ -32,7 +32,7 @@ function HostOverview() {
   const projectId = projectQuery.projectId
 
   const cfg = useQuery({
-    ...clawdletsConfigQueryOptions(projectId as Id<"projects"> | null),
+    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
     enabled: Boolean(projectId),
   })
 

@@ -2,17 +2,17 @@
 
 ## Update clawdbot config (routing/channels)
 
-Clawdlets does not own routing. Configure routing/channels via clawdbot config:
+Clawlets does not own routing. Configure routing/channels via clawdbot config:
 
 Option:
-- inline: edit `fleet/clawdlets.json` → `fleet.bots.<bot>.clawdbot`
+- inline: edit `fleet/clawlets.json` → `fleet.bots.<bot>.clawdbot`
 
 Then publish + apply updates (pinned):
 
 ```bash
-clawdlets release manifest build --host <host> --channel prod --release-id <releaseId> --out deploy/<host>/prod/<releaseId>.json
-clawdlets release manifest sign --in deploy/<host>/prod/<releaseId>.json
-clawdlets server update apply --host <host>
+clawlets release manifest build --host <host> --channel prod --release-id <releaseId> --out deploy/<host>/prod/<releaseId>.json
+clawlets release manifest sign --in deploy/<host>/prod/<releaseId>.json
+clawlets server update apply --host <host>
 ```
 
 `--rev HEAD` resolves to the full SHA locally before the deploy.
@@ -20,20 +20,20 @@ clawdlets server update apply --host <host>
 ## Rotate tokens/secrets
 
 1) Edit files under `secrets/hosts/clawdbot-fleet-host/` (example: `discord_token_maren.yaml`)
-2) Re-encrypt (or use `clawdlets secrets init` to regenerate)
-3) `clawdlets secrets sync`
-4) `clawdlets secrets verify`
+2) Re-encrypt (or use `clawlets secrets init` to regenerate)
+3) `clawlets secrets sync`
+4) `clawlets secrets verify`
 5) Apply updates:
 
 ```bash
-clawdlets server update apply --host <host>
+clawlets server update apply --host <host>
 ```
 
 ## Add a bot
 
 1) Add bot id:
 ```bash
-clawdlets bot add --bot <id>
+clawlets bot add --bot <id>
 ```
 
 2) Add secret + config:
@@ -42,8 +42,8 @@ clawdlets bot add --bot <id>
 
 Then:
 ```bash
-clawdlets secrets sync
-clawdlets server update apply --host <host>
+clawlets secrets sync
+clawlets server update apply --host <host>
 ```
 
 ## Add/enable a skill
@@ -51,21 +51,21 @@ clawdlets server update apply --host <host>
 1) If bundled: add id to `fleet/bundled-skills.json`
 2) Allow per-bot (example):
 ```bash
-clawdlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search"]'
+clawlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search"]'
 ```
 3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.profile.skills.entries.\"<skill>\".*Secret`
 4) Sync + deploy:
 ```bash
-clawdlets secrets sync
-clawdlets server update apply --host <host>
+clawlets secrets sync
+clawlets server update apply --host <host>
 ```
 
 ## Verify
 
 ```bash
-clawdlets server status --target-host admin@<ipv4>
-clawdlets server logs --target-host admin@<ipv4> --unit clawdbot-maren.service --follow
-clawdlets server audit --target-host admin@<ipv4>
+clawlets server status --target-host admin@<ipv4>
+clawlets server logs --target-host admin@<ipv4> --unit clawdbot-maren.service --follow
+clawlets server audit --target-host admin@<ipv4>
 ```
 
 Justfile:
@@ -77,7 +77,7 @@ just server-logs admin@<ipv4> "--unit clawdbot-maren.service --follow"
 ## Health
 
 ```bash
-clawdlets server logs --target-host admin@<ipv4> --since 15m
+clawlets server logs --target-host admin@<ipv4> --since 15m
 ```
 
 Justfile:
@@ -135,17 +135,17 @@ If enabled (`services.clawdbotFleet.githubSync.enable = true`), each bot writes:
 Ops helpers:
 
 ```bash
-clawdlets server github-sync status --target-host admin@<ipv4>
-clawdlets server github-sync run --target-host admin@<ipv4> --bot maren
-clawdlets server github-sync show --target-host admin@<ipv4> --bot maren --kind prs --lines 80
+clawlets server github-sync status --target-host admin@<ipv4>
+clawlets server github-sync run --target-host admin@<ipv4> --bot maren
+clawlets server github-sync show --target-host admin@<ipv4> --bot maren --kind prs --lines 80
 ```
 
 ## Ops snapshots (optional)
 
 If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`), the host writes JSON snapshots to:
 
-- `/var/lib/clawdlets/ops/snapshots/latest.json`
-- `/var/lib/clawdlets/ops/snapshots/<timestamp>-<host>.json`
+- `/var/lib/clawlets/ops/snapshots/latest.json`
+- `/var/lib/clawlets/ops/snapshots/<timestamp>-<host>.json`
 
 Retention:
 
@@ -159,7 +159,7 @@ Backup:
 Run now:
 
 ```bash
-sudo systemctl start clawdlets-ops-snapshot.service
+sudo systemctl start clawlets-ops-snapshot.service
 ```
 
 ## Backups (restic)
@@ -167,7 +167,7 @@ sudo systemctl start clawdlets-ops-snapshot.service
 Enable via CLI:
 
 ```bash
-clawdlets fleet set --restic-enable true --restic-repository "s3:s3.amazonaws.com/<bucket>/clawdbot"
+clawlets fleet set --restic-enable true --restic-repository "s3:s3.amazonaws.com/<bucket>/clawdbot"
 ```
 
 Add secrets under `secrets/hosts/clawdbot-fleet-host/` (example: `restic_password.yaml`), sync, then deploy.

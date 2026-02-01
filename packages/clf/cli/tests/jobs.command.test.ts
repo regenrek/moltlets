@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { CATTLE_TASK_SCHEMA_VERSION } from "@clawdlets/cattle-core/lib/cattle-task";
+import { CATTLE_TASK_SCHEMA_VERSION } from "@clawlets/cattle-core/lib/cattle-task";
 
 const client = {
   enqueue: vi.fn(),
@@ -13,8 +13,8 @@ const client = {
 
 const parseJobKindMock = vi.fn();
 
-vi.mock("@clawdlets/clf-queue", async () => {
-  const actual = await vi.importActual<typeof import("@clawdlets/clf-queue")>("@clawdlets/clf-queue");
+vi.mock("@clawlets/clf-queue", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/clf-queue")>("@clawlets/clf-queue");
   parseJobKindMock.mockImplementation((value: unknown) => actual.ClfJobKindSchema.parse(value));
   return {
     ...actual,

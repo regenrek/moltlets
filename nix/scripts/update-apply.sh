@@ -8,37 +8,37 @@ usage: update-apply
 Applies the signed desired-state release manifest from the updater state directory.
 
 Required env:
-- CLAWDLETS_UPDATER_BASE_URLS                   space-separated mirror list
-- CLAWDLETS_UPDATER_STATE_DIR
-- CLAWDLETS_UPDATER_KEYS_FILE
-- CLAWDLETS_UPDATER_HOST_NAME
-- CLAWDLETS_UPDATER_CHANNEL
-- CLAWDLETS_UPDATER_SECRETS_DIR
-- CLAWDLETS_UPDATER_ALLOWED_SUBSTITUTERS          space-separated list
-- CLAWDLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS   space-separated list
+- CLAWLETS_UPDATER_BASE_URLS                   space-separated mirror list
+- CLAWLETS_UPDATER_STATE_DIR
+- CLAWLETS_UPDATER_KEYS_FILE
+- CLAWLETS_UPDATER_HOST_NAME
+- CLAWLETS_UPDATER_CHANNEL
+- CLAWLETS_UPDATER_SECRETS_DIR
+- CLAWLETS_UPDATER_ALLOWED_SUBSTITUTERS          space-separated list
+- CLAWLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS   space-separated list
 
 Optional env:
-- CLAWDLETS_UPDATER_ALLOW_UNSIGNED   "true" (dev only; skips signature verification)
-- CLAWDLETS_UPDATER_ALLOW_ROLLBACK   "true" (break-glass; accepts lower releaseId)
-- CLAWDLETS_UPDATER_HEALTHCHECK_UNIT systemd unit to require active after switch (record-only)
-- CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE         newline-delimited minisign public keys (previous/rotating out)
-- CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL  UTC timestamp (RFC3339/ISO); after this, previous keys are rejected
+- CLAWLETS_UPDATER_ALLOW_UNSIGNED   "true" (dev only; skips signature verification)
+- CLAWLETS_UPDATER_ALLOW_ROLLBACK   "true" (break-glass; accepts lower releaseId)
+- CLAWLETS_UPDATER_HEALTHCHECK_UNIT systemd unit to require active after switch (record-only)
+- CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE         newline-delimited minisign public keys (previous/rotating out)
+- CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL  UTC timestamp (RFC3339/ISO); after this, previous keys are rejected
 USAGE
 }
 
-base_urls_raw="${CLAWDLETS_UPDATER_BASE_URLS:-}"
-state_dir="${CLAWDLETS_UPDATER_STATE_DIR:-/var/lib/clawdlets/updates}"
-keys_file="${CLAWDLETS_UPDATER_KEYS_FILE:-}"
-previous_keys_file="${CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE:-}"
-previous_keys_valid_until="${CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL:-}"
-host_name="${CLAWDLETS_UPDATER_HOST_NAME:-}"
-channel="${CLAWDLETS_UPDATER_CHANNEL:-}"
-secrets_dir="${CLAWDLETS_UPDATER_SECRETS_DIR:-}"
-allow_unsigned="${CLAWDLETS_UPDATER_ALLOW_UNSIGNED:-false}"
-allow_rollback="${CLAWDLETS_UPDATER_ALLOW_ROLLBACK:-false}"
-health_unit="${CLAWDLETS_UPDATER_HEALTHCHECK_UNIT:-}"
-allowed_substituters="${CLAWDLETS_UPDATER_ALLOWED_SUBSTITUTERS:-}"
-allowed_trusted_keys="${CLAWDLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS:-}"
+base_urls_raw="${CLAWLETS_UPDATER_BASE_URLS:-}"
+state_dir="${CLAWLETS_UPDATER_STATE_DIR:-/var/lib/clawlets/updates}"
+keys_file="${CLAWLETS_UPDATER_KEYS_FILE:-}"
+previous_keys_file="${CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE:-}"
+previous_keys_valid_until="${CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL:-}"
+host_name="${CLAWLETS_UPDATER_HOST_NAME:-}"
+channel="${CLAWLETS_UPDATER_CHANNEL:-}"
+secrets_dir="${CLAWLETS_UPDATER_SECRETS_DIR:-}"
+allow_unsigned="${CLAWLETS_UPDATER_ALLOW_UNSIGNED:-false}"
+allow_rollback="${CLAWLETS_UPDATER_ALLOW_ROLLBACK:-false}"
+health_unit="${CLAWLETS_UPDATER_HEALTHCHECK_UNIT:-}"
+allowed_substituters="${CLAWLETS_UPDATER_ALLOWED_SUBSTITUTERS:-}"
+allowed_trusted_keys="${CLAWLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS:-}"
 
 read -r -a base_urls <<<"${base_urls_raw}"
 
@@ -48,11 +48,11 @@ if [[ "${#base_urls[@]}" -eq 0 || -z "${keys_file}" || -z "${host_name}" || -z "
 fi
 
 if [[ "${allow_unsigned}" != "true" && "${allow_unsigned}" != "false" ]]; then
-  echo "error: CLAWDLETS_UPDATER_ALLOW_UNSIGNED must be true|false" >&2
+  echo "error: CLAWLETS_UPDATER_ALLOW_UNSIGNED must be true|false" >&2
   exit 2
 fi
 if [[ "${allow_rollback}" != "true" && "${allow_rollback}" != "false" ]]; then
-  echo "error: CLAWDLETS_UPDATER_ALLOW_ROLLBACK must be true|false" >&2
+  echo "error: CLAWLETS_UPDATER_ALLOW_ROLLBACK must be true|false" >&2
   exit 2
 fi
 
@@ -68,12 +68,12 @@ if [[ -n "${previous_keys_file}" ]]; then
     exit 2
   fi
   if [[ -z "${previous_keys_valid_until}" ]]; then
-    echo "error: CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL must be set when CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE is set" >&2
+    echo "error: CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL must be set when CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE is set" >&2
     exit 2
   fi
   until_epoch=""
   if ! until_epoch="$(date -u -d "${previous_keys_valid_until}" +%s 2>/dev/null)"; then
-    echo "error: invalid CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL: ${previous_keys_valid_until}" >&2
+    echo "error: invalid CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL: ${previous_keys_valid_until}" >&2
     exit 2
   fi
   now_epoch="$(date -u +%s)"
@@ -347,7 +347,7 @@ if [[ -n "${current_release_id}" && "${current_release_id}" =~ ^[0-9]+$ ]]; then
   fi
 fi
 
-installed_digest_file="${secrets_dir}/.clawdlets-secrets-digest"
+installed_digest_file="${secrets_dir}/.clawlets-secrets-digest"
 installed_digest=""
 if [[ -f "${installed_digest_file}" ]]; then
   installed_digest="$(cat "${installed_digest_file}" | tr -d '\r' | xargs || true)"
@@ -385,8 +385,8 @@ if [[ -z "${installed_digest}" || "${installed_digest}" != "${manifest_secrets_d
     done
   fi
 
-  if [[ ! -x "/etc/clawdlets/bin/install-secrets" ]]; then
-    write_status "failed" "install-secrets missing" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "/etc/clawdlets/bin/install-secrets not found"
+  if [[ ! -x "/etc/clawlets/bin/install-secrets" ]]; then
+    write_status "failed" "install-secrets missing" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "/etc/clawlets/bin/install-secrets not found"
     exit 2
   fi
 
@@ -421,7 +421,7 @@ if [[ -z "${installed_digest}" || "${installed_digest}" != "${manifest_secrets_d
     exit 2
   fi
 
-  if ! /etc/clawdlets/bin/install-secrets --host "${host_name}" --tar "${secrets_tmp}" --rev "${manifest_rev}" --digest "${manifest_secrets_digest}"; then
+  if ! /etc/clawlets/bin/install-secrets --host "${host_name}" --tar "${secrets_tmp}" --rev "${manifest_rev}" --digest "${manifest_secrets_digest}"; then
     rm -f "${secrets_tmp}" 2>/dev/null || true
     write_status "failed" "secrets install failed" "${manifest_release_id}" "${manifest_toplevel}" "${manifest_rev}" "${verified_key_sha256}" "install-secrets failed"
     exit 2
@@ -486,7 +486,7 @@ if [[ -n "${current_toplevel}" && "${current_toplevel}" == "${manifest_toplevel}
   # noop but still accept issuance (anti-rollback)
   :
 else
-  /etc/clawdlets/bin/switch-system --toplevel "${manifest_toplevel}" --rev "${manifest_rev}"
+  /etc/clawlets/bin/switch-system --toplevel "${manifest_toplevel}" --rev "${manifest_rev}"
 fi
 
 if [[ -n "${health_unit}" ]]; then

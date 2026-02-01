@@ -1,9 +1,9 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.clawdlets;
+  cfg = config.clawlets;
 in {
-  options.clawdlets.selfUpdate = {
+  options.clawlets.selfUpdate = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -69,58 +69,58 @@ in {
     assertions = [
       {
         assertion = (!cfg.selfUpdate.enable) || (cfg.selfUpdate.baseUrls != [ ]);
-        message = "clawdlets.selfUpdate.baseUrls must be set when self-update is enabled.";
+        message = "clawlets.selfUpdate.baseUrls must be set when self-update is enabled.";
       }
       {
         assertion = (cfg.selfUpdate.previousPublicKeys == [ ]) || (cfg.selfUpdate.previousPublicKeysValidUntil != null);
-        message = "clawdlets.selfUpdate.previousPublicKeysValidUntil must be set when previousPublicKeys is non-empty.";
+        message = "clawlets.selfUpdate.previousPublicKeysValidUntil must be set when previousPublicKeys is non-empty.";
       }
     ];
 
-    environment.etc."clawdlets/bin/update-fetch" = {
+    environment.etc."clawlets/bin/update-fetch" = {
       source = ../scripts/update-fetch.sh;
       mode = "0755";
     };
 
-    environment.etc."clawdlets/bin/update-apply" = {
+    environment.etc."clawlets/bin/update-apply" = {
       source = ../scripts/update-apply.sh;
       mode = "0755";
     };
 
-    environment.etc."clawdlets/bin/update-status" = {
+    environment.etc."clawlets/bin/update-status" = {
       source = ../scripts/update-status.sh;
       mode = "0755";
     };
 
-    environment.etc."clawdlets/updater/manifest.keys" = lib.mkIf cfg.selfUpdate.enable {
+    environment.etc."clawlets/updater/manifest.keys" = lib.mkIf cfg.selfUpdate.enable {
       mode = "0444";
       text = lib.concatStringsSep "\n" cfg.selfUpdate.publicKeys + "\n";
     };
 
-    environment.etc."clawdlets/updater/manifest.previous.keys" = lib.mkIf (cfg.selfUpdate.enable && cfg.selfUpdate.previousPublicKeys != [ ]) {
+    environment.etc."clawlets/updater/manifest.previous.keys" = lib.mkIf (cfg.selfUpdate.enable && cfg.selfUpdate.previousPublicKeys != [ ]) {
       mode = "0444";
       text = lib.concatStringsSep "\n" cfg.selfUpdate.previousPublicKeys + "\n";
     };
 
-    systemd.services.clawdlets-update-fetch = lib.mkIf cfg.selfUpdate.enable {
-      description = "Clawdlets update: fetch desired state (pointer + manifest)";
+    systemd.services.clawlets-update-fetch = lib.mkIf cfg.selfUpdate.enable {
+      description = "Clawlets update: fetch desired state (pointer + manifest)";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       path = [ pkgs.bash pkgs.curl pkgs.jq pkgs.coreutils pkgs.minisign pkgs.util-linux ];
       environment = {
-        CLAWDLETS_UPDATER_BASE_URLS = lib.concatStringsSep " " cfg.selfUpdate.baseUrls;
-        CLAWDLETS_UPDATER_STATE_DIR = "/var/lib/clawdlets/updates";
-        CLAWDLETS_UPDATER_KEYS_FILE = "/etc/clawdlets/updater/manifest.keys";
-        CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE = if cfg.selfUpdate.previousPublicKeys != [ ] then "/etc/clawdlets/updater/manifest.previous.keys" else "";
-        CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL = if cfg.selfUpdate.previousPublicKeysValidUntil != null then cfg.selfUpdate.previousPublicKeysValidUntil else "";
-        CLAWDLETS_UPDATER_ALLOW_UNSIGNED = if cfg.selfUpdate.allowUnsigned then "true" else "false";
+        CLAWLETS_UPDATER_BASE_URLS = lib.concatStringsSep " " cfg.selfUpdate.baseUrls;
+        CLAWLETS_UPDATER_STATE_DIR = "/var/lib/clawlets/updates";
+        CLAWLETS_UPDATER_KEYS_FILE = "/etc/clawlets/updater/manifest.keys";
+        CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE = if cfg.selfUpdate.previousPublicKeys != [ ] then "/etc/clawlets/updater/manifest.previous.keys" else "";
+        CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL = if cfg.selfUpdate.previousPublicKeysValidUntil != null then cfg.selfUpdate.previousPublicKeysValidUntil else "";
+        CLAWLETS_UPDATER_ALLOW_UNSIGNED = if cfg.selfUpdate.allowUnsigned then "true" else "false";
       };
       serviceConfig = {
         Type = "oneshot";
         User = "root";
         Group = "root";
         UMask = "0077";
-        StateDirectory = "clawdlets/updates";
+        StateDirectory = "clawlets/updates";
         StateDirectoryMode = "0700";
         PrivateTmp = true;
         ProtectHome = true;
@@ -131,37 +131,37 @@ in {
       script = ''
         set -euo pipefail
 
-        /etc/clawdlets/bin/update-fetch
-        /run/current-system/sw/bin/systemctl start clawdlets-update-apply.service
+        /etc/clawlets/bin/update-fetch
+        /run/current-system/sw/bin/systemctl start clawlets-update-apply.service
       '';
     };
 
-    systemd.services.clawdlets-update-apply = lib.mkIf cfg.selfUpdate.enable {
-      description = "Clawdlets update: apply desired state";
+    systemd.services.clawlets-update-apply = lib.mkIf cfg.selfUpdate.enable {
+      description = "Clawlets update: apply desired state";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       path = [ pkgs.bash pkgs.curl pkgs.jq pkgs.coreutils pkgs.minisign pkgs.util-linux pkgs.nix ];
       environment = {
-        CLAWDLETS_UPDATER_BASE_URLS = lib.concatStringsSep " " cfg.selfUpdate.baseUrls;
-        CLAWDLETS_UPDATER_STATE_DIR = "/var/lib/clawdlets/updates";
-        CLAWDLETS_UPDATER_KEYS_FILE = "/etc/clawdlets/updater/manifest.keys";
-        CLAWDLETS_UPDATER_PREVIOUS_KEYS_FILE = if cfg.selfUpdate.previousPublicKeys != [ ] then "/etc/clawdlets/updater/manifest.previous.keys" else "";
-        CLAWDLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL = if cfg.selfUpdate.previousPublicKeysValidUntil != null then cfg.selfUpdate.previousPublicKeysValidUntil else "";
-        CLAWDLETS_UPDATER_HOST_NAME = config.networking.hostName;
-        CLAWDLETS_UPDATER_CHANNEL = cfg.selfUpdate.channel;
-        CLAWDLETS_UPDATER_SECRETS_DIR = config.clawdlets.secrets.hostDir;
-        CLAWDLETS_UPDATER_ALLOW_UNSIGNED = if cfg.selfUpdate.allowUnsigned then "true" else "false";
-        CLAWDLETS_UPDATER_ALLOW_ROLLBACK = if cfg.selfUpdate.allowRollback then "true" else "false";
-        CLAWDLETS_UPDATER_HEALTHCHECK_UNIT = if cfg.selfUpdate.healthCheckUnit != null then cfg.selfUpdate.healthCheckUnit else "";
-        CLAWDLETS_UPDATER_ALLOWED_SUBSTITUTERS = lib.concatStringsSep " " (config.nix.settings.substituters or []);
-        CLAWDLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS = lib.concatStringsSep " " (config.nix.settings."trusted-public-keys" or []);
+        CLAWLETS_UPDATER_BASE_URLS = lib.concatStringsSep " " cfg.selfUpdate.baseUrls;
+        CLAWLETS_UPDATER_STATE_DIR = "/var/lib/clawlets/updates";
+        CLAWLETS_UPDATER_KEYS_FILE = "/etc/clawlets/updater/manifest.keys";
+        CLAWLETS_UPDATER_PREVIOUS_KEYS_FILE = if cfg.selfUpdate.previousPublicKeys != [ ] then "/etc/clawlets/updater/manifest.previous.keys" else "";
+        CLAWLETS_UPDATER_PREVIOUS_KEYS_VALID_UNTIL = if cfg.selfUpdate.previousPublicKeysValidUntil != null then cfg.selfUpdate.previousPublicKeysValidUntil else "";
+        CLAWLETS_UPDATER_HOST_NAME = config.networking.hostName;
+        CLAWLETS_UPDATER_CHANNEL = cfg.selfUpdate.channel;
+        CLAWLETS_UPDATER_SECRETS_DIR = config.clawlets.secrets.hostDir;
+        CLAWLETS_UPDATER_ALLOW_UNSIGNED = if cfg.selfUpdate.allowUnsigned then "true" else "false";
+        CLAWLETS_UPDATER_ALLOW_ROLLBACK = if cfg.selfUpdate.allowRollback then "true" else "false";
+        CLAWLETS_UPDATER_HEALTHCHECK_UNIT = if cfg.selfUpdate.healthCheckUnit != null then cfg.selfUpdate.healthCheckUnit else "";
+        CLAWLETS_UPDATER_ALLOWED_SUBSTITUTERS = lib.concatStringsSep " " (config.nix.settings.substituters or []);
+        CLAWLETS_UPDATER_ALLOWED_TRUSTED_PUBLIC_KEYS = lib.concatStringsSep " " (config.nix.settings."trusted-public-keys" or []);
       };
       serviceConfig = {
         Type = "oneshot";
         User = "root";
         Group = "root";
         UMask = "0077";
-        StateDirectory = "clawdlets/updates";
+        StateDirectory = "clawlets/updates";
         StateDirectoryMode = "0700";
         PrivateTmp = true;
         ProtectHome = true;
@@ -171,18 +171,18 @@ in {
       };
       script = ''
         set -euo pipefail
-        /etc/clawdlets/bin/update-apply
+        /etc/clawlets/bin/update-apply
       '';
     };
 
-    systemd.timers.clawdlets-update-fetch = lib.mkIf cfg.selfUpdate.enable {
-      description = "Clawdlets update: fetch+apply timer";
+    systemd.timers.clawlets-update-fetch = lib.mkIf cfg.selfUpdate.enable {
+      description = "Clawlets update: fetch+apply timer";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = cfg.selfUpdate.interval;
         Persistent = true;
         RandomizedDelaySec = "2m";
-        Unit = "clawdlets-update-fetch.service";
+        Unit = "clawlets-update-fetch.service";
       };
     };
   };

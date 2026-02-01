@@ -14,7 +14,7 @@ describe("clawdbot parse scheduler", () => {
       clearTimeout: globalThis.clearTimeout,
     })
     const lintSpy = vi.fn(() => ({ ok: true }))
-    vi.doMock("@clawdlets/core/lib/clawdbot-security-lint", () => ({
+    vi.doMock("@clawlets/core/lib/clawdbot-security-lint", () => ({
       lintClawdbotSecurityConfig: lintSpy,
     }))
     const mod = await import("~/lib/clawdbot-parse")

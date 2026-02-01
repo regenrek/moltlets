@@ -1,19 +1,19 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
-  ClawdletsConfigSchema,
-  loadClawdletsConfig,
-  loadClawdletsConfigRaw,
-  writeClawdletsConfig,
-} from "@clawdlets/core/lib/clawdlets-config"
+  ClawletsConfigSchema,
+  loadClawletsConfig,
+  loadClawletsConfigRaw,
+  writeClawletsConfig,
+} from "@clawlets/core/lib/clawlets-config"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawdletsEnvTokens } from "~/server/redaction"
+import { readClawletsEnvTokens } from "~/server/redaction"
 import { findBotClawdbotChanges } from "~/sdk/config-helpers"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
 
-export const getClawdletsConfig = createServerFn({ method: "POST" })
+export const getClawletsConfig = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     return parseProjectIdInput(data)
   })
@@ -21,7 +21,7 @@ export const getClawdletsConfig = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     try {
-      const { configPath, config } = loadClawdletsConfig({ repoRoot })
+      const { configPath, config } = loadClawletsConfig({ repoRoot })
       const json = JSON.stringify(config, null, 2)
       return {
         repoRoot,
@@ -31,8 +31,8 @@ export const getClawdletsConfig = createServerFn({ method: "POST" })
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      if (message.toLowerCase().includes("missing clawdlets config")) {
-        const match = message.match(/missing clawdlets config:\s*(.+)$/i)
+      if (message.toLowerCase().includes("missing clawlets config")) {
+        const match = message.match(/missing clawlets config:\s*(.+)$/i)
         const configPath = match?.[1]?.trim() || ""
         return {
           repoRoot,
@@ -46,28 +46,28 @@ export const getClawdletsConfig = createServerFn({ method: "POST" })
     }
   })
 
-export const writeClawdletsConfigFile = createServerFn({ method: "POST" })
+export const writeClawletsConfigFile = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
     return {
       ...base,
       next: d["next"] as unknown,
-      title: typeof d["title"] === "string" ? d["title"] : "Update fleet/clawdlets.json",
+      title: typeof d["title"] === "string" ? d["title"] : "Update fleet/clawlets.json",
     }
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
 
-    const { configPath, config: current } = loadClawdletsConfigRaw({ repoRoot })
+    const { configPath, config: current } = loadClawletsConfigRaw({ repoRoot })
     const blocked = findBotClawdbotChanges(current, data.next)
     if (blocked) {
       return { ok: false as const, issues: [{ code: "policy", path: blocked.path, message: blocked.message }] }
     }
 
-    const parsed = ClawdletsConfigSchema.safeParse(data.next)
+    const parsed = ClawletsConfigSchema.safeParse(data.next)
     if (!parsed.success) return { ok: false as const, issues: mapValidationIssues(parsed.error.issues as unknown[]) }
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -83,8 +83,8 @@ export const writeClawdletsConfigFile = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: "Validating config…" })
-        await emit({ level: "info", message: "Writing fleet/clawdlets.json…" })
-        await writeClawdletsConfig({ configPath, config: parsed.data })
+        await emit({ level: "info", message: "Writing fleet/clawlets.json…" })
+        await writeClawletsConfig({ configPath, config: parsed.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId }),

@@ -8,7 +8,7 @@ describe("prepare-package guardrails", () => {
   it("rejects unsafe out dir without override", () => {
     const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
     const script = path.join(repoRoot, "scripts", "prepare-package.mjs");
-    const tmpOut = path.join(os.tmpdir(), "clawdlets-unsafe-out");
+    const tmpOut = path.join(os.tmpdir(), "clawlets-unsafe-out");
     const res = spawnSync(process.execPath, [script, "--out", tmpOut, "--pkg", "packages/cli"], {
       cwd: repoRoot,
       encoding: "utf8",
@@ -23,7 +23,7 @@ describe("prepare-package guardrails", () => {
     const tmpParent = path.join(repoRoot, "packages", "cli", ".tmp");
     fs.mkdirSync(tmpParent, { recursive: true });
     const tmpBase = fs.mkdtempSync(path.join(tmpParent, "prepare-package-"));
-    const tmpOut = path.join(tmpBase, "clawdlets");
+    const tmpOut = path.join(tmpBase, "clawlets");
 
     try {
       const res = spawnSync(
@@ -45,7 +45,7 @@ describe("prepare-package guardrails", () => {
       expect(fs.existsSync(path.join(tmpOut, "dist", "assets", "opentofu", "main.tf"))).toBe(true);
 
       for (const [name, spec] of Object.entries(outPkg.dependencies || {})) {
-        expect(String(name)).not.toMatch(/^@clawdlets\//);
+        expect(String(name)).not.toMatch(/^@clawlets\//);
         expect(String(spec)).not.toMatch(/^(workspace:|file:|link:)/);
         expect(name).toBeTruthy();
       }

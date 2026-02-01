@@ -3,9 +3,9 @@ import { createServerFn } from "@tanstack/react-start"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { createConvexClient, type ConvexClient } from "~/server/convex"
-import { resolveClawdletsCliEntry } from "~/server/clawdlets-cli"
-import { readClawdletsEnvTokens } from "~/server/redaction"
-import { getClawdletsCliEnv } from "~/server/run-env"
+import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
+import { readClawletsEnvTokens } from "~/server/redaction"
+import { getClawletsCliEnv } from "~/server/run-env"
 import { spawnCommand, spawnCommandCapture } from "~/server/run-manager"
 import { requireAdminAndBoundRun } from "~/sdk/run-guards"
 import {
@@ -83,9 +83,9 @@ export const serverUpdateApplyExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_update_apply",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       const args = [
@@ -138,9 +138,9 @@ export const serverStatusExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_status",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       const args = [
@@ -198,9 +198,9 @@ export const serverAuditExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_audit",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       const args = [
@@ -285,9 +285,9 @@ export const serverLogsExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_logs",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     const unit = data.unit.trim() || "clawdbot-*.service"
     const lines = data.lines.trim() || "200"
@@ -348,9 +348,9 @@ export const serverUpdateStatusExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_update_status",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       const args = [
@@ -431,9 +431,9 @@ export const serverUpdateLogsExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_update_logs",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     const lines = data.lines.trim() || "200"
 
@@ -503,9 +503,9 @@ export const serverRestartExecute = createServerFn({ method: "POST" })
       runId: data.runId,
       expectedKind: "server_restart",
     })
-    const redactTokens = await readClawdletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawdletsCliEntry()
-    const cliEnv = getClawdletsCliEnv()
+    const redactTokens = await readClawletsEnvTokens(repoRoot)
+    const cliEntry = resolveClawletsCliEntry()
+    const cliEnv = getClawletsCliEnv()
 
     try {
       const args = [

@@ -9,25 +9,25 @@ const resolveTailscaleIpv4Mock = vi.fn();
 const sshRunMock = vi.fn();
 const runMock = vi.fn();
 
-vi.mock("@clawdlets/core/lib/context", () => ({
+vi.mock("@clawlets/core/lib/context", () => ({
   loadHostContextOrExit: loadHostContextMock,
 }));
 
-vi.mock("@clawdlets/core/lib/deploy-creds", () => ({
+vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawdlets/cattle-core/lib/hcloud-cattle", () => ({
+vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", () => ({
   listCattleServers: listCattleServersMock,
   buildCattleLabelSelector: buildCattleLabelSelectorMock,
 }));
 
-vi.mock("@clawdlets/core/lib/ssh-remote", () => ({
+vi.mock("@clawlets/core/lib/ssh-remote", () => ({
   sshRun: sshRunMock,
   shellQuote: (s: string) => s,
 }));
 
-vi.mock("@clawdlets/core/lib/run", () => ({
+vi.mock("@clawlets/core/lib/run", () => ({
   run: runMock,
 }));
 

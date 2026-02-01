@@ -36,12 +36,12 @@ export async function evalWheelAccess(params: { repoRoot: string; nixBin: string
   }
 }
 
-export function getClawdletsRevFromFlakeLock(repoRoot: string): string | null {
+export function getClawletsRevFromFlakeLock(repoRoot: string): string | null {
   const flakeLockPath = path.join(repoRoot, "flake.lock");
   if (!fs.existsSync(flakeLockPath)) return null;
   try {
     const lock = JSON.parse(fs.readFileSync(flakeLockPath, "utf8"));
-    const rev = lock?.nodes?.clawdlets?.locked?.rev;
+    const rev = lock?.nodes?.clawlets?.locked?.rev;
     return typeof rev === "string" && rev.trim() ? rev.trim() : null;
   } catch {
     return null;

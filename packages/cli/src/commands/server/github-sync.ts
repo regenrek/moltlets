@@ -1,8 +1,8 @@
 import process from "node:process";
 import { defineCommand } from "citty";
-import { shellQuote, sshRun } from "@clawdlets/core/lib/ssh-remote";
+import { shellQuote, sshRun } from "@clawlets/core/lib/ssh-remote";
 import { needsSudo, requireTargetHost } from "./common.js";
-import { loadHostContextOrExit } from "@clawdlets/core/lib/context";
+import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 function normalizeKind(raw: string): "prs" | "issues" {
   const v = raw.trim();
@@ -16,9 +16,9 @@ const serverGithubSyncStatus = defineCommand({
     description: "Show GitHub sync timers (clawdbot-gh-sync-*.timer).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -47,9 +47,9 @@ const serverGithubSyncRun = defineCommand({
     description: "Run a GitHub sync now (oneshot).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     bot: { type: "string", description: "Bot id (default: all bots with sync enabled)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
@@ -79,9 +79,9 @@ const serverGithubSyncLogs = defineCommand({
     description: "Show GitHub sync logs (journalctl).",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     bot: { type: "string", description: "Bot id (required)." },
     follow: { type: "boolean", description: "Follow logs.", default: false },
     lines: { type: "string", description: "Number of lines (default: 200).", default: "200" },
@@ -121,9 +121,9 @@ const serverGithubSyncShow = defineCommand({
     description: "Show the last synced snapshot (prs|issues) from bot workspace memory.",
   },
   args: {
-    runtimeDir: { type: "string", description: "Runtime directory (default: .clawdlets)." },
-    host: { type: "string", description: "Host name (defaults to clawdlets.json defaultHost / sole host)." },
-    targetHost: { type: "string", description: "SSH target override (default: from clawdlets.json)." },
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     bot: { type: "string", description: "Bot id (required)." },
     kind: { type: "string", description: "Snapshot kind: prs|issues.", default: "prs" },
     lines: { type: "string", description: "Max lines to print (default: 200).", default: "200" },
@@ -145,7 +145,7 @@ const serverGithubSyncShow = defineCommand({
     const sudo = needsSudo(targetHost);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
-      "/etc/clawdlets/bin/gh-sync-read",
+      "/etc/clawlets/bin/gh-sync-read",
       shellQuote(bot),
       shellQuote(kind),
       shellQuote(n),

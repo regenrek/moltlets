@@ -38,7 +38,7 @@ export function withFlakesEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const homeDir = String(base.HOME || "").trim();
   const needsPrivateXdgHome = Boolean(homeDir) && !isWritableDir(homeDir);
 
-  const xdgRoot = path.join(os.tmpdir(), "clawdlets-xdg");
+  const xdgRoot = path.join(os.tmpdir(), "clawlets-xdg");
   const withXdg = needsPrivateXdgHome
     ? {
         ...base,
