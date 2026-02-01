@@ -21,23 +21,18 @@ Clawlets is an unofficial clawdbot server provisioner for made for hetzner.
 
 ## Quickstart
 
-Read [Quickstart Guide](docs/quickstart.md) to get started.
+**Documentation:** https://docs.clawlets.com
+
+Source: `apps/docs/content/docs/`
 
 ## Documentation
 
-- Start here: `docs/README.md`
-- [Overview](docs/overview.md) – Mental model + lifecycle.
-- [CLI Cookbook](docs/cli.md) – Common commands and patterns.
-- [Config Reference](docs/config.md) – `fleet/clawlets.json` reference.
-- [Installation Guide](docs/install.md) – Prerequisites and setup.
-- [Deployment & Updates](docs/deploy.md) – How to ship changes.
-- [Agent Configuration](docs/agent-config.md) – Routing, skills, and workspaces.
-- [Secrets Management](docs/secrets.md) – Handling keys safely with sops/age.
-- [Security Model](docs/security.md) – Threat model + boundaries.
-- [Operations Manual](docs/operations.md) – Day-to-day maintenance.
-- [Troubleshooting](docs/troubleshooting.md) – Common failures and fixes.
-- [Going Public](docs/publicing.md) – Checklist for OSS-safe publishing.
-- [Upstream & Tracking](docs/upstream.md) – Keeping your fork in sync.
+- Start here: `apps/docs/content/docs/index.mdx` (Overview)
+- Dashboard: `apps/docs/content/docs/dashboard/index.mdx`
+- Configuration: `apps/docs/content/docs/configuration/index.mdx`
+- Security: `apps/docs/content/docs/security/index.mdx`
+- Operations: `apps/docs/content/docs/operations/index.mdx`
+- CLI: `apps/docs/content/docs/cli/index.mdx`
 
 ## Powered By
 

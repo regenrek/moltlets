@@ -1,0 +1,23 @@
+---
+title: Requirements
+description: What you need before running the dashboard.
+---
+
+The dashboard is meant to run on your workstation or inside your private network.
+Keep it local (LAN or VPN) and avoid public hosting.
+
+<Callout type="warning" title="Keep the dashboard private">
+  Run the dashboard on localhost, a LAN, or a VPN. Avoid exposing it publicly.
+</Callout>
+
+## Local setup (recommended)
+
+You will need a modern Node runtime and the repo toolchain so the web app and workspace
+packages run consistently. The dashboard also uses [Convex](https://www.convex.dev/) as its backend, so you will
+create or sign in to a Convex account during setup. Git is required for workspace
+resolution and project templates.
+
+- **Node 22+** to match the repo toolchain
+- **pnpm** as the workspace package manager
+- **Convex account** (free tier is enough for local setup)
+- **Git** for workspace and template resolution

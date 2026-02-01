@@ -1,0 +1,6 @@
+{
+  "title": "Plugins",
+  "description": "Optional extensions to Clawlets workflows",
+  "icon": "Plug",
+  "pages": ["index", "hetzner-cattle"]
+}

@@ -1,0 +1,6 @@
+{
+  "title": "Reference",
+  "description": "Deep dives and edge cases",
+  "icon": "FileText",
+  "pages": ["index", "architecture", "gateway", "poc", "publicing", "upstream"]
+}

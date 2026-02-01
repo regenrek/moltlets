@@ -1,0 +1,98 @@
+---
+title: Clawdbot config
+description: Use Clawdbot's schema directly.
+---
+
+Clawlets does not invent a second routing or channels schema. You use Clawdbot’s
+configuration directly, and Clawlets applies a small set of invariants.
+
+## Where to put config
+
+Clawdbot config lives inside the fleet file, and it is stored per bot:
+
+- `fleet/clawlets.json` → `fleet.bots.<bot>.clawdbot` (raw Clawdbot config object)
+
+Clawlets enforces a small set of invariants so deployments stay consistent and
+auditable. Those values are derived from the fleet and host config, and they override
+any conflicting values in the raw Clawdbot config:
+
+- `gateway.mode = "local"`
+- `gateway.bind` / `gateway.port`
+- `gateway.auth` (always enabled)
+- `agents.defaults.workspace`
+- `agents.defaults.skipBootstrap`
+
+## Security lint + hardening
+
+Clawlets includes Clawdbot security lint and treats open policies as deploy‑critical
+findings.
+
+The CLI and UI both surface these checks. You can run them locally with `clawlets doctor`,
+validate a live host with `clawlets server audit`, or apply a conservative set of
+defaults with `clawlets clawdbot harden` (dry‑run unless `--write`). The web editor
+also exposes a Harden button and applies hardening defaults when you use a channel
+preset.
+
+Hardening defaults (opt‑in):
+
+- `logging.redactSensitive="tools"` (if unset or "off")
+- `session.dmScope="per-channel-peer"` (if unset or "main")
+- `dmPolicy`/`dm.policy`: "pairing" (if unset or "open")
+- `groupPolicy`: "allowlist" (if unset or "open")
+
+Notes:
+
+- Hardening does **not** add allowlists (`allowFrom`, `groupAllowFrom`, `groups`).
+- “Open” DM/group policies are treated as critical findings.
+
+## Schema sources (pinned vs live)
+
+Clawlets ships with a pinned schema that the CLI uses for validation and that the UI
+uses by default. If you want to validate against a live gateway, the web editor can
+fetch the schema from a running bot, which requires `hosts.<host>.targetHost` and an
+active gateway. The same fetch is available via the CLI:
+
+- `clawlets clawdbot schema fetch --host <host> --bot <bot>`
+
+The UI also shows schema drift between the pinned schema, the project’s pinned
+`nix-clawdbot` rev, and upstream `nix-clawdbot` main.
+
+## Web editor validation
+
+The editor uses Monaco with JSON schema diagnostics so unknown keys and type errors
+are highlighted inline. Security audit findings are presented alongside the editor,
+and save-time validation runs against the pinned or live schema and blocks writes
+when issues are present.
+
+## Secrets
+
+Do not commit plaintext tokens into config. Any files under `documentsDir` are copied
+into the Nix store during deploy, so treat them as public.
+
+Use env var references in Clawdbot config and wire them to sops secret names in
+`fleet/clawlets.json` instead:
+
+- Discord: set `channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `fleet.bots.<bot>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
+- Model providers: wire `fleet.secretEnv.<ENV_VAR> = "<secretName>"` (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`)
+
+Notes:
+
+- `${ENV_VAR}` is the only detected form (uppercase + underscores). Escape literal `${ENV_VAR}` as `$${ENV_VAR}`.
+- Inline tokens/API keys emit warnings; strict mode fails them.
+
+Example (Discord token):
+
+```json
+{
+  "fleet": {
+    "bots": {
+      "maren": {
+        "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
+        "clawdbot": {
+          "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } }
+        }
+      }
+    }
+  }
+}
+```

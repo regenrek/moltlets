@@ -1,0 +1,67 @@
+---
+title: OpenClaw compatibility
+description: How Clawlets aligns with OpenClaw/Clawdbot config.
+---
+
+Clawlets does **not** invent a second routing schema. It passes the OpenClaw (Clawdbot)
+config through directly and enforces a small set of invariants.
+
+## Where the OpenClaw config lives
+
+OpenClaw config is embedded per bot inside the fleet file:
+
+```json
+{
+  "fleet": {
+    "bots": {
+      "<bot>": {
+        "clawdbot": {
+          "...": "raw OpenClaw config"
+        }
+      }
+    }
+  }
+}
+```
+
+Clawlets reads `fleet.bots.<bot>.clawdbot` and renders it into the on-host
+gateway config.
+
+## Invariants Clawlets enforces
+
+Clawlets overrides a few keys for consistency and operational constraints. These are
+the values that tie the runtime to the host layout and gateway policy:
+
+- `gateway.mode = "local"`
+- `gateway.bind` / `gateway.port`
+- `gateway.auth` (always enabled)
+- `agents.defaults.workspace`
+- `agents.defaults.skipBootstrap`
+
+The rest of the OpenClaw config is preserved as-is.
+
+## Schema source (pinned vs live)
+
+Clawlets ships a pinned OpenClaw schema that powers CLI validation and the UI editor.
+The pinned schema is generated from a specific OpenClaw revision so validation stays
+stable across installs.
+
+Source of truth:
+- `packages/core/src/assets/clawdbot-config.schema.json` (generated)
+- generator: `scripts/generate-clawdbot-assets.ts` (points at the pinned `clawdbot-src` rev)
+
+- CLI: `clawlets clawdbot schema fetch --host <host> --bot <bot>` to fetch live schema
+- UI: “Use live schema” toggles to a gateway-fetched schema
+
+The UI surfaces drift between:
+
+- Pinned schema vs the project’s pinned `nix-clawdbot` rev
+- Pinned schema vs upstream `nix-clawdbot` main
+
+## Upgrade guidance
+
+When upgrading OpenClaw (via `nix-clawdbot`):
+
+1. Update the project flake input
+2. Run `clawlets doctor` to catch schema drift
+3. Apply updates to a staging host first

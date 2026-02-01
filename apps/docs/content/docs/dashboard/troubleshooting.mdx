@@ -1,0 +1,63 @@
+---
+title: Dashboard troubleshooting
+description: Common dashboard + Convex issues.
+---
+
+These are the most common local setup issues when running the dashboard. Each item
+includes the quickest fix so you can get back to a working local environment.
+
+## “missing VITE_CONVEX_URL”
+
+This means the dashboard does not know which Convex deployment to talk to. Make sure
+the URLs from `npx convex dev --once` are present in `.env.local` (or runtime env).
+
+- Ensure `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` are set.
+- Re-run `npx convex dev --once` to confirm the deployment URLs.
+
+## “missing SITE_URL, BETTER_AUTH_SECRET, ...”
+
+This usually means your local `apps/web/.env.local` is incomplete.
+
+- Ensure `SITE_URL=http://localhost:3000`
+- Ensure `BETTER_AUTH_SECRET` is set (32+ chars recommended)
+- Ensure `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` are set
+
+Restart `pnpm dev` after changes.
+
+## Auth disabled but still seeing sign-in
+
+If you disabled auth, the setting must match in both Convex and the web app:
+
+- Convex env: `npx convex env set CLAWLETS_AUTH_DISABLED true`
+- Local env: `VITE_CLAWLETS_AUTH_DISABLED=true`
+
+Then restart dev server + Convex dev.
+
+## “site URL mismatch”
+
+`SITE_URL` in Convex must match the browser origin exactly (scheme + host + port).
+For local dev, it should be:
+
+```bash
+npx convex env set SITE_URL http://localhost:3000
+```
+
+## “missing SITE_URL / BETTER_AUTH_SECRET / CONVEX_SITE_URL for Better Auth”
+
+This error comes from the Convex backend. Set the missing env vars in your Convex
+project:
+
+```bash
+cd apps/web
+npx convex env set SITE_URL http://localhost:3000
+npx convex env set CONVEX_SITE_URL https://<deployment>.convex.site
+npx convex env set BETTER_AUTH_SECRET "<same secret as .env.local>"
+```
+
+## Convex CLI refuses to run
+
+You may be logged out or missing auth; logging in again usually fixes it:
+
+```bash
+npx convex login
+```

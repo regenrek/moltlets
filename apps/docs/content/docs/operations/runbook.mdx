@@ -1,0 +1,97 @@
+---
+title: Runbook
+description: Day 0 / day 2 checklist.
+---
+
+This runbook is a practical checklist for operators. Use it to keep the fleet aligned
+with the project repo and to avoid drift.
+
+## Repo guardrails (one‑time)
+
+Before the first real deploy, protect `main` so updates flow through review and CI.
+
+Protect `main` before first real deploy:
+
+```bash
+./scripts/gh-protect-main.sh --linear-history
+```
+
+If you want required status checks, re‑run with explicit contexts:
+
+```bash
+./scripts/gh-protect-main.sh --require-check "ci / node" --require-check "trufflehog"
+```
+
+## Day 0 (bootstrap)
+
+This is the initial bootstrap sequence. The order matters because secrets, SSH
+exposure, and health checks depend on each other.
+
+1) Enter deterministic toolchain (optional): `devenv shell`
+2) `export CLAWLETS_INTERACTIVE=1` (optional; forces prompts)
+3) `clawlets env init` (set `HCLOUD_TOKEN` in `.clawlets/env`)
+4) `clawlets secrets init`
+5) `clawlets doctor --scope bootstrap`
+6) `clawlets host set --ssh-exposure bootstrap`
+7) `clawlets bootstrap`
+8) Verify tailnet, then: `clawlets doctor --scope updates --strict`
+9) Switch admin access to tailnet + close public SSH:
+   - `clawlets host set --target-host admin@<vpn-ip>`
+   - `clawlets host set --ssh-exposure tailnet`
+   - `clawlets server update apply --host <host> --target-host admin@<vpn-ip>`
+   - `clawlets lockdown`
+10) `clawlets server audit --target-host admin@<vpn-ip>`
+
+## Day 2 (routine ops)
+
+These are the commands you will use repeatedly once the host is stable.
+
+Apply updates:
+
+- `clawlets server update apply --host <host> --target-host admin@<vpn-ip>`
+
+Orchestrator (if cattle enabled):
+
+- `systemctl status clf-orchestrator.socket`
+- `systemctl status clf-orchestrator`
+- bot‑facing: `sudo -u bot-maren clf jobs list --json`
+
+Secrets rotation:
+
+- edit `secrets/hosts/<host>/*.yaml` → publish → `clawlets server update apply`
+
+## Rollback (must exist before prod)
+
+Make sure rollback is possible before you go live. Keep several generations on disk
+and practice the rescue workflow at least once.
+
+Normal rollback (SSH works):
+
+- `sudo nixos-rebuild switch --rollback`
+- reboot if needed
+
+Emergency rollback (SSH broken):
+
+- boot Hetzner rescue mode
+- mount the root FS
+- switch `/nix/var/nix/profiles/system` to an older generation
+- reboot
+
+GC policy:
+
+- keep multiple generations (don’t enable aggressive GC until you’ve tested rollback)
+
+## GitHub inventory sync (optional)
+
+If enabled (`services.clawdbotFleet.githubSync.enable = true`):
+
+- `clawlets server github-sync status --target-host admin@<vpn-ip>`
+- `clawlets server github-sync run --target-host admin@<vpn-ip> --bot <bot>`
+- `clawlets server github-sync show --target-host admin@<vpn-ip> --bot <bot> --kind prs --lines 80`
+
+## Ops snapshots (optional)
+
+If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`):
+
+- snapshots at `/var/lib/clawlets/ops/snapshots/latest.json`
+- retention via `services.clawdbotFleet.opsSnapshot.keepDays/keepLast`

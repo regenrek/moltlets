@@ -1,0 +1,137 @@
+---
+title: Overview
+description: Why Clawlets exists and what it does.
+icon: House
+---
+
+import { Activity, Boxes, LayoutDashboard, Terminal } from "lucide-react"
+
+<img src="/clawlets_banner_full.png" alt="Clawlets overview banner" />
+
+<div className="not-prose my-10 flex justify-center">
+  <a
+    href="/dashboard"
+    className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-6 py-3 text-base font-semibold text-fd-primary-foreground transition-colors hover:text-fd-primary-foreground"
+  >
+    Getting started
+  </a>
+</div>
+
+Clawlets is a local-first, self-hosted control plane for running Clawdbot fleets on
+NixOS. It is built around the operator workflow you repeat every time: set up the
+project, bootstrap a host, deploy updates, and keep things stable over time. The
+dashboard is the primary interface, with the CLI reserved for automation and edge
+cases.
+
+<Callout type="warning" title="Local-first dashboard">
+  Run the dashboard on your workstation or inside a private network. Avoid public
+  hosting to reduce exposure.
+</Callout>
+
+## Getting started
+
+<Cards>
+  <Card
+    title="Dashboard"
+    description="Local UI for setup, secrets wiring, and day-2 operations."
+    icon={<LayoutDashboard />}
+    href="/dashboard"
+  />
+  <Card
+    title="Core"
+    description="Architecture, data flow, and runtime layout."
+    icon={<Boxes />}
+    href="/reference/architecture"
+  />
+  <Card
+    title="CLI"
+    description="Automation and advanced workflows."
+    icon={<Terminal />}
+    href="/cli"
+  />
+  <Card
+    title="Operations"
+    description="Bootstrap, deploy, and runbook."
+    icon={<Activity />}
+    href="/operations"
+  />
+</Cards>
+
+<Callout type="info" title="Before your first bootstrap">
+  Make sure Convex is set up, secrets are initialized, and `fleet/clawlets.json` has
+  the required host fields. The checklist in Operations helps you verify this.
+</Callout>
+
+## Why it exists
+
+Most bot fleets drift because configuration is scattered across scripts, host edits,
+and half-kept docs. Clawlets pulls those decisions into one repo so the desired state
+is explicit, reviewable, and repeatable. The NixOS layer renders from that same source
+of truth, so you can rebuild or reinstall a host without re-discovering what changed.
+
+Clawlets was built to solve initial deploy and ongoing maintenance for Hetzner-based
+fleets. I built it for my own infrastructure and shared it because it may help others
+who are comfortable operating infrastructure. If you hit issues, open an issue:
+https://github.com/regenrek/clawlets/issues
+
+<Callout type="warning" title="Use at your own risk">
+  🚨🚨 Use at your own risk! This project is under active development. You
+  absolutely need to know what you're doing before deploying this. Misconfiguration
+  can expose credentials, open security holes, or cause data loss.
+</Callout>
+
+## What it does
+
+Clawlets centers the local dashboard for setup and day-2 operations, then backs that
+with a single configuration file and a secrets workflow that stays out of the Nix
+store. It renders per-bot services, workspaces, and gateways via NixOS modules, and
+it can also spin up short-lived cattle instances when you need additional workers.
+
+## Lifecycle you will follow
+
+You typically start by creating the project repo and wiring the dashboard, then you
+define fleet and host config. Next you bootstrap the first host, verify it is healthy,
+and apply updates through signed manifests. After that the work is steady operations:
+rotate secrets, inspect logs, audit the host, and ship upgrades.
+
+## How it fits with OpenClaw
+
+Clawlets does not replace OpenClaw; it extends it. You still author raw Clawdbot
+config under `fleet.bots.<bot>.clawdbot`, and Clawlets applies a small set of
+invariants around gateways, workspace layout, and bot environment wiring. The Nix
+layer is pinned via `nix-clawdbot` (often called `nix-openclaw`) so runtime behavior
+stays predictable across installs.
+
+## Where things live
+
+The project repo is the canonical source of truth and is intended to be committed:
+`fleet/clawlets.json` for config, `fleet/workspaces/**` for bot docs, `secrets/**`
+for sops-encrypted secrets, and `cattle/personas/**` for cattle definitions. The
+runtime directory `.clawlets/` is local-only and gitignored; it stores operator
+keys, extra-files payloads, provisioning state, and image build artifacts.
+
+## Start here
+
+If you are new, begin with the dashboard and the configuration reference, then read
+through security and operations before your first bootstrap. The CLI reference is
+useful once you start automating workflows.
+
+- [Dashboard](/dashboard): self-hosted UI (primary workflow)
+- [Configuration](/configuration): schema and invariants
+- [Security](/security): threat model and hardening
+- [Operations](/operations): bootstrap, deploy, and runbook
+- [CLI](/cli): automation workflows
+
+### What are Clawlets?
+
+The name is a nod to **Thronglets**, the fictional game from Black Mirror’s Season 7
+episode “Plaything.” If you want the reference, start with the episode summary and
+the official tie‑in announcement. [Episode: “Plaything”](https://en.wikipedia.org/wiki/Plaything_%28Black_Mirror%29) · [Thronglets announcement](https://about.netflix.com/news/experience-black-mirror-like-never-before-introducing-the-long-lost-game)
+
+### Special thanks
+
+Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and
+Nix packaging goes to the core projects:
+
+- [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
+- [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)

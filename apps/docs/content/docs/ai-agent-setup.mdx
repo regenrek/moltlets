@@ -1,0 +1,95 @@
+---
+title: For AI Agents
+description: One prompt to set up the dashboard locally.
+icon: Bot
+---
+
+This page provides two copy/paste prompts. Choose one depending on how you want to
+install tools on the machine.
+
+### Prompt A — Standard macOS/Linux setup (no Nix)
+
+Use this on a fresh machine or when you don’t want to install Nix/devenv.
+
+```text
+You are setting up the Clawlets dashboard locally. Do not expose it publicly.
+
+1) Ask the user where to clone the repo. If no preference, use `~/projects/clawlets`.
+2) Ensure prerequisites (fresh machine safe):
+   - Git
+   - Node.js >= 22
+   - pnpm (via Corepack)
+3) macOS (if missing):
+   - `brew install git node@22`
+   - `corepack enable`
+4) Linux (if missing):
+   - `sudo apt-get update && sudo apt-get install -y git curl openssl`
+   - `curl -fsSL https://fnm.vercel.app/install | bash`
+   - `source ~/.bashrc` (or `~/.zshrc`)
+   - `fnm install 22`
+   - `corepack enable`
+5) Clone:
+   - `npx gitpick git@github.com:regenrek/clawlets.git <target-dir>`
+6) Read `apps/web/.env.local.example` and any README in `apps/web/`.
+   - If Nix + devenv are installed, you may run `devenv shell` (optional).
+7) From repo root:
+   - `pnpm install`
+8) In `apps/web`:
+   - `npx convex login`
+   - If `.env.local` does not exist: `cp .env.local.example .env.local`
+   - `npx convex dev --once` (creates/updates `.env.local` with `CONVEX_DEPLOYMENT` + `VITE_CONVEX_URL`)
+   - Generate a Better Auth secret: `openssl rand -base64 32`
+9) Edit `apps/web/.env.local` (merge, do not overwrite):
+   - `VITE_SITE_URL=http://localhost:3000`
+   - `SITE_URL=http://localhost:3000`
+   - `BETTER_AUTH_SECRET=<the secret you generated>`
+   - `VITE_CONVEX_SITE_URL=https://<deployment>.convex.site` (take `VITE_CONVEX_URL` and change `.convex.cloud` -> `.convex.site`)
+10) Push the same auth env vars into Convex:
+   - `npx convex env set SITE_URL http://localhost:3000`
+   - `npx convex env set CONVEX_SITE_URL https://<deployment>.convex.site`
+   - `npx convex env set BETTER_AUTH_SECRET "<same secret as .env.local>"`
+11) Start the dashboard:
+   - `pnpm dev`
+
+If any step fails, stop and report the exact error. Keep everything local-only.
+```
+
+### Prompt B — Nix + devenv (recommended for reproducibility)
+
+Use this if you are okay installing Nix and want a fully deterministic toolchain.
+`devenv.nix` defines the exact tools (Node, pnpm, etc.), and `devenv shell` loads
+that environment in your terminal.
+
+```text
+You are setting up the Clawlets dashboard locally using Nix/devenv. Do not expose it publicly.
+
+1) Ask the user where to clone the repo. If no preference, use `~/projects/clawlets`.
+2) Install Nix (if missing):
+   - `curl -L https://nixos.org/nix/install | sh`
+   - Restart shell so `nix` is available.
+3) Install devenv (if missing): follow https://devenv.sh/ for your OS.
+4) Clone:
+   - `npx gitpick git@github.com:regenrek/clawlets.git <target-dir>`
+5) Read `apps/web/.env.local.example` and any README in `apps/web/`.
+6) From repo root (uses `devenv.nix`):
+   - `devenv shell`
+   - `pnpm install`
+7) In `apps/web`:
+   - `npx convex login`
+   - If `.env.local` does not exist: `cp .env.local.example .env.local`
+   - `npx convex dev --once` (creates/updates `.env.local` with `CONVEX_DEPLOYMENT` + `VITE_CONVEX_URL`)
+   - Generate a Better Auth secret: `openssl rand -base64 32`
+8) Edit `apps/web/.env.local` (merge, do not overwrite):
+   - `VITE_SITE_URL=http://localhost:3000`
+   - `SITE_URL=http://localhost:3000`
+   - `BETTER_AUTH_SECRET=<the secret you generated>`
+   - `VITE_CONVEX_SITE_URL=https://<deployment>.convex.site` (take `VITE_CONVEX_URL` and change `.convex.cloud` -> `.convex.site`)
+9) Push the same auth env vars into Convex:
+   - `npx convex env set SITE_URL http://localhost:3000`
+   - `npx convex env set CONVEX_SITE_URL https://<deployment>.convex.site`
+   - `npx convex env set BETTER_AUTH_SECRET "<same secret as .env.local>"`
+10) Start the dashboard:
+   - `pnpm dev`
+
+If any step fails, stop and report the exact error. Keep everything local-only.
+```

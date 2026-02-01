@@ -1,0 +1,80 @@
+---
+title: CLI overview
+description: Common commands and workflows.
+---
+
+The CLI is how you automate and script Clawlets. Most users should start in the
+dashboard and use the CLI when they need repeatable ops, CI integration, or advanced
+flows. In day-to-day work, the dashboard is the primary interface; the CLI becomes
+important as soon as you want reproducible runs or bulk changes.
+
+Canonical source: `clawlets --help`.
+
+Related:
+- `clf` is the bot‑facing CLI (`clf jobs ...`). See [Orchestrator](/concepts/orchestrator).
+
+## Core workflow (project repo)
+
+A typical flow looks like this:
+
+1) scaffold a repo
+2) configure hosts + bots
+3) wire secrets
+4) bootstrap
+5) apply updates
+
+Example command sequence:
+
+- scaffold: `clawlets project init --dir ./clawlets-myproject`
+- add SSH keys (fleet scope): `clawlets host set --add-ssh-key-file ~/.ssh/id_ed25519.pub`
+- add host settings:
+  - `clawlets host set --host <host> --admin-cidr <cidr> --ssh-pubkey-file ~/.ssh/id_ed25519.pub`
+  - optional: `clawlets host set --host <host> --server-type cx43 --hetzner-location nbg1`
+- add bots: `clawlets bot add --bot <id>`
+- wire secrets:
+  - map env vars in `fleet.secretEnv` / per‑bot overrides
+  - or autowire: `clawlets config wire-secrets --write`
+- init deploy creds: `clawlets env init` (edit `.clawlets/env` and set `HCLOUD_TOKEN`)
+- init secrets: `clawlets secrets init` (TTY prompt) or `clawlets secrets init --from-json <file>`
+- preflight: `clawlets doctor --scope bootstrap`
+- bootstrap: `clawlets bootstrap` (or `--mode image`)
+- set ops target: `clawlets host set --host <host> --target-host admin@<ipv4-or-magicdns>`
+- apply updates: `clawlets server update apply --host <host>`
+- lockdown (tailnet‑only SSH):
+  - `clawlets host set --host <host> --ssh-exposure tailnet`
+  - `clawlets lockdown`
+
+## Server ops (SSH)
+
+Once a host is up, most operational actions flow through these commands. They are
+safe to run repeatedly and are the same actions the dashboard triggers internally.
+
+- status: `clawlets server status --host <host>`
+- audit: `clawlets server audit --host <host>`
+- logs: `clawlets server logs --host <host> --unit clawdbot-<bot>.service --since 10m --follow`
+- restart: `clawlets server restart --host <host> --unit clawdbot-<bot>.service`
+- updater: `clawlets server update apply|status|logs --host <host>`
+
+## Cattle (optional plugin)
+
+If you plan to use short-lived cattle instances, install the plugin once and then
+use it for spawns.
+Install once:
+
+<Callout type="warning" title="Experimental">
+Cattle is optional and not the common path yet. Expect workflows and flags to change.
+</Callout>
+
+```bash
+clawlets plugin add cattle
+```
+
+Then use:
+
+```bash
+clawlets cattle spawn --persona <name> --task-file ./task.json --ttl 2h
+```
+
+## Justfile shortcuts
+
+Run `just --list`.

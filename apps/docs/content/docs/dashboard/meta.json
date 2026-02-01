@@ -1,0 +1,13 @@
+{
+  "title": "Dashboard",
+  "description": "Self-hosted web UI for Clawlets",
+  "icon": "LayoutDashboard",
+  "pages": [
+    "index",
+    "requirements",
+    "convex-setup",
+    "local-dev",
+    "first-login",
+    "troubleshooting"
+  ]
+}
