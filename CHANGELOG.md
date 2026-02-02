@@ -5,7 +5,14 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 ### Added
-- (none)
+- First-class typed bot config surfaces (`channels`, `agents`, `hooks`, `skills`, `plugins`) across core/CLI/web/Nix.
+- OpenClaw invariants/specs shared via JSON assets for Nix + core validation.
+
+### Changed
+- Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
+
+### Fixed
+- Config batch validation now rejects ambiguous ops early; migration now moves legacy `openclaw.*` typed surfaces.
 
 ## [0.4.4] - 2026-02-01
 ### Added
