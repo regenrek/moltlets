@@ -5,6 +5,7 @@
   "pages": [
     "index",
     "config",
+    "typed-surfaces",
     "openclaw-config",
     "agent-config",
     "openclaw-compat",

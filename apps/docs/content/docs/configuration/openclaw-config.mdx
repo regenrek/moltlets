@@ -3,18 +3,38 @@ title: OpenClaw config
 description: Use OpenClaw's schema directly.
 ---
 
-Clawlets does not invent a second routing or channels schema. You use OpenClaw's
-configuration directly, and Clawlets applies a small set of invariants.
+Clawlets runs **OpenClaw** on servers.
+
+Most configuration should be done via Clawlets' **typed surfaces** (because the
+dashboard/CLI can validate and edit them reliably). When you need advanced or less
+common OpenClaw keys, use the passthrough object.
 
 ## Where to put config
 
-OpenClaw config lives inside the fleet file, and it is stored per bot:
+All bot config lives in `fleet/clawlets.json`.
 
-- `fleet/clawlets.json` → `fleet.bots.<bot>.openclaw` (raw OpenClaw config object)
+Preferred (typed surfaces):
+
+- `fleet.bots.<bot>.channels`
+- `fleet.bots.<bot>.agents`
+- `fleet.bots.<bot>.hooks`
+- `fleet.bots.<bot>.skills`
+- `fleet.bots.<bot>.plugins`
+
+Advanced (OpenClaw passthrough):
+
+- `fleet.bots.<bot>.openclaw` (raw OpenClaw config object)
+
+<Callout type="warning" title="Avoid openclaw.* for typed surfaces">
+  Do not set <code>openclaw.channels</code>/<code>openclaw.agents</code>/<code>openclaw.hooks</code>/<code>openclaw.skills</code>/<code>openclaw.plugins</code>.
+  Use the first-class keys on the bot instead.
+</Callout>
+
+## Invariants Clawlets enforces
 
 Clawlets enforces a small set of invariants so deployments stay consistent and
-auditable. Those values are derived from the fleet and host config, and they override
-any conflicting values in the raw OpenClaw config:
+operationally predictable. Those values are derived from the fleet and host config,
+and they override any conflicting values:
 
 - `gateway.mode = "local"`
 - `gateway.bind` / `gateway.port`
@@ -72,7 +92,7 @@ into the Nix store during deploy, so treat them as public.
 Use env var references in OpenClaw config and wire them to sops secret names in
 `fleet/clawlets.json` instead:
 
-- Discord: set `channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `fleet.bots.<bot>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
+- Discord: set `fleet.bots.<bot>.channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `fleet.bots.<bot>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
 - Model providers: wire `fleet.secretEnv.<ENV_VAR> = "<secretName>"` (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`)
 
 Notes:
@@ -88,9 +108,8 @@ Example (Discord token):
     "bots": {
       "maren": {
         "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
-        "openclaw": {
-          "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } }
-        }
+        "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } },
+        "openclaw": { "logging": { "level": "info" } }
       }
     }
   }
