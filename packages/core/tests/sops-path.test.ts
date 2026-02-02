@@ -6,8 +6,8 @@ describe("relativePathForSopsRule", () => {
     const { relativePathForSopsRule } = await import("../src/lib/sops-path");
     const root = path.join(process.cwd(), "__sops_path_test__");
     const fromDir = path.join(root, "secrets");
-    const toPath = path.join(fromDir, "hosts", "clawdbot-fleet-host");
-    expect(relativePathForSopsRule({ fromDir, toPath, label: "host secrets dir" })).toBe("hosts/clawdbot-fleet-host");
+    const toPath = path.join(fromDir, "hosts", "openclaw-fleet-host");
+    expect(relativePathForSopsRule({ fromDir, toPath, label: "host secrets dir" })).toBe("hosts/openclaw-fleet-host");
   });
 
   it("rejects '.' / empty relative paths", async () => {

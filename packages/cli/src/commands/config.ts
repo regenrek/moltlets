@@ -9,6 +9,7 @@ import { findRepoRoot } from "@clawlets/core/lib/repo";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
 import {
   createDefaultClawletsConfig,
+  CLAWLETS_CONFIG_SCHEMA_VERSION,
   ClawletsConfigSchema,
   loadClawletsConfig,
   loadClawletsConfigRaw,
@@ -23,13 +24,13 @@ import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } 
 const init = defineCommand({
   meta: { name: "init", description: "Initialize fleet/clawlets.json (canonical config)." },
   args: {
-    host: { type: "string", description: "Initial host name.", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Initial host name.", default: "openclaw-fleet-host" },
     force: { type: "boolean", description: "Overwrite existing clawlets.json.", default: false },
     "dry-run": { type: "boolean", description: "Print planned writes without writing.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const host = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const host = String(args.host || "openclaw-fleet-host").trim() || "openclaw-fleet-host";
     const configPath = getRepoLayout(repoRoot).clawletsConfigPath;
 
     if (fs.existsSync(configPath) && !args.force) {
@@ -63,7 +64,7 @@ const show = defineCommand({
 });
 
 const validate = defineCommand({
-  meta: { name: "validate", description: "Validate fleet/clawlets.json + rendered Clawdbot config." },
+  meta: { name: "validate", description: "Validate fleet/clawlets.json + rendered OpenClaw config." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     strict: { type: "boolean", description: "Fail on warnings (inline secrets, invariant overrides).", default: false },
@@ -318,7 +319,11 @@ const set = defineCommand({
 const migrate = defineCommand({
   meta: { name: "migrate", description: "Migrate fleet/clawlets.json to a new schema version." },
   args: {
-    to: { type: "string", description: "Target schema version (only v14 supported).", default: "v14" },
+    to: {
+      type: "string",
+      description: `Target schema version (only v${CLAWLETS_CONFIG_SCHEMA_VERSION} supported).`,
+      default: `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`,
+    },
     "dry-run": { type: "boolean", description: "Print planned write without writing.", default: false },
   },
   async run({ args }) {
@@ -334,12 +339,15 @@ const migrate = defineCommand({
       throw new Error(`invalid JSON: ${configPath}`);
     }
 
-    const to = String((args as any).to || "v14").trim().toLowerCase();
-    if (to !== "v14" && to !== "14") throw new Error(`unsupported --to: ${to} (expected v14)`);
+    const target = `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`;
+    const to = String((args as any).to || target).trim().toLowerCase();
+    if (to !== target && to !== String(CLAWLETS_CONFIG_SCHEMA_VERSION)) {
+      throw new Error(`unsupported --to: ${to} (expected ${target})`);
+    }
 
     const res = migrateClawletsConfigToLatest(parsed);
     if (!res.changed) {
-      console.log("ok: already schemaVersion 14");
+      console.log(`ok: already schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}`);
       return;
     }
 
@@ -353,7 +361,7 @@ const migrate = defineCommand({
 
     await ensureDir(path.dirname(configPath));
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: migrated to schemaVersion 14: ${path.relative(repoRoot, configPath)}`);
+    console.log(`ok: migrated to schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}: ${path.relative(repoRoot, configPath)}`);
     for (const w of res.warnings) console.log(`warn: ${w}`);
   },
 });

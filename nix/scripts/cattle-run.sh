@@ -194,7 +194,7 @@ if [[ "${schema_version}" != "1" ]]; then
 fi
 
 task_id="$(jq -r '.taskId // \"\"' "${task_file}" 2>/dev/null || true)"
-task_type="$(jq -r '.type // \"clawdbot.gateway.agent\"' "${task_file}" 2>/dev/null || true)"
+task_type="$(jq -r '.type // \"openclaw.gateway.agent\"' "${task_file}" 2>/dev/null || true)"
 message="$(jq -r '.message // \"\"' "${task_file}" 2>/dev/null || true)"
 
 if [[ -z "${task_id}" ]]; then
@@ -203,14 +203,14 @@ fi
 if [[ -z "${message}" ]]; then
   fail "invalid task.json (missing message)"
 fi
-if [[ "${task_type}" != "clawdbot.gateway.agent" ]]; then
+if [[ "${task_type}" != "openclaw.gateway.agent" ]]; then
   fail "unsupported task type: ${task_type}"
 fi
 
 fetch_secrets_env
 
-export CLAWDBOT_NIX_MODE="1"
-export CLAWDBOT_STATE_DIR="${state_dir}"
+export OPENCLAW_NIX_MODE="1"
+export OPENCLAW_STATE_DIR="${state_dir}"
 export HOME="${workspace_dir}"
 
 gateway_pid=""
@@ -227,8 +227,8 @@ cleanup() {
 trap cleanup EXIT
 
 (
-  printf '%s\n' "starting clawdbot gateway on :${gateway_port}"
-  exec clawdbot gateway --allow-unconfigured --bind loopback --port "${gateway_port}"
+  printf '%s\n' "starting openclaw gateway on :${gateway_port}"
+  exec openclaw gateway --allow-unconfigured --bind loopback --port "${gateway_port}"
 ) >>"${gateway_log}" 2>&1 &
 gateway_pid="$!"
 
@@ -245,7 +245,7 @@ if [[ "${ready}" != "1" ]]; then
 fi
 
 set +e
-clawdbot gateway agent --url "ws://127.0.0.1:${gateway_port}" --message "${message}" >"${agent_log}" 2>&1
+openclaw gateway agent --url "ws://127.0.0.1:${gateway_port}" --message "${message}" >"${agent_log}" 2>&1
 exit_code="$?"
 set -e
 

@@ -3,12 +3,12 @@ title: Gateway
 description: Gateway behavior and ports.
 ---
 
-Clawlets runs **one Clawdbot Gateway per bot** to keep state and credentials isolated.
+Clawlets runs **one OpenClaw Gateway per bot** to keep state and credentials isolated.
 This gives each bot its own user, workspace, and network ports.
 
 ## Why
 
-If a bot user is compromised, it should not be able to read or write another bot’s
+If a bot user is compromised, it should not be able to read or write another bot's
 state or workspace. Isolation also reduces the blast radius for credentials, sessions,
 tools, and config.
 
@@ -17,9 +17,9 @@ tools, and config.
 For each bot `maren`:
 
 - system user: `bot-maren`
-- state dir: `/srv/clawdbot/maren` (`CLAWDBOT_STATE_DIR`)
-- config path: `/run/secrets/rendered/clawdbot-maren.json` (`CLAWDBOT_CONFIG_PATH`)
-- workspace: `/srv/clawdbot/maren/workspace` (`agents.defaults.workspace`)
+- state dir: `/srv/openclaw/maren` (`OPENCLAW_STATE_DIR`)
+- config path: `/run/secrets/rendered/openclaw-maren.json` (`OPENCLAW_CONFIG_PATH`)
+- workspace: `/srv/openclaw/maren/workspace` (`agents.defaults.workspace`)
 - base port: `gateway.port` (derived ports must not collide)
 - gateway mode: `gateway.mode = "local"`
 - auth: `gateway.auth` is always enabled (even on loopback)
@@ -28,7 +28,7 @@ For each bot `maren`:
 
 Default port base is `18789`, stride `20`.
 
-Reason: clawdbot uses derived ports (bridge/browser/canvas). Spacing avoids collisions across gateways.
+Reason: openclaw uses derived ports (bridge/browser/canvas). Spacing avoids collisions across gateways.
 
 Override per bot:
 
@@ -44,12 +44,12 @@ Loopback gateways should not run unauthenticated because any local process could
 Clawlets-template enforces:
 
 - `gateway.auth.mode = "token"`
-- `gateway.auth.token = "${CLAWDBOT_GATEWAY_TOKEN}"`
+- `gateway.auth.token = "${OPENCLAW_GATEWAY_TOKEN}"`
 
 Token source (per bot):
 
-- `/srv/clawdbot/<bot>/credentials/gateway.env`
+- `/srv/openclaw/<bot>/credentials/gateway.env`
 
 Generated automatically by:
 
-- `clawdbot-gateway-token-<bot>.service` (oneshot)
+- `openclaw-gateway-token-<bot>.service` (oneshot)

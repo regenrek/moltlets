@@ -239,7 +239,7 @@ describe("clawlets config migrate", () => {
     expect(migrated.fleet.bots.bot1.plugins).toEqual({ enabled: true, allow: ["@clawlets/plugin-cattle"] });
   });
 
-  it("migrates v12 -> latest (chains to v14)", async () => {
+  it("migrates v12 -> latest (chains to v15)", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
@@ -274,27 +274,41 @@ describe("clawlets config migrate", () => {
     expect(res.changed).toBe(true);
 
     const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(14);
+    expect(migrated.schemaVersion).toBe(15);
     expect(migrated.fleet.bots.bot1.channels.discord.enabled).toBe(true);
-    expect(migrated.fleet.bots.bot1.clawdbot.channels).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.clawdbot).toBeUndefined();
     expect(migrated.fleet.bots.bot1.profile.hooks).toBeUndefined();
     expect(migrated.fleet.bots.bot1.profile.skills).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.openclaw).toEqual({});
   });
 
-  it("migrates v13 -> v14 (schema bump only)", async () => {
-    const { migrateClawletsConfigToV14 } = await import("../src/lib/clawlets-config-migrate");
+  it("migrates v14 -> v15 (renames clawdbot)", async () => {
+    const { migrateClawletsConfigToV15 } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
-      schemaVersion: 13,
-      fleet: { secretEnv: {}, secretFiles: {}, botOrder: [], bots: {} },
+      schemaVersion: 14,
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        botOrder: ["bot1"],
+        bots: {
+          bot1: {
+            profile: { secretEnv: {}, secretFiles: {} },
+            clawdbot: { logging: { redactSensitive: "off" }, channels: { discord: { enabled: true } } },
+          },
+        },
+      },
       cattle: { enabled: false, hetzner: { image: "", serverType: "cx22", location: "nbg1", maxInstances: 10, defaultTtl: "2h", labels: { "managed-by": "clawlets" } }, defaults: { autoShutdown: true, callbackUrl: "" } },
       hosts: { alpha: { enable: false } },
     };
 
-    const res = migrateClawletsConfigToV14(raw);
+    const res = migrateClawletsConfigToV15(raw);
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
     const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(14);
+    expect(migrated.schemaVersion).toBe(15);
+    expect(migrated.fleet.bots.bot1.clawdbot).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.channels).toEqual({ discord: { enabled: true } });
+    expect(migrated.fleet.bots.bot1.openclaw).toEqual({ logging: { redactSensitive: "off" } });
   });
 });

@@ -39,7 +39,7 @@ if [[ -z "${token}" ]]; then
 fi
 
 tmp="$(mktemp --tmpdir="${out_dir}" ".clawlets-gateway-token.XXXXXX")"
-printf 'CLAWDBOT_GATEWAY_TOKEN=%s\n' "${token}" >"${tmp}"
+printf 'OPENCLAW_GATEWAY_TOKEN=%s\n' "${token}" >"${tmp}"
 chown "${bot_user}:${bot_group}" "${tmp}"
 chmod 0400 "${tmp}"
 mv "${tmp}" "${out_env_file}"

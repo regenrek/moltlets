@@ -180,14 +180,14 @@ function HostsOverview() {
                 <div className="grid grid-cols-12 gap-3 border-b px-4 py-2 text-xs text-muted-foreground">
                   <div className="col-span-5">Name</div>
                   <div className="col-span-4">Public/Target</div>
-                  <div className="col-span-2">Location</div>
+                  <div className="col-span-2">Update ring</div>
                   <div className="col-span-1 text-right">Status</div>
                 </div>
                 <div className="divide-y">
                   {hosts.map((host) => {
                     const hostCfg = (config?.hosts as any)?.[host] || {}
                     const enabled = hostCfg?.enable !== false
-                    const location = hostCfg?.hetzner?.location || "—"
+                    const channel = String(hostCfg?.selfUpdate?.channel || "prod")
                     const target = hostCfg?.targetHost || "—"
                     return (
                       <Link
@@ -206,8 +206,10 @@ function HostsOverview() {
                         <div className="col-span-4 text-sm text-muted-foreground truncate">
                           {target}
                         </div>
-                        <div className="col-span-2 text-sm text-muted-foreground truncate">
-                          {location}
+                        <div className="col-span-2 flex items-center gap-2 min-w-0">
+                          <Badge variant="outline" className="truncate">
+                            {channel || "prod"}
+                          </Badge>
                         </div>
                         <div className="col-span-1 flex justify-end">
                           <Badge variant={enabled ? "secondary" : "outline"}>

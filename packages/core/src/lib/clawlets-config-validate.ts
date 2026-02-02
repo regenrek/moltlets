@@ -1,5 +1,5 @@
 import type { ClawletsConfig } from "./clawlets-config.js";
-import { buildClawdbotBotConfig, type ClawdbotInvariantWarning } from "./clawdbot-config-invariants.js";
+import { buildOpenClawBotConfig, type OpenClawInvariantWarning } from "./openclaw-config-invariants.js";
 import { validateClawdbotConfig } from "./clawdbot-schema-validate.js";
 import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
 import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./fleet-secrets-plan-helpers.js";
@@ -13,7 +13,7 @@ export type ClawletsConfigValidation = {
   missing: MissingSecretConfig[];
   inlineWarnings: SecretsPlanWarning[];
   authWarnings: SecretsPlanWarning[];
-  invariantWarnings: ClawdbotInvariantWarning[];
+  invariantWarnings: OpenClawInvariantWarning[];
   schemaErrors: Record<string, string[]>;
 };
 
@@ -24,7 +24,7 @@ function formatMissing(missing: MissingSecretConfig): string {
   return `invalid secret file config scope=${missing.scope} id=${missing.fileId} targetPath=${missing.targetPath}`;
 }
 
-function formatInvariantWarning(w: ClawdbotInvariantWarning): string {
+function formatInvariantWarning(w: OpenClawInvariantWarning): string {
   return `bot=${w.bot} ${w.message} (${w.path})`;
 }
 
@@ -46,10 +46,10 @@ export function validateClawletsConfig(params: {
   const errors: string[] = [];
   const warnings: string[] = [];
   const schemaErrors: Record<string, string[]> = {};
-  const invariantWarnings: ClawdbotInvariantWarning[] = [];
+  const invariantWarnings: OpenClawInvariantWarning[] = [];
 
   for (const bot of params.config.fleet.botOrder || []) {
-    const res = buildClawdbotBotConfig({ config: params.config, bot });
+    const res = buildOpenClawBotConfig({ config: params.config, bot });
     if (res.warnings.length > 0) invariantWarnings.push(...res.warnings);
     const validation = validateClawdbotConfig(res.merged);
     if (!validation.ok) {

@@ -22,12 +22,12 @@ function normalizeSince(value: string): string {
   return v;
 }
 
-function normalizeClawdbotUnit(value: string): string {
+function normalizeOpenclawUnit(value: string): string {
   const v = value.trim();
-  if (v === "clawdbot-*.service") return v;
-  if (/^clawdbot-[A-Za-z0-9._-]+$/.test(v)) return `${v}.service`;
-  if (/^clawdbot-[A-Za-z0-9._-]+\.service$/.test(v)) return v;
-  throw new Error(`invalid --unit: ${v} (expected clawdbot-<id>[.service] or clawdbot-*.service)`);
+  if (v === "openclaw-*.service") return v;
+  if (/^openclaw-[A-Za-z0-9._-]+$/.test(v)) return `${v}.service`;
+  if (/^openclaw-[A-Za-z0-9._-]+\.service$/.test(v)) return v;
+  throw new Error(`invalid --unit: ${v} (expected openclaw-<id>[.service] or openclaw-*.service)`);
 }
 
 function parseSystemctlShow(output: string): Record<string, string> {
@@ -56,7 +56,7 @@ async function trySshCapture(targetHost: string, remoteCmd: string, opts: { tty?
 const serverAudit = defineCommand({
   meta: {
     name: "audit",
-    description: "Audit host invariants over SSH (tailscale, clawdbot services).",
+    description: "Audit host invariants over SSH (tailscale, openclaw services).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
@@ -77,7 +77,7 @@ const serverAudit = defineCommand({
 
     const checks: AuditCheck[] = [];
     const add = (c: AuditCheck) => checks.push(c);
-    const clawdbotSecurityAudit: Record<string, unknown> = {};
+    const openclawSecurityAudit: Record<string, unknown> = {};
 
     const must = async (label: string, cmd: string): Promise<string | null> => {
       const out = await trySshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
@@ -138,7 +138,7 @@ const serverAudit = defineCommand({
         };
 
         const botId = String(bot).trim();
-        const unit = normalizeClawdbotUnit(`clawdbot-${botId}`);
+        const unit = normalizeOpenclawUnit(`openclaw-${botId}`);
 
         const show = await mustBot(
           `systemctl show ${unit}`,
@@ -163,7 +163,7 @@ const serverAudit = defineCommand({
           `channels status (${botId})`,
           [
             ...(sudo ? ["sudo"] : []),
-            "/etc/clawlets/bin/clawdbot-channels",
+            "/etc/clawlets/bin/openclaw-channels",
             "--bot",
             shellQuote(botId),
             "status",
@@ -173,18 +173,18 @@ const serverAudit = defineCommand({
         if (channelsStatus) out.push({ status: "ok", label: `channels status (${botId})` });
 
         {
-          const stateDir = `/srv/clawdbot/${botId}`;
-          const configPath = `/run/secrets/rendered/clawdbot-${botId}.json`;
+          const stateDir = `/srv/openclaw/${botId}`;
+          const configPath = `/run/secrets/rendered/openclaw-${botId}.json`;
           const user = `bot-${botId}`;
           const cmd = [
             "sudo",
             "-u",
             shellQuote(user),
             "env",
-            `CLAWDBOT_NIX_MODE=1`,
-            `CLAWDBOT_STATE_DIR=${shellQuote(stateDir)}`,
-            `CLAWDBOT_CONFIG_PATH=${shellQuote(configPath)}`,
-            "clawdbot",
+            `OPENCLAW_NIX_MODE=1`,
+            `OPENCLAW_STATE_DIR=${shellQuote(stateDir)}`,
+            `OPENCLAW_CONFIG_PATH=${shellQuote(configPath)}`,
+            "openclaw",
             "security",
             "audit",
             "--json",
@@ -192,13 +192,13 @@ const serverAudit = defineCommand({
 
           const captured = await trySshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
           if (!captured.ok) {
-            clawdbotSecurityAudit[botId] = { error: captured.out };
-            out.push({ status: "warn", label: `clawdbot security audit (${botId})`, detail: captured.out });
+            openclawSecurityAudit[botId] = { error: captured.out };
+            out.push({ status: "warn", label: `openclaw security audit (${botId})`, detail: captured.out });
           } else {
             const raw = captured.out;
             try {
               const parsed = JSON.parse(raw);
-              clawdbotSecurityAudit[botId] = parsed;
+              openclawSecurityAudit[botId] = parsed;
 
               const summary = parsed?.summary;
               const critical = Number(summary?.critical ?? 0);
@@ -207,13 +207,13 @@ const serverAudit = defineCommand({
               const status: AuditCheck["status"] = critical > 0 ? "missing" : warn > 0 ? "warn" : "ok";
               out.push({
                 status,
-                label: `clawdbot security audit (${botId})`,
+                label: `openclaw security audit (${botId})`,
                 detail: `critical=${Number.isFinite(critical) ? critical : "?"} warn=${Number.isFinite(warn) ? warn : "?"} info=${Number.isFinite(info) ? info : "?"}`,
               });
             } catch (e) {
               const message = e instanceof Error ? e.message : String(e);
-              clawdbotSecurityAudit[botId] = { error: "invalid_json", message, raw };
-              out.push({ status: "warn", label: `clawdbot security audit (${botId})`, detail: `invalid json: ${message}` });
+              openclawSecurityAudit[botId] = { error: "invalid_json", message, raw };
+              out.push({ status: "warn", label: `openclaw security audit (${botId})`, detail: `invalid json: ${message}` });
             }
           }
         }
@@ -226,7 +226,7 @@ const serverAudit = defineCommand({
       for (const c of list) add(c);
     }
 
-    if (args.json) console.log(JSON.stringify({ host: hostName, targetHost, checks, clawdbotSecurityAudit }, null, 2));
+    if (args.json) console.log(JSON.stringify({ host: hostName, targetHost, checks, openclawSecurityAudit }, null, 2));
     else for (const c of checks) console.log(`${c.status}: ${c.label}${c.detail ? ` (${c.detail})` : ""}`);
 
     if (checks.some((c) => c.status === "missing")) process.exitCode = 1;
@@ -236,7 +236,7 @@ const serverAudit = defineCommand({
 const serverStatus = defineCommand({
   meta: {
     name: "status",
-    description: "Show systemd status for Clawdbot services.",
+    description: "Show systemd status for OpenClaw services.",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
@@ -256,7 +256,7 @@ const serverStatus = defineCommand({
       ...(sudo ? ["sudo"] : []),
       "systemctl",
       "list-units",
-      "clawdbot-*.service",
+      "openclaw-*.service",
       "--no-pager",
     ].join(" ");
     const out = await sshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
@@ -275,8 +275,8 @@ const serverLogs = defineCommand({
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     unit: {
       type: "string",
-      description: "systemd unit (default: clawdbot-*.service).",
-      default: "clawdbot-*.service",
+      description: "systemd unit (default: openclaw-*.service).",
+      default: "openclaw-*.service",
     },
     lines: { type: "string", description: "Number of lines (default: 200).", default: "200" },
     since: { type: "string", description: "Time window (supports 5m/1h/2d or journalctl syntax)." },
@@ -291,7 +291,7 @@ const serverLogs = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
-    const unit = normalizeClawdbotUnit(String(args.unit || "clawdbot-*.service"));
+    const unit = normalizeOpenclawUnit(String(args.unit || "openclaw-*.service"));
     const since = args.since ? normalizeSince(String(args.since)) : "";
     const n = String(args.lines || "200").trim() || "200";
     if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
@@ -315,13 +315,13 @@ const serverLogs = defineCommand({
 const serverRestart = defineCommand({
   meta: {
     name: "restart",
-    description: "Restart a systemd unit (default: clawdbot-*.service).",
+    description: "Restart a systemd unit (default: openclaw-*.service).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    unit: { type: "string", description: "systemd unit (default: clawdbot-*.service).", default: "clawdbot-*.service" },
+    unit: { type: "string", description: "systemd unit (default: openclaw-*.service).", default: "openclaw-*.service" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -331,7 +331,7 @@ const serverRestart = defineCommand({
     const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const unit = String(args.unit || "clawdbot-*.service").trim() || "clawdbot-*.service";
+    const unit = String(args.unit || "openclaw-*.service").trim() || "openclaw-*.service";
     const sudo = needsSudo(targetHost);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),

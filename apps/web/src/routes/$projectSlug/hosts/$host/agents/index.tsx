@@ -17,7 +17,7 @@ import { PageHeader } from "~/components/ui/page-header"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
 import { StackedField } from "~/components/ui/stacked-field"
 import { useProjectBySlug } from "~/lib/project-data"
-import { BotRoster, getBotChannels } from "~/components/fleet/bot-roster"
+import { BotRoster, getBotChannels } from "~/components/fleet/bot/bot-roster"
 import { addBot, getClawletsConfig } from "~/sdk/config"
 import { authClient } from "~/lib/auth-client"
 

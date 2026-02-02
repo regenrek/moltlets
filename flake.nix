@@ -13,22 +13,22 @@
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
 
-    nix-clawdbot.url = "github:clawdbot/nix-clawdbot";
-    nix-clawdbot.inputs.nixpkgs.follows = "nixpkgs";
+    nix-openclaw.url = "github:openclaw/nix-openclaw";
+    nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
 
-    clawdbot-src = {
-      url = "github:moltbot/moltbot";
+    openclaw-src = {
+      url = "github:openclaw/openclaw";
       flake = false;
     };
 
   };
 
-  outputs = { self, nixpkgs, nix-clawdbot, clawdbot-src, ... }:
+  outputs = { self, nixpkgs, nix-openclaw, openclaw-src, ... }:
     let
       systemLinux = "x86_64-linux";
       pkgsLinux = import nixpkgs { system = systemLinux; };
       dev = import ./devenv.nix { pkgs = pkgsLinux; };
-      clawdbotSourceInfo = import "${nix-clawdbot}/nix/sources/moltbot-source.nix";
+      openclawSourceInfo = import "${nix-openclaw}/nix/sources/openclaw-source.nix";
 
       mkCliPackages = (system:
         let
@@ -124,18 +124,18 @@
       packages.aarch64-darwin = mkCliPackages "aarch64-darwin";
 
       checks.${systemLinux} = {
-        clawdbot-pin-align = pkgsLinux.runCommand "clawdbot-pin-align" {} ''
+        openclaw-pin-align = pkgsLinux.runCommand "openclaw-pin-align" {} ''
           set -euo pipefail
-          pinned_rev="${clawdbotSourceInfo.rev or ""}"
-          src_rev="${clawdbot-src.rev or ""}"
+          pinned_rev="${openclawSourceInfo.rev or ""}"
+          src_rev="${openclaw-src.rev or ""}"
 
           if [ -z "$pinned_rev" ] || [ -z "$src_rev" ]; then
-            echo "error: missing clawdbot rev (nix-clawdbot pinned=$pinned_rev clawdbot-src=$src_rev)" >&2
+            echo "error: missing openclaw rev (nix-openclaw pinned=$pinned_rev openclaw-src=$src_rev)" >&2
             exit 1
           fi
 
           if [ "$pinned_rev" != "$src_rev" ]; then
-            echo "error: clawdbot-src rev mismatch (nix-clawdbot=$pinned_rev clawdbot-src=$src_rev)" >&2
+            echo "error: openclaw-src rev mismatch (nix-openclaw=$pinned_rev openclaw-src=$src_rev)" >&2
             exit 1
           fi
 
@@ -155,8 +155,8 @@
         clawletsCacheHarmoniaServer = import ./nix/modules/clawlets-cache-harmonia-server.nix;
         clawletsImageFormats = import ./nix/modules/clawlets-image-formats.nix;
 
-        clawdbotFleet = import ./nix/modules/clawdbot-fleet.nix;
-        clawdbotCattle = import ./nix/modules/clawdbot-cattle.nix;
+        openclawFleet = import ./nix/modules/openclaw-fleet.nix;
+        openclawCattle = import ./nix/modules/openclaw-cattle.nix;
         clfOrchestrator = import ./nix/modules/clf-orchestrator.nix;
 
         diskoHetznerExt4 = import ./nix/disko/hetzner-ext4.nix;

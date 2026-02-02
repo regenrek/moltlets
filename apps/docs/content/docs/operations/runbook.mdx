@@ -79,11 +79,11 @@ Emergency rollback (SSH broken):
 
 GC policy:
 
-- keep multiple generations (don’t enable aggressive GC until you’ve tested rollback)
+- keep multiple generations (don't enable aggressive GC until you've tested rollback)
 
 ## GitHub inventory sync (optional)
 
-If enabled (`services.clawdbotFleet.githubSync.enable = true`):
+If enabled (`services.openclawFleet.githubSync.enable = true`):
 
 - `clawlets server github-sync status --target-host admin@<vpn-ip>`
 - `clawlets server github-sync run --target-host admin@<vpn-ip> --bot <bot>`
@@ -91,7 +91,7 @@ If enabled (`services.clawdbotFleet.githubSync.enable = true`):
 
 ## Ops snapshots (optional)
 
-If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`):
+If enabled (`services.openclawFleet.opsSnapshot.enable = true`):
 
 - snapshots at `/var/lib/clawlets/ops/snapshots/latest.json`
-- retention via `services.clawdbotFleet.opsSnapshot.keepDays/keepLast`
+- retention via `services.openclawFleet.opsSnapshot.keepDays/keepLast`

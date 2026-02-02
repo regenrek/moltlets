@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { migrateClawletsConfigToLatest } from "@clawlets/core/lib/clawlets-config-migrate"
-import { ClawletsConfigSchema, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config"
+import { CLAWLETS_CONFIG_SCHEMA_VERSION, ClawletsConfigSchema, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 import { getRepoLayout } from "@clawlets/core/repo-layout"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
@@ -10,7 +10,7 @@ import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } fro
 import { readFile } from "node:fs/promises"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
 
-export const migrateClawletsConfigFileToV14 = createServerFn({ method: "POST" })
+export const migrateClawletsConfigFileToV15 = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     return parseProjectIdInput(data)
   })
@@ -45,7 +45,7 @@ export const migrateClawletsConfigFileToV14 = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: "Migrate fleet/clawlets.json to schemaVersion 14",
+      title: `Migrate fleet/clawlets.json to schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}`,
     })
 
     type MigrateRunResult =
@@ -66,7 +66,7 @@ export const migrateClawletsConfigFileToV14 = createServerFn({ method: "POST" })
         await client.mutation(api.auditLogs.append, {
           projectId: data.projectId,
           action: "config.migrate",
-          target: { to: 14, file: "fleet/clawlets.json" },
+          target: { to: CLAWLETS_CONFIG_SCHEMA_VERSION, file: "fleet/clawlets.json" },
           data: { runId, warnings: res.warnings },
         })
       },

@@ -1,14 +1,12 @@
 import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Link, useRouter } from "@tanstack/react-router"
 import * as React from "react"
-import { toast } from "sonner"
 import { useConvexAuth } from "convex/react"
 
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { getDashboardOverview } from "~/sdk/dashboard"
-import { migrateClawletsConfigFileToV14 } from "~/sdk/config-migrate"
 import { Badge } from "~/components/ui/badge"
 import {
   Card,
@@ -25,20 +23,11 @@ import { RunActivityChart } from "~/components/dashboard/run-activity-chart"
 import { formatShortDateTime, projectStatusBadgeVariant } from "~/components/dashboard/dashboard-utils"
 import { authClient } from "~/lib/auth-client"
 
-function isMigratableConfigError(message: string): boolean {
-  const m = message.toLowerCase()
-  if (m.includes("schemaversion")) return true
-  if (m.includes("was removed; use")) return true
-  if (m.includes("legacy host config key")) return true
-  return false
-}
-
 export function ProjectDashboard(props: {
   projectId: Id<"projects">
   projectSlug: string
 }) {
   const router = useRouter()
-  const queryClient = useQueryClient()
   const convexQueryClient = router.options.context.convexQueryClient
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
@@ -82,29 +71,6 @@ export function ProjectDashboard(props: {
   })
 
   const canWrite = projectAccess.data?.role === "admin"
-  const canMigrate = Boolean(project?.cfg.error && isMigratableConfigError(project.cfg.error))
-
-  const migrate = useMutation({
-    mutationFn: async () => {
-      if (!project) throw new Error("project not loaded")
-      return await migrateClawletsConfigFileToV14({ data: { projectId: project.projectId } })
-    },
-    onSuccess: (res) => {
-      if (res.ok) {
-        toast.success(res.changed ? "Migrated config" : "Config already schemaVersion 14")
-        void queryClient.invalidateQueries({ queryKey: ["dashboardOverview"] })
-        void queryClient.invalidateQueries({
-          queryKey: ["dashboardRecentRuns", project?.projectId ?? null],
-        })
-      } else {
-        const first = res.issues?.[0]
-        toast.error(first?.message ? `Migration failed: ${first.message}` : "Migration failed")
-      }
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
-  })
 
   if (overview.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
@@ -218,20 +184,11 @@ export function ProjectDashboard(props: {
                 <div className="text-muted-foreground mt-1 break-words">
                   {project.cfg.error}
                 </div>
-                {canMigrate ? (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      disabled={!canWrite || migrate.isPending}
-                      onClick={() => migrate.mutate()}
-                    >
-                      Migrate to schemaVersion 12
-                    </Button>
-                    <div className="text-muted-foreground text-xs">
-                      CLI: <code>clawlets config migrate --to v12</code>
-                    </div>
-                  </div>
-                ) : null}
+              <div className="text-muted-foreground mt-3 text-xs">
+                This repo does <span className="font-medium">not</span> support config migrations or legacy keys.
+                Fix <code>fleet/clawlets.json</code> to the current schema (v15) or re-initialize it and reapply your changes.
+                {canWrite ? null : " (Admin required to write config.)"}
+              </div>
               </div>
             ) : (
               <div className="grid gap-3">

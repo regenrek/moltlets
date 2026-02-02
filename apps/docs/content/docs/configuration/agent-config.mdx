@@ -12,21 +12,21 @@ There are three sources of truth you will touch most often when you configure ag
 - `fleet/bundled-skills.json` (canonical allowlist for Nix assertions + doctor)
 - `fleet/workspaces/**` (prompt/policy docs + skills)
 
-At deploy time, the Nix layer renders a per-bot Clawdbot config file so services
+At deploy time, the Nix layer renders a per-bot OpenClaw config file so services
 consume a single, validated JSON file:
 
-- Nix generates `/run/secrets/rendered/clawdbot-<bot>.json`
+- Nix generates `/run/secrets/rendered/openclaw-<bot>.json`
 
-## Canonical bot config (typed surfaces + Clawdbot schema)
+## Canonical bot config (typed surfaces + OpenClaw schema)
 
-Each bot has a single input object with typed surfaces plus a raw Clawdbot passthrough:
+Each bot has a single input object with typed surfaces plus a raw OpenClaw passthrough:
 
 - `fleet.bots.<bot>.channels`
 - `fleet.bots.<bot>.agents`
 - `fleet.bots.<bot>.hooks`
 - `fleet.bots.<bot>.skills`
 - `fleet.bots.<bot>.plugins`
-- `fleet.bots.<bot>.clawdbot` (JSON passthrough for advanced config)
+- `fleet.bots.<bot>.openclaw` (JSON passthrough for advanced config)
 
 Clawlets invariants override (gateway mode/bind/port/auth; workspace + skipBootstrap).
 
@@ -62,15 +62,15 @@ isolated. This keeps failures contained and makes auditing easier.
 Per bot:
 
 - system user: `bot-<bot>`
-- state dir: `/srv/clawdbot/<bot>`
-- workspace: `/srv/clawdbot/<bot>/workspace` (default)
-- gateway config: `/run/secrets/rendered/clawdbot-<bot>.json`
-- gateway auth token env: `/srv/clawdbot/<bot>/credentials/gateway.env`
+- state dir: `/srv/openclaw/<bot>`
+- workspace: `/srv/openclaw/<bot>/workspace` (default)
+- gateway config: `/run/secrets/rendered/openclaw-<bot>.json`
+- gateway auth token env: `/srv/openclaw/<bot>/credentials/gateway.env`
 
 Ports:
 
 - base: `18789`
-- stride: `20` (derived ports won’t collide)
+- stride: `20` (derived ports won't collide)
 
 ## Secrets
 
@@ -176,8 +176,8 @@ clawlets config set --path fleet.bots.maren.skills.allowBundled --value-json '["
 One‑time login (headless):
 
 ```bash
-sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
-sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
+sudo -u bot-maren env HOME=/srv/openclaw/maren codex login --device-auth
+sudo -u bot-gunnar env HOME=/srv/openclaw/gunnar codex login --device-auth
 ```
 
 ## Bonjour / mDNS (optional)
@@ -185,7 +185,7 @@ sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
 If mDNS errors appear on your host, disable Bonjour explicitly:
 
 ```nix
-services.clawdbotFleet.disableBonjour = true;
+services.openclawFleet.disableBonjour = true;
 ```
 
 ## GitHub inventory sync (optional)
@@ -201,7 +201,7 @@ Requires at least one bot with GitHub App config (`fleet.bots.<bot>.profile.gith
 
 ## Ops snapshots (optional)
 
-Host ops snapshots (no secrets) are opt‑in (`services.clawdbotFleet.opsSnapshot.enable = true`).
+Host ops snapshots (no secrets) are opt‑in (`services.openclawFleet.opsSnapshot.enable = true`).
 
 ## Per‑bot profiles (canonical config)
 

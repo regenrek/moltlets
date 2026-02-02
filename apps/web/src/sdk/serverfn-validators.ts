@@ -239,12 +239,12 @@ export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   }
 }
 
-export function parseBotClawdbotConfigInput(data: unknown): {
+export function parseBotOpenclawConfigInput(data: unknown): {
   projectId: Id<"projects">
   botId: string
   host: string
   schemaMode: "live" | "pinned"
-  clawdbot: unknown
+  openclaw: unknown
 } {
   const d = requireObject(data)
   let schemaMode: "live" | "pinned" = "pinned"
@@ -260,7 +260,7 @@ export function parseBotClawdbotConfigInput(data: unknown): {
     botId: parseBotIdRequired(d["botId"]),
     host: parseOptionalHostName(d["host"]),
     schemaMode,
-    clawdbot: d["clawdbot"],
+    openclaw: d["openclaw"],
   }
 }
 

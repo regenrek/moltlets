@@ -5,7 +5,7 @@
       type = lib.types.str;
       default = "CHANGE_ME_HOSTNAME";
       description = "Host name used for networking.hostName.";
-      example = "clawdbot-fleet-host";
+      example = "openclaw-fleet-host";
     };
 
     nameservers = lib.mkOption {

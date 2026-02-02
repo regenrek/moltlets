@@ -7,8 +7,8 @@ import { validateDocsIndexIntegrity } from "../lib/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/fleet-policy.js";
 import { evalFleetConfig } from "../lib/fleet-nix-eval.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/clawlets-config.js";
-import { buildClawdbotBotConfig } from "../lib/clawdbot-config-invariants.js";
-import { lintClawdbotSecurityConfig } from "../lib/clawdbot-security-lint.js";
+import { buildOpenClawBotConfig } from "../lib/openclaw-config-invariants.js";
+import { lintOpenclawSecurityConfig } from "../lib/openclaw-security-lint.js";
 import { checkSchemaVsNixClawdbot } from "./schema-checks.js";
 import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
 import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
@@ -343,8 +343,8 @@ export async function addRepoChecks(params: {
       const bot = String(botRaw || "").trim();
       if (!bot) continue;
       try {
-        const merged = buildClawdbotBotConfig({ config: clawletsConfig, bot }).merged;
-        const report = lintClawdbotSecurityConfig({ clawdbot: merged, botId: bot });
+        const merged = buildOpenClawBotConfig({ config: clawletsConfig, bot }).merged;
+        const report = lintOpenclawSecurityConfig({ openclaw: merged, botId: bot });
         const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
         const top = report.findings
           .filter((f) => f.severity === "critical" || f.severity === "warn")

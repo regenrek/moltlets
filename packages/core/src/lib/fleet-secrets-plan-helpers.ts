@@ -22,8 +22,8 @@ export const ENV_VAR_HELP: Record<string, string> = {
   TELEGRAM_BOT_TOKEN: "Telegram bot token",
   SLACK_BOT_TOKEN: "Slack bot token",
   SLACK_APP_TOKEN: "Slack app token",
-  CLAWDBOT_HOOKS_TOKEN: "Clawdbot hooks token",
-  CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN: "Clawdbot Gmail push token",
+  OPENCLAW_HOOKS_TOKEN: "OpenClaw hooks token",
+  OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN: "OpenClaw Gmail push token",
   OPENAI_API_KEY: "OpenAI API key",
   ANTHROPIC_API_KEY: "Anthropic API key",
   ANTHROPIC_OAUTH_TOKEN: "Anthropic OAuth token",
@@ -75,11 +75,11 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function collectBotModels(params: { clawdbot: any; hostDefaultModel: string }): string[] {
+export function collectBotModels(params: { openclaw: any; hostDefaultModel: string }): string[] {
   const models: string[] = [];
 
   const hostDefaultModel = String(params.hostDefaultModel || "").trim();
-  const defaults = params.clawdbot?.agents?.defaults;
+  const defaults = params.openclaw?.agents?.defaults;
 
   const pushModel = (v: unknown) => {
     if (typeof v !== "string") return;
@@ -108,8 +108,8 @@ export function collectBotModels(params: { clawdbot: any; hostDefaultModel: stri
   return Array.from(new Set(models));
 }
 
-export function isWhatsAppEnabled(clawdbot: any): boolean {
-  const whatsapp = clawdbot?.channels?.whatsapp;
+export function isWhatsAppEnabled(openclaw: any): boolean {
+  const whatsapp = openclaw?.channels?.whatsapp;
   if (!isPlainObject(whatsapp)) return false;
   return (whatsapp as any).enabled !== false;
 }
@@ -135,8 +135,8 @@ export function canonicalizeEnvVar(envVar: string, aliasMap: Map<string, string>
   if (!trimmed) return "";
   return aliasMap.get(trimmed) ?? trimmed;
 }
-export const HOOKS_TOKEN_ENV_VAR = "CLAWDBOT_HOOKS_TOKEN";
-export const HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR = "CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN";
+export const HOOKS_TOKEN_ENV_VAR = "OPENCLAW_HOOKS_TOKEN";
+export const HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR = "OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN";
 export function normalizeEnvKey(value: string): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -144,7 +144,7 @@ export function normalizeEnvKey(value: string): string {
 }
 export function skillApiKeyEnvVar(skill: string): string {
   const key = normalizeEnvKey(skill);
-  return key ? `CLAWDBOT_SKILL_${key}_API_KEY` : "CLAWDBOT_SKILL__API_KEY";
+  return key ? `OPENCLAW_SKILL_${key}_API_KEY` : "OPENCLAW_SKILL__API_KEY";
 }
 export type DerivedSecretEnvEntry = { envVar: string; secretName: string; path: string; help?: string };
 
@@ -202,11 +202,11 @@ type AddRequiredEnv = (envVar: string, source: SecretSource, path?: string) => v
 
 export function applyChannelEnvRequirements(params: {
   bot: string;
-  clawdbot: any;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv } = params;
+  const { bot, openclaw, warnings, addRequiredEnv } = params;
   const addChannelToken = (payload: { channel: string; envVar: string; path: string; value: unknown }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -235,7 +235,7 @@ export function applyChannelEnvRequirements(params: {
     addRequiredEnv(payload.envVar, "channel", payload.path);
   };
 
-  const channels = (clawdbot as any)?.channels;
+  const channels = (openclaw as any)?.channels;
   if (!isPlainObject(channels)) return;
 
   const discord = channels.discord;
@@ -299,11 +299,11 @@ export function applyChannelEnvRequirements(params: {
 
 export function applyHookEnvRequirements(params: {
   bot: string;
-  clawdbot: any;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv } = params;
+  const { bot, openclaw, warnings, addRequiredEnv } = params;
   const addHookToken = (payload: { envVar: string; path: string; value: unknown; label: string }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -332,7 +332,7 @@ export function applyHookEnvRequirements(params: {
     addRequiredEnv(payload.envVar, "custom", payload.path);
   };
 
-  const hooks = (clawdbot as any)?.hooks;
+  const hooks = (openclaw as any)?.hooks;
   if (!isPlainObject(hooks)) return;
   addHookToken({
     envVar: HOOKS_TOKEN_ENV_VAR,
@@ -353,12 +353,12 @@ export function applyHookEnvRequirements(params: {
 
 export function applySkillEnvRequirements(params: {
   bot: string;
-  clawdbot: any;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
   envVarHelpOverrides: Map<string, string>;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv, envVarHelpOverrides } = params;
+  const { bot, openclaw, warnings, addRequiredEnv, envVarHelpOverrides } = params;
   const addSkillApiKey = (payload: { skill: string; path: string; value: unknown }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -389,7 +389,7 @@ export function applySkillEnvRequirements(params: {
     addRequiredEnv(expectedEnvVar, "custom", payload.path);
   };
 
-  const skills = (clawdbot as any)?.skills;
+  const skills = (openclaw as any)?.skills;
   const skillEntries = isPlainObject(skills) ? (skills as any).entries : null;
   if (!isPlainObject(skillEntries)) return;
   for (const [skill, entry] of Object.entries(skillEntries)) {

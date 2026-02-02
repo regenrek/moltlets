@@ -46,6 +46,43 @@ async function loadConfigForWrite() {
   return { mod, mutation, runWithEvents }
 }
 
+async function loadConfigForValidation() {
+  vi.resetModules()
+  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string; status?: string; errorMessage?: string }) => {
+    if (payload?.kind) return { runId: "run1" }
+    return null
+  })
+  const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+  const runWithEvents = vi.fn(async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
+    await fn(async () => {})
+  })
+  const writeClawletsConfig = vi.fn(async () => {})
+
+  vi.doMock("~/server/convex", () => ({
+    createConvexClient: () => ({ mutation, query }) as any,
+  }))
+  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("~/server/run-manager", () => ({
+    runWithEvents,
+  }))
+  vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
+    const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(
+      "@clawlets/core/lib/clawlets-config",
+    )
+    return {
+      ...actual,
+      ClawletsConfigSchema: {
+        safeParse: (value: unknown) => ({ success: true, data: value }),
+      },
+      loadClawletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
+      writeClawletsConfig,
+    }
+  })
+
+  const mod = await import("~/sdk/config")
+  return { mod, mutation, runWithEvents, writeClawletsConfig }
+}
+
 describe("config write failures", () => {
   it("writeClawletsConfigFile returns ok:false and marks run failed", async () => {
     const { mod, mutation, runWithEvents } = await loadConfigForWrite()
@@ -117,5 +154,89 @@ describe("config write failures", () => {
       .filter((payload) => payload?.status === "failed")
     expect(statusCalls).toHaveLength(1)
     expect(statusCalls[0]?.errorMessage).toBe("run failed")
+  })
+
+  it("configDotBatch rejects ambiguous ops before writing", async () => {
+    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    await expect(
+      runWithStartContext(
+        { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+        async () =>
+          await mod.configDotBatch({
+            data: {
+              projectId: "p1" as any,
+              ops: [{ path: "fleet.codex.enable", value: "true", valueJson: "true", del: false }],
+            },
+          }),
+      ),
+    ).rejects.toThrow(/ambiguous op/i)
+    expect(mutation).not.toHaveBeenCalled()
+    expect(runWithEvents).not.toHaveBeenCalled()
+    expect(writeClawletsConfig).not.toHaveBeenCalled()
+  })
+
+  it("configDotSet rejects ambiguous inputs before writing", async () => {
+    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    await expect(
+      runWithStartContext(
+        { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+        async () =>
+          await mod.configDotSet({
+            data: {
+              projectId: "p1" as any,
+              path: "fleet.codex.enable",
+              value: "true",
+              valueJson: "true",
+              del: false,
+            },
+          }),
+      ),
+    ).rejects.toThrow(/ambiguous value/i)
+    expect(mutation).not.toHaveBeenCalled()
+    expect(runWithEvents).not.toHaveBeenCalled()
+    expect(writeClawletsConfig).not.toHaveBeenCalled()
+  })
+
+  it("configDotSet rejects del=true with values before writing", async () => {
+    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    await expect(
+      runWithStartContext(
+        { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+        async () =>
+          await mod.configDotSet({
+            data: {
+              projectId: "p1" as any,
+              path: "fleet.codex.enable",
+              valueJson: "true",
+              del: true,
+            },
+          }),
+      ),
+    ).rejects.toThrow(/del=true cannot include value/i)
+    expect(mutation).not.toHaveBeenCalled()
+    expect(runWithEvents).not.toHaveBeenCalled()
+    expect(writeClawletsConfig).not.toHaveBeenCalled()
+  })
+
+  it("configDotBatch aborts when any op is invalid", async () => {
+    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    await expect(
+      runWithStartContext(
+        { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+        async () =>
+          await mod.configDotBatch({
+            data: {
+              projectId: "p1" as any,
+              ops: [
+                { path: "fleet.codex.enable", valueJson: "true", del: false },
+                { path: "fleet.codex.bots", valueJson: "{", del: false },
+              ],
+            },
+          }),
+      ),
+    ).rejects.toThrow(/invalid JSON value/i)
+    expect(mutation).not.toHaveBeenCalled()
+    expect(runWithEvents).not.toHaveBeenCalled()
+    expect(writeClawletsConfig).not.toHaveBeenCalled()
   })
 })

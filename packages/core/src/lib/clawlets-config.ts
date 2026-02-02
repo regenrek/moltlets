@@ -4,7 +4,7 @@ import { z } from "zod";
 import { writeFileAtomic } from "./fs-safe.js";
 import type { RepoLayout } from "../repo-layout.js";
 import { getRepoLayout } from "../repo-layout.js";
-import { BotIdSchema, HostNameSchema, SecretNameSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
+import { BotIdSchema, HostNameSchema, SecretNameSchema, SkillIdSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawlets-config-legacy.js";
 import { SecretEnvSchema, SecretFilesSchema } from "./secret-wiring.js";
 import { isValidTargetHost } from "./ssh-remote.js";
@@ -19,7 +19,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWLETS_CONFIG_SCHEMA_VERSION = 14 as const;
+export const CLAWLETS_CONFIG_SCHEMA_VERSION = 15 as const;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
 
@@ -119,14 +119,14 @@ const FleetBotSkillEntrySchema = z
 
 const FleetBotSkillsSchema = z
   .object({
-    allowBundled: z.array(BotIdSchema).optional(),
+    allowBundled: z.array(SkillIdSchema).optional(),
     load: z
       .object({
         extraDirs: z.array(z.string().trim().min(1)).optional(),
       })
       .passthrough()
       .optional(),
-    entries: z.record(BotIdSchema, FleetBotSkillEntrySchema).optional(),
+    entries: z.record(SkillIdSchema, FleetBotSkillEntrySchema).optional(),
   })
   .passthrough()
   .default(() => ({}));
@@ -155,18 +155,27 @@ const FleetBotSchema = z
     hooks: FleetBotHooksSchema,
     skills: FleetBotSkillsSchema,
     plugins: FleetBotPluginsSchema,
-    clawdbot: JsonObjectSchema.default(() => ({})),
+    openclaw: JsonObjectSchema.default(() => ({})),
     clf: JsonObjectSchema.default(() => ({})),
   })
   .superRefine((bot, ctx) => {
-    // No backwards-compat: typed surfaces must not be set under fleet.bots.<bot>.clawdbot.*.
-    const legacy = bot.clawdbot as any;
+    // Hard reject legacy clawdbot key - no backwards compatibility.
+    if ((bot as any).clawdbot !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["clawdbot"],
+        message: "The 'clawdbot' key has been renamed to 'openclaw'. Please update fleet.bots.<bot>.clawdbot to fleet.bots.<bot>.openclaw.",
+      });
+    }
+
+    // No backwards-compat: typed surfaces must not be set under fleet.bots.<bot>.openclaw.*.
+    const legacy = bot.openclaw as any;
     const rejectLegacy = (key: string) => {
       if (legacy?.[key] === undefined) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["clawdbot", key],
-        message: `Do not set fleet.bots.<bot>.clawdbot.${key}; use fleet.bots.<bot>.${key} instead.`,
+        path: ["openclaw", key],
+        message: `Do not set fleet.bots.<bot>.openclaw.${key}; use fleet.bots.<bot>.${key} instead.`,
       });
     };
     rejectLegacy("channels");
@@ -199,7 +208,7 @@ const FleetBotSchema = z
     hooks: {},
     skills: {},
     plugins: {},
-    clawdbot: {},
+    openclaw: {},
     clf: {},
   }));
 
@@ -564,7 +573,7 @@ export function getTailnetMode(hostCfg: ClawletsHostConfig | null | undefined): 
 }
 
 export function createDefaultClawletsConfig(params: { host: string; bots?: string[] }): ClawletsConfig {
-  const host = params.host.trim() || "clawdbot-fleet-host";
+  const host = params.host.trim() || "openclaw-fleet-host";
   const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((b) => b.trim()).filter(Boolean);
   const botsRecord = Object.fromEntries(bots.map((b) => [b, {}]));
   return ClawletsConfigSchema.parse({

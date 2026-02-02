@@ -19,7 +19,7 @@ function hasNix(): boolean {
   }
 }
 
-describe("clawdbot fleet tmpfiles", () => {
+describe("openclaw fleet tmpfiles", () => {
   const testIt = hasNix() && fs.existsSync(resolveRepoRoot()) ? it : it.skip;
 
   testIt(
@@ -40,13 +40,13 @@ describe("clawdbot fleet tmpfiles", () => {
         "    specialArgs = { inherit project; flakeInfo = { clawlets = { rev = \"test\"; lastModifiedDate = null; }; }; };",
         "    modules = [",
         "      flake.inputs.sops-nix.nixosModules.sops",
-        "      flake.nixosModules.clawdbotFleet",
+        "      flake.nixosModules.openclawFleet",
         "      ({ ... }: { system.stateVersion = \"25.11\"; networking.hostName = \"test-host\"; })",
         "      ({ ... }: {",
-        "        services.clawdbotFleet.enable = true;",
-        "        services.clawdbotFleet.bots = [ \"maren\" \"sonja\" ];",
-        "        services.clawdbotFleet.botProfiles.maren.skills.allowBundled = [ ];",
-        "        services.clawdbotFleet.botProfiles.sonja.skills.allowBundled = [ ];",
+        "        services.openclawFleet.enable = true;",
+        "        services.openclawFleet.bots = [ \"maren\" \"sonja\" ];",
+        "        services.openclawFleet.botProfiles.maren.skills.allowBundled = [ ];",
+        "        services.openclawFleet.botProfiles.sonja.skills.allowBundled = [ ];",
         "      })",
         "    ];",
         "  }).config;",
@@ -68,12 +68,12 @@ describe("clawdbot fleet tmpfiles", () => {
 
       const out = JSON.parse(raw) as { rules: string[]; botHomes: Record<string, string> };
 
-      expect(out.rules).toContain("d /srv/clawdbot 0755 root root - -");
-      expect(out.rules).toContain("d /srv/clawdbot/maren 0700 bot-maren bot-maren - -");
-      expect(out.rules).toContain("d /srv/clawdbot/maren/credentials 0700 bot-maren bot-maren - -");
+      expect(out.rules).toContain("d /srv/openclaw 0755 root root - -");
+      expect(out.rules).toContain("d /srv/openclaw/maren 0700 bot-maren bot-maren - -");
+      expect(out.rules).toContain("d /srv/openclaw/maren/credentials 0700 bot-maren bot-maren - -");
 
-      expect(out.botHomes.maren).toBe("/srv/clawdbot/maren");
-      expect(out.botHomes.sonja).toBe("/srv/clawdbot/sonja");
+      expect(out.botHomes.maren).toBe("/srv/openclaw/maren");
+      expect(out.botHomes.sonja).toBe("/srv/openclaw/sonja");
       expect(out.botHomes.maren).not.toBe(out.botHomes.sonja);
     },
     NIX_EVAL_TIMEOUT_MS,

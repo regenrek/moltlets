@@ -48,7 +48,7 @@ let
         else if builtins.hasAttr "modelSecrets" profile
         then builtins.throw "fleet.bots.<bot>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
         else null;
-      clawdbot = botCfg.clawdbot or { };
+      openclaw = botCfg.openclaw or { };
       channels = botCfg.channels or { };
       agents = botCfg.agents or { };
       hooks = botCfg.hooks or { };
@@ -67,7 +67,7 @@ let
       merged // {
         passthrough =
           lib.recursiveUpdate
-            (lib.recursiveUpdate (merged.passthrough or { }) clawdbot)
+            (lib.recursiveUpdate (merged.passthrough or { }) openclaw)
             {
               channels = channels;
               agents = agents;

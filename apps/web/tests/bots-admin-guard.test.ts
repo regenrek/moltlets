@@ -40,7 +40,7 @@ async function loadBots(role: "admin" | "viewer") {
       },
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { clawdbot: {} } } } },
+        config: { fleet: { bots: { bot1: { openclaw: {} } } } },
       }),
       writeClawletsConfig: async () => {},
     }
@@ -57,11 +57,11 @@ describe("bots admin guard", () => {
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
         async () =>
-          await mod.setBotClawdbotConfig({
+          await mod.setBotOpenclawConfig({
             data: {
               projectId: "p1" as any,
               botId: "bot1",
-              clawdbot: {},
+              openclaw: {},
               schemaMode: "pinned",
               host: "",
             },
@@ -77,11 +77,11 @@ describe("bots admin guard", () => {
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
-        await mod.setBotClawdbotConfig({
+        await mod.setBotOpenclawConfig({
           data: {
             projectId: "p1" as any,
             botId: "bot1",
-            clawdbot: {},
+            openclaw: {},
             schemaMode: "pinned",
             host: "",
           },

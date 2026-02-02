@@ -7,7 +7,7 @@ import { readCliVersion } from "./lib/version.js";
 const main = defineCommand({
   meta: {
     name: "clawlets",
-    description: "Clawdbot fleet helper (CLI-first; runtime state in .clawlets/; secrets in /secrets).",
+    description: "OpenClaw fleet helper (CLI-first; runtime state in .clawlets/; secrets in /secrets).",
   },
   subCommands: baseCommands,
 });

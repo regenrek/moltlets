@@ -6,10 +6,10 @@ function readJson(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(filePath, "utf8"))
 }
 
-describe("clawdbot invariants drift", () => {
+describe("openclaw invariants drift", () => {
   it("keeps TS + Nix invariants specs in sync", () => {
-    const tsPath = path.resolve(__dirname, "../src/assets/clawdbot-invariants.json")
-    const nixPath = path.resolve(__dirname, "../../..", "nix/lib/clawdbot-invariants.json")
+    const tsPath = path.resolve(__dirname, "../src/assets/openclaw-invariants.json")
+    const nixPath = path.resolve(__dirname, "../../..", "nix/lib/openclaw-invariants.json")
     expect(readJson(tsPath)).toEqual(readJson(nixPath))
   })
 })

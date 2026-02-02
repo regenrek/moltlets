@@ -55,7 +55,7 @@ devenv shell
 Enable extra tools:
 
 ```nix
-services.clawdbotFleet.tools.enable = true;
+services.openclawFleet.tools.enable = true;
 ```
 
 ## Image upload helper (optional)
@@ -78,7 +78,7 @@ Before you bootstrap, make sure the basics are set:
   - `fleet.secretEnv` / `fleet.secretFiles`
   - `fleet.sshAuthorizedKeys` / `fleet.sshKnownHosts`
   - `fleet.bots.<bot>.profile` (skills, github, secretEnv/secretFiles)
-  - `fleet.bots.<bot>.clawdbot` (raw Clawdbot config)
+  - `fleet.bots.<bot>.openclaw` (raw OpenClaw config)
   - `hosts.<host>.diskDevice`
   - `hosts.<host>.provisioning.adminCidr`
   - `hosts.<host>.provisioning.sshPubkeyFile`

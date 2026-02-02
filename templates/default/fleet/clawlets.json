@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 14,
-  "defaultHost": "clawdbot-fleet-host",
+  "schemaVersion": 15,
+  "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
     "secretEnv": {},
@@ -16,7 +16,7 @@
         "hooks": {},
         "skills": {},
         "plugins": {},
-        "clawdbot": {}
+        "openclaw": {}
       }
     },
     "codex": { "enable": false, "bots": [] },
@@ -35,7 +35,7 @@
     "defaults": { "autoShutdown": true, "callbackUrl": "" }
   },
   "hosts": {
-    "clawdbot-fleet-host": {
+    "openclaw-fleet-host": {
       "enable": false,
       "diskDevice": "/dev/sda",
       "flakeHost": "",

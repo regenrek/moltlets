@@ -4,10 +4,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useConvexAuth } from "convex/react"
 import type { Id } from "../../../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../../../convex/_generated/api"
-import { BotCapabilities } from "~/components/fleet/bot-capabilities"
-import { BotClawdbotEditor } from "~/components/fleet/bot-clawdbot-editor"
-import { BotIntegrations } from "~/components/fleet/bot-integrations"
-import { BotWorkspaceDocs } from "~/components/fleet/bot-workspace-docs"
+import { BotCapabilities } from "~/components/fleet/bot/bot-capabilities"
+import { BotOpenclawEditor } from "~/components/fleet/bot/bot-openclaw-editor"
+import { BotIntegrations } from "~/components/fleet/integrations/bot-integrations"
+import { BotWorkspaceDocs } from "~/components/fleet/bot/bot-workspace-docs"
 import { authClient } from "~/lib/auth-client"
 import { useProjectBySlug } from "~/lib/project-data"
 import { getClawletsConfig } from "~/sdk/config"
@@ -40,7 +40,7 @@ function AgentSettings() {
 
   const config = cfg.data?.config
   const botCfg = config?.fleet?.bots?.[botId] as any
-  const clawdbotCfg = botCfg?.clawdbot ?? {}
+  const openclawCfg = botCfg?.openclaw ?? {}
   const channelsCfg = botCfg?.channels ?? {}
   const agentsCfg = botCfg?.agents ?? {}
   const hooksCfg = botCfg?.hooks ?? {}
@@ -63,7 +63,7 @@ function AgentSettings() {
         projectId={projectId}
         botId={botId}
         host={host}
-        clawdbot={clawdbotCfg}
+        openclaw={openclawCfg}
         canEdit={canEdit}
       />
 
@@ -76,7 +76,7 @@ function AgentSettings() {
         hooks={hooksCfg}
         skills={skillsCfg}
         plugins={pluginsCfg}
-        clawdbot={clawdbotCfg}
+        openclaw={openclawCfg}
         profile={profile}
         fleetSecretEnv={fleetSecretEnv}
         canEdit={canEdit}
@@ -84,11 +84,11 @@ function AgentSettings() {
 
       <BotWorkspaceDocs projectId={projectId} botId={botId} canEdit={canEdit} />
 
-      <BotClawdbotEditor
+      <BotOpenclawEditor
         projectId={projectId}
         botId={botId}
         host={host}
-        initial={clawdbotCfg}
+        initial={openclawCfg}
         canEdit={canEdit}
       />
     </div>

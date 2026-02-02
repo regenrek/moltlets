@@ -6,7 +6,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: { maren: {} },
@@ -31,7 +31,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: { maren: {} },
@@ -51,7 +51,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: { maren: {} },
@@ -72,7 +72,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: { maren: {} },
@@ -93,7 +93,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -119,7 +119,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -139,7 +139,7 @@ describe("fleet secrets plan", () => {
     expect(plan.missing).toEqual([]);
     expect(plan.secretNamesRequired).toEqual(expect.arrayContaining(["hooks_token", "brave_api_key"]));
     expect(plan.byBot.maren.envVarsRequired).toEqual(
-      expect.arrayContaining(["CLAWDBOT_HOOKS_TOKEN", "CLAWDBOT_SKILL_BRAVE_SEARCH_API_KEY"]),
+      expect.arrayContaining(["OPENCLAW_HOOKS_TOKEN", "OPENCLAW_SKILL_BRAVE_SEARCH_API_KEY"]),
     );
   });
 
@@ -148,7 +148,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -174,7 +174,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["alpha", "beta"],
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
@@ -203,7 +203,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -228,7 +228,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -252,7 +252,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 14,
+        schemaVersion: 15,
         fleet: {
           botOrder: ["maren"],
           bots: { maren: {} },
@@ -273,7 +273,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 14,
+        schemaVersion: 15,
         fleet: {
           botOrder: ["maren"],
           bots: { maren: {} },
@@ -294,7 +294,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -323,7 +323,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 14,
+        schemaVersion: 15,
         fleet: {
           botOrder: ["maren"],
           bots: {
@@ -350,7 +350,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -374,12 +374,12 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
           maren: {
-            clawdbot: {
+            openclaw: {
               models: {
                 providers: {
                   moonshot: { apiKey: "${MOONSHOT_API_KEY}" },
@@ -404,7 +404,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {
@@ -430,7 +430,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         bots: {

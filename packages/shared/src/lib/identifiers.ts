@@ -4,6 +4,7 @@ import { detectKnownToken } from "./token-patterns.js";
 
 const SAFE_HOSTNAME_RE = /^[a-z][a-z0-9-]*$/;
 const SAFE_BOT_ID_RE = /^[a-z][a-z0-9_-]*$/;
+const SAFE_SKILL_ID_RE = SAFE_BOT_ID_RE;
 const SAFE_PERSONA_NAME_RE = /^[a-z][a-z0-9_-]*$/;
 const SAFE_SECRET_NAME_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const SAFE_OPERATOR_ID_RE = /^[a-zA-Z0-9._-]+$/;
@@ -34,6 +35,12 @@ export const BotIdSchema = z
   .trim()
   .min(1)
   .refine((v) => SAFE_BOT_ID_RE.test(v), { message: "invalid bot id (use [a-z][a-z0-9_-]*)" });
+
+export const SkillIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((v) => SAFE_SKILL_ID_RE.test(v), { message: "invalid skill id (use [a-z][a-z0-9_-]*)" });
 
 export const PersonaNameSchema = z
   .string()

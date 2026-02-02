@@ -19,7 +19,7 @@ in {
     ../modules/clawlets-image-formats.nix
     ../modules/clawlets-host-baseline.nix
     ../modules/clawlets-self-update.nix
-    ../modules/clawdbot-fleet.nix
+    ../modules/openclaw-fleet.nix
     ../modules/clf-orchestrator.nix
     ../modules/clawlets-host-meta.nix
   ];
@@ -140,42 +140,42 @@ in {
         then ", CLAWLETS_DEPLOY"
         else "";
     in ''
-    Cmnd_Alias CLAWDBOT_SYSTEMCTL = \
+    Cmnd_Alias OPENCLAW_SYSTEMCTL = \
       /run/current-system/sw/bin/systemctl is-active tailscaled.service, \
       /run/current-system/sw/bin/systemctl is-active tailscaled-autoconnect.service, \
       /run/current-system/sw/bin/systemctl show tailscaled.service, \
       /run/current-system/sw/bin/systemctl show tailscaled-autoconnect.service, \
-      /run/current-system/sw/bin/systemctl status clawdbot-*, \
-      /run/current-system/sw/bin/systemctl status clawdbot-* --no-pager, \
-      /run/current-system/sw/bin/systemctl status clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl status clawdbot-*.service --no-pager, \
-      /run/current-system/sw/bin/systemctl start clawdbot-*, \
-      /run/current-system/sw/bin/systemctl start clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl stop clawdbot-*, \
-      /run/current-system/sw/bin/systemctl stop clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl restart clawdbot-*, \
-      /run/current-system/sw/bin/systemctl restart clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl list-timers clawdbot-*, \
-      /run/current-system/sw/bin/systemctl list-timers clawdbot-* --all, \
-      /run/current-system/sw/bin/systemctl list-timers clawdbot-* --all --no-pager, \
-      /run/current-system/sw/bin/systemctl list-units clawdbot-*, \
-      /run/current-system/sw/bin/systemctl list-units clawdbot-* --no-pager, \
-      /run/current-system/sw/bin/systemctl list-units clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl list-units clawdbot-*.service --no-pager, \
-      /run/current-system/sw/bin/systemctl list-units --all --plain --legend=false --no-pager clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl show clawdbot-*, \
-      /run/current-system/sw/bin/systemctl show clawdbot-*.service, \
-      /run/current-system/sw/bin/systemctl cat clawdbot-*, \
-      /run/current-system/sw/bin/systemctl cat clawdbot-*.service
-    Cmnd_Alias CLAWDBOT_JOURNAL = \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * -f --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * --no-pager, \
-      /run/current-system/sw/bin/journalctl -u clawdbot-* -n * --since * -f --no-pager
-    Cmnd_Alias CLAWDBOT_SS = /run/current-system/sw/bin/ss -ltnp
-    Cmnd_Alias CLAWDBOT_GH_SYNC_READ = /etc/clawlets/bin/gh-sync-read *
-    Cmnd_Alias CLAWDBOT_CHANNELS = /etc/clawlets/bin/clawdbot-channels *
+      /run/current-system/sw/bin/systemctl status openclaw-*, \
+      /run/current-system/sw/bin/systemctl status openclaw-* --no-pager, \
+      /run/current-system/sw/bin/systemctl status openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl status openclaw-*.service --no-pager, \
+      /run/current-system/sw/bin/systemctl start openclaw-*, \
+      /run/current-system/sw/bin/systemctl start openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl stop openclaw-*, \
+      /run/current-system/sw/bin/systemctl stop openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl restart openclaw-*, \
+      /run/current-system/sw/bin/systemctl restart openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl list-timers openclaw-*, \
+      /run/current-system/sw/bin/systemctl list-timers openclaw-* --all, \
+      /run/current-system/sw/bin/systemctl list-timers openclaw-* --all --no-pager, \
+      /run/current-system/sw/bin/systemctl list-units openclaw-*, \
+      /run/current-system/sw/bin/systemctl list-units openclaw-* --no-pager, \
+      /run/current-system/sw/bin/systemctl list-units openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl list-units openclaw-*.service --no-pager, \
+      /run/current-system/sw/bin/systemctl list-units --all --plain --legend=false --no-pager openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl show openclaw-*, \
+      /run/current-system/sw/bin/systemctl show openclaw-*.service, \
+      /run/current-system/sw/bin/systemctl cat openclaw-*, \
+      /run/current-system/sw/bin/systemctl cat openclaw-*.service
+    Cmnd_Alias OPENCLAW_JOURNAL = \
+      /run/current-system/sw/bin/journalctl -u openclaw-* --no-pager, \
+      /run/current-system/sw/bin/journalctl -u openclaw-* -n * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u openclaw-* -n * -f --no-pager, \
+      /run/current-system/sw/bin/journalctl -u openclaw-* -n * --since * --no-pager, \
+      /run/current-system/sw/bin/journalctl -u openclaw-* -n * --since * -f --no-pager
+    Cmnd_Alias OPENCLAW_SS = /run/current-system/sw/bin/ss -ltnp
+    Cmnd_Alias OPENCLAW_GH_SYNC_READ = /etc/clawlets/bin/gh-sync-read *
+    Cmnd_Alias OPENCLAW_CHANNELS = /etc/clawlets/bin/openclaw-channels *
     Cmnd_Alias CLAWLETS_UPDATE_STATUS = /etc/clawlets/bin/update-status
     Cmnd_Alias CLAWLETS_UPDATE_SYSTEMCTL = \
       /run/current-system/sw/bin/systemctl is-active clawlets-update-*, \
@@ -198,10 +198,10 @@ in {
       /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * --since * --no-pager, \
       /run/current-system/sw/bin/journalctl -u clawlets-update-* -n * --since * -f --no-pager
     ${deploySudo}
-    admin ALL=(root) NOPASSWD: CLAWDBOT_SYSTEMCTL, CLAWDBOT_JOURNAL, CLAWDBOT_SS, CLAWDBOT_GH_SYNC_READ, CLAWDBOT_CHANNELS, CLAWLETS_UPDATE_STATUS, CLAWLETS_UPDATE_SYSTEMCTL, CLAWLETS_UPDATE_JOURNAL${deployAlias}
+    admin ALL=(root) NOPASSWD: OPENCLAW_SYSTEMCTL, OPENCLAW_JOURNAL, OPENCLAW_SS, OPENCLAW_GH_SYNC_READ, OPENCLAW_CHANNELS, CLAWLETS_UPDATE_STATUS, CLAWLETS_UPDATE_SYSTEMCTL, CLAWLETS_UPDATE_JOURNAL${deployAlias}
   '';
 
-  services.clawdbotFleet = {
+  services.openclawFleet = {
     enable = hostCfg.enable or false;
     bots = fleet.bots;
     secretEnv = fleet.secretEnv;

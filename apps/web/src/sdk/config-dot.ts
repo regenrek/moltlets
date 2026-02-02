@@ -10,7 +10,7 @@ import { deleteAtPath, getAtPath, setAtPath } from "@clawlets/core/lib/object-pa
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
-import { BOT_CLAWDBOT_POLICY_MESSAGE, isBotClawdbotPath } from "~/sdk/config-helpers"
+import { BOT_OPENCLAW_POLICY_MESSAGE, isBotOpenclawPath } from "~/sdk/config-helpers"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
@@ -34,12 +34,26 @@ export const configDotSet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
+    const path = String(d["path"] || "").trim()
+    if (!path) throw new Error("missing path")
+    const value = d["value"] === undefined ? undefined : String(d["value"])
+    const valueJson = d["valueJson"] === undefined ? undefined : String(d["valueJson"])
+    const del = Boolean(d["del"])
+    if (value !== undefined && valueJson !== undefined) {
+      throw new Error("ambiguous value (provide value or valueJson, not both)")
+    }
+    if (del && (value !== undefined || valueJson !== undefined)) {
+      throw new Error("invalid request (del=true cannot include value)")
+    }
+    if (!del && value === undefined && valueJson === undefined) {
+      throw new Error("missing value (or set del=true)")
+    }
     return {
       ...base,
-      path: String(d["path"] || ""),
-      value: d["value"] === undefined ? undefined : String(d["value"]),
-      valueJson: d["valueJson"] === undefined ? undefined : String(d["valueJson"]),
-      del: Boolean(d["del"]),
+      path,
+      value,
+      valueJson,
+      del,
     }
   })
   .handler(async ({ data }) => {
@@ -50,14 +64,14 @@ export const configDotSet = createServerFn({ method: "POST" })
     const parts = splitDotPath(data.path)
     const next = structuredClone(raw) as any
 
-    if (isBotClawdbotPath(parts)) {
+    if (isBotOpenclawPath(parts)) {
       return {
         ok: false as const,
         issues: [
           {
             code: "policy",
             path: parts,
-            message: BOT_CLAWDBOT_POLICY_MESSAGE,
+            message: BOT_OPENCLAW_POLICY_MESSAGE,
           },
         ],
       }
@@ -119,6 +133,12 @@ export const configDotBatch = createServerFn({ method: "POST" })
       const del = Boolean(o["del"])
       const value = o["value"] === undefined ? undefined : String(o["value"])
       const valueJson = o["valueJson"] === undefined ? undefined : String(o["valueJson"])
+      if (value !== undefined && valueJson !== undefined) {
+        throw new Error(`ambiguous op at index ${i} (provide value or valueJson, not both)`)
+      }
+      if (del && (value !== undefined || valueJson !== undefined)) {
+        throw new Error(`invalid op at index ${i} (del=true cannot include value)`)
+      }
       if (!path.trim()) throw new Error(`missing path at index ${i}`)
       if (!del && value === undefined && valueJson === undefined) throw new Error(`missing value for op at index ${i}`)
       return { path, value, valueJson, del }
@@ -139,14 +159,14 @@ export const configDotBatch = createServerFn({ method: "POST" })
       const parts = splitDotPath(op.path)
       plannedPaths.push(parts.join("."))
 
-      if (isBotClawdbotPath(parts)) {
+      if (isBotOpenclawPath(parts)) {
         return {
           ok: false as const,
           issues: [
             {
               code: "policy",
               path: parts,
-              message: BOT_CLAWDBOT_POLICY_MESSAGE,
+              message: BOT_OPENCLAW_POLICY_MESSAGE,
             },
           ],
         }

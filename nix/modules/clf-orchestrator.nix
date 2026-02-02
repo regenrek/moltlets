@@ -60,7 +60,7 @@ let
   mkEnvLine = envVar: value: "${envVar}=${value}";
 
   cfg = config.services.clfOrchestrator;
-  clawdbotBots = lib.attrByPath [ "services" "clawdbotFleet" "bots" ] [ ] config;
+  openclawBots = lib.attrByPath [ "services" "openclawFleet" "bots" ] [ ] config;
   adminAuthorizedKeys = lib.attrByPath [ "users" "users" "admin" "openssh" "authorizedKeys" "keys" ] [ ] config;
 in
 {
@@ -191,7 +191,7 @@ in
         (builtins.listToAttrs (map (b: {
           name = "bot-${b}";
           value = { extraGroups = lib.mkAfter [ "clf-bots" ]; };
-        }) clawdbotBots))
+        }) openclawBots))
       ];
 
       environment.systemPackages = [ cfg.package ];

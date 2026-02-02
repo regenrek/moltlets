@@ -4,7 +4,7 @@ describe("config patch channel presets", () => {
   it("applies discord preset (enabled + env token ref)", async () => {
     const { applyCapabilityPreset, getChannelCapabilityPreset } = await import("../src/lib/capability-presets");
 
-    const res = applyCapabilityPreset({ clawdbot: {}, channels: {}, preset: getChannelCapabilityPreset("discord") });
+    const res = applyCapabilityPreset({ openclaw: {}, channels: {}, preset: getChannelCapabilityPreset("discord") });
     expect(res.warnings).toEqual([]);
     expect(res.channels).toMatchObject({
       discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" },
@@ -16,7 +16,7 @@ describe("config patch channel presets", () => {
 
     expect(() =>
       applyCapabilityPreset({
-        clawdbot: {},
+        openclaw: {},
         channels: { discord: { enabled: true, token: "inline-token" } },
         preset: getChannelCapabilityPreset("discord"),
       }),
@@ -26,7 +26,7 @@ describe("config patch channel presets", () => {
   it("applies slack preset (env refs for botToken + appToken)", async () => {
     const { applyCapabilityPreset, getChannelCapabilityPreset } = await import("../src/lib/capability-presets");
 
-    const res = applyCapabilityPreset({ clawdbot: {}, channels: {}, preset: getChannelCapabilityPreset("slack") });
+    const res = applyCapabilityPreset({ openclaw: {}, channels: {}, preset: getChannelCapabilityPreset("slack") });
     expect(res.warnings).toEqual([]);
     expect(res.channels).toMatchObject({
       slack: {
@@ -40,7 +40,7 @@ describe("config patch channel presets", () => {
   it("adds a warning for whatsapp preset (stateful login)", async () => {
     const { applyCapabilityPreset, getChannelCapabilityPreset } = await import("../src/lib/capability-presets");
 
-    const res = applyCapabilityPreset({ clawdbot: {}, channels: {}, preset: getChannelCapabilityPreset("whatsapp") });
+    const res = applyCapabilityPreset({ openclaw: {}, channels: {}, preset: getChannelCapabilityPreset("whatsapp") });
     expect(res.channels).toMatchObject({ whatsapp: { enabled: true } });
     expect(res.warnings.join("\n")).toMatch(/stateful login/i);
   });
@@ -50,14 +50,14 @@ describe("config patch security defaults", () => {
   it("sets logging.redactSensitive and session.dmScope", async () => {
     const { applySecurityDefaults } = await import("../src/lib/config-patch");
 
-    const res = applySecurityDefaults({ clawdbot: {} });
-    expect(res.clawdbot).toMatchObject({
+    const res = applySecurityDefaults({ openclaw: {} });
+    expect(res.openclaw).toMatchObject({
       logging: { redactSensitive: "tools" },
       session: { dmScope: "per-channel-peer" },
     });
     expect(res.changes.map((c) => `${c.scope}.${c.path}`).sort()).toEqual([
-      "clawdbot.logging.redactSensitive",
-      "clawdbot.session.dmScope",
+      "openclaw.logging.redactSensitive",
+      "openclaw.session.dmScope",
     ]);
   });
 
@@ -65,7 +65,7 @@ describe("config patch security defaults", () => {
     const { applySecurityDefaults } = await import("../src/lib/config-patch");
 
     const res = applySecurityDefaults({
-      clawdbot: {},
+      openclaw: {},
       channels: {
         whatsapp: {
           enabled: true,

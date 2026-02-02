@@ -32,7 +32,7 @@ let
   clawlets = builtins.getFlake ${clawletsRef};
   flake = baseFlake // { inputs = baseFlake.inputs // { clawlets = clawlets; }; };
   system = "x86_64-linux";
-  hostName = "clawdbot-fleet-host";
+  hostName = "openclaw-fleet-host";
   nixpkgs = flake.inputs.clawlets.inputs.nixpkgs;
   lib = nixpkgs.lib;
   project = {

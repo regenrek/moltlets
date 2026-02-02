@@ -35,7 +35,7 @@ describe("server channels command", () => {
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/clawdbot-channels' '--bot' 'maren' 'status' '--probe' '--timeout' '10000' '--json'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'status' '--probe' '--timeout' '10000' '--json'",
       { tty: true },
     );
   });
@@ -60,7 +60,7 @@ describe("server channels command", () => {
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/clawdbot-channels' '--bot' 'maren' 'capabilities' '--channel' 'discord' '--account' 'default' '--target' 'discord channel:123' '--timeout' '10000' '--json'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'capabilities' '--channel' 'discord' '--account' 'default' '--target' 'discord channel:123' '--timeout' '10000' '--json'",
       { tty: false },
     );
   });
@@ -75,7 +75,7 @@ describe("server channels command", () => {
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/clawdbot-channels' '--bot' 'maren' 'login' '--channel' 'whatsapp' '--account' 'default' '--verbose'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'login' '--channel' 'whatsapp' '--account' 'default' '--verbose'",
       { tty: true },
     );
   });
@@ -90,7 +90,7 @@ describe("server channels command", () => {
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "root@host",
-      "'/etc/clawlets/bin/clawdbot-channels' '--bot' 'maren' 'logout' '--channel' 'whatsapp' '--account' 'default'",
+      "'/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'logout' '--channel' 'whatsapp' '--account' 'default'",
       { tty: false },
     );
   });

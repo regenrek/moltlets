@@ -37,11 +37,11 @@ async function loadConfig() {
       },
       loadClawletsConfig: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { clawdbot: { ok: true } } } } },
+        config: { fleet: { bots: { bot1: { openclaw: { ok: true } } } } },
       }),
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { clawdbot: { ok: true } } } } },
+        config: { fleet: { bots: { bot1: { openclaw: { ok: true } } } } },
       }),
       writeClawletsConfig: async () => {},
     }
@@ -51,7 +51,7 @@ async function loadConfig() {
   return { mod, mutation, runWithEvents }
 }
 
-describe("config bot clawdbot policy", () => {
+describe("config bot openclaw policy", () => {
   it("allows bot channels updates via configDotSet", async () => {
     const { mod, mutation, runWithEvents } = await loadConfig()
     const res = await runWithStartContext(
@@ -152,7 +152,7 @@ describe("config bot clawdbot policy", () => {
     expect(runWithEvents).toHaveBeenCalled()
   })
 
-  it("rejects bot clawdbot path updates via configDotSet", async () => {
+  it("rejects bot openclaw path updates via configDotSet", async () => {
     const { mod, mutation, runWithEvents } = await loadConfig()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -160,7 +160,7 @@ describe("config bot clawdbot policy", () => {
         await mod.configDotSet({
           data: {
             projectId: "p1" as any,
-            path: "fleet.bots.bot1.clawdbot.token",
+            path: "fleet.bots.bot1.openclaw.token",
             value: "nope",
             valueJson: undefined,
             del: false,
@@ -175,7 +175,7 @@ describe("config bot clawdbot policy", () => {
     expect(runWithEvents).not.toHaveBeenCalled()
   })
 
-  it("rejects bot clawdbot path updates via configDotBatch", async () => {
+  it("rejects bot openclaw path updates via configDotBatch", async () => {
     const { mod, mutation, runWithEvents } = await loadConfig()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -183,7 +183,7 @@ describe("config bot clawdbot policy", () => {
         await mod.configDotBatch({
           data: {
             projectId: "p1" as any,
-            ops: [{ path: "fleet.bots.bot1.clawdbot.token", value: "nope", del: false }],
+            ops: [{ path: "fleet.bots.bot1.openclaw.token", value: "nope", del: false }],
           },
         }),
     )
@@ -195,7 +195,7 @@ describe("config bot clawdbot policy", () => {
     expect(runWithEvents).not.toHaveBeenCalled()
   })
 
-  it("rejects clawdbot changes via writeClawletsConfigFile", async () => {
+  it("rejects openclaw changes via writeClawletsConfigFile", async () => {
     const { mod, mutation, runWithEvents } = await loadConfig()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -203,7 +203,7 @@ describe("config bot clawdbot policy", () => {
         await mod.writeClawletsConfigFile({
           data: {
             projectId: "p1" as any,
-            next: { fleet: { bots: { bot1: { clawdbot: { ok: false } } } } },
+            next: { fleet: { bots: { bot1: { openclaw: { ok: false } } } } },
             title: "Update config",
           },
         }),

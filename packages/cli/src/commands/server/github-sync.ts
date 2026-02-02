@@ -13,7 +13,7 @@ function normalizeKind(raw: string): "prs" | "issues" {
 const serverGithubSyncStatus = defineCommand({
   meta: {
     name: "status",
-    description: "Show GitHub sync timers (clawdbot-gh-sync-*.timer).",
+    description: "Show GitHub sync timers (openclaw-gh-sync-*.timer).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
@@ -35,7 +35,7 @@ const serverGithubSyncStatus = defineCommand({
       "list-timers",
       "--all",
       "--no-pager",
-      shellQuote("clawdbot-gh-sync-*.timer"),
+      shellQuote("openclaw-gh-sync-*.timer"),
     ].join(" ");
     await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
   },
@@ -61,7 +61,7 @@ const serverGithubSyncRun = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const bot = String(args.bot || "").trim();
-    const unit = bot ? `clawdbot-gh-sync-${bot}.service` : "clawdbot-gh-sync-*.service";
+    const unit = bot ? `openclaw-gh-sync-${bot}.service` : "openclaw-gh-sync-*.service";
     const sudo = needsSudo(targetHost);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
@@ -98,7 +98,7 @@ const serverGithubSyncLogs = defineCommand({
     if (!bot) throw new Error("missing --bot (example: --bot maren)");
 
     const sudo = needsSudo(targetHost);
-    const unit = `clawdbot-gh-sync-${bot}.service`;
+    const unit = `openclaw-gh-sync-${bot}.service`;
     const n = String(args.lines || "200").trim() || "200";
     if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
     const remoteCmd = [

@@ -1,4 +1,4 @@
-export const BOT_CLAWDBOT_POLICY_MESSAGE = "Bot clawdbot config updates must use bot endpoints."
+export const BOT_OPENCLAW_POLICY_MESSAGE = "Bot openclaw config updates must use bot endpoints."
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -21,17 +21,17 @@ function getBots(value: unknown): Record<string, unknown> {
   return isPlainRecord(bots) ? bots : {}
 }
 
-export function isBotClawdbotPath(parts: Array<string | number>): boolean {
+export function isBotOpenclawPath(parts: Array<string | number>): boolean {
   return (
     parts.length >= 4 &&
     parts[0] === "fleet" &&
     parts[1] === "bots" &&
     typeof parts[2] === "string" &&
-    parts[3] === "clawdbot"
+    parts[3] === "openclaw"
   )
 }
 
-export function findBotClawdbotChanges(
+export function findBotOpenclawChanges(
   current: unknown,
   next: unknown,
 ): { path: Array<string | number>; message: string } | null {
@@ -41,11 +41,11 @@ export function findBotClawdbotChanges(
   for (const botId of allIds) {
     const currentBot = currentBots[botId]
     const nextBot = nextBots[botId]
-    const currentClawdbot = isPlainRecord(currentBot) ? currentBot["clawdbot"] : undefined
-    const nextClawdbot = isPlainRecord(nextBot) ? nextBot["clawdbot"] : undefined
-    if (currentClawdbot === undefined && nextClawdbot === undefined) continue
-    if (stableStringify(currentClawdbot) !== stableStringify(nextClawdbot)) {
-      return { path: ["fleet", "bots", botId, "clawdbot"], message: BOT_CLAWDBOT_POLICY_MESSAGE }
+    const currentOpenclaw = isPlainRecord(currentBot) ? currentBot["openclaw"] : undefined
+    const nextOpenclaw = isPlainRecord(nextBot) ? nextBot["openclaw"] : undefined
+    if (currentOpenclaw === undefined && nextOpenclaw === undefined) continue
+    if (stableStringify(currentOpenclaw) !== stableStringify(nextOpenclaw)) {
+      return { path: ["fleet", "bots", botId, "openclaw"], message: BOT_OPENCLAW_POLICY_MESSAGE }
     }
   }
   return null

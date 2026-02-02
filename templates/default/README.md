@@ -19,7 +19,7 @@ Quickstart
 Docs: https://docs.clawlets.com
 
 Updates
-- `flake.lock` pins `clawlets` and `nix-clawdbot`; use the repo’s `bump-clawlets` and `bump-nix-clawdbot` PRs to stay current.
+- `flake.lock` pins `clawlets` and `nix-openclaw`; use the repo’s `bump-clawlets` and `bump-nix-openclaw` PRs to stay current.
 - Recommended (Path 1): publish signed desired-state manifests to GitHub Pages (gh-pages branch):
   - enable Pages: Settings → Pages → Deploy from branch → `gh-pages` / root
   - add Actions secret: `MINISIGN_PRIVATE_KEY` (contents of `minisign.key`, generated via `minisign -G -n`)

@@ -178,6 +178,10 @@ function HostOverview() {
                       <span className="text-muted-foreground">Target host</span>
                       <span className="font-medium truncate">{hostCfg.targetHost || "—"}</span>
                     </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Update ring</span>
+                    <span className="font-medium">{String(hostCfg.selfUpdate?.channel || "prod")}</span>
+                  </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-muted-foreground">Tailnet</span>
                       <span className="font-medium">{hostCfg.tailnet?.mode || "—"}</span>

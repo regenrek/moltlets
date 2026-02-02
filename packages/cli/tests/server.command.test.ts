@@ -56,13 +56,13 @@ describe("server command", () => {
       args: {
         host: "alpha",
         targetHost: "admin@host",
-        unit: "clawdbot-maren",
+        unit: "openclaw-maren",
         since: "5m",
         lines: "10",
       },
     } as any);
     const call = sshRunMock.mock.calls[0]?.[1] as string;
-    expect(call).toContain("clawdbot-maren.service");
+    expect(call).toContain("openclaw-maren.service");
     expect(call).toContain("5 min ago");
   });
 

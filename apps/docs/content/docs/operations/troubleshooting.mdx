@@ -40,7 +40,7 @@ Use `--since "5 min ago"` or `clawlets server logs --since 5m` (CLI normalizes `
 Use SSH TTY:
 
 ```bash
-ssh -t <host> "sudo systemctl status clawdbot-melinda --no-pager"
+ssh -t <host> "sudo systemctl status openclaw-melinda --no-pager"
 ```
 
 CLI commands that may need sudo default to `--ssh-tty=true`.
@@ -58,7 +58,7 @@ ssh -t <host> "sudo ss -ltnp | grep ':187' || true"
 Restart the unit:
 
 ```bash
-clawlets server restart --target-host <host> --unit clawdbot-melinda.service
+clawlets server restart --target-host <host> --unit openclaw-melinda.service
 ```
 
 ## CI deploy can’t reach host (tailnet)

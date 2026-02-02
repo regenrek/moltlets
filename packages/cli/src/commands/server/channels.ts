@@ -12,7 +12,7 @@ function requireBotId(value: string): string {
   return botId;
 }
 
-function runRemoteClawdbotChannels(params: {
+function runRemoteOpenclawChannels(params: {
   targetHost: string;
   sudo: boolean;
   botId: string;
@@ -21,7 +21,7 @@ function runRemoteClawdbotChannels(params: {
 }) {
   const remoteArgs = [
     ...(params.sudo ? ["sudo"] : []),
-    "/etc/clawlets/bin/clawdbot-channels",
+    "/etc/clawlets/bin/openclaw-channels",
     "--bot",
     params.botId,
     ...params.args,
@@ -31,12 +31,12 @@ function runRemoteClawdbotChannels(params: {
 }
 
 const serverChannelsStatus = defineCommand({
-  meta: { name: "status", description: "Run `clawdbot channels status` on the host for a bot." },
+  meta: { name: "status", description: "Run `openclaw channels status` on the host for a bot." },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit clawdbot-<bot>.service)." },
+    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit openclaw-<bot>.service)." },
     probe: { type: "boolean", description: "Probe channel credentials.", default: false },
     timeout: { type: "string", description: "Timeout in ms.", default: "10000" },
     json: { type: "boolean", description: "Output JSON.", default: false },
@@ -50,7 +50,7 @@ const serverChannelsStatus = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const botId = requireBotId(String(args.bot || ""));
-    await runRemoteClawdbotChannels({
+    await runRemoteOpenclawChannels({
       targetHost,
       sudo: needsSudo(targetHost),
       botId,
@@ -66,12 +66,12 @@ const serverChannelsStatus = defineCommand({
 });
 
 const serverChannelsCapabilities = defineCommand({
-  meta: { name: "capabilities", description: "Run `clawdbot channels capabilities` on the host for a bot." },
+  meta: { name: "capabilities", description: "Run `openclaw channels capabilities` on the host for a bot." },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit clawdbot-<bot>.service)." },
+    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit openclaw-<bot>.service)." },
     channel: { type: "string", description: "Channel id (discord|telegram|slack|whatsapp|...|all)." },
     account: { type: "string", description: "Account id (only with --channel)." },
     target: { type: "string", description: "Channel target for permission audit (Discord channel:<id>)." },
@@ -87,7 +87,7 @@ const serverChannelsCapabilities = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const botId = requireBotId(String(args.bot || ""));
-    await runRemoteClawdbotChannels({
+    await runRemoteOpenclawChannels({
       targetHost,
       sudo: needsSudo(targetHost),
       botId,
@@ -105,12 +105,12 @@ const serverChannelsCapabilities = defineCommand({
 });
 
 const serverChannelsLogin = defineCommand({
-  meta: { name: "login", description: "Run `clawdbot channels login` on the host for a bot." },
+  meta: { name: "login", description: "Run `openclaw channels login` on the host for a bot." },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit clawdbot-<bot>.service)." },
+    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit openclaw-<bot>.service)." },
     channel: { type: "string", description: "Channel alias (default: whatsapp)." },
     account: { type: "string", description: "Account id (accountId)." },
     verbose: { type: "boolean", description: "Verbose connection logs.", default: false },
@@ -124,7 +124,7 @@ const serverChannelsLogin = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const botId = requireBotId(String(args.bot || ""));
-    await runRemoteClawdbotChannels({
+    await runRemoteOpenclawChannels({
       targetHost,
       sudo: needsSudo(targetHost),
       botId,
@@ -140,12 +140,12 @@ const serverChannelsLogin = defineCommand({
 });
 
 const serverChannelsLogout = defineCommand({
-  meta: { name: "logout", description: "Run `clawdbot channels logout` on the host for a bot." },
+  meta: { name: "logout", description: "Run `openclaw channels logout` on the host for a bot." },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit clawdbot-<bot>.service)." },
+    bot: { type: "string", description: "Bot id (fleet bot id; maps to systemd unit openclaw-<bot>.service)." },
     channel: { type: "string", description: "Channel alias (default: whatsapp)." },
     account: { type: "string", description: "Account id (accountId)." },
     sshTty: { type: "boolean", description: "Allocate SSH TTY.", default: false },
@@ -158,7 +158,7 @@ const serverChannelsLogout = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const botId = requireBotId(String(args.bot || ""));
-    await runRemoteClawdbotChannels({
+    await runRemoteOpenclawChannels({
       targetHost,
       sudo: needsSudo(targetHost),
       botId,
@@ -173,7 +173,7 @@ const serverChannelsLogout = defineCommand({
 });
 
 export const serverChannels = defineCommand({
-  meta: { name: "channels", description: "Operate Clawdbot channels over SSH (status/login/logout/capabilities)." },
+  meta: { name: "channels", description: "Operate OpenClaw channels over SSH (status/login/logout/capabilities)." },
   subCommands: {
     status: serverChannelsStatus,
     capabilities: serverChannelsCapabilities,

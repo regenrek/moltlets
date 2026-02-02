@@ -53,12 +53,12 @@ Operate hosts over SSH.
 
 Subcommands:
 
-- `status` — systemd status for Clawdbot services
-- `logs` — journalctl logs for Clawdbot services
-- `restart` — restart one or more Clawdbot units
+- `status` — systemd status for OpenClaw services
+- `logs` — journalctl logs for OpenClaw services
+- `restart` — restart one or more OpenClaw units
 - `audit` — tailscale + service checks + security audit
 - `update` — updater apply/status/logs
-- `channels` — run `clawdbot channels` over SSH
+- `channels` — run `openclaw channels` over SSH
 - `github-sync` — GitHub inventory sync timers/logs/snapshots
 
 ### `clawlets lockdown`
@@ -80,7 +80,7 @@ Subcommands:
 
 - `init` — initialize config (overwrites)
 - `show` — print config
-- `validate` — schema validation + rendered Clawdbot config
+- `validate` — schema validation + rendered OpenClaw config
 - `wire-secrets` — autowire missing secret mappings
 - `derive-allowlist` — generate env allowlist from config
 - `get` — read a dot path
@@ -160,13 +160,13 @@ Subcommands:
 
 ---
 
-## Clawdbot integration
+## OpenClaw integration
 
-Helpers around OpenClaw/Clawdbot validation and policy.
+Helpers around OpenClaw validation and policy.
 
-### `clawlets clawdbot`
+### `clawlets openclaw`
 
-OpenClaw/Clawdbot helpers.
+OpenClaw helpers.
 
 Subcommands:
 

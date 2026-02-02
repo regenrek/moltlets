@@ -29,7 +29,7 @@ case "$kind" in
     ;;
 esac
 
-cfg="/run/secrets/rendered/clawdbot-${bot}.json"
+cfg="/run/secrets/rendered/openclaw-${bot}.json"
 if [ ! -r "$cfg" ]; then
   echo "gh-sync-read: missing config: $cfg" >&2
   exit 1

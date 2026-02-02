@@ -27,7 +27,7 @@ import {
 import type { ClawletsConfig } from "./clawlets-config.js";
 import type { SecretFileSpec } from "./secret-wiring.js";
 import type { MissingSecretConfig, SecretSource, SecretSpec, SecretsPlanWarning } from "./secrets-plan.js";
-import { buildClawdbotBotConfig } from "./clawdbot-config-invariants.js";
+import { buildOpenClawBotConfig } from "./openclaw-config-invariants.js";
 
 export type MissingFleetSecretConfig = MissingSecretConfig;
 
@@ -158,13 +158,13 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   const envVarAliasMap = buildEnvVarAliasMap();
   const ignoredEnvVars = new Set<string>([
     // Managed by the Nix runtime (generated/injected), not by fleet.secretEnv/profile.secretEnv.
-    "CLAWDBOT_GATEWAY_TOKEN",
+    "OPENCLAW_GATEWAY_TOKEN",
   ]);
 
   for (const bot of bots) {
     const botCfg = (botConfigs as any)?.[bot] || {};
     const profile = (botCfg as any)?.profile || {};
-    const clawdbot = buildClawdbotBotConfig({ config: params.config, bot }).merged;
+    const openclaw = buildOpenClawBotConfig({ config: params.config, bot }).merged;
 
     const baseSecretEnv = buildBaseSecretEnv({
       globalEnv: fleetSecretEnv,
@@ -198,7 +198,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       recordSecretEnvMeta(secretName, envVar, bot);
     }
 
-    const envVarRefsRaw = findEnvVarRefs(clawdbot);
+    const envVarRefsRaw = findEnvVarRefs(openclaw);
     const envVarPathsByVar: Record<string, string[]> = {};
     for (const [envVar, paths] of Object.entries(envVarRefsRaw.pathsByVar)) {
       const canonical = canonicalizeEnvVar(envVar, envVarAliasMap);
@@ -226,11 +226,11 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     for (const envVar of envVarRefs.vars) addRequiredEnv(envVar, "custom");
     for (const entry of derivedEntries) addRequiredEnv(entry.envVar, "custom", entry.path);
 
-    applyChannelEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv });
-    applyHookEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv });
-    applySkillEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv, envVarHelpOverrides });
+    applyChannelEnvRequirements({ bot, openclaw, warnings, addRequiredEnv });
+    applyHookEnvRequirements({ bot, openclaw, warnings, addRequiredEnv });
+    applySkillEnvRequirements({ bot, openclaw, warnings, addRequiredEnv, envVarHelpOverrides });
 
-    const models = collectBotModels({ clawdbot, hostDefaultModel: String(hostCfg.agentModelPrimary || "") });
+    const models = collectBotModels({ openclaw, hostDefaultModel: String(hostCfg.agentModelPrimary || "") });
     const providersFromModels = new Set<string>();
     for (const model of models) {
       const provider = getLlmProviderFromModelId(model);
@@ -238,7 +238,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     }
 
     const providersFromConfig = new Set<string>();
-    const providers = (clawdbot as any)?.models?.providers;
+    const providers = (openclaw as any)?.models?.providers;
     if (isPlainObject(providers)) {
       for (const [providerIdRaw, providerCfg] of Object.entries(providers)) {
         const providerId = String(providerIdRaw || "").trim();
@@ -322,7 +322,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       }
     }
 
-    const whatsappEnabled = isWhatsAppEnabled(clawdbot);
+    const whatsappEnabled = isWhatsAppEnabled(openclaw);
     if (whatsappEnabled) {
       warnings.push({
         kind: "statefulChannel",

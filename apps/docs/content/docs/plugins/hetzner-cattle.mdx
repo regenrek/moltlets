@@ -3,7 +3,7 @@ title: Hetzner Cattle
 description: Ephemeral Hetzner VMs via the cattle plugin.
 ---
 
-Cattle are on-demand, ephemeral Clawdbot agent VMs on Hetzner Cloud. The lifecycle is
+Cattle are on-demand, ephemeral OpenClaw agent VMs on Hetzner Cloud. The lifecycle is
 simple: spawn, run a task, and destroy. This is separate from “pet” hosts, which are
 long-running fleet servers.
 
@@ -37,7 +37,7 @@ Enable cattle in `fleet/clawlets.json` and set the Hetzner image and defaults:
 
 ```json
 {
-  "schemaVersion": 12,
+  "schemaVersion": 15,
   "cattle": {
     "enabled": true,
     "hetzner": {
@@ -129,7 +129,7 @@ Tasks are small JSON payloads. Treat them as non-secret input.
 {
   "schemaVersion": 1,
   "taskId": "<id>",
-  "type": "clawdbot.gateway.agent",
+  "type": "openclaw.gateway.agent",
   "message": "<prompt>"
 }
 ```
@@ -186,4 +186,3 @@ Debug commands
 - logs: `clawlets cattle logs <id-or-name> --follow`
 - ssh: `clawlets cattle ssh <id-or-name>`
 - reap: `clawlets cattle reap --dry-run`
-

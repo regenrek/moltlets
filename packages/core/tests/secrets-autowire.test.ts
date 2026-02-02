@@ -6,7 +6,7 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["alpha", "beta"],
         secretEnv: {},
@@ -20,11 +20,11 @@ describe("secrets autowire", () => {
         },
       },
       hosts: {
-        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
       },
     });
 
-    const plan = planSecretsAutowire({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = planSecretsAutowire({ config: cfg, hostName: "openclaw-fleet-host" });
     const summary = plan.updates.map((u) => `${u.envVar}:${u.bot}:${u.scope}:${u.secretName}`);
     expect(summary).toEqual([
       "DISCORD_BOT_TOKEN:alpha:bot:discord_token_alpha",
@@ -38,7 +38,7 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 14,
+      schemaVersion: 15,
       fleet: {
         botOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
@@ -50,11 +50,11 @@ describe("secrets autowire", () => {
         },
       },
       hosts: {
-        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
       },
     });
 
-    const plan = planSecretsAutowire({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = planSecretsAutowire({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.updates).toEqual([]);
   });
 });

@@ -81,7 +81,7 @@ vi.mock("@clawlets/core/lib/clawlets-config", async () => {
   };
 });
 
-const hostName = "clawdbot-beta-3";
+const hostName = "openclaw-beta-3";
 const baseHost = {
   enable: false,
   diskDevice: "/dev/sda",
@@ -106,8 +106,31 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 14,
-      fleet: { sshAuthorizedKeys: [], sshKnownHosts: [] },
+      schemaVersion: 15,
+      defaultHost: hostName,
+      baseFlake: "",
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        sshAuthorizedKeys: [],
+        sshKnownHosts: [],
+        botOrder: [],
+        bots: {},
+        codex: { enable: false, bots: [] },
+        backups: { restic: { enable: false, repository: "" } },
+      },
+      cattle: {
+        enabled: false,
+        hetzner: {
+          image: "",
+          serverType: "cx22",
+          location: "nbg1",
+          maxInstances: 10,
+          defaultTtl: "2h",
+          labels: { "managed-by": "clawlets" },
+        },
+        defaults: { autoShutdown: true, callbackUrl: "" },
+      },
       hosts: {
         [hostName]: { ...baseHost, ...hostOverrides },
       },

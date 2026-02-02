@@ -92,7 +92,7 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawletsConfig = {
-      schemaVersion: 14,
+      schemaVersion: 15,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
@@ -105,12 +105,12 @@ describe("doctor", () => {
           alpha: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_alpha" }, secretFiles: {} },
             channels: { discord: { enabled: true, allowFrom: ["discord user:123"] } },
-            clawdbot: {},
+            openclaw: {},
           },
           beta: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_beta" }, secretFiles: {} },
             channels: { discord: { enabled: true, allowFrom: ["discord user:456"] } },
-            clawdbot: {},
+            openclaw: {},
           },
         },
         codex: { enable: false, bots: [] },
