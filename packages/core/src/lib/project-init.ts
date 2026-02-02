@@ -202,10 +202,15 @@ export async function planProjectInit(params: {
   assertSafeHostName(host);
 
   const projectName = path.basename(destDir);
+  const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
+    // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": host.replace(/-/g, "_"),
+    "clawdbot_fleet_host": hostUnderscore,
+    // Newer templates use openclaw-* placeholders.
+    "openclaw-fleet-host": host,
+    "openclaw_fleet_host": hostUnderscore,
   };
 
   return await withDownloadedTemplate(params.templateSpec, async ({ templateDir }) => {
@@ -244,10 +249,15 @@ export async function initProject(params: {
   }
 
   const projectName = path.basename(destDir);
+  const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
+    // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": host.replace(/-/g, "_"),
+    "clawdbot_fleet_host": hostUnderscore,
+    // Newer templates use openclaw-* placeholders.
+    "openclaw-fleet-host": host,
+    "openclaw_fleet_host": hostUnderscore,
   };
 
   const plannedFiles = await withDownloadedTemplate(params.templateSpec, async ({ templateDir }) => {
