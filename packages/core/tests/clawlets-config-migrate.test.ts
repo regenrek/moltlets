@@ -294,7 +294,8 @@ describe("clawlets config migrate", () => {
         bots: {
           bot1: {
             profile: { secretEnv: {}, secretFiles: {} },
-            clawdbot: { logging: { redactSensitive: "off" }, channels: { discord: { enabled: true } } },
+            openclaw: { logging: { redactSensitive: "off" }, channels: { telegram: { enabled: true } }, agents: { defaults: { maxConcurrent: 2 } } },
+            clawdbot: { channels: { discord: { enabled: true } } },
           },
         },
       },
@@ -308,7 +309,8 @@ describe("clawlets config migrate", () => {
     const migrated = res.migrated as any;
     expect(migrated.schemaVersion).toBe(15);
     expect(migrated.fleet.bots.bot1.clawdbot).toBeUndefined();
-    expect(migrated.fleet.bots.bot1.channels).toEqual({ discord: { enabled: true } });
+    expect(migrated.fleet.bots.bot1.channels).toEqual({ telegram: { enabled: true }, discord: { enabled: true } });
+    expect(migrated.fleet.bots.bot1.agents).toEqual({ defaults: { maxConcurrent: 2 } });
     expect(migrated.fleet.bots.bot1.openclaw).toEqual({ logging: { redactSensitive: "off" } });
   });
 });

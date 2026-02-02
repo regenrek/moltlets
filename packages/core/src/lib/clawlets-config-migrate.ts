@@ -566,32 +566,40 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
         }
         if (!isPlainObject(clawdbot)) continue;
 
-        const moveLegacySurface = (key: string) => {
-          if (!(key in clawdbot)) return;
-          const legacyValue = clawdbot[key];
-          delete clawdbot[key];
+        const moveLegacySurface = (params: { source: Record<string, unknown>; label: string; key: string }) => {
+          if (!(params.key in params.source)) return;
+          const legacyValue = params.source[params.key];
+          delete params.source[params.key];
           changed = true;
           if (!isPlainObject(legacyValue) || Object.keys(legacyValue).length === 0) {
-            if (legacyValue !== undefined) warnings.push(`bot ${botId}: dropped clawdbot.${key} (expected object)`);
+            if (legacyValue !== undefined) warnings.push(`bot ${botId}: dropped ${params.label}.${params.key} (expected object)`);
             return;
           }
-          const dest = ensureObject(botCfg, key);
+          const dest = ensureObject(botCfg, params.key);
           const merged = mergeLegacyIntoExisting({
             existing: dest,
             legacy: legacyValue,
-            context: `migrate clawdbot.${key}`,
+            context: `migrate ${params.label}.${params.key}`,
           });
           if (merged) changed = true;
-          warnings.push(`bot ${botId}: moved clawdbot.${key} -> ${key}`);
+          warnings.push(`bot ${botId}: moved ${params.label}.${params.key} -> ${params.key}`);
         };
 
-        moveLegacySurface("channels");
-        moveLegacySurface("agents");
-        moveLegacySurface("hooks");
-        moveLegacySurface("skills");
-        moveLegacySurface("plugins");
-
         const openclaw = botCfg["openclaw"];
+        if (isPlainObject(openclaw)) {
+          moveLegacySurface({ source: openclaw, label: "openclaw", key: "channels" });
+          moveLegacySurface({ source: openclaw, label: "openclaw", key: "agents" });
+          moveLegacySurface({ source: openclaw, label: "openclaw", key: "hooks" });
+          moveLegacySurface({ source: openclaw, label: "openclaw", key: "skills" });
+          moveLegacySurface({ source: openclaw, label: "openclaw", key: "plugins" });
+        }
+
+        moveLegacySurface({ source: clawdbot, label: "clawdbot", key: "channels" });
+        moveLegacySurface({ source: clawdbot, label: "clawdbot", key: "agents" });
+        moveLegacySurface({ source: clawdbot, label: "clawdbot", key: "hooks" });
+        moveLegacySurface({ source: clawdbot, label: "clawdbot", key: "skills" });
+        moveLegacySurface({ source: clawdbot, label: "clawdbot", key: "plugins" });
+
         if (!isPlainObject(openclaw)) {
           botCfg["openclaw"] = structuredClone(clawdbot);
           warnings.push(`bot ${botId}: moved clawdbot -> openclaw`);
