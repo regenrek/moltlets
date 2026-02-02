@@ -1,0 +1,73 @@
+---
+title: Troubleshooting
+description: Security-related failure modes and what to check.
+---
+
+This page is a security-focused troubleshooting guide. If you need a broader ops
+runbook, also see Operations troubleshooting.
+
+## Updater failures
+
+Start with:
+
+- `clawlets server update status --host <host>`
+- `clawlets server update logs --host <host> --since 10m`
+
+The status JSON is written to `/var/lib/clawlets/updates/status.json` and includes the
+last known error details.
+
+### Signature verification failed
+
+If you see errors like **“manifest signature verification failed”**, check:
+
+- host has the right minisign public keys configured
+- key rotation window (`previousPublicKeysValidUntil`) has not expired unexpectedly
+
+### Refusing rollback (replay protection)
+
+If you see **“refusing rollback (replay protection)”**, the host is protecting itself
+from moving to a lower `releaseId`.
+
+- confirm the manifest publisher is issuing monotonically increasing `releaseId`
+- do not enable `allowRollback` unless you understand the consequences
+
+### Cache substituter / trusted key not allowed
+
+If you see **“manifest cache substituter not allowed”** or **“trusted key not allowed”**:
+
+- the manifest is trying to use cache settings that are not allowed by host Nix config
+- fix host cache config (or stop publishing those cache values in the manifest)
+
+### Secrets digest mismatch
+
+If you see **“secrets digest mismatch”**:
+
+- install the secrets expected by the release, then retry
+- or publish a release that matches what is installed on the host
+
+If `secrets.url` is set in the manifest, verify the URL is reachable and the digest
+matches, otherwise the updater will refuse to install.
+
+## Orchestrator access errors
+
+If bots cannot connect to the control plane, check the Unix socket permissions:
+
+- socket path: `/run/clf/orchestrator.sock`
+- expected group: `clf-bots`
+
+Confirm the bot service user is in the right group and that the socket is `0660`.
+
+## Egress surprises
+
+If outbound SMTP suddenly stops working, remember the default egress policy blocks
+common SMTP ports. If you need stricter egress for bots, `proxy-allowlist` enforces a
+domain allowlist via a local proxy (but requires explicit configuration).
+
+## Hetzner bootstrap risk
+
+If you suspect Hetzner project/API access was compromised, treat cloud-init bootstrap
+credentials as exposed and rotate them:
+
+- rotate tailnet join credentials (tagged/ephemeral keys recommended)
+- rotate one-time bootstrap tokens and any downstream credentials
+

@@ -22,13 +22,13 @@ never commit (secrets/instance)
 - any discord tokens/guild ids/api keys
 
 docs
-- entry: docs/README.md
-- index: docs/docs.yaml
+- entry: apps/docs/content/docs/index.mdx
+- index: apps/docs/content/docs/meta.json
 
 source of truth
 - packages/cli/src and packages/core/src (not dist)
 - infra lives in clawlets-template (project repos)
-- docs/*.md and docs/docs.yaml
+- apps/docs/content/docs/*.mdx and apps/docs/content/docs/meta.json
 
 generated (do not edit)
 - packages/*/dist

@@ -1,0 +1,28 @@
+---
+title: Dashboard overview
+description: Local, self-hosted UI for setup and ops.
+---
+
+<img src="/clawlets_desktop.png" alt="Clawlets dashboard screenshot" />
+
+The Clawlets dashboard (`apps/web`) is the primary way to set up and operate a fleet.
+It is designed to run locally (or behind a VPN) and should not be exposed to the
+public internet. The UI is schema-aware, so it guides you through configuration,
+secrets wiring, and common operations without needing to memorize CLI flags.
+
+Most operators do the majority of their work here, then fall back to the CLI for
+automation, CI integration, or edge cases. If you are just getting started, the
+dashboard is the quickest path to a working, maintainable setup.
+
+## What the dashboard handles
+
+You will use the dashboard to define fleet and host settings, wire secrets and tokens,
+and edit Clawdbot configuration with validation. It also covers day-2 operations such
+as status checks, logs, updates, and basic troubleshooting.
+
+## What this section covers
+
+- local requirements and Convex setup
+- first login and initial project setup
+- local development workflow
+- troubleshooting common issues

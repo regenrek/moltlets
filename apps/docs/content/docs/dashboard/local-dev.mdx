@@ -1,0 +1,62 @@
+---
+title: Local dev
+description: Run the dashboard on your workstation.
+---
+
+This setup runs the dashboard locally and connects it to your Convex dev deployment.
+Keep the service bound to localhost unless you are accessing it over a private network.
+
+## 1) Install dependencies
+
+Run from the repo root so workspace packages resolve correctly:
+
+```bash
+pnpm install
+```
+
+## 2) Set up Convex
+
+Follow the Convex setup first:
+
+- [Convex setup](/dashboard/convex-setup)
+
+That step creates a dev deployment and sets required auth env vars inside your Convex
+project.
+
+## 3) Configure `apps/web/.env.local`
+
+If `apps/web/.env.local` does not exist, start from the example:
+
+```bash
+cd apps/web
+cp .env.local.example .env.local
+```
+
+Make sure these are set (Convex creates/updates `CONVEX_DEPLOYMENT` and `VITE_CONVEX_URL`
+when you run `npx convex dev --once`):
+
+```bash
+VITE_SITE_URL=http://localhost:3000
+SITE_URL=http://localhost:3000
+BETTER_AUTH_SECRET=<same secret as Convex env>
+
+CONVEX_DEPLOYMENT=dev:<deployment>
+VITE_CONVEX_URL=https://<deployment>.convex.cloud
+VITE_CONVEX_SITE_URL=https://<deployment>.convex.site
+```
+
+If you disabled auth in Convex, mirror that here too:
+
+```bash
+VITE_CLAWLETS_AUTH_DISABLED=true
+```
+
+## 4) Start the dashboard
+
+```bash
+cd apps/web
+pnpm dev
+```
+
+The dev script runs Convex (`convex dev`) and the TanStack Start dev server together.
+Open `http://localhost:3000` in your browser.

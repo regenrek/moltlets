@@ -74,31 +74,15 @@ describe("doctor", () => {
       await writeFile(path.join(templateRoot, "fleet", "workspaces", "common", name), text, "utf8");
     }
 
-    await writeFile(path.join(repoRoot, "docs", "overview.md"), "# overview\n", "utf8");
-    await writeFile(
-      path.join(repoRoot, "docs", "docs.yaml"),
-      [
-        "docs:",
-        "  - path: docs/overview.md",
-        "    when: seed",
-        "    summary: seed",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+    const repoDocsRoot = path.join(repoRoot, "apps", "docs", "content", "docs");
+    await mkdir(repoDocsRoot, { recursive: true });
+    await writeFile(path.join(repoDocsRoot, "index.mdx"), "# index\n", "utf8");
+    await writeFile(path.join(repoDocsRoot, "meta.json"), JSON.stringify({ pages: ["index"] }, null, 2), "utf8");
 
-    await writeFile(path.join(templateRoot, "docs", "overview.md"), "# overview\n", "utf8");
-    await writeFile(
-      path.join(templateRoot, "docs", "docs.yaml"),
-      [
-        "docs:",
-        "  - path: docs/overview.md",
-        "    when: seed",
-        "    summary: seed",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+    const templateDocsRoot = path.join(templateRoot, "apps", "docs", "content", "docs");
+    await mkdir(templateDocsRoot, { recursive: true });
+    await writeFile(path.join(templateDocsRoot, "index.mdx"), "# index\n", "utf8");
+    await writeFile(path.join(templateDocsRoot, "meta.json"), JSON.stringify({ pages: ["index"] }, null, 2), "utf8");
 
     const sshPub = path.join(repoRoot, "id_ed25519.pub");
     await writeFile(sshPub, "ssh-ed25519 AAAATEST test\n", "utf8");

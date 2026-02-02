@@ -1,47 +1,59 @@
+<p align="center">
+  <img src="public/clawlets_banner.png" alt="Clawlets Banner" />
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/clawlets"><img src="https://img.shields.io/npm/v/clawlets.svg" alt="npm version" /></a>
+</p>
+
 # Clawlets
 
-Clawlets is an unofficial clawdbot server provisioner for made for hetzner.
+Clawlets is an unofficial infrastructure wrapper for running Clawdbot fleets on NixOS (Hetzner-focused). It provides
+a local-first dashboard and a CLI to bootstrap, deploy, and operate fleets over time.
 
 ## Official Templates
+
 - Looking for official AWS Deploy? [clawdbot/clawdinators](https://github.com/clawdbot/clawdinators)
 - Clawdbot [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot)
 
 > 🚨🚨
-> **Use at your own risk!** This project is under active development and not production-ready. You absolutely need to know what you're doing before deploying this. Misconfiguration can expose credentials, open security holes, or cause data loss.
->
+> **Use at your own risk!** This project is under active development. You absolutely need to know what you're doing
+> before deploying this. Misconfiguration can expose credentials, open security holes, or cause data loss.
+
+> **Note:** Clawlets is an independent project and is **not affiliated with OpenClaw**. Please do not open issues or
+> PRs on the OpenClaw repositories for Clawlets-related problems.
 
 ## Features
 
-- **Discord bot fleet** – deploy multiple bots from one repo.
-- **Options for Security** – Tailscale, lockdown, sops/age secrets.
-- **Hetzner + NixOS** – immutable infra + reproducible deploys.
-- **CLI-first** – bootstrap, deploy, ops, troubleshooting.
-- **Atomic updates** – rollbacks via NixOS generations.
+- **Discord bot fleet** - deploy multiple bots from one repo.
+- **Dashboard + CLI** - local UI for setup/ops, CLI for automation and recovery.
+- **Hetzner + NixOS** - reproducible builds and declarative host config.
+- **Secrets** - SOPS/age (sops-nix) and runtime boundaries.
+- **Updates** - pull-based updates with rollbacks via NixOS generations.
 
+## Dashboard
 
-## Quickstart
+<p align="center">
+  <img src="public/clawlets_desktop.png" alt="Clawlets Dashboard" />
+</p>
 
-Read [Quickstart Guide](docs/quickstart.md) to get started.
+The dashboard is the primary interface for managing a fleet:
+
+- **Host overview** - status, location, and server type at a glance
+- **Activity monitoring** - visualize runs and deployments over time
+- **Host details** - tailnet, SSH exposure, disk configuration, network settings
+- **Quick actions** - deploy, updates, logs, audit, restart, settings
 
 ## Documentation
 
-- Start here: `docs/README.md`
-- [Overview](docs/overview.md) – Mental model + lifecycle.
-- [CLI Cookbook](docs/cli.md) – Common commands and patterns.
-- [Config Reference](docs/config.md) – `fleet/clawlets.json` reference.
-- [Installation Guide](docs/install.md) – Prerequisites and setup.
-- [Deployment & Updates](docs/deploy.md) – How to ship changes.
-- [Agent Configuration](docs/agent-config.md) – Routing, skills, and workspaces.
-- [Secrets Management](docs/secrets.md) – Handling keys safely with sops/age.
-- [Security Model](docs/security.md) – Threat model + boundaries.
-- [Operations Manual](docs/operations.md) – Day-to-day maintenance.
-- [Troubleshooting](docs/troubleshooting.md) – Common failures and fixes.
-- [Going Public](docs/publicing.md) – Checklist for OSS-safe publishing.
-- [Upstream & Tracking](docs/upstream.md) – Keeping your fork in sync.
+**Docs:** https://docs.clawlets.com
 
-## Powered By
+Source: `apps/docs/content/docs/`
 
-Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core projects:
+## Notes & Credits
+
+Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core
+projects:
 
 - [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
 - [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)
@@ -53,3 +65,4 @@ MIT
 ## Find me
 
 [@kevinkernx](https://x.com/kevinkern)
+

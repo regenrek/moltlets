@@ -1,0 +1,191 @@
+---
+title: Deploy
+description: Update patterns and releases.
+---
+
+This page describes the deploy model used by Clawlets: build a NixOS system, publish a
+signed manifest, and have hosts switch by store path. The goal is repeatable updates
+without editing hosts directly.
+
+## Recommended: CI build + cache‑only deploy
+
+Principle: the host does not evaluate flakes at runtime. It only downloads prebuilt
+artifacts, installs secrets, and switches by store path. This keeps deploys
+predictable and easy to audit.
+
+- downloads signed store paths from trusted caches (Garnix, optionally Attic)
+- installs encrypted secrets to `/var/lib/clawlets/secrets/hosts/<host>`
+- switches to a prebuilt NixOS system closure by store path
+
+### CI build + release manifest (v1)
+
+Build the host system output in CI, then publish a signed manifest for the updater.
+
+Build the host system output (per host):
+
+```bash
+nix build .#packages.x86_64-linux.<host>-system
+```
+
+Garnix is the canonical builder for `packages.x86_64-linux.<host>-system`
+(derived from `nixosConfigurations.<host>.config.system.build.toplevel`).
+
+Generate a signed desired‑state release manifest:
+
+```bash
+clawlets release manifest build --host <host> --channel prod --system x86_64-linux --release-id <n> --out deploy/<host>/prod/<n>.json
+clawlets release manifest sign --in deploy/<host>/prod/<n>.json
+clawlets release pointer write --release-id <n> --out deploy/<host>/prod/latest.json
+clawlets release manifest sign --in deploy/<host>/prod/latest.json
+```
+
+Manifest format (schemaVersion 1):
+
+```json
+{
+  "schemaVersion": 1,
+  "host": "<host>",
+  "system": "x86_64-linux",
+  "channel": "prod",
+  "releaseId": 123,
+  "issuedAt": "2026-01-01T00:00:00.000Z",
+  "rev": "<40-hex-sha>",
+  "toplevel": "/nix/store/<hash>-nixos-system-<host>-<version>",
+  "secrets": {
+    "digest": "<sha256>",
+    "format": "sops-tar",
+    "url": "secrets/<digest>.tgz"
+  }
+}
+```
+
+### GitOps (CI)
+
+Recommended: use the workflow shipped by the project template (in your project repo).
+It builds the system, writes manifests, and publishes artifacts to GitHub Pages.
+
+- `.github/workflows/updates-publish.yml` writes `deploy/<host>/<channel>/<releaseId>.json`, signs it, and publishes to GitHub Pages (including `latest.json` pointer).
+- It also publishes an encrypted secrets bundle at `deploy/<host>/<channel>/secrets/<digest>.tgz` and pins it in the manifest (`secrets.url`).
+
+If you publish to GitHub Pages, enable it in your project repo:
+
+- Settings → Pages → Source: Deploy from a branch
+- Branch: `gh-pages` / root
+
+Required for signed manifests:
+
+- `MINISIGN_PRIVATE_KEY` (passwordless; generated with `minisign -G -n`)
+
+### Apply now (operator)
+
+If you do not want to wait for the updater timer, apply the latest manifest manually:
+
+```bash
+clawlets server update apply --host <host>
+```
+
+This triggers `systemctl start clawlets-update-fetch.service` on the host
+(fetches pointer + manifest, verifies signature, then applies).
+
+### Self‑update (pull‑based)
+
+Enable on a host to pull a manifest and switch by store path.
+
+Set in `fleet/clawlets.json`:
+
+```json
+{
+  "hosts": {
+    "<host>": {
+      "selfUpdate": {
+        "enable": true,
+        "baseUrls": ["https://<pages>/deploy/<host>/prod"],
+        "channel": "prod",
+        "publicKeys": ["<minisign-pubkey>"]
+      }
+    }
+  }
+}
+```
+
+CLI shortcuts:
+
+```bash
+clawlets host set --host <host> --self-update-enable true \
+  --self-update-base-url https://<pages>/deploy/<host>/prod \
+  --self-update-public-key <minisign-pubkey>
+```
+
+Secrets behavior:
+
+- `secrets.digest` is the sha256 of the published secrets bundle bytes.
+- If `secrets.url` is set and installed secrets don't match `secrets.digest`, the updater downloads the bundle, verifies sha256, installs it, then proceeds.
+- `secrets.url` may be an absolute `https://...` URL or a relative path (resolved against `selfUpdate.baseUrls`; first success wins).
+- Secrets are not placed in the Nix store (downloaded to `/var/lib/clawlets/updates/`, installed into `/var/lib/clawlets/secrets/hosts/<host>`).
+
+### Signature workflow
+
+Manifests are signed with minisign. Keep the private key in CI, and distribute only
+the public key in the fleet config.
+
+1) Generate keypair locally:
+
+```bash
+minisign -G -n -p minisign.pub -s minisign.key
+```
+
+2) Store `minisign.key` as `MINISIGN_PRIVATE_KEY` in GitHub Actions secrets.
+3) Copy the public key value into `fleet/clawlets.json` (`hosts.<host>.selfUpdate.publicKeys = [ "<...>" ]`).
+
+Key management + rotation:
+
+- **Where keys live**
+  - CI signing key: GitHub Actions secret `MINISIGN_PRIVATE_KEY`
+  - Host trust roots: `hosts.<host>.selfUpdate.publicKeys`
+- **Rotate (planned)**
+  1) Generate a new minisign keypair.
+  2) Add the new public key alongside the old key.
+  3) Deploy so hosts trust both keys.
+  4) Switch CI to sign with the new key.
+  5) Remove the old key after a safe window.
+- **Optional safe mode**
+  - Keep new keys in `publicKeys`.
+  - Put old keys into `previousPublicKeys` and set `previousPublicKeysValidUntil` (UTC).
+
+### Recovery: push secrets over SSH (optional)
+
+The default path is to publish an encrypted secrets bundle alongside the release
+manifest and let hosts pull it when the digest changes.
+
+If you need to repair secrets on a host without publishing a new release, you can push
+the encrypted secrets tarball over SSH:
+
+```bash
+clawlets secrets sync --host <host> --rev <sha|HEAD>
+```
+
+## Cache configuration (host)
+
+Binary caches are required for the host to pull prebuilt system closures. Configure
+public caches only, or add authenticated caches for private artifacts.
+Public cache only (default): add substituters + trusted keys.
+
+Authenticated cache (private Garnix / Attic / Harmonia / etc):
+
+- set `hosts.<host>.cache.netrc.enable = true` in `fleet/clawlets.json`
+- provide `/etc/nix/netrc` via sops secret (`hosts.<host>.cache.netrc.secretName`)
+- set `hosts.<host>.cache.netrc.narinfoCachePositiveTtl`
+
+See `nix/modules/clawlets-host-baseline.nix` for module options.
+
+## Other options
+
+### Local build (workstation)
+
+If you have a Linux builder, `clawlets release manifest build` can build the toplevel locally.
+macOS builders are not supported for NixOS system builds.
+
+### Private base repo + PAT (bootstrap/lockdown)
+
+`bootstrap`/`lockdown` may still need `GITHUB_TOKEN` if your base flake is private.
+Updates do not require GitHub access on the host.

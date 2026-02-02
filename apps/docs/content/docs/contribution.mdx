@@ -1,0 +1,46 @@
+---
+title: Contributing
+description: How to contribute to Clawlets.
+---
+
+Contributions are welcome. Keep changes small, reviewable, and aligned with the
+project’s focus on maintainable, production-grade workflows.
+
+## Ground rules
+
+- **No secrets** in git (`.env`, `.clawlets/`, sops keys, tokens).
+- Keep changes small and focused.
+- Follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`).
+- Prefer deterministic, non-interactive commands.
+
+## Setup
+
+```bash
+pnpm install
+```
+
+## Tests
+
+```bash
+pnpm -r test
+cd packages/core && pnpm run coverage
+```
+
+## Documentation changes
+
+Docs live in `apps/docs/content/docs` and use MDX. Keep pages structured and avoid
+introducing new sources of truth outside the canonical config.
+
+Use MDX with frontmatter:
+
+```md
+---
+title: Page title
+description: Short summary
+---
+```
+
+## Releases
+
+Follow the existing release scripts and workflows in the repo. If you add
+new commands, update the CLI docs under `/cli/commands`.

@@ -2,6 +2,7 @@
 
 let
   cfg = project.config;
+  fleetCfg = (cfg.fleet or { });
   hostCfg = (cfg.hosts.${config.clawlets.hostName} or { });
   tailnet = (hostCfg.tailnet or { });
   tailnetMode = tailnet.mode or "none";
@@ -101,7 +102,7 @@ in {
   users.users.admin = {
     isNormalUser = true;
     extraGroups = [ ];
-    openssh.authorizedKeys.keys = hostCfg.sshAuthorizedKeys or [ ];
+    openssh.authorizedKeys.keys = fleetCfg.sshAuthorizedKeys or [ ];
   }
   // lib.optionalAttrs (!allowMissingSecrets) {
     hashedPasswordFile = config.sops.secrets.admin_password_hash.path;

@@ -1,0 +1,115 @@
+---
+title: Updates
+description: Pull-based updates, verification, replay protection, and recorded state.
+---
+
+Updating a fleet is one of the fastest ways to create outages or drift. Clawlets uses
+pull-based updates: hosts periodically fetch a desired-state pointer and an immutable
+release manifest, verify them, and apply them locally.
+
+This is meant to:
+
+- keep the host on a narrow, inspectable fetch path (pointer + manifest),
+- avoid long-lived Git credentials on servers,
+- verify “what to run” before switching,
+- and record enough state so you can understand what happened when something fails.
+
+<Callout type="info" title="Where this fits">
+This page explains the host updater. For how to build systems and publish signed
+manifests from CI, see [Deploy](/operations/deploy).
+</Callout>
+
+## Key terms (quick map)
+
+- `baseUrls`: mirror list the host will fetch from (first success wins)
+- `latest.json`: signed pointer to the current `releaseId`
+- `<releaseId>.json`: immutable release manifest (what to run + how to verify)
+- `channel`: a named stream like `prod` or `staging` that the host follows
+- `releaseId`: monotonically increasing issuance number (used for replay protection)
+
+## What gets published
+
+Each host follows a channel (for example `prod`). Update sources are configured as a
+list of mirrors:
+
+- `hosts.<host>.selfUpdate.baseUrls` in `fleet/clawlets.json`
+- `clawlets.selfUpdate.baseUrls` on the host (NixOS module output)
+
+Each base URL is expected to host:
+
+- `latest.json` (a pointer to the current `releaseId`)
+- `<releaseId>.json` (an immutable release manifest)
+- signature files (`.minisig`) when signatures are enabled
+
+## Update flow
+
+<Mermaid
+  chart={`graph TD
+  A["CI builds system"] --> B["Publish to cache"]
+  B --> C["Publish signed pointer and manifest"]
+  C --> D["Host timer runs update fetch"]
+  D --> E["Verify and store desired manifest"]
+  E --> F["Run update apply"]
+  F --> G["Validate schema host channel releaseId"]
+  G --> H["Secrets digest gate and optional download"]
+  H --> I["Nix copies toplevel"]
+  I --> J["Switch system"]
+  J --> K["Record status and health check result"]
+`}
+/>
+
+<Callout type="info" title="SSH trigger is optional">
+By default the updater runs on a timer. `clawlets server update apply` simply starts
+the same updater service early so you don't have to wait.
+</Callout>
+
+## What gets verified (current behavior)
+
+The updater validates the manifest before applying anything:
+
+- **Signatures (minisign)**: pointer and manifest are verified unless `allowUnsigned` is enabled.
+- **Target binding**: manifest `host` and `channel` must match the running host.
+- **Schema + fields**: `schemaVersion` plus required fields like `releaseId`, `issuedAt`, `rev`, `toplevel`.
+- **Replay protection**: `releaseId` must not go backwards (unless `allowRollback` is enabled).
+- **Cache subset**: manifest cache settings must be within host-allowed Nix settings.
+- **Secrets gate**: the manifest’s secrets digest must match the installed secrets digest, or install is attempted when `secrets.url` is provided.
+
+<Callout type="warning" title="Break-glass flags">
+`allowUnsigned` and `allowRollback` are for development or recovery. Keep them disabled
+for normal fleet operation.
+</Callout>
+
+## Cache subset enforcement
+
+The manifest may include cache settings (substituters, trusted public keys, optional
+`narinfoCachePositiveTtl`). The updater refuses to use cache settings that are not
+already allowed by the host’s Nix config. This keeps “what the host will trust” pinned
+to host configuration, not the update manifest alone.
+
+## Secrets digest gate
+
+Every release manifest carries a secrets digest.
+
+- If the digest matches what is installed on the host, update proceeds.
+- If it does not match and `secrets.url` is **not** set, the update fails with a clear
+  error (you must install the matching secrets first).
+- If it does not match and `secrets.url` **is** set, the updater downloads a secrets
+  bundle (`secrets.format = "sops-tar"`), verifies its sha256 digest, and installs it
+  via `/etc/clawlets/bin/install-secrets`.
+
+## Recorded state on the host
+
+The updater writes state into `/var/lib/clawlets/updates` so operators can inspect what
+was fetched and applied.
+
+<Files>
+  <Folder name="/var/lib/clawlets/updates" defaultOpen>
+    <File name="desired.json" />
+    <File name="desired.json.minisig" />
+    <File name="current.json" />
+    <File name="current.json.minisig" />
+    <File name="previous.json" />
+    <File name="previous.json.minisig" />
+    <File name="status.json" />
+  </Folder>
+</Files>

@@ -1,0 +1,211 @@
+---
+title: Command reference
+description: Full command index with key flags.
+---
+
+This is a reference list of CLI commands and their primary subcommands. For full
+flags and examples, run `clawlets <command> --help`.
+
+## Usage
+
+```bash
+clawlets <command> [subcommand] [--flags]
+```
+
+Common flags (varies by command):
+
+- `--runtime-dir` (default: `.clawlets`)
+- `--host` (defaults to `config.defaultHost` or sole host)
+- `--env-file` (deploy creds file override)
+- `--target-host` (SSH override)
+- `--ssh-tty` (allocate TTY for sudo prompts)
+
+## Core workflow
+
+These commands are the backbone of a Clawlets setup: provisioning, secrets, host
+operations, and lockdown.
+
+### `clawlets bootstrap`
+
+Provision Hetzner + install NixOS.
+
+Key flags:
+
+- `--mode nixos-anywhere|image`
+- `--lockdown-after`
+- `--rev`, `--flake`
+- `--env-file`
+
+### `clawlets secrets`
+
+Secrets lifecycle and host wiring.
+
+Subcommands:
+
+- `init` — generate operator keys, host secrets, extra‑files payload
+- `verify` — check secrets wiring and required files
+- `sync` — sync secrets to host
+- `path` — print resolved secret paths
+
+### `clawlets server`
+
+Operate hosts over SSH.
+
+Subcommands:
+
+- `status` — systemd status for Clawdbot services
+- `logs` — journalctl logs for Clawdbot services
+- `restart` — restart one or more Clawdbot units
+- `audit` — tailscale + service checks + security audit
+- `update` — updater apply/status/logs
+- `channels` — run `clawdbot channels` over SSH
+- `github-sync` — GitHub inventory sync timers/logs/snapshots
+
+### `clawlets lockdown`
+
+Apply tailnet‑only SSH exposure and update OpenTofu state.
+
+---
+
+## Config + state
+
+Config commands edit or validate `fleet/clawlets.json` and keep the desired state
+consistent across dashboard and CLI.
+
+### `clawlets config`
+
+Canonical config tooling for `fleet/clawlets.json`.
+
+Subcommands:
+
+- `init` — initialize config (overwrites)
+- `show` — print config
+- `validate` — schema validation + rendered Clawdbot config
+- `wire-secrets` — autowire missing secret mappings
+- `derive-allowlist` — generate env allowlist from config
+- `get` — read a dot path
+- `set` — write a dot path
+- `migrate` — migrate schema version
+
+### `clawlets fleet`
+
+Fleet‑level config shortcuts.
+
+Subcommands:
+
+- `show`
+- `set`
+
+### `clawlets host`
+
+Host‑level config shortcuts.
+
+Subcommands:
+
+- `add`
+- `set`
+- `set-default`
+
+### `clawlets bot`
+
+Bot roster management.
+
+Subcommands:
+
+- `list`
+- `add`
+- `rm`
+
+---
+
+## Infrastructure
+
+Infrastructure commands wrap OpenTofu and image workflows for Hetzner.
+
+### `clawlets infra`
+
+Hetzner OpenTofu operations.
+
+Subcommands:
+
+- `apply`
+- `destroy`
+
+### `clawlets image`
+
+Image build/upload helpers.
+
+Subcommands:
+
+- `build`
+- `upload`
+
+---
+
+## Release + updates
+
+Release commands create and sign desired-state manifests that the host updater applies.
+
+### `clawlets release`
+
+Signed desired‑state tooling.
+
+Subcommands:
+
+- `manifest build` — create release manifest
+- `manifest sign` — sign manifest or pointer
+- `manifest verify` — verify signatures
+- `manifest promote` — promote manifest to a new channel
+- `pointer write` — write `latest.json`
+
+---
+
+## Clawdbot integration
+
+Helpers around OpenClaw/Clawdbot validation and policy.
+
+### `clawlets clawdbot`
+
+OpenClaw/Clawdbot helpers.
+
+Subcommands:
+
+- `schema fetch` — fetch live config schema from gateway
+- `harden` — apply default hardening to bot config
+
+---
+
+## Utilities
+
+Utility commands help with credentials, repo scaffolding, and health checks.
+
+### `clawlets env`
+
+Local deploy credentials in `.clawlets/env`.
+
+Subcommands:
+
+- `init`
+- `show`
+
+### `clawlets doctor`
+
+Repo + config checks; supports `--scope`.
+
+### `clawlets project`
+
+Scaffold a new Clawlets project repo.
+
+Subcommands:
+
+- `init`
+
+### `clawlets plugin`
+
+Plugin manager.
+
+Subcommands:
+
+- `list`
+- `add`
+- `rm`

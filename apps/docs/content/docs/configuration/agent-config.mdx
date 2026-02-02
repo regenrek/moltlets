@@ -1,0 +1,213 @@
+---
+title: Agent config
+description: Workspaces, skills, and per‑bot profiles.
+---
+
+This page explains the per‑bot configuration surface: workspaces, skills, and how
+bot profiles map into the Nix layer.
+
+There are three sources of truth you will touch most often when you configure agents:
+
+- `fleet/clawlets.json` (canonical fleet + host config)
+- `fleet/bundled-skills.json` (canonical allowlist for Nix assertions + doctor)
+- `fleet/workspaces/**` (prompt/policy docs + skills)
+
+At deploy time, the Nix layer renders a per-bot Clawdbot config file so services
+consume a single, validated JSON file:
+
+- Nix generates `/run/secrets/rendered/clawdbot-<bot>.json`
+
+## Canonical bot config (typed surfaces + Clawdbot schema)
+
+Each bot has a single input object with typed surfaces plus a raw Clawdbot passthrough:
+
+- `fleet.bots.<bot>.channels`
+- `fleet.bots.<bot>.agents`
+- `fleet.bots.<bot>.hooks`
+- `fleet.bots.<bot>.skills`
+- `fleet.bots.<bot>.plugins`
+- `fleet.bots.<bot>.clawdbot` (JSON passthrough for advanced config)
+
+Clawlets invariants override (gateway mode/bind/port/auth; workspace + skipBootstrap).
+
+### Example: Discord token via secret
+
+```json
+{
+  "fleet": {
+    "bots": {
+      "maren": {
+        "profile": {
+          "secretEnv": {
+            "DISCORD_BOT_TOKEN": "discord_token_maren"
+          }
+        },
+        "channels": {
+          "discord": {
+            "enabled": true,
+            "token": "${DISCORD_BOT_TOKEN}"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Gateway isolation (multi‑gateway)
+
+Each bot runs in its own gateway and Unix user so logs, state, and credentials are
+isolated. This keeps failures contained and makes auditing easier.
+
+Per bot:
+
+- system user: `bot-<bot>`
+- state dir: `/srv/clawdbot/<bot>`
+- workspace: `/srv/clawdbot/<bot>/workspace` (default)
+- gateway config: `/run/secrets/rendered/clawdbot-<bot>.json`
+- gateway auth token env: `/srv/clawdbot/<bot>/credentials/gateway.env`
+
+Ports:
+
+- base: `18789`
+- stride: `20` (derived ports won’t collide)
+
+## Secrets
+
+Secrets are wired with a provider-agnostic mapping. Global defaults live at the fleet
+level and can be overridden per bot:
+
+- global defaults: `fleet.secretEnv.<ENV_VAR> = "<secretName>"`
+- per‑bot overrides: `fleet.bots.<bot>.profile.secretEnv.<ENV_VAR> = "<secretName>"`
+
+Examples:
+
+- Discord: `DISCORD_BOT_TOKEN → discord_token_<bot>`
+- Telegram: `TELEGRAM_BOT_TOKEN → telegram_bot_token_<bot>`
+- Slack: `SLACK_BOT_TOKEN → slack_bot_token_<bot>`, `SLACK_APP_TOKEN → slack_app_token_<bot>`
+- Models: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`
+
+## Documents (AGENTS / SOUL / TOOLS / IDENTITY)
+
+Workspace docs (prompt and policy) are split into shared and per-bot overlays:
+
+- `fleet/workspaces/common/` (shared)
+- `fleet/workspaces/bots/<bot>/` (overrides; overlay on top of common)
+
+Fleet config points Nix at the workspace seed root:
+
+```nix
+documentsDir = ./fleet/workspaces;
+```
+
+Anything under `documentsDir` is copied into the Nix store. Treat it as public and do
+not place secrets in `fleet/workspaces/**`.
+
+On every bot service start:
+
+- if workspace empty: seed common then bot overlay
+- always: sync a managed allowlist (AGENTS/SOUL/IDENTITY/TOOLS/USER/HEARTBEAT)
+- always: sync `skills/` into the workspace (custom/local skills)
+
+### Custom/local skills
+
+Put skill definitions under shared or per-bot workspaces so they are discoverable by
+the runtime without extra config:
+
+- shared: `fleet/workspaces/common/skills/<skill>/SKILL.md`
+- per‑bot: `fleet/workspaces/bots/<bot>/skills/<skill>/SKILL.md`
+
+The bot config always includes `skills.load.extraDirs = ["<workspace>/skills"]`, so
+skills in that folder are discoverable without extra per‑bot config.
+
+## Gateway ports
+
+Gateway ports are auto-assigned from `fleet.botOrder`, which keeps port allocation
+deterministic across deploys.
+
+Per‑bot override (example):
+
+```bash
+clawlets config set --path fleet.bots.melinda.profile.gatewayPort --value 18819
+```
+
+## Model defaults (provider/model)
+
+Set a default model for the host, then override per bot if needed:
+
+```bash
+clawlets host set --agent-model-primary zai/glm-4.7
+```
+
+Per‑bot override:
+
+```bash
+clawlets config set --path fleet.bots.melinda.agents.defaults.model.primary --value zai/glm-4.7
+clawlets config set --path fleet.bots.melinda.agents.defaults.model.fallbacks --value-json '["anthropic/claude-opus-4-5"]'
+```
+
+Provider API keys are wired via sops secret names:
+
+```bash
+clawlets config set --path fleet.secretEnv.ZAI_API_KEY --value z_ai_api_key
+clawlets config set --path fleet.secretEnv.ANTHROPIC_API_KEY --value anthropic_api_key
+clawlets config set --path fleet.secretEnv.OPENAI_API_KEY --value openai_api_key
+```
+
+These are injected into per‑bot `EnvironmentFile=` entries via sops‑nix templates.
+
+## Codex CLI (server)
+
+If you need the Codex CLI to run on a host, enable it per bot and allow the bundled
+skill that provides the integration:
+
+```bash
+clawlets fleet set --codex-enable true
+clawlets config set --path fleet.codex.bots --value-json '["gunnar","maren"]'
+```
+
+Then allow bundled `coding-agent` for those bots:
+
+```bash
+clawlets config set --path fleet.bots.gunnar.skills.allowBundled --value-json '["github","coding-agent"]'
+clawlets config set --path fleet.bots.maren.skills.allowBundled --value-json '["github","brave-search","coding-agent"]'
+```
+
+One‑time login (headless):
+
+```bash
+sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
+sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
+```
+
+## Bonjour / mDNS (optional)
+
+If mDNS errors appear on your host, disable Bonjour explicitly:
+
+```nix
+services.clawdbotFleet.disableBonjour = true;
+```
+
+## GitHub inventory sync (optional)
+
+Run GitHub inventory sync on-demand:
+
+```bash
+clawlets server github-sync status --target-host admin@<host>
+clawlets server github-sync run --target-host admin@<host> --bot <bot>
+```
+
+Requires at least one bot with GitHub App config (`fleet.bots.<bot>.profile.github.*`).
+
+## Ops snapshots (optional)
+
+Host ops snapshots (no secrets) are opt‑in (`services.clawdbotFleet.opsSnapshot.enable = true`).
+
+## Per‑bot profiles (canonical config)
+
+Each bot can have different profile settings, including:
+
+- bundled skill allowlist
+- per‑skill env + secrets
+- hook config + secrets
+- GitHub App auth config (for non‑interactive `gh` + git pushes)
