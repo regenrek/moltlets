@@ -27,7 +27,7 @@ vi.mock("@clawlets/core/lib/clawlets-config", async () => {
   };
 });
 
-describe("bot command", () => {
+describe("gateway command", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -39,49 +39,51 @@ describe("bot command", () => {
     logSpy.mockRestore();
   });
 
-  it("lists bots", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: ["maren", "gunnar"], bots: { maren: {}, gunnar: {} } } });
+  it("lists gateways", async () => {
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: ["maren", "gunnar"], gateways: { maren: {}, gunnar: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { bot } = await import("../src/commands/bot.js");
-    await bot.subCommands?.list?.run?.({ args: {} } as any);
+    const { gateway } = await import("../src/commands/bot.js");
+    await gateway.subCommands?.list?.run?.({ args: {} } as any);
     expect(logSpy).toHaveBeenCalledWith("maren\ngunnar");
   });
 
-  it("adds bot and writes config", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } } });
+  it("adds gateway and writes config", async () => {
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { bot } = await import("../src/commands/bot.js");
-    await bot.subCommands?.add?.run?.({ args: { bot: "gunnar", interactive: false } } as any);
+    const { gateway } = await import("../src/commands/bot.js");
+    await gateway.subCommands?.add?.run?.({ args: { gateway: "gunnar", interactive: false } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledWith("ok: added bot gunnar");
+    expect(logSpy).toHaveBeenCalledWith("ok: added gateway gunnar");
   });
 
   it("skips add when already present", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } } });
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { bot } = await import("../src/commands/bot.js");
-    await bot.subCommands?.add?.run?.({ args: { bot: "maren", interactive: false } } as any);
+    const { gateway } = await import("../src/commands/bot.js");
+    await gateway.subCommands?.add?.run?.({ args: { gateway: "maren", interactive: false } } as any);
     expect(writeClawletsConfigMock).not.toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: already present: maren");
   });
 
-  it("removes bot", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } } });
+  it("removes gateway", async () => {
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { bot } = await import("../src/commands/bot.js");
-    await bot.subCommands?.rm?.run?.({ args: { bot: "maren" } } as any);
+    const { gateway } = await import("../src/commands/bot.js");
+    await gateway.subCommands?.rm?.run?.({ args: { gateway: "maren" } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledWith("ok: removed bot maren");
+    expect(logSpy).toHaveBeenCalledWith("ok: removed gateway maren");
   });
 
   it("errors on interactive without TTY", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: [], bots: {} } });
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: [], gateways: {} } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
     promptTextMock.mockResolvedValue("maren");
-    const { bot } = await import("../src/commands/bot.js");
-    await expect(bot.subCommands?.add?.run?.({ args: { bot: "", interactive: true } } as any)).rejects.toThrow(/TTY/);
+    const { gateway } = await import("../src/commands/bot.js");
+    await expect(gateway.subCommands?.add?.run?.({ args: { gateway: "", interactive: true } } as any)).rejects.toThrow(
+      /TTY/,
+    );
     if (original) Object.defineProperty(process.stdout, "isTTY", original);
   });
 });

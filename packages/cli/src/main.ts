@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { defineCommand, runMain } from "citty";
 import { baseCommands } from "./commands/registry.js";
 import { findPluginByCommand, loadPluginCommand } from "./lib/plugins.js";
@@ -43,7 +45,7 @@ function findCommandToken(rawArgs: string[]): { index: number; command: string }
   return null;
 }
 
-async function mainEntry(): Promise<void> {
+export async function mainEntry(): Promise<void> {
   const [nodeBin, script, ...rest] = process.argv;
   const normalized = rest.filter((a) => a !== "--");
   if (normalized.includes("--version") || normalized.includes("-v")) {
@@ -65,4 +67,13 @@ async function mainEntry(): Promise<void> {
   await runMain(main);
 }
 
-mainEntry();
+function shouldRunMain(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  const entryUrl = pathToFileURL(path.resolve(entry)).href;
+  return entryUrl === import.meta.url;
+}
+
+if (shouldRunMain()) {
+  void mainEntry();
+}

@@ -4,10 +4,10 @@ import type { ClawletsConfig } from "./clawlets-config.js";
 import type { MissingSecretConfig, SecretSource } from "./secrets-plan.js";
 import { ClawletsConfigSchema } from "./clawlets-config.js";
 
-export type SecretsAutowireScope = "fleet" | "bot";
+export type SecretsAutowireScope = "fleet" | "gateway";
 
 export type SecretsAutowireEntry = {
-  bot: string;
+  gatewayId: string;
   envVar: string;
   secretName: string;
   scope: SecretsAutowireScope;
@@ -20,9 +20,9 @@ export type SecretsAutowirePlan = {
 };
 
 function pickDefaultScope(sources: SecretSource[]): SecretsAutowireScope {
-  if (sources.includes("channel")) return "bot";
+  if (sources.includes("channel")) return "gateway";
   if (sources.includes("model") || sources.includes("provider")) return "fleet";
-  return "bot";
+  return "gateway";
 }
 
 function normalizeEnvVarFilter(list: string[] | undefined): Set<string> | null {
@@ -39,12 +39,12 @@ export function planSecretsAutowire(params: {
   config: ClawletsConfig;
   hostName: string;
   scope?: SecretsAutowireScope;
-  bot?: string;
+  gatewayId?: string;
   onlyEnvVars?: string[];
 }): SecretsAutowirePlan {
   const plan = buildFleetSecretsPlan({ config: params.config, hostName: params.hostName });
   const onlyEnvVars = normalizeEnvVarFilter(params.onlyEnvVars);
-  const targetBot = params.bot ? String(params.bot).trim() : "";
+  const targetGateway = params.gatewayId ? String(params.gatewayId).trim() : "";
 
   const missing = plan.missingSecretConfig || [];
   const updates: SecretsAutowireEntry[] = [];
@@ -56,7 +56,7 @@ export function planSecretsAutowire(params: {
       skipped.push(entry);
       continue;
     }
-    if (targetBot && entry.bot !== targetBot) {
+    if (targetGateway && entry.gateway !== targetGateway) {
       skipped.push(entry);
       continue;
     }
@@ -74,9 +74,9 @@ export function planSecretsAutowire(params: {
       }
       seenFleetEnvVars.add(entry.envVar);
     }
-    const secretName = suggestSecretNameForEnvVar(entry.envVar, scope === "bot" ? entry.bot : undefined);
+    const secretName = suggestSecretNameForEnvVar(entry.envVar, scope === "gateway" ? entry.gateway : undefined);
     updates.push({
-      bot: entry.bot,
+      gatewayId: entry.gateway,
       envVar: entry.envVar,
       secretName,
       scope,
@@ -86,7 +86,7 @@ export function planSecretsAutowire(params: {
 
   updates.sort((a, b) => {
     if (a.envVar !== b.envVar) return a.envVar.localeCompare(b.envVar);
-    if (a.bot !== b.bot) return a.bot.localeCompare(b.bot);
+    if (a.gatewayId !== b.gatewayId) return a.gatewayId.localeCompare(b.gatewayId);
     if (a.scope !== b.scope) return a.scope.localeCompare(b.scope);
     return a.secretName.localeCompare(b.secretName);
   });
@@ -109,13 +109,13 @@ export function applySecretsAutowire(params: {
       next.fleet.secretEnv[entry.envVar] = entry.secretName;
       continue;
     }
-    const bot = next.fleet.bots[entry.bot];
-    if (!bot) throw new Error(`unknown bot: ${entry.bot}`);
-    const profile = bot.profile;
+    const gateway = next.fleet.gateways[entry.gatewayId];
+    if (!gateway) throw new Error(`unknown gateway: ${entry.gatewayId}`);
+    const profile = gateway.profile;
     if (!profile.secretEnv) profile.secretEnv = {};
     const existing = profile.secretEnv[entry.envVar];
     if (existing && existing !== entry.secretName) {
-      throw new Error(`conflict for ${entry.envVar} on bot ${entry.bot}: profile.secretEnv already set to ${existing}`);
+      throw new Error(`conflict for ${entry.envVar} on gateway ${entry.gatewayId}: profile.secretEnv already set to ${existing}`);
     }
     profile.secretEnv[entry.envVar] = entry.secretName;
   }

@@ -1,4 +1,4 @@
-import { BotIdSchema, HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers"
+import { GatewayIdSchema, HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers"
 import { assertSafeRecordKey, createNullProtoRecord } from "@clawlets/core/lib/safe-record"
 
 import type { SystemTableNames } from "convex/server"
@@ -35,11 +35,11 @@ function parseHostNameRequired(value: unknown): string {
   return HostNameSchema.parse(trimmed)
 }
 
-function parseBotIdRequired(value: unknown): string {
+function parseGatewayIdRequired(value: unknown): string {
   if (typeof value !== "string") throw new Error("invalid botId")
   const trimmed = value.trim()
   if (!trimmed) throw new Error("invalid botId")
-  return BotIdSchema.parse(trimmed)
+  return GatewayIdSchema.parse(trimmed)
 }
 
 function parseServerChannelOp(value: unknown): ServerChannelOp {
@@ -110,7 +110,7 @@ export function parseServerChannelsStartInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     op: parseServerChannelOp(d["op"]),
   }
 }
@@ -134,7 +134,7 @@ export function parseServerChannelsExecuteInput(data: unknown): {
     projectId: parseConvexId(d["projectId"], "projectId"),
     runId: parseConvexId(d["runId"], "runId"),
     host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     op: parseServerChannelOp(d["op"]),
     channel: parseOptionalString(d["channel"], 64),
     account: parseOptionalString(d["account"], 64),
@@ -184,7 +184,7 @@ export function parseProjectHostBotInput(data: unknown): { projectId: Id<"projec
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
   }
 }
 
@@ -192,7 +192,7 @@ export function parseProjectBotInput(data: unknown): { projectId: Id<"projects">
   const d = requireObject(data)
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
   }
 }
 
@@ -214,7 +214,7 @@ export function parseBotCapabilityPresetInput(data: unknown): {
   if (!presetId) throw new Error("invalid presetId")
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     host: parseOptionalHostName(d["host"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
@@ -233,7 +233,7 @@ export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   if (!presetId) throw new Error("invalid presetId")
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
   }
@@ -257,7 +257,7 @@ export function parseBotOpenclawConfigInput(data: unknown): {
   }
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     host: parseOptionalHostName(d["host"]),
     schemaMode,
     openclaw: d["openclaw"],

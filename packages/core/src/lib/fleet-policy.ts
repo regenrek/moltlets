@@ -5,8 +5,8 @@ export type FleetPolicyViolation = {
 };
 
 export type FleetConfig = {
-  bots: string[];
-  botProfiles: Record<
+  gateways: string[];
+  gatewayProfiles: Record<
     string,
     {
       skills?: {
@@ -34,32 +34,38 @@ export function validateFleetPolicy(params: {
   const { filePath, fleet, knownBundledSkills } = params;
   const violations: FleetPolicyViolation[] = [];
 
-  const bots = Array.isArray(fleet.bots) ? fleet.bots : [];
-  const botProfiles = fleet.botProfiles && typeof fleet.botProfiles === "object" ? fleet.botProfiles : {};
+  const gateways = Array.isArray(fleet.gateways) ? fleet.gateways : [];
+  const gatewayProfiles = fleet.gatewayProfiles && typeof fleet.gatewayProfiles === "object" ? fleet.gatewayProfiles : {};
 
-  if (bots.length === 0) {
-    violations.push({ filePath, message: "fleet.bots is empty or missing" });
+  if (gateways.length === 0) {
+    violations.push({ filePath, message: "fleet.gateways is empty or missing" });
     return { ok: false, violations };
   }
 
-  for (const b of bots) {
-    const profile = botProfiles[b];
+  for (const gatewayId of gateways) {
+    const profile = gatewayProfiles[gatewayId];
     if (!profile) {
-      violations.push({ filePath, message: `missing botProfiles.${b}` });
+      violations.push({ filePath, message: `missing gatewayProfiles.${gatewayId}` });
       continue;
     }
 
     const allowBundled = profile.skills?.allowBundled;
     if (allowBundled == null) {
-      violations.push({ filePath, message: `botProfiles.${b}.skills.allowBundled must be set (explicit allowlist required)` });
+      violations.push({
+        filePath,
+        message: `gatewayProfiles.${gatewayId}.skills.allowBundled must be set (explicit allowlist required)`,
+      });
       continue;
     }
     if (allowBundled === null) {
-      violations.push({ filePath, message: `botProfiles.${b}.skills.allowBundled must not be null (null typically means allow-all)` });
+      violations.push({
+        filePath,
+        message: `gatewayProfiles.${gatewayId}.skills.allowBundled must not be null (null typically means allow-all)`,
+      });
       continue;
     }
     if (!isStringArray(allowBundled)) {
-      violations.push({ filePath, message: `botProfiles.${b}.skills.allowBundled must be a list of strings` });
+      violations.push({ filePath, message: `gatewayProfiles.${gatewayId}.skills.allowBundled must be a list of strings` });
       continue;
     }
 
@@ -68,7 +74,7 @@ export function validateFleetPolicy(params: {
       if (!knownBundledSkills.includes(s)) {
         violations.push({
           filePath,
-          message: `unknown bundled skill in botProfiles.${b}.skills.allowBundled: ${s}`,
+          message: `unknown bundled skill in gatewayProfiles.${gatewayId}.skills.allowBundled: ${s}`,
           detail: `known: ${knownBundledSkills.join(", ")}`,
         });
       }
@@ -80,7 +86,7 @@ export function validateFleetPolicy(params: {
       if (!ok) {
         violations.push({
           filePath,
-          message: `bundled skill "github" enabled for ${b} but missing botProfiles.${b}.github.{ appId, installationId, privateKeySecret }`,
+          message: `bundled skill "github" enabled for ${gatewayId} but missing gatewayProfiles.${gatewayId}.github.{ appId, installationId, privateKeySecret }`,
         });
       }
     }
@@ -93,7 +99,7 @@ export function validateFleetPolicy(params: {
       if (!ok) {
         violations.push({
           filePath,
-          message: `bundled skill "brave-search" enabled for ${b} but missing skills.entries."brave-search".apiKeySecret`,
+          message: `bundled skill "brave-search" enabled for ${gatewayId} but missing skills.entries."brave-search".apiKeySecret`,
         });
       }
     }

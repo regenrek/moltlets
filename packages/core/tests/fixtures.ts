@@ -45,14 +45,14 @@ export function makeConfig(params?: {
     secretFiles: {},
     sshAuthorizedKeys: [] as string[],
     sshKnownHosts: [] as string[],
-    botOrder: [] as string[],
-    bots: {} as Record<string, unknown>,
-    codex: { enable: false, bots: [] },
+    gatewayOrder: [] as string[],
+    gateways: {} as Record<string, unknown>,
+    codex: { enable: false, gateways: [] },
     backups: { restic: { enable: false, repository: "" } },
     ...(params?.fleetOverrides ?? {}),
   };
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     defaultHost: hostName,
     baseFlake: "",
     fleet,

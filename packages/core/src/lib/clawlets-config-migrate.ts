@@ -149,6 +149,13 @@ export type MigrateToV15Result = {
   migrated: unknown;
 };
 
+export type MigrateToV16Result = {
+  ok: true;
+  changed: boolean;
+  warnings: string[];
+  migrated: unknown;
+};
+
 export function migrateClawletsConfigToV9(raw: unknown): MigrateToV9Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
@@ -212,7 +219,7 @@ export function migrateClawletsConfigToV9(raw: unknown): MigrateToV9Result {
     if (discordTokenSecret) {
       if (!profileSecretEnv["DISCORD_BOT_TOKEN"]) profileSecretEnv["DISCORD_BOT_TOKEN"] = discordTokenSecret;
       else if (profileSecretEnv["DISCORD_BOT_TOKEN"] !== discordTokenSecret) {
-        warnings.push(`bot ${botId}: discordTokenSecret differs from profile.secretEnv.DISCORD_BOT_TOKEN; keeping secretEnv`);
+        warnings.push(`gateway ${botId}: discordTokenSecret differs from profile.secretEnv.DISCORD_BOT_TOKEN; keeping secretEnv`);
       }
       delete (profile as any).discordTokenSecret;
       changed = true;
@@ -487,7 +494,7 @@ export function migrateClawletsConfigToV13(raw: unknown): MigrateToV13Result {
           changed = true;
 
           if (!isPlainObject(legacyValue) || Object.keys(legacyValue).length === 0) {
-            if (legacyValue !== undefined) warnings.push(`bot ${botId}: dropped ${params.sourceLabel}.${params.key} (expected object)`);
+            if (legacyValue !== undefined) warnings.push(`gateway ${botId}: dropped ${params.sourceLabel}.${params.key} (expected object)`);
             return;
           }
 
@@ -498,7 +505,7 @@ export function migrateClawletsConfigToV13(raw: unknown): MigrateToV13Result {
             context: `migrate ${params.sourceLabel}.${params.key}`,
           });
           if (merged) changed = true;
-          warnings.push(`bot ${botId}: moved ${params.sourceLabel}.${params.key} -> ${params.key}`);
+          warnings.push(`gateway ${botId}: moved ${params.sourceLabel}.${params.key} -> ${params.key}`);
         };
 
         const profile = botCfg["profile"];
@@ -560,7 +567,7 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
         const clawdbot = botCfg["clawdbot"];
         if (clawdbot !== undefined && !isPlainObject(clawdbot)) {
           delete botCfg["clawdbot"];
-          warnings.push(`bot ${botId}: dropped clawdbot (expected object)`);
+          warnings.push(`gateway ${botId}: dropped clawdbot (expected object)`);
           changed = true;
           continue;
         }
@@ -572,7 +579,7 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
           delete params.source[params.key];
           changed = true;
           if (!isPlainObject(legacyValue) || Object.keys(legacyValue).length === 0) {
-            if (legacyValue !== undefined) warnings.push(`bot ${botId}: dropped ${params.label}.${params.key} (expected object)`);
+            if (legacyValue !== undefined) warnings.push(`gateway ${botId}: dropped ${params.label}.${params.key} (expected object)`);
             return;
           }
           const dest = ensureObject(botCfg, params.key);
@@ -582,7 +589,7 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
             context: `migrate ${params.label}.${params.key}`,
           });
           if (merged) changed = true;
-          warnings.push(`bot ${botId}: moved ${params.label}.${params.key} -> ${params.key}`);
+          warnings.push(`gateway ${botId}: moved ${params.label}.${params.key} -> ${params.key}`);
         };
 
         const openclaw = botCfg["openclaw"];
@@ -602,7 +609,7 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
 
         if (!isPlainObject(openclaw)) {
           botCfg["openclaw"] = structuredClone(clawdbot);
-          warnings.push(`bot ${botId}: moved clawdbot -> openclaw`);
+          warnings.push(`gateway ${botId}: moved clawdbot -> openclaw`);
           changed = true;
         } else {
           const merged = mergeLegacyIntoExisting({
@@ -611,10 +618,73 @@ export function migrateClawletsConfigToV15(raw: unknown): MigrateToV15Result {
             context: "migrate clawdbot -> openclaw",
           });
           if (merged) changed = true;
-          warnings.push(`bot ${botId}: merged clawdbot -> openclaw`);
+          warnings.push(`gateway ${botId}: merged clawdbot -> openclaw`);
         }
 
         delete botCfg["clawdbot"];
+        changed = true;
+      }
+    }
+  }
+
+  return { ok: true, changed, warnings, migrated: next };
+}
+
+export function migrateClawletsConfigToV16(raw: unknown): MigrateToV16Result {
+  if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
+
+  const next = structuredClone(raw) as Record<string, unknown>;
+  const warnings: string[] = [];
+
+  const schemaVersion = Number(next["schemaVersion"] ?? 0);
+  if (schemaVersion === 16) return { ok: true, changed: false, warnings, migrated: next };
+  if (schemaVersion !== 15) throw new Error(`unsupported schemaVersion: ${schemaVersion} (expected 15)`);
+
+  let changed = false;
+  next["schemaVersion"] = 16;
+  changed = true;
+
+  const fleet = next["fleet"];
+  if (isPlainObject(fleet)) {
+    const botOrder = toStringArray(fleet["botOrder"]);
+    const gatewayOrder = toStringArray(fleet["gatewayOrder"]);
+    if (botOrder.length > 0 && gatewayOrder.length === 0) {
+      fleet["gatewayOrder"] = botOrder;
+      changed = true;
+      warnings.push("migrated fleet.botOrder -> fleet.gatewayOrder");
+    }
+    if ("botOrder" in fleet) {
+      delete (fleet as any).botOrder;
+      changed = true;
+    }
+
+    const bots = fleet["bots"];
+    const gateways = fleet["gateways"];
+    if (isPlainObject(bots) && !isPlainObject(gateways)) {
+      fleet["gateways"] = bots;
+      changed = true;
+      warnings.push("migrated fleet.bots -> fleet.gateways");
+    } else if (isPlainObject(bots) && isPlainObject(gateways)) {
+      const merged = mergeLegacyIntoExisting({ existing: gateways, legacy: bots, context: "migrate fleet.bots -> fleet.gateways" });
+      if (merged) changed = true;
+      warnings.push("merged fleet.bots -> fleet.gateways");
+    }
+    if ("bots" in fleet) {
+      delete (fleet as any).bots;
+      changed = true;
+    }
+
+    const codex = fleet["codex"];
+    if (isPlainObject(codex)) {
+      const codexBots = toStringArray(codex["bots"]);
+      const codexGateways = toStringArray(codex["gateways"]);
+      if (codexBots.length > 0 && codexGateways.length === 0) {
+        codex["gateways"] = codexBots;
+        changed = true;
+        warnings.push("migrated fleet.codex.bots -> fleet.codex.gateways");
+      }
+      if ("bots" in codex) {
+        delete (codex as any).bots;
         changed = true;
       }
     }
@@ -637,7 +707,7 @@ export function migrateClawletsConfigToLatest(raw: unknown): MigrateToLatestResu
   let current: unknown = raw;
 
   const schemaVersion = Number((raw as any)["schemaVersion"] ?? 0);
-  if (schemaVersion === 15) return { ok: true, changed: false, warnings, migrated: structuredClone(raw) as Record<string, unknown> };
+  if (schemaVersion === 16) return { ok: true, changed: false, warnings, migrated: structuredClone(raw) as Record<string, unknown> };
 
   if (schemaVersion < 12) {
     const r12 = migrateClawletsConfigToV12(current);
@@ -671,7 +741,15 @@ export function migrateClawletsConfigToLatest(raw: unknown): MigrateToLatestResu
   }
 
   const v15 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v15 !== 15) throw new Error(`unsupported schemaVersion: ${v15} (expected 15)`);
+  if (v15 === 15) {
+    const r16 = migrateClawletsConfigToV16(current);
+    warnings.push(...r16.warnings);
+    if (r16.changed) changed = true;
+    current = r16.migrated;
+  }
+
+  const v16 = Number((current as any)["schemaVersion"] ?? 0);
+  if (v16 !== 16) throw new Error(`unsupported schemaVersion: ${v16} (expected 16)`);
 
   return { ok: true, changed, warnings, migrated: current as Record<string, unknown> };
 }

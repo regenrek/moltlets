@@ -74,7 +74,7 @@ describe("execute admin guard", () => {
     vi.doMock("~/server/convex", () => ({ createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any }))
 
     vi.doMock("@clawlets/core/lib/clawlets-config", () => ({
-      loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} }, fleet: { bots: { bot1: {} } } } }),
+      loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} }, fleet: { gateways: { bot1: {} } } } }),
     }))
 
     const [{ secretsInitExecute }, { serverChannelsExecute }, { bootstrapExecute }] = await Promise.all([

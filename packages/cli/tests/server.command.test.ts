@@ -31,7 +31,7 @@ describe("server command", () => {
     const config = makeConfig({
       hostName: "alpha",
       hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" } },
-      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+      fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ config, hostName: "alpha", hostCfg });

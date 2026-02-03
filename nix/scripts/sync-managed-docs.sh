@@ -3,11 +3,11 @@ set -euo pipefail
 
 ws="${CLAWLETS_WORKSPACE_DIR:-}"
 seed_root="${CLAWLETS_SEED_DIR:-}"
-bot_id="${CLAWLETS_BOT_ID:-}"
+gateway_id="${CLAWLETS_GATEWAY_ID:-}"
 tools_md="${CLAWLETS_TOOLS_MD:-/etc/clawlets/tools.md}"
 
-if [[ -z "${ws}" || -z "${seed_root}" || -z "${bot_id}" ]]; then
-  echo "error: CLAWLETS_WORKSPACE_DIR, CLAWLETS_SEED_DIR, and CLAWLETS_BOT_ID must be set" >&2
+if [[ -z "${ws}" || -z "${seed_root}" || -z "${gateway_id}" ]]; then
+  echo "error: CLAWLETS_WORKSPACE_DIR, CLAWLETS_SEED_DIR, and CLAWLETS_GATEWAY_ID must be set" >&2
   exit 2
 fi
 
@@ -22,7 +22,7 @@ if [[ ! -d "${seed_root}" ]]; then
 fi
 
 common_dir="${seed_root}/common"
-bot_dir="${seed_root}/bots/${bot_id}"
+gateway_dir="${seed_root}/gateways/${gateway_id}"
 
 sync_overlay_dir() {
   local rel="$1"
@@ -35,8 +35,8 @@ sync_overlay_dir() {
   if [[ -d "${common_dir}/${rel}" ]]; then
     cp -a "${common_dir}/${rel}/." "${tmp_root}/out/"
   fi
-  if [[ -d "${bot_dir}/${rel}" ]]; then
-    cp -a "${bot_dir}/${rel}/." "${tmp_root}/out/"
+  if [[ -d "${gateway_dir}/${rel}" ]]; then
+    cp -a "${gateway_dir}/${rel}/." "${tmp_root}/out/"
   fi
 
   if [[ -e "${dst}" || -L "${dst}" ]]; then
@@ -49,8 +49,8 @@ sync_overlay_dir() {
 
 pick_src() {
   local name="$1"
-  if [[ -f "${bot_dir}/${name}" ]]; then
-    printf '%s\n' "${bot_dir}/${name}"
+  if [[ -f "${gateway_dir}/${name}" ]]; then
+    printf '%s\n' "${gateway_dir}/${name}"
     return 0
   fi
   if [[ -f "${common_dir}/${name}" ]]; then
@@ -78,7 +78,7 @@ done
 # Custom/local skills: keep canonical skill trees in the repo and sync them into each workspace.
 # Expected shape:
 # - <seed_root>/common/skills/<skill>/SKILL.md
-# - <seed_root>/bots/<bot>/skills/<skill>/SKILL.md
+# - <seed_root>/gateways/<gateway>/skills/<skill>/SKILL.md
 sync_overlay_dir "skills" "${ws}/skills"
 
 if [[ -f "${ws}/TOOLS.md" && -r "${tools_md}" ]]; then

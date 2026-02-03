@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Switch } from "~/components/ui/switch"
 import { ConfigCard } from "../shared/config-card"
-import { buildBotConfigPath } from "../shared/config-path"
+import { buildGatewayConfigPath } from "../shared/config-path"
 import { isPlainObject } from "../helpers"
 import { SecretField } from "../shared/secret-field"
 
@@ -23,7 +23,7 @@ export function HooksConfigCard(props: {
   const [gmailPushTokenSecretText, setGmailPushTokenSecretText] = useState(() => props.initialGmailPushTokenSecret)
 
   return (
-    <ConfigCard title="Hooks config (first-class)" configPath={buildBotConfigPath(props.botId, "hooks")}>
+    <ConfigCard title="Hooks config (first-class)" configPath={buildGatewayConfigPath(props.botId, "hooks")}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">Enabled</div>

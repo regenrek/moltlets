@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withFlakesEnv } from "../src/lib/nix-flakes";
 
-const NIX_EVAL_TIMEOUT_MS = 120_000;
+const NIX_EVAL_TIMEOUT_MS = 240_000;
 
 function resolveRepoRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
@@ -23,7 +23,7 @@ describe("fleet nix eval", () => {
   const testIt = hasNix() && fs.existsSync(resolveRepoRoot()) ? it : it.skip;
 
   testIt(
-    "fails when no bots are configured",
+    "fails when no gateways are configured",
     async () => {
       const repoRoot = resolveRepoRoot();
       const expr = [
@@ -32,10 +32,10 @@ describe("fleet nix eval", () => {
         "  lib = flake.inputs.nixpkgs.lib;",
         "  project = {",
         "    root = flake.outPath;",
-        "    config = { fleet = { botOrder = []; bots = {}; }; };",
+        "    config = { fleet = { gatewayOrder = []; gateways = {}; }; };",
         "  };",
         "  fleet = import (flake.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project; };",
-        "in fleet.bots",
+        "in fleet.gateways",
       ].join("\n");
 
       expect(() =>

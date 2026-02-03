@@ -23,7 +23,7 @@ export const serverChannelsStart = createServerFn({ method: "POST" })
     if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
 
     const botId = data.botId
-    if (!config.fleet.bots[botId]) throw new Error(`unknown bot: ${botId}`)
+    if (!config.fleet.gateways[botId]) throw new Error(`unknown bot: ${botId}`)
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -56,7 +56,7 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
     if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
 
     const botId = data.botId
-    if (!config.fleet.bots[botId]) throw new Error(`unknown bot: ${botId}`)
+    if (!config.fleet.gateways[botId]) throw new Error(`unknown bot: ${botId}`)
 
     const redactTokens = await readClawletsEnvTokens(repoRoot)
     const cliEntry = resolveClawletsCliEntry()
@@ -69,7 +69,7 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
       data.op,
       "--host",
       host,
-      "--bot",
+      "--gateway",
       botId,
     ]
 

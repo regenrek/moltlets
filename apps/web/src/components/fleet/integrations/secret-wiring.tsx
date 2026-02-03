@@ -48,7 +48,8 @@ export function SecretWiringDetails(props: {
       const parsed = SecretNameSchema.safeParse(secretName)
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || "invalid secret name")
 
-      const path = params.scope === "bot" ? `fleet.bots.${props.botId}.profile.secretEnv.${envVar}` : `fleet.secretEnv.${envVar}`
+      const path =
+        params.scope === "bot" ? `fleet.gateways.${props.botId}.profile.secretEnv.${envVar}` : `fleet.secretEnv.${envVar}`
 
       const res = await configDotSet({
         data: {
@@ -87,9 +88,10 @@ export function SecretWiringDetails(props: {
         { path: `fleet.secretEnv.${envVar}`, value: secretName, del: false },
       ]
 
-      const botKey = props.botSecretEnv && typeof props.botSecretEnv === "object" ? (props.botSecretEnv as any)[envVar] : undefined
+      const botKey =
+        props.botSecretEnv && typeof props.botSecretEnv === "object" ? (props.botSecretEnv as any)[envVar] : undefined
       if (typeof botKey === "string") {
-        ops.push({ path: `fleet.bots.${props.botId}.profile.secretEnv.${envVar}`, del: true })
+        ops.push({ path: `fleet.gateways.${props.botId}.profile.secretEnv.${envVar}`, del: true })
       }
 
       const res = await configDotBatch({ data: { projectId: props.projectId as Id<"projects">, ops } })

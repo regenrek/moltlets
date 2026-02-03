@@ -3,8 +3,8 @@ title: Gateway
 description: Gateway behavior and ports.
 ---
 
-Clawlets runs **one OpenClaw Gateway per bot** to keep state and credentials isolated.
-This gives each bot its own user, workspace, and network ports.
+Clawlets runs **one OpenClaw Gateway per gateway instance (bot)** to keep state and credentials isolated.
+This gives each gateway its own user, workspace, and network ports.
 
 ## Why
 
@@ -12,11 +12,11 @@ If a bot user is compromised, it should not be able to read or write another bot
 state or workspace. Isolation also reduces the blast radius for credentials, sessions,
 tools, and config.
 
-## Per-bot invariants (required)
+## Per-gateway invariants (required)
 
-For each bot `maren`:
+For each gateway `maren`:
 
-- system user: `bot-maren`
+- system user: `gateway-maren`
 - state dir: `/srv/openclaw/maren` (`OPENCLAW_STATE_DIR`)
 - config path: `/run/secrets/rendered/openclaw-maren.json` (`OPENCLAW_CONFIG_PATH`)
 - workspace: `/srv/openclaw/maren/workspace` (`agents.defaults.workspace`)
@@ -26,14 +26,14 @@ For each bot `maren`:
 
 ## Ports
 
-Default port base is `18789`, stride `20`.
+Default port base is `18789`, stride `120`.
 
 Reason: openclaw uses derived ports (bridge/browser/canvas). Spacing avoids collisions across gateways.
 
-Override per bot:
+Override per gateway:
 
 ```bash
-clawlets config set --path fleet.bots.maren.profile.gatewayPort --value 18809
+clawlets config set --path fleet.gateways.maren.profile.gatewayPort --value 18809
 ```
 
 ## Gateway auth token

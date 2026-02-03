@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withFlakesEnv } from "../src/lib/nix-flakes";
 
-const NIX_EVAL_TIMEOUT_MS = 120_000;
+const NIX_EVAL_TIMEOUT_MS = 240_000;
 
 function resolveRepoRoot(): string {
   return path.resolve(process.env.CLAWLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));

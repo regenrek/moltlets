@@ -3,12 +3,12 @@ import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import type { ClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
 import { parseClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
-import { buildOpenClawBotConfig } from "@clawlets/core/lib/openclaw-config-invariants"
+import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw-config-invariants"
 import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 import { compareClawdbotSchemaToNixClawdbot, summarizeClawdbotSchemaComparison } from "@clawlets/core/lib/clawdbot-schema-compare"
 import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "@clawlets/core/lib/nix-clawdbot"
 import { shellQuote, sshCapture, validateTargetHost } from "@clawlets/core/lib/ssh-remote"
-import { BotIdSchema } from "@clawlets/shared/lib/identifiers"
+import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
 import { createConvexClient } from "~/server/convex"
 import { getProjectContext } from "~/sdk/repo-root"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
@@ -112,12 +112,12 @@ function needsSudo(targetHost: string): boolean {
 }
 
 function buildGatewaySchemaCommand(params: {
-  botId: string
+  gatewayId: string
   port: number
   sudo: boolean
   nonce: string
 }): string {
-  const envFile = `/srv/openclaw/${params.botId}/credentials/gateway.env`
+  const envFile = `/srv/openclaw/${params.gatewayId}/credentials/gateway.env`
   const url = `ws://127.0.0.1:${params.port}`
   const begin = `${SCHEMA_MARKER_BEGIN}${params.nonce}__`
   const end = `${SCHEMA_MARKER_END}${params.nonce}__`
@@ -135,7 +135,7 @@ function buildGatewaySchemaCommand(params: {
     `printf '%s\\n' ${endQuoted}`,
   ].join(" && ")
   const args = [
-    ...(params.sudo ? ["sudo", "-n", "-u", `bot-${params.botId}`] : []),
+    ...(params.sudo ? ["sudo", "-n", "-u", `gateway-${params.gatewayId}`] : []),
     "bash",
     "-lc",
     script,
@@ -144,7 +144,7 @@ function buildGatewaySchemaCommand(params: {
 }
 
 export function __test_buildGatewaySchemaCommand(params: {
-  botId: string
+  gatewayId: string
   port: number
   sudo: boolean
   nonce: string
@@ -173,7 +173,7 @@ export async function fetchOpenclawSchemaLive(params: {
   const client = createConvexClient()
   const { role, repoRoot } = await getProjectContext(client, params.projectId)
   if (role !== "admin") return { ok: false as const, message: "admin required" } satisfies OpenclawSchemaLiveResult
-  const botId = BotIdSchema.parse(params.botId.trim())
+  const botId = GatewayIdSchema.parse(params.botId.trim())
   const hostCandidate = String(params.host || "").trim()
 
   if (hostCandidate) {
@@ -189,7 +189,7 @@ export async function fetchOpenclawSchemaLive(params: {
   const host = hostCandidate || config.defaultHost || ""
   if (!host) throw new Error("missing host")
   if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
-  if (!config.fleet.bots[botId]) throw new Error(`unknown bot: ${botId}`)
+  if (!config.fleet.gateways[botId]) throw new Error(`unknown bot: ${botId}`)
 
   const cacheKey = `${params.projectId}:${host}:${botId}`
   const now = Date.now()
@@ -205,8 +205,8 @@ export async function fetchOpenclawSchemaLive(params: {
   }
   const targetHost = validateTargetHost(targetHostRaw)
 
-  const botConfig = buildOpenClawBotConfig({ config, bot: botId })
-  const gateway = (botConfig.invariants as any)?.gateway || {}
+  const gatewayConfig = buildOpenClawGatewayConfig({ config, gatewayId: botId })
+  const gateway = (gatewayConfig.invariants as any)?.gateway || {}
   const port = typeof gateway.port === "number" ? gateway.port : Number(gateway.port || 0)
   if (!Number.isFinite(port) || port <= 0) throw new Error(`invalid gateway port for bot ${botId}`)
 
@@ -218,7 +218,7 @@ export async function fetchOpenclawSchemaLive(params: {
       await client.mutation(api.projects.guardLiveSchemaFetch, { projectId: params.projectId, host, botId })
 
       const nonce = randomBytes(8).toString("hex")
-      const remoteCmd = buildGatewaySchemaCommand({ botId, port, sudo: needsSudo(targetHost), nonce })
+      const remoteCmd = buildGatewaySchemaCommand({ gatewayId: botId, port, sudo: needsSudo(targetHost), nonce })
       const raw = await sshCapture(targetHost, remoteCmd, {
         cwd: repoRoot,
         timeoutMs: 15_000,

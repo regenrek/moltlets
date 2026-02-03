@@ -10,7 +10,7 @@ import { deleteAtPath, getAtPath, setAtPath } from "@clawlets/core/lib/object-pa
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
-import { BOT_OPENCLAW_POLICY_MESSAGE, isBotOpenclawPath } from "~/sdk/config-helpers"
+import { GATEWAY_OPENCLAW_POLICY_MESSAGE, isGatewayOpenclawPath } from "~/sdk/config-helpers"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
@@ -64,14 +64,14 @@ export const configDotSet = createServerFn({ method: "POST" })
     const parts = splitDotPath(data.path)
     const next = structuredClone(raw) as any
 
-    if (isBotOpenclawPath(parts)) {
+    if (isGatewayOpenclawPath(parts)) {
       return {
         ok: false as const,
         issues: [
           {
             code: "policy",
             path: parts,
-            message: BOT_OPENCLAW_POLICY_MESSAGE,
+            message: GATEWAY_OPENCLAW_POLICY_MESSAGE,
           },
         ],
       }
@@ -159,14 +159,14 @@ export const configDotBatch = createServerFn({ method: "POST" })
       const parts = splitDotPath(op.path)
       plannedPaths.push(parts.join("."))
 
-      if (isBotOpenclawPath(parts)) {
+      if (isGatewayOpenclawPath(parts)) {
         return {
           ok: false as const,
           issues: [
             {
               code: "policy",
               path: parts,
-              message: BOT_OPENCLAW_POLICY_MESSAGE,
+              message: GATEWAY_OPENCLAW_POLICY_MESSAGE,
             },
           ],
         }
@@ -219,9 +219,6 @@ export const configDotBatch = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating ${plannedPaths.length} config path(s)` })
-        if (plannedPaths.length <= 5) {
-          for (const p of plannedPaths) await emit({ level: "info", message: `Updating ${p}` })
-        }
         await writeClawletsConfig({ configPath, config: validated.data })
       },
       onSuccess: () => ({ ok: true as const, runId }),

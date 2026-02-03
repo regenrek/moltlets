@@ -4,7 +4,7 @@ import { z } from "zod";
 import { writeFileAtomic } from "./fs-safe.js";
 import type { RepoLayout } from "../repo-layout.js";
 import { getRepoLayout } from "../repo-layout.js";
-import { BotIdSchema, HostNameSchema, SecretNameSchema, SkillIdSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
+import { GatewayIdSchema, HostNameSchema, PersonaNameSchema, SecretNameSchema, SkillIdSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawlets-config-legacy.js";
 import { SecretEnvSchema, SecretFilesSchema } from "./secret-wiring.js";
 import { isValidTargetHost } from "./ssh-remote.js";
@@ -19,7 +19,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWLETS_CONFIG_SCHEMA_VERSION = 15 as const;
+export const CLAWLETS_CONFIG_SCHEMA_VERSION = 16 as const;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
 
@@ -41,7 +41,7 @@ function isWorldOpenCidr(parsed: { ip: string; prefix: number; family: 4 | 6 }):
   return (parsed.ip === "::" || parsed.ip === "0:0:0:0:0:0:0:0") && parsed.prefix === 0;
 }
 
-const FleetBotProfileSchema = z
+const FleetGatewayProfileSchema = z
   .object({
     secretEnv: SecretEnvSchema,
     secretFiles: SecretFilesSchema,
@@ -49,7 +49,7 @@ const FleetBotProfileSchema = z
   .passthrough()
   .default(() => ({ secretEnv: {}, secretFiles: {} }));
 
-const FleetBotChannelsSchema = z
+const FleetGatewayChannelsSchema = z
   .object({
     discord: z
       .object({
@@ -73,7 +73,7 @@ const FleetBotChannelsSchema = z
 
 const ThinkingDefaultSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
 
-const FleetBotAgentsDefaultsSchema = z
+const FleetGatewayAgentsDefaultsSchema = z
   .object({
     model: z
       .object({
@@ -88,14 +88,53 @@ const FleetBotAgentsDefaultsSchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetBotAgentsSchema = z
+const FleetGatewayAgentEntrySchema = z
   .object({
-    defaults: FleetBotAgentsDefaultsSchema,
+    id: PersonaNameSchema,
+    default: z.boolean().optional(),
+    name: z.string().trim().min(1).optional(),
+    workspace: z.union([z.string().trim().min(1), JsonObjectSchema]).optional(),
+    agentDir: z.string().trim().min(1).optional(),
+    model: JsonObjectSchema.optional(),
+    sandbox: JsonObjectSchema.optional(),
+    tools: JsonObjectSchema.optional(),
+  })
+  .passthrough();
+
+const FleetGatewayAgentsSchema = z
+  .object({
+    defaults: FleetGatewayAgentsDefaultsSchema,
+    list: z.array(FleetGatewayAgentEntrySchema).default(() => []),
+  })
+  .superRefine((agents, ctx) => {
+    const list = agents.list || [];
+    const seen = new Set<string>();
+    let defaultCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      const entry = list[i];
+      if (!entry?.id) continue;
+      if (seen.has(entry.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["list", i, "id"],
+          message: `duplicate agent id: ${entry.id}`,
+        });
+      }
+      seen.add(entry.id);
+      if (entry.default) defaultCount += 1;
+    }
+    if (defaultCount > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["list"],
+        message: "agents.list may contain at most one default agent",
+      });
+    }
   })
   .passthrough()
-  .default(() => ({ defaults: {} }));
+  .default(() => ({ defaults: {}, list: [] }));
 
-const FleetBotHooksSchema = z
+const FleetGatewayHooksSchema = z
   .object({
     enabled: z.boolean().optional(),
     token: z.string().trim().min(1).optional(),
@@ -106,7 +145,7 @@ const FleetBotHooksSchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetBotSkillEntrySchema = z
+const FleetGatewaySkillEntrySchema = z
   .object({
     enabled: z.boolean().optional(),
     apiKey: z.string().trim().min(1).optional(),
@@ -117,7 +156,7 @@ const FleetBotSkillEntrySchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetBotSkillsSchema = z
+const FleetGatewaySkillsSchema = z
   .object({
     allowBundled: z.array(SkillIdSchema).optional(),
     load: z
@@ -126,12 +165,12 @@ const FleetBotSkillsSchema = z
       })
       .passthrough()
       .optional(),
-    entries: z.record(SkillIdSchema, FleetBotSkillEntrySchema).optional(),
+    entries: z.record(SkillIdSchema, FleetGatewaySkillEntrySchema).optional(),
   })
   .passthrough()
   .default(() => ({}));
 
-const FleetBotPluginsSchema = z
+const FleetGatewayPluginsSchema = z
   .object({
     enabled: z.boolean().optional(),
     allow: z.array(z.string().trim().min(1)).optional(),
@@ -147,35 +186,36 @@ const FleetBotPluginsSchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetBotSchema = z
+const FleetGatewaySchema = z
   .object({
-    profile: FleetBotProfileSchema,
-    channels: FleetBotChannelsSchema,
-    agents: FleetBotAgentsSchema,
-    hooks: FleetBotHooksSchema,
-    skills: FleetBotSkillsSchema,
-    plugins: FleetBotPluginsSchema,
+    profile: FleetGatewayProfileSchema,
+    channels: FleetGatewayChannelsSchema,
+    agents: FleetGatewayAgentsSchema,
+    hooks: FleetGatewayHooksSchema,
+    skills: FleetGatewaySkillsSchema,
+    plugins: FleetGatewayPluginsSchema,
     openclaw: JsonObjectSchema.default(() => ({})),
     clf: JsonObjectSchema.default(() => ({})),
   })
-  .superRefine((bot, ctx) => {
+  .superRefine((gateway, ctx) => {
     // Hard reject legacy clawdbot key - no backwards compatibility.
-    if ((bot as any).clawdbot !== undefined) {
+    if ((gateway as any).clawdbot !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["clawdbot"],
-        message: "The 'clawdbot' key has been renamed to 'openclaw'. Please update fleet.bots.<bot>.clawdbot to fleet.bots.<bot>.openclaw.",
+        message:
+          "The 'clawdbot' key has been renamed to 'openclaw'. Please update fleet.gateways.<gateway>.clawdbot to fleet.gateways.<gateway>.openclaw.",
       });
     }
 
-    // No backwards-compat: typed surfaces must not be set under fleet.bots.<bot>.openclaw.*.
-    const legacy = bot.openclaw as any;
+    // No backwards-compat: typed surfaces must not be set under fleet.gateways.<gateway>.openclaw.*.
+    const legacy = gateway.openclaw as any;
     const rejectLegacy = (key: string) => {
       if (legacy?.[key] === undefined) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["openclaw", key],
-        message: `Do not set fleet.bots.<bot>.openclaw.${key}; use fleet.bots.<bot>.${key} instead.`,
+        message: `Do not set fleet.gateways.<gateway>.openclaw.${key}; use fleet.gateways.<gateway>.${key} instead.`,
       });
     };
     rejectLegacy("channels");
@@ -184,19 +224,19 @@ const FleetBotSchema = z
     rejectLegacy("skills");
     rejectLegacy("plugins");
 
-    const profile = bot.profile as any;
+    const profile = gateway.profile as any;
     if (profile?.hooks !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "hooks"],
-        message: "Do not set fleet.bots.<bot>.profile.hooks; use fleet.bots.<bot>.hooks instead.",
+        message: "Do not set fleet.gateways.<gateway>.profile.hooks; use fleet.gateways.<gateway>.hooks instead.",
       });
     }
     if (profile?.skills !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "skills"],
-        message: "Do not set fleet.bots.<bot>.profile.skills; use fleet.bots.<bot>.skills instead.",
+        message: "Do not set fleet.gateways.<gateway>.profile.skills; use fleet.gateways.<gateway>.skills instead.",
       });
     }
   })
@@ -204,7 +244,7 @@ const FleetBotSchema = z
   .default(() => ({
     profile: { secretEnv: {}, secretFiles: {} },
     channels: {},
-    agents: { defaults: {} },
+    agents: { defaults: {}, list: [] },
     hooks: {},
     skills: {},
     plugins: {},
@@ -218,14 +258,14 @@ const FleetSchema = z
     secretFiles: SecretFilesSchema,
     sshAuthorizedKeys: z.array(z.string().trim().min(1)).default(() => []),
     sshKnownHosts: z.array(z.string().trim().min(1)).default(() => []),
-    botOrder: z.array(BotIdSchema).default(() => []),
-    bots: z.record(BotIdSchema, FleetBotSchema).default(() => ({})),
+    gatewayOrder: z.array(GatewayIdSchema).default(() => []),
+    gateways: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
     codex: z
       .object({
         enable: z.boolean().default(false),
-        bots: z.array(BotIdSchema).default(() => []),
+        gateways: z.array(GatewayIdSchema).default(() => []),
       })
-      .default(() => ({ enable: false, bots: [] })),
+      .default(() => ({ enable: false, gateways: [] })),
     backups: z
       .object({
         restic: z
@@ -238,37 +278,48 @@ const FleetSchema = z
       .default(() => ({ restic: { enable: false, repository: "" } })),
   })
   .superRefine((fleet, ctx) => {
-    const botIds = Object.keys(fleet.bots || {});
-    const botOrder = fleet.botOrder || [];
-
-    const seen = new Set<string>();
-    for (let i = 0; i < botOrder.length; i++) {
-      const b = botOrder[i]!;
-      if (seen.has(b)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botOrder", i], message: `duplicate bot id: ${b}` });
-        continue;
-      }
-      seen.add(b);
-      if (!fleet.bots[b]) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botOrder", i], message: `unknown bot id: ${b}` });
-      }
-    }
-
-    if (botIds.length > 0 && botOrder.length === 0) {
+    if ((fleet as any).botOrder !== undefined || (fleet as any).bots !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["botOrder"],
-        message: "botOrder must be set (deterministic order for ports/services)",
+        path: [],
+        message: "fleet.bots and fleet.botOrder were removed; use fleet.gateways and fleet.gatewayOrder",
       });
       return;
     }
 
-    const missing = botIds.filter((b) => !seen.has(b));
+    const gatewayIds = Object.keys(fleet.gateways || {});
+    const gatewayOrder = fleet.gatewayOrder || [];
+
+    const seen = new Set<string>();
+    for (let i = 0; i < gatewayOrder.length; i++) {
+      const id = gatewayOrder[i]!;
+      if (seen.has(id)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gatewayOrder", i], message: `duplicate gateway id: ${id}` });
+        continue;
+      }
+      seen.add(id);
+      if (!fleet.gateways[id]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gatewayOrder", i], message: `unknown gateway id: ${id}` });
+      }
+    }
+
+    if (gatewayIds.length > 0 && gatewayOrder.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["gatewayOrder"],
+        message: "gatewayOrder must be set (deterministic order for ports/services)",
+      });
+      return;
+    }
+
+    const missing = gatewayIds.filter((id) => !seen.has(id));
     if (missing.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["botOrder"],
-        message: `botOrder missing bots: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? ` (+${missing.length - 6})` : ""}`,
+        path: ["gatewayOrder"],
+        message: `gatewayOrder missing gateways: ${missing.slice(0, 6).join(", ")}${
+          missing.length > 6 ? ` (+${missing.length - 6})` : ""
+        }`,
       });
     }
   });
@@ -515,9 +566,9 @@ export const ClawletsConfigSchema = z.object({
     secretFiles: {},
     sshAuthorizedKeys: [],
     sshKnownHosts: [],
-    botOrder: [],
-    bots: {},
-    codex: { enable: false, bots: [] },
+    gatewayOrder: [],
+    gateways: {},
+    codex: { enable: false, gateways: [] },
     backups: { restic: { enable: false, repository: "" } },
   })),
   cattle: CattleSchema,
@@ -572,10 +623,10 @@ export function getTailnetMode(hostCfg: ClawletsHostConfig | null | undefined): 
   return "none";
 }
 
-export function createDefaultClawletsConfig(params: { host: string; bots?: string[] }): ClawletsConfig {
+export function createDefaultClawletsConfig(params: { host: string; gateways?: string[] }): ClawletsConfig {
   const host = params.host.trim() || "openclaw-fleet-host";
-  const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((b) => b.trim()).filter(Boolean);
-  const botsRecord = Object.fromEntries(bots.map((b) => [b, {}]));
+  const gateways = (params.gateways || ["maren", "sonja", "gunnar", "melinda"]).map((id) => id.trim()).filter(Boolean);
+  const gatewaysRecord = Object.fromEntries(gateways.map((id) => [id, {}]));
   return ClawletsConfigSchema.parse({
     schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
     defaultHost: host,
@@ -585,9 +636,9 @@ export function createDefaultClawletsConfig(params: { host: string; bots?: strin
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      botOrder: bots,
-      bots: botsRecord,
-      codex: { enable: false, bots: [] },
+      gatewayOrder: gateways,
+      gateways: gatewaysRecord,
+      codex: { enable: false, gateways: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {

@@ -10,9 +10,9 @@ dashboard/CLI, while still keeping an escape hatch for advanced keys.
 In practice, each bot has two layers:
 
 - **Typed surfaces** (first-class keys in `fleet/clawlets.json`)
-- **OpenClaw passthrough** (`fleet.bots.<bot>.openclaw`) for advanced/edge cases
+- **OpenClaw passthrough** (`fleet.gateways.<bot>.openclaw`) for advanced/edge cases
 
-In addition, each bot has a **profile** (`fleet.bots.<bot>.profile`) that controls the
+In addition, each bot has a **profile** (`fleet.gateways.<bot>.profile`) that controls the
 *Nix/runtime* side (secret injection, workspace seeding, resources). The profile is not
 "OpenClaw config" itself, but it affects how the service runs.
 
@@ -20,24 +20,24 @@ In addition, each bot has a **profile** (`fleet.bots.<bot>.profile`) that contro
 
 Typed surfaces (preferred):
 
-- `fleet.bots.<bot>.channels`
-- `fleet.bots.<bot>.agents`
-- `fleet.bots.<bot>.hooks`
-- `fleet.bots.<bot>.skills`
-- `fleet.bots.<bot>.plugins`
+- `fleet.gateways.<bot>.channels`
+- `fleet.gateways.<bot>.agents`
+- `fleet.gateways.<bot>.hooks`
+- `fleet.gateways.<bot>.skills`
+- `fleet.gateways.<bot>.plugins`
 
 OpenClaw passthrough (advanced):
 
-- `fleet.bots.<bot>.openclaw` (raw JSON object merged into the OpenClaw root config)
+- `fleet.gateways.<bot>.openclaw` (raw JSON object merged into the OpenClaw root config)
 
 <Callout type="warning" title="Do not nest typed surfaces under openclaw.*">
-  Do not set <code>fleet.bots.&lt;bot&gt;.openclaw.channels</code> (or agents/hooks/skills/plugins).
+  Do not set <code>fleet.gateways.&lt;bot&gt;.openclaw.channels</code> (or agents/hooks/skills/plugins).
   Clawlets rejects that layout to avoid ambiguity. Put those keys at the top level under the bot.
 </Callout>
 
 ## The bot profile (runtime surface)
 
-`fleet.bots.<bot>.profile` configures runtime behavior that is enforced by the Nix layer:
+`fleet.gateways.<bot>.profile` configures runtime behavior that is enforced by the Nix layer:
 
 - secret injection inputs: `profile.secretEnv`, `profile.secretFiles`
 - least-privilege env injection: `profile.secretEnvAllowlist`
@@ -81,7 +81,7 @@ This keeps operations deterministic while still letting you configure most of Op
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "channels": {
           "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" }

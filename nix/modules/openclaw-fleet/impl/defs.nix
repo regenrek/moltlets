@@ -21,7 +21,7 @@ let
     then cfg.backups.restic.paths
     else [ cfg.stateDirBase ] ++ lib.optional cfg.opsSnapshot.enable cfg.opsSnapshot.outDir;
 
-  getBotProfile = b: cfg.botProfiles.${b} or {
+  getGatewayProfile = b: cfg.gatewayProfiles.${b} or {
     skipBootstrap = null;
     workspace = { dir = null; seedDir = null; };
     secretEnv = {};
@@ -77,46 +77,46 @@ let
       (builtins.attrNames (buildBaseSecretEnv profile))
       (builtins.attrNames (buildDerivedSecretEnv profile));
 
-  resolveBotWorkspace = b:
+  resolveGatewayWorkspace = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       stateDir = "${cfg.stateDirBase}/${b}";
     in
       if (profile.workspace.dir or null) != null then profile.workspace.dir else "${stateDir}/workspace";
 
-  resolveBotCredsDir = b: "${cfg.stateDirBase}/${b}/credentials";
+  resolveGatewayCredsDir = b: "${cfg.stateDirBase}/${b}/credentials";
 
   hasGitHubAppAuth =
     lib.any (b:
       let
-        gh = (getBotProfile b).github or {};
+        gh = (getGatewayProfile b).github or {};
       in
         (gh.appId or null) != null
         && (gh.installationId or null) != null
         && (gh.privateKeySecret or null) != null
-    ) cfg.bots;
+    ) cfg.gateways;
 
   hasCodingAgent =
     lib.any (b:
       let
-        allowBundled = ((getBotProfile b).skills.allowBundled or null);
+        allowBundled = ((getGatewayProfile b).skills.allowBundled or null);
       in
         allowBundled != null && lib.elem "coding-agent" allowBundled
-    ) cfg.bots;
+    ) cfg.gateways;
 
   hasGithubSkill =
     lib.any (b:
       let
-        allowBundled = ((getBotProfile b).skills.allowBundled or null);
+        allowBundled = ((getGatewayProfile b).skills.allowBundled or null);
       in
         allowBundled != null && lib.elem "github" allowBundled
-    ) cfg.bots;
+    ) cfg.gateways;
 
   hasGh = hasGithubSkill || hasCodingAgent || cfg.githubSync.enable;
 
   hasCodex =
     cfg.codex.enable
-    || cfg.codex.bots != []
+    || cfg.codex.gateways != []
     || hasCodingAgent;
 
   toolsInventoryMd = pkgs.runCommand "clawlets-tools.md" {} ''
@@ -155,16 +155,16 @@ MD
 ### Codex CLI (headless)
 
 - Installed: \`codex\`
-- Login (one-time): \`sudo -u bot-<bot> env HOME=${cfg.stateDirBase}/<bot> codex login --device-auth\`
+- Login (one-time): \`sudo -u gateway-<gateway> env HOME=${cfg.stateDirBase}/<gateway> codex login --device-auth\`
 MD
     ''}
   '';
 
   buildInfoJson = pkgs.writeText "clawlets-build-info.json" (builtins.toJSON flakeInfo);
 
-  botIndexByName = lib.listToAttrs (lib.imap0 (i: name: { name = name; value = i; }) cfg.bots);
-  botIndex = b: botIndexByName.${b} or (throw "unknown bot index for ${b}");
-  botGatewayPort = b: cfg.gatewayPortBase + ((botIndex b) * cfg.gatewayPortStride);
+  gatewayIndexByName = lib.listToAttrs (lib.imap0 (i: name: { name = name; value = i; }) cfg.gateways);
+  gatewayIndex = b: gatewayIndexByName.${b} or (throw "unknown gateway index for ${b}");
+  gatewayPortFor = b: cfg.gatewayPortBase + ((gatewayIndex b) * cfg.gatewayPortStride);
 in
 {
   inherit
@@ -174,9 +174,9 @@ in
     resolvedSopsDir
     mkSopsSecretFor
     resticPaths
-    getBotProfile
-    resolveBotWorkspace
-    resolveBotCredsDir
+    getGatewayProfile
+    resolveGatewayWorkspace
+    resolveGatewayCredsDir
     hasGitHubAppAuth
     hasCodingAgent
     hasGithubSkill
@@ -184,7 +184,7 @@ in
     hasCodex
     toolsInventoryMd
     buildInfoJson
-    botGatewayPort
+    gatewayPortFor
     isNonEmptyString
     normalizeEnvKey
     envRef

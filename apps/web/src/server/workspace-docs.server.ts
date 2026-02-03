@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import crypto from "node:crypto"
 
-import { getRepoLayout, getBotWorkspaceDir } from "@clawlets/core/repo-layout"
+import { getRepoLayout, getGatewayWorkspaceDir } from "@clawlets/core/repo-layout"
 import { ensureDir, pathExists, writeFileAtomic } from "@clawlets/core/lib/fs-safe"
 import { isFleetWorkspaceEditableDoc, FLEET_WORKSPACE_EDITABLE_DOCS } from "@clawlets/core/lib/fleet-workspaces"
 import { moveToTrash } from "@clawlets/core/lib/fs-trash"
@@ -54,7 +54,7 @@ function resolveDocPath(params: {
   const layout = getRepoLayout(params.repoRoot)
   const commonPath = path.join(layout.fleetWorkspacesCommonDir, params.name)
 
-  const botDir = params.botId ? getBotWorkspaceDir(layout, params.botId) : ""
+  const botDir = params.botId ? getGatewayWorkspaceDir(layout, params.botId) : ""
   const botPath = botDir ? path.join(botDir, params.name) : ""
 
   if (params.scope === "bot" && !botPath) throw new Error("botId required for scope=bot")
@@ -71,7 +71,7 @@ export async function listWorkspaceDocsServer(params: {
   const repoRoot = await getRepoRoot(client, params.projectId)
 
   const layout = getRepoLayout(repoRoot)
-  const botDir = getBotWorkspaceDir(layout, params.botId)
+  const botDir = getGatewayWorkspaceDir(layout, params.botId)
 
   const results: WorkspaceDocListItem[] = []
   for (const name of FLEET_WORKSPACE_EDITABLE_DOCS) {

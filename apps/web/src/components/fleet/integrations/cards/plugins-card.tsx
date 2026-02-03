@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Switch } from "~/components/ui/switch"
 import { ConfigCard } from "../shared/config-card"
-import { buildBotConfigPath } from "../shared/config-path"
+import { buildGatewayConfigPath } from "../shared/config-path"
 import { isPlainObject } from "../helpers"
 import { TextListField } from "../shared/text-list-field"
 
@@ -26,7 +26,7 @@ export function PluginsConfigCard(props: {
   const [pathsText, setPathsText] = useState(() => props.initialPathsText)
 
   return (
-    <ConfigCard title="Plugins config (first-class)" configPath={buildBotConfigPath(props.botId, "plugins")}>
+    <ConfigCard title="Plugins config (first-class)" configPath={buildGatewayConfigPath(props.botId, "plugins")}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">Enabled</div>

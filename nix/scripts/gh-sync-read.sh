@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bot="${1:-}"
+gateway="${1:-}"
 kind="${2:-}"
 lines="${3:-}"
 
 usage() {
-  echo "usage: gh-sync-read <bot> <prs|issues> [lines]" >&2
+  echo "usage: gh-sync-read <gateway> <prs|issues> [lines]" >&2
 }
 
-if [ -z "$bot" ] || [ -z "$kind" ]; then
+if [ -z "$gateway" ] || [ -z "$kind" ]; then
   usage
   exit 2
 fi
 
-if ! [[ "$bot" =~ ^[a-z][a-z0-9_-]*$ ]]; then
-  echo "gh-sync-read: invalid bot id: $bot" >&2
+if ! [[ "$gateway" =~ ^[a-z][a-z0-9_-]*$ ]]; then
+  echo "gh-sync-read: invalid gateway id: $gateway" >&2
   exit 2
 fi
 
@@ -29,7 +29,7 @@ case "$kind" in
     ;;
 esac
 
-cfg="/run/secrets/rendered/openclaw-${bot}.json"
+cfg="/run/secrets/rendered/openclaw-${gateway}.json"
 if [ ! -r "$cfg" ]; then
   echo "gh-sync-read: missing config: $cfg" >&2
   exit 1

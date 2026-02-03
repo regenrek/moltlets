@@ -82,7 +82,7 @@ function setConfig() {
     config: {
       schemaVersion: 12,
       defaultHost: hostName,
-      fleet: { sshAuthorizedKeys: [], sshKnownHosts: [], botOrder: ["maren"], bots: { maren: {} } },
+      fleet: { sshAuthorizedKeys: [], sshKnownHosts: [], gatewayOrder: ["maren"], gateways: { maren: {} } },
       hosts: {
         [hostName]: baseHost,
       },
@@ -110,7 +110,7 @@ describe("lockdown command", () => {
       config: {
         schemaVersion: 8,
         defaultHost: hostName,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           [hostName]: {
             ...baseHost,

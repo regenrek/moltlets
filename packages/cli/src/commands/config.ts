@@ -91,8 +91,8 @@ const wireSecrets = defineCommand({
   meta: { name: "wire-secrets", description: "Autowire missing secretEnv mappings." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
-    bot: { type: "string", description: "Only wire secrets for this bot id." },
-    scope: { type: "string", description: "Override scope (bot|fleet)." },
+    gateway: { type: "string", description: "Only wire secrets for this gateway id." },
+    scope: { type: "string", description: "Override scope (gateway|fleet)." },
     only: { type: "string", description: "Only wire a specific ENV_VAR (comma-separated)." },
     write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
@@ -109,8 +109,8 @@ const wireSecrets = defineCommand({
     }
 
     const scopeRaw = String(args.scope || "").trim();
-    const scope = scopeRaw ? (scopeRaw === "bot" || scopeRaw === "fleet" ? (scopeRaw as SecretsAutowireScope) : null) : null;
-    if (scopeRaw && !scope) throw new Error(`invalid --scope: ${scopeRaw} (expected bot|fleet)`);
+    const scope = scopeRaw ? (scopeRaw === "gateway" || scopeRaw === "fleet" ? (scopeRaw as SecretsAutowireScope) : null) : null;
+    if (scopeRaw && !scope) throw new Error(`invalid --scope: ${scopeRaw} (expected gateway|fleet)`);
 
     const onlyEnvVars = String(args.only || "")
       .split(",")
@@ -121,7 +121,7 @@ const wireSecrets = defineCommand({
       config: validated,
       hostName: resolved.host,
       scope: scope ?? undefined,
-      bot: args.bot ? String(args.bot).trim() : undefined,
+      gatewayId: args.gateway ? String(args.gateway).trim() : undefined,
       onlyEnvVars,
     });
 
@@ -135,7 +135,7 @@ const wireSecrets = defineCommand({
     }
 
     const summary = plan.updates.map((u) => ({
-      bot: u.bot,
+      gatewayId: u.gatewayId,
       envVar: u.envVar,
       scope: u.scope,
       secretName: u.secretName,
@@ -151,7 +151,7 @@ const wireSecrets = defineCommand({
         const target =
           entry.scope === "fleet"
             ? `fleet.secretEnv.${entry.envVar}`
-            : `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`;
+            : `fleet.gateways.${entry.gatewayId}.profile.secretEnv.${entry.envVar}`;
         console.log(`- ${target} = ${entry.secretName}`);
       }
       console.log("run with --write to apply changes");
@@ -175,17 +175,17 @@ const wireSecrets = defineCommand({
       const target =
         entry.scope === "fleet"
           ? `fleet.secretEnv.${entry.envVar}`
-          : `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`;
+          : `fleet.gateways.${entry.gatewayId}.profile.secretEnv.${entry.envVar}`;
       console.log(`- ${target} = ${entry.secretName}`);
     }
   },
 });
 
 const deriveAllowlist = defineCommand({
-  meta: { name: "derive-allowlist", description: "Derive per-bot secretEnvAllowlist from current config." },
+  meta: { name: "derive-allowlist", description: "Derive per-gateway secretEnvAllowlist from current config." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
-    bot: { type: "string", description: "Only derive allowlist for this bot id." },
+    gateway: { type: "string", description: "Only derive allowlist for this gateway id." },
     write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
   },
@@ -200,14 +200,14 @@ const deriveAllowlist = defineCommand({
     }
 
     const plan = buildFleetSecretsPlan({ config: validated, hostName: resolved.host });
-    const botArg = args.bot ? String(args.bot).trim() : "";
-    const bots = botArg ? [botArg] : validated.fleet.botOrder || [];
-    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
+    const gatewayArg = args.gateway ? String(args.gateway).trim() : "";
+    const gateways = gatewayArg ? [gatewayArg] : validated.fleet.gatewayOrder || [];
+    if (gateways.length === 0) throw new Error("fleet.gatewayOrder is empty (set gateways in fleet/clawlets.json)");
 
-    const updates = bots.map((bot) => {
-      const envVars = plan.byBot?.[bot]?.envVarsRequired;
-      if (!envVars) throw new Error(`unknown bot id: ${bot}`);
-      return { bot, allowlist: envVars };
+    const updates = gateways.map((gatewayId) => {
+      const envVars = plan.byGateway?.[gatewayId]?.envVarsRequired;
+      if (!envVars) throw new Error(`unknown gateway id: ${gatewayId}`);
+      return { gatewayId, allowlist: envVars };
     });
 
     if (!args.write) {
@@ -217,7 +217,7 @@ const deriveAllowlist = defineCommand({
       }
       console.log(`planned: update ${path.relative(repoRoot, configPath)}`);
       for (const entry of updates) {
-        console.log(`- fleet.bots.${entry.bot}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
+        console.log(`- fleet.gateways.${entry.gatewayId}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
       }
       console.log("run with --write to apply changes");
       return;
@@ -225,9 +225,9 @@ const deriveAllowlist = defineCommand({
 
     const next = structuredClone(validated) as any;
     for (const entry of updates) {
-      if (!next.fleet.bots[entry.bot]) next.fleet.bots[entry.bot] = {};
-      if (!next.fleet.bots[entry.bot].profile) next.fleet.bots[entry.bot].profile = {};
-      next.fleet.bots[entry.bot].profile.secretEnvAllowlist = entry.allowlist;
+      if (!next.fleet.gateways[entry.gatewayId]) next.fleet.gateways[entry.gatewayId] = {};
+      if (!next.fleet.gateways[entry.gatewayId].profile) next.fleet.gateways[entry.gatewayId].profile = {};
+      next.fleet.gateways[entry.gatewayId].profile.secretEnvAllowlist = entry.allowlist;
     }
 
     const validation = validateClawletsConfig({ config: next, hostName: resolved.host });
@@ -243,7 +243,7 @@ const deriveAllowlist = defineCommand({
     }
     console.log(`ok: updated ${path.relative(repoRoot, configPath)}`);
     for (const entry of updates) {
-      console.log(`- fleet.bots.${entry.bot}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
+      console.log(`- fleet.gateways.${entry.gatewayId}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
     }
   },
 });
@@ -251,7 +251,7 @@ const deriveAllowlist = defineCommand({
 const get = defineCommand({
   meta: { name: "get", description: "Get a value from fleet/clawlets.json (dot path)." },
   args: {
-    path: { type: "string", description: "Dot path (e.g. fleet.botOrder)." },
+    path: { type: "string", description: "Dot path (e.g. fleet.gatewayOrder)." },
     json: { type: "boolean", description: "JSON output.", default: false },
   },
   async run({ args }) {
@@ -267,7 +267,7 @@ const get = defineCommand({
 const set = defineCommand({
   meta: { name: "set", description: "Set a value in fleet/clawlets.json (dot path)." },
   args: {
-    path: { type: "string", description: "Dot path (e.g. fleet.botOrder)." },
+    path: { type: "string", description: "Dot path (e.g. fleet.gatewayOrder)." },
     value: { type: "string", description: "String value." },
     "value-json": { type: "string", description: "JSON value (parsed)." },
     delete: { type: "boolean", description: "Delete the key at path.", default: false },

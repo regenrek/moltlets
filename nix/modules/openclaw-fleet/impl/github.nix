@@ -1,18 +1,18 @@
 { config, lib, pkgs, defs }:
 
 let
-  inherit (defs) cfg getBotProfile resolveBotWorkspace resolveBotCredsDir;
+  inherit (defs) cfg getGatewayProfile resolveGatewayWorkspace resolveGatewayCredsDir;
 
   mkGithubTokenService = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       gh = profile.github or {};
       enabled =
         (gh.appId or null) != null
         && (gh.installationId or null) != null
         && (gh.privateKeySecret or null) != null;
       stateDir = "${cfg.stateDirBase}/${b}";
-      credsDir = resolveBotCredsDir b;
+      credsDir = resolveGatewayCredsDir b;
       envFile = "${credsDir}/gh.env";
       gitCredsFile = "${credsDir}/git-credentials";
       gitConfigFile = "${stateDir}/.gitconfig";
@@ -22,7 +22,7 @@ let
     in
       lib.optionalAttrs enabled {
         "openclaw-gh-token-${b}" = {
-          description = "Mint GitHub App installation token for bot ${b}";
+          description = "Mint GitHub App installation token for gateway ${b}";
           after = [ "network-online.target" "sops-nix.service" ];
           wants = [ "network-online.target" "sops-nix.service" ];
           path = [ pkgs.coreutils pkgs.curl pkgs.openssl pkgs.jq ];
@@ -33,8 +33,8 @@ let
             CLAWLETS_GH_ENV_FILE = envFile;
             CLAWLETS_GH_GIT_CREDENTIALS_FILE = gitCredsFile;
             CLAWLETS_GH_GITCONFIG_FILE = gitConfigFile;
-            CLAWLETS_BOT_USER = "bot-${b}";
-            CLAWLETS_BOT_GROUP = "bot-${b}";
+            CLAWLETS_GATEWAY_USER = "gateway-${b}";
+            CLAWLETS_GATEWAY_GROUP = "gateway-${b}";
           };
           serviceConfig = {
             Type = "oneshot";
@@ -62,7 +62,7 @@ let
 
   mkGithubTokenTimer = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       gh = profile.github or {};
       enabled =
         (gh.appId or null) != null
@@ -72,7 +72,7 @@ let
     in
       lib.optionalAttrs enabled {
         "openclaw-gh-token-${b}" = {
-          description = "Refresh GitHub App token for bot ${b}";
+          description = "Refresh GitHub App token for gateway ${b}";
           wantedBy = [ "timers.target" ];
           timerConfig = {
             OnBootSec = "2m";
@@ -86,28 +86,28 @@ let
 
   mkGithubSyncService = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       gh = profile.github or {};
       ghEnabled =
         (gh.appId or null) != null
         && (gh.installationId or null) != null
         && (gh.privateKeySecret or null) != null;
       stateDir = "${cfg.stateDirBase}/${b}";
-      workspace = resolveBotWorkspace b;
-      credsDir = resolveBotCredsDir b;
+      workspace = resolveGatewayWorkspace b;
+      credsDir = resolveGatewayCredsDir b;
       ghEnvFile = "${credsDir}/gh.env";
       reposEnv = lib.concatStringsSep " " cfg.githubSync.repos;
       enabled = cfg.githubSync.enable && ghEnabled;
     in
       lib.optionalAttrs enabled {
         "openclaw-gh-sync-${b}" = {
-          description = "Sync GitHub PRs/issues into bot workspace memory (${b})";
+          description = "Sync GitHub PRs/issues into gateway workspace memory (${b})";
           after = [ "network-online.target" ] ++ lib.optional ghEnabled "openclaw-gh-token-${b}.service";
           wants = [ "network-online.target" ] ++ lib.optional ghEnabled "openclaw-gh-token-${b}.service";
           serviceConfig = {
             Type = "oneshot";
-            User = "bot-${b}";
-            Group = "bot-${b}";
+            User = "gateway-${b}";
+            Group = "gateway-${b}";
             WorkingDirectory = stateDir;
             EnvironmentFile = lib.optional ghEnabled "-${ghEnvFile}";
 
@@ -140,7 +140,7 @@ let
 
   mkGithubSyncTimer = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       gh = profile.github or {};
       ghEnabled =
         (gh.appId or null) != null
@@ -150,7 +150,7 @@ let
     in
       lib.optionalAttrs enabled {
         "openclaw-gh-sync-${b}" = {
-          description = "Periodic GitHub sync for bot ${b}";
+          description = "Periodic GitHub sync for gateway ${b}";
           wantedBy = [ "timers.target" ];
           timerConfig = {
             OnCalendar = cfg.githubSync.schedule;

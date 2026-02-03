@@ -54,10 +54,10 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
           const repoRoot = assertRepoRootPath(p.localPath, { allowMissing: false })
           const { configPath, config } = loadClawletsConfig({ repoRoot })
 
-          const botIds = (Array.isArray(config.fleet?.botOrder) ? config.fleet.botOrder : []).filter(
+          const botIds = (Array.isArray(config.fleet?.gatewayOrder) ? config.fleet.gatewayOrder : []).filter(
             (b): b is string => typeof b === "string" && b.trim().length > 0,
           )
-          const botKeys = Object.keys(config.fleet?.bots || {})
+          const botKeys = Object.keys(config.fleet?.gateways || {})
           const effectiveBotIds = botIds.length > 0 ? botIds : botKeys
 
           const hostNames = Object.keys(config.hosts || {})

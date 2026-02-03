@@ -25,18 +25,18 @@ function defaultScopeForSources(sources: string[]): WireScope {
 }
 
 function wireKey(entry: MissingEnvVar): string {
-  return `${entry.bot}:${entry.envVar}`
+  return `${entry.gateway}:${entry.envVar}`
 }
 
 function buildDefaultDraft(entry: MissingEnvVar): WireDraft {
   const scope = defaultScopeForSources(entry.sources || [])
-  const botHint = scope === "bot" ? entry.bot : undefined
+  const botHint = scope === "bot" ? entry.gateway : undefined
   return { scope, secretName: suggestSecretNameForEnvVar(entry.envVar, botHint) }
 }
 
 function wirePath(entry: MissingEnvVar, scope: WireScope): string {
   return scope === "bot"
-    ? `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`
+    ? `fleet.gateways.${entry.gateway}.profile.secretEnv.${entry.envVar}`
     : `fleet.secretEnv.${entry.envVar}`
 }
 
@@ -44,8 +44,8 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
   const grouped = useMemo(() => {
     const buckets = new Map<string, MissingEnvVar[]>()
     for (const entry of props.missingEnvVars) {
-      if (!buckets.has(entry.bot)) buckets.set(entry.bot, [])
-      buckets.get(entry.bot)!.push(entry)
+      if (!buckets.has(entry.gateway)) buckets.set(entry.gateway, [])
+      buckets.get(entry.gateway)!.push(entry)
     }
     return Array.from(buckets.entries())
       .map(([bot, entries]) => ({ bot, entries: entries.sort((a, b) => a.envVar.localeCompare(b.envVar)) }))

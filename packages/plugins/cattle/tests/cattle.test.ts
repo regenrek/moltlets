@@ -64,9 +64,9 @@ describe("cattle command", () => {
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      botOrder: [],
-      bots: {},
-      codex: { enable: false, bots: [] },
+      gatewayOrder: [],
+      gateways: {},
+      codex: { enable: false, gateways: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {

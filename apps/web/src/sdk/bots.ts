@@ -105,7 +105,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const existingBot = next?.fleet?.gateways?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     existingBot.openclaw = data.openclaw
@@ -142,7 +142,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const securityReport = lintOpenclawSecurityConfig({ openclaw: existingBot.openclaw, botId })
+    const securityReport = lintOpenclawSecurityConfig({ openclaw: existingBot.openclaw, gatewayId: botId })
     const inlineSecrets = securityReport.findings.filter((f) => f.id.startsWith("inlineSecret."))
     if (inlineSecrets.length > 0) {
       return {
@@ -181,7 +181,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Updating fleet.bots.${botId}.openclaw` })
+        await emit({ level: "info", message: `Updating fleet.gateways.${botId}.openclaw` })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
@@ -205,7 +205,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const existingBot = next?.fleet?.gateways?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     let warnings: string[] = []
@@ -290,7 +290,7 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
     const { config: raw } = loadClawletsConfigRaw({
       repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
     })
-    const existingBot = (raw as any)?.fleet?.bots?.[botId]
+    const existingBot = (raw as any)?.fleet?.gateways?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const nextBot = structuredClone(existingBot) as Record<string, unknown>
@@ -311,7 +311,7 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
     }
 
     const schemaValidation = validateClawdbotConfig(buildEffectiveOpenclawConfig(nextBot))
-    const diff = diffConfig(existingBot, nextBot, `fleet.bots.${botId}`)
+    const diff = diffConfig(existingBot, nextBot, `fleet.gateways.${botId}`)
 
     return {
       ok: true as const,
@@ -332,7 +332,7 @@ export const verifyBotOpenclawSchema = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const { config: raw } = loadClawletsConfigRaw({ repoRoot })
-    const existingBot = (raw as any)?.fleet?.bots?.[botId]
+    const existingBot = (raw as any)?.fleet?.gateways?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const pinned = getPinnedClawdbotSchema()
@@ -373,7 +373,7 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const existingBot = next?.fleet?.gateways?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const hardened = applySecurityDefaults({ openclaw: existingBot.openclaw, channels: existingBot.channels })
@@ -409,7 +409,7 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Hardening fleet.bots.${botId}` })
+        await emit({ level: "info", message: `Hardening fleet.gateways.${botId}` })
         for (const w of hardened.warnings) await emit({ level: "warn", message: w })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })

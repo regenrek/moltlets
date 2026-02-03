@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -7,8 +7,8 @@
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "botOrder": ["agent"],
-    "bots": {
+    "gatewayOrder": ["agent"],
+    "gateways": {
       "agent": {
         "profile": { "secretEnv": {}, "secretFiles": {} },
         "channels": {},
@@ -19,7 +19,7 @@
         "openclaw": {}
       }
     },
-    "codex": { "enable": false, "bots": [] },
+    "codex": { "enable": false, "gateways": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
   "cattle": {

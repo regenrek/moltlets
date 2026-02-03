@@ -1,5 +1,5 @@
 import path from "node:path";
-import { assertSafeHostName, assertSafeOperatorId, assertSafeSecretName, BotIdSchema } from "@clawlets/shared/lib/identifiers";
+import { assertSafeHostName, assertSafeOperatorId, assertSafeSecretName, GatewayIdSchema } from "@clawlets/shared/lib/identifiers";
 
 export type RepoLayout = {
   repoRoot: string;
@@ -21,11 +21,11 @@ export type RepoLayout = {
   // Local plugin installs (gitignored). Defaults to <runtimeDir>/plugins.
   pluginsDir: string;
 
-  // Fleet (app layer): bot roster, routing, skills, workspace docs.
+  // Fleet (app layer): gateway roster, routing, skills, workspace docs.
   fleetDir: string;
   fleetWorkspacesDir: string;
   fleetWorkspacesCommonDir: string;
-  fleetWorkspacesBotsDir: string;
+  fleetWorkspacesGatewaysDir: string;
   clawletsConfigPath: string;
   bundledSkillsPath: string;
 
@@ -53,7 +53,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
   const fleetDir = path.join(repoRoot, "fleet");
   const fleetWorkspacesDir = path.join(fleetDir, "workspaces");
   const fleetWorkspacesCommonDir = path.join(fleetWorkspacesDir, "common");
-  const fleetWorkspacesBotsDir = path.join(fleetWorkspacesDir, "bots");
+  const fleetWorkspacesGatewaysDir = path.join(fleetWorkspacesDir, "gateways");
   const clawletsConfigPath = path.join(fleetDir, "clawlets.json");
   const bundledSkillsPath = path.join(fleetDir, "bundled-skills.json");
   const secretsDir = path.join(repoRoot, "secrets");
@@ -77,7 +77,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
     fleetDir,
     fleetWorkspacesDir,
     fleetWorkspacesCommonDir,
-    fleetWorkspacesBotsDir,
+    fleetWorkspacesGatewaysDir,
     clawletsConfigPath,
     bundledSkillsPath,
     secretsDir,
@@ -96,9 +96,9 @@ export function getHostOpenTofuDir(layout: RepoLayout, host: string): string {
   return path.join(layout.opentofuDir, host);
 }
 
-export function getBotWorkspaceDir(layout: RepoLayout, botId: string): string {
-  void BotIdSchema.parse(botId);
-  return path.join(layout.fleetWorkspacesBotsDir, botId);
+export function getGatewayWorkspaceDir(layout: RepoLayout, gatewayId: string): string {
+  void GatewayIdSchema.parse(gatewayId);
+  return path.join(layout.fleetWorkspacesGatewaysDir, gatewayId);
 }
 
 export function getHostSecretsDir(layout: RepoLayout, host: string): string {

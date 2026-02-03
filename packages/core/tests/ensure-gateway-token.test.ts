@@ -17,8 +17,8 @@ describe("ensure-gateway-token script", () => {
       env: {
         ...process.env,
         CLAWLETS_GATEWAY_ENV_FILE: outEnvFile,
-        CLAWLETS_BOT_USER: user,
-        CLAWLETS_BOT_GROUP: group,
+        CLAWLETS_GATEWAY_USER: user,
+        CLAWLETS_GATEWAY_GROUP: group,
       },
       stdio: "pipe",
     });

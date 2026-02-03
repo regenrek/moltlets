@@ -37,23 +37,23 @@ in {
         default = false;
         description = "Install the Codex CLI on the host (headless usage).";
       };
-      bots = lib.mkOption {
+      gateways = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        description = "Bots expected to use Codex CLI (for documentation + onboarding).";
+        description = "Gateways expected to use Codex CLI (for documentation + onboarding).";
       };
     };
 
-    bots = lib.mkOption {
+    gateways = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "maren" "sonja" "gunnar" "melinda" ];
-      description = "Bot instance names (also used for system users).";
+      description = "Gateway instance names (also used for system users).";
     };
 
     secretEnv = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = {};
-      description = "Global secret env mapping (ENV_VAR -> sops secret name). Merged into each bot's env file; per-bot overrides via botProfiles.<bot>.secretEnv.";
+      description = "Global secret env mapping (ENV_VAR -> sops secret name). Merged into each gateway's env file; per-gateway overrides via gatewayProfiles.<gateway>.secretEnv.";
     };
 
     secretFiles = lib.mkOption {
@@ -96,20 +96,20 @@ in {
     gatewayPortBase = lib.mkOption {
       type = lib.types.int;
       default = invariants.defaults.gatewayPortBase;
-      description = "Base port for per-bot gateway servers.";
+      description = "Base port for per-gateway OpenClaw servers.";
     };
 
     gatewayPortStride = lib.mkOption {
       type = lib.types.int;
       default = invariants.defaults.gatewayPortStride;
-      description = "Port stride per bot (port = base + bot index * stride).";
+      description = "Port stride per gateway (port = base + gateway index * stride).";
     };
 
     githubSync = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Periodically sync GitHub PRs/issues into each bot workspace memory dir (pure IO inventory).";
+        description = "Periodically sync GitHub PRs/issues into each gateway workspace memory dir (pure IO inventory).";
       };
       schedule = lib.mkOption {
         type = lib.types.str;
@@ -176,10 +176,10 @@ in {
 
         Expected structure:
         - common/<files> (shared)
-        - bots/<bot>/<files> (per-bot overrides; overlay on common)
+        - gateways/<gateway>/<files> (per-gateway overrides; overlay on common)
 
         On start:
-        - seeds empty workspaces (common then bot overlay)
+        - seeds empty workspaces (common then gateway overlay)
         - syncs a managed allowlist (AGENTS.md, SOUL.md, IDENTITY.md, TOOLS.md, USER.md, HEARTBEAT.md) into the workspace
       '';
     };
@@ -207,50 +207,50 @@ in {
       memoryMax = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = "4G";
-        description = "systemd MemoryMax default for bot services (null disables).";
+        description = "systemd MemoryMax default for gateway services (null disables).";
       };
       cpuQuota = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = "200%";
-        description = "systemd CPUQuota default for bot services (null disables).";
+        description = "systemd CPUQuota default for gateway services (null disables).";
       };
       tasksMax = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = 4096;
-        description = "systemd TasksMax default for bot services (null disables).";
+        description = "systemd TasksMax default for gateway services (null disables).";
       };
       ioWeight = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = null;
-        description = "systemd IOWeight default for bot services (null disables).";
+        description = "systemd IOWeight default for gateway services (null disables).";
       };
     };
 
-    botProfiles = lib.mkOption {
+    gatewayProfiles = lib.mkOption {
       type = lib.types.attrsOf (lib.types.submodule ({ ... }: {
         options = {
           skipBootstrap = lib.mkOption {
             type = lib.types.nullOr lib.types.bool;
             default = null;
-            description = "Override agents.defaults.skipBootstrap for this bot (defaults true when workspace.seedDir is set).";
+            description = "Override agents.defaults.skipBootstrap for this gateway (defaults true when workspace.seedDir is set).";
           };
 
           env = lib.mkOption {
             type = lib.types.attrsOf lib.types.str;
             default = {};
-            description = "Per-bot service env vars (non-secret).";
+            description = "Per-gateway service env vars (non-secret).";
           };
 
           secretEnv = lib.mkOption {
             type = lib.types.attrsOf lib.types.str;
             default = {};
-            description = "Per-bot secret env mapping (ENV_VAR -> sops secret name) merged into the bot env file.";
+            description = "Per-gateway secret env mapping (ENV_VAR -> sops secret name) merged into the gateway env file.";
           };
 
           secretEnvAllowlist = lib.mkOption {
             type = lib.types.nullOr (lib.types.listOf lib.types.str);
             default = null;
-            description = "Optional allowlist of secret env vars written into this bot's env file (least-privilege injection).";
+            description = "Optional allowlist of secret env vars written into this gateway's env file (least-privilege injection).";
           };
 
           secretFiles = lib.mkOption {
@@ -262,7 +262,7 @@ in {
                 };
                 targetPath = lib.mkOption {
                   type = lib.types.str;
-                  description = "Absolute target path for the rendered secret file (bot-scoped; must be under the bot state dir).";
+                  description = "Absolute target path for the rendered secret file (gateway-scoped; must be under the gateway state dir).";
                 };
                 mode = lib.mkOption {
                   type = lib.types.str;
@@ -272,12 +272,12 @@ in {
                 owner = lib.mkOption {
                   type = lib.types.nullOr lib.types.str;
                   default = null;
-                  description = "Optional file owner (default: bot user).";
+                  description = "Optional file owner (default: gateway user).";
                 };
                 group = lib.mkOption {
                   type = lib.types.nullOr lib.types.str;
                   default = null;
-                  description = "Optional file group (default: bot group).";
+                  description = "Optional file group (default: gateway group).";
                 };
                 format = lib.mkOption {
                   type = lib.types.nullOr (lib.types.enum [ "raw" "dotenv" "json" "yaml" ]);
@@ -287,7 +287,7 @@ in {
               };
             }));
             default = {};
-            description = "Per-bot secret files (id -> spec).";
+            description = "Per-gateway secret files (id -> spec).";
           };
 
           workspace = {
@@ -299,7 +299,7 @@ in {
             seedDir = lib.mkOption {
               type = lib.types.nullOr lib.types.path;
               default = null;
-              description = "Optional per-bot workspace seed root (same overlay structure as services.openclawFleet.documentsDir); also enables managed-docs sync on each start.";
+              description = "Optional per-gateway workspace seed root (same overlay structure as services.openclawFleet.documentsDir); also enables managed-docs sync on each start.";
             };
           };
 
@@ -307,13 +307,13 @@ in {
             allowBundled = lib.mkOption {
               type = lib.types.nullOr (lib.types.listOf lib.types.str);
               default = null;
-              description = "Per-bot skills.allowBundled (bundled skill allowlist).";
+              description = "Per-gateway skills.allowBundled (bundled skill allowlist).";
             };
             load = {
               extraDirs = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
                 default = [];
-                description = "Per-bot skills.load.extraDirs.";
+                description = "Per-gateway skills.load.extraDirs.";
               };
             };
             entries = lib.mkOption {
@@ -348,7 +348,7 @@ in {
                 };
               }));
               default = {};
-              description = "Per-bot skills.entries with secret injection support.";
+              description = "Per-gateway skills.entries with secret injection support.";
             };
           };
 
@@ -356,7 +356,7 @@ in {
             enabled = lib.mkOption {
               type = lib.types.nullOr lib.types.bool;
               default = null;
-              description = "Per-bot hooks.enabled (set true to enable webhooks).";
+              description = "Per-gateway hooks.enabled (set true to enable webhooks).";
             };
           tokenSecret = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
@@ -397,41 +397,41 @@ in {
             type = lib.types.attrs;
             default = {};
             apply = normalizeJson;
-            description = "Extra OpenClaw config merged into this bot's root config (passthrough; forward-compat).";
+            description = "Extra OpenClaw config merged into this gateway's root config (passthrough; forward-compat).";
           };
 
           gatewayPort = lib.mkOption {
             type = lib.types.nullOr lib.types.int;
             default = null;
-            description = "Optional per-bot gateway port override (otherwise computed from gatewayPortBase/Stride).";
+            description = "Optional per-gateway gateway port override (otherwise computed from gatewayPortBase/Stride).";
           };
 
           resources = {
             memoryMax = lib.mkOption {
               type = lib.types.nullOr lib.types.str;
               default = null;
-              description = "Per-bot override for MemoryMax (null uses global default).";
+              description = "Per-gateway override for MemoryMax (null uses global default).";
             };
             cpuQuota = lib.mkOption {
               type = lib.types.nullOr lib.types.str;
               default = null;
-              description = "Per-bot override for CPUQuota (null uses global default).";
+              description = "Per-gateway override for CPUQuota (null uses global default).";
             };
             tasksMax = lib.mkOption {
               type = lib.types.nullOr lib.types.int;
               default = null;
-              description = "Per-bot override for TasksMax (null uses global default).";
+              description = "Per-gateway override for TasksMax (null uses global default).";
             };
             ioWeight = lib.mkOption {
               type = lib.types.nullOr lib.types.int;
               default = null;
-              description = "Per-bot override for IOWeight (null uses global default).";
+              description = "Per-gateway override for IOWeight (null uses global default).";
             };
           };
         };
       }));
       default = {};
-      description = "Per-bot profile config (service/runtime + secret injection + passthrough).";
+      description = "Per-gateway profile config (service/runtime + secret injection + passthrough).";
     };
 
     backups = {
@@ -472,7 +472,7 @@ in {
     stateDirBase = lib.mkOption {
       type = lib.types.str;
       default = invariants.defaults.stateDirBase;
-      description = "Base directory for per-bot state dirs.";
+      description = "Base directory for per-gateway state dirs.";
     };
   };
 }

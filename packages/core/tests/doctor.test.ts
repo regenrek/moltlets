@@ -92,7 +92,7 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawletsConfig = {
-      schemaVersion: 15,
+      schemaVersion: 16,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
@@ -100,8 +100,8 @@ describe("doctor", () => {
         secretFiles: {},
         sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
         sshKnownHosts: [],
-        botOrder: ["alpha", "beta"],
-        bots: {
+        gatewayOrder: ["alpha", "beta"],
+        gateways: {
           alpha: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_alpha" }, secretFiles: {} },
             channels: { discord: { enabled: true, allowFrom: ["discord user:123"] } },
@@ -113,7 +113,7 @@ describe("doctor", () => {
             openclaw: {},
           },
         },
-        codex: { enable: false, bots: [] },
+        codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
       cattle: {
@@ -146,8 +146,8 @@ describe("doctor", () => {
     await writeFile(path.join(templateRoot, "fleet", "clawlets.json"), JSON.stringify(clawletsConfig, null, 2) + "\n", "utf8");
 
     mockFleetMain = {
-      bots: ["alpha", "beta"],
-      botProfiles: {
+      gateways: ["alpha", "beta"],
+      gatewayProfiles: {
         alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
@@ -208,8 +208,8 @@ describe("doctor", () => {
   afterEach(() => {
     process.env = { ...originalEnv, CLAWLETS_TEMPLATE_DIR: templateRoot };
     mockFleetMain = {
-      bots: ["alpha", "beta"],
-      botProfiles: {
+      gateways: ["alpha", "beta"],
+      gatewayProfiles: {
         alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
@@ -330,8 +330,8 @@ describe("doctor", () => {
   });
 
   it("rejects skills.allowBundled = null in fleet configs", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = null;
-    mockFleetTemplate.botProfiles.alpha.skills.allowBundled = null;
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = null;
+    mockFleetTemplate.gatewayProfiles.alpha.skills.allowBundled = null;
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
@@ -340,7 +340,7 @@ describe("doctor", () => {
   });
 
   it("rejects unknown bundled skills", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["unknown-skill"];
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = ["unknown-skill"];
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
@@ -348,8 +348,8 @@ describe("doctor", () => {
   });
 
   it("requires GitHub app auth config when bundled github enabled", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["github"];
-    mockFleetMain.botProfiles.alpha.github = {};
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = ["github"];
+    mockFleetMain.gatewayProfiles.alpha.github = {};
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
@@ -389,7 +389,7 @@ describe("doctor", () => {
   });
 
   it("flags secrets in clawdbot.json5 and includes", async () => {
-    const botDir = path.join(repoRoot, "fleet", "workspaces", "bots", "maren");
+    const botDir = path.join(repoRoot, "fleet", "workspaces", "gateways", "maren");
     const includeDir = path.join(botDir, "includes");
     await mkdir(includeDir, { recursive: true });
     await writeFile(path.join(includeDir, "extra.json5"), '{ "token": "SUPER_SECRET_1234567890" }\n', "utf8");
@@ -408,8 +408,8 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.fleet.bots.alpha = raw.fleet.bots.alpha || {};
-    raw.fleet.bots.alpha.clawdbot = {
+    raw.fleet.gateways.alpha = raw.fleet.gateways.alpha || {};
+    raw.fleet.gateways.alpha.clawdbot = {
       channels: { discord: { enabled: true, token: "SUPER_SECRET_1234567890" } },
     };
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");

@@ -203,10 +203,10 @@ in {
 
   services.openclawFleet = {
     enable = hostCfg.enable or false;
-    bots = fleet.bots;
+    gateways = fleet.gateways;
     secretEnv = fleet.secretEnv;
     secretFiles = fleet.secretFiles;
-    botProfiles = fleet.botProfiles;
+    gatewayProfiles = fleet.gatewayProfiles;
     backups = fleet.backups;
     documentsDir = fleet.documentsDir;
     codex = fleet.codex;

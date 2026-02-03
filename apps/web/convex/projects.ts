@@ -13,7 +13,7 @@ import {
 } from "./lib/auth";
 import { fail } from "./lib/errors";
 import { rateLimit } from "./lib/rateLimit";
-import { BotIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
+import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 
@@ -26,8 +26,8 @@ function parseLiveSchemaTarget(args: { host: string; botId: string }): { host: s
   if (botId.length > LIVE_SCHEMA_TARGET_MAX_LEN) fail("conflict", "botId too long");
   const hostParsed = HostNameSchema.safeParse(host);
   if (!hostParsed.success) fail("conflict", hostParsed.error.issues[0]?.message ?? "invalid host");
-  const botParsed = BotIdSchema.safeParse(botId);
-  if (!botParsed.success) fail("conflict", botParsed.error.issues[0]?.message ?? "invalid bot id");
+  const gatewayParsed = GatewayIdSchema.safeParse(botId);
+  if (!gatewayParsed.success) fail("conflict", gatewayParsed.error.issues[0]?.message ?? "invalid gateway id");
   return { host, botId };
 }
 

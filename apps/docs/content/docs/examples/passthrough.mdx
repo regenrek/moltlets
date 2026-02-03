@@ -1,6 +1,6 @@
 ---
 title: Passthrough
-description: Advanced OpenClaw keys via fleet.bots.<bot>.openclaw.
+description: Advanced OpenClaw keys via fleet.gateways.<bot>.openclaw.
 ---
 
 Use passthrough when you need an OpenClaw key that is not exposed as a first-class
@@ -8,7 +8,7 @@ Clawlets surface.
 
 Where it lives:
 
-- `fleet.bots.<bot>.openclaw` (raw object merged into the OpenClaw root config)
+- `fleet.gateways.<bot>.openclaw` (raw object merged into the OpenClaw root config)
 
 <Callout type="warning" title="Do not put typed surfaces under openclaw.*">
   Do not set <code>openclaw.channels</code>/<code>openclaw.agents</code>/<code>openclaw.hooks</code>/<code>openclaw.skills</code>/<code>openclaw.plugins</code>.
@@ -20,7 +20,7 @@ Where it lives:
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "openclaw": {
           "logging": {
@@ -39,7 +39,7 @@ Where it lives:
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "openclaw": {
           "messages": {

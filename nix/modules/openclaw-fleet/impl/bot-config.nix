@@ -3,9 +3,9 @@
 let
   inherit (defs)
     cfg
-    getBotProfile
-    resolveBotWorkspace
-    botGatewayPort
+    getGatewayProfile
+    resolveGatewayWorkspace
+    gatewayPortFor
     isNonEmptyString
     invariants
     envRef
@@ -15,7 +15,7 @@ let
 
   mkSkillEntries = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       entries = profile.skills.entries or {};
       mkEntry = skill: entry:
         let
@@ -35,9 +35,9 @@ let
 
   mkSkillsConfig = b:
     let
-      profile = getBotProfile b;
+      profile = getGatewayProfile b;
       allowBundled = profile.skills.allowBundled or null;
-      workspace = resolveBotWorkspace b;
+      workspace = resolveGatewayWorkspace b;
       extraDirs = (profile.skills.load or {}).extraDirs or [];
       effectiveExtraDirs = lib.unique ([ "${workspace}/skills" ] ++ extraDirs);
       entries = mkSkillEntries b;
@@ -46,10 +46,10 @@ let
       // lib.optionalAttrs (effectiveExtraDirs != []) { load.extraDirs = effectiveExtraDirs; }
       // lib.optionalAttrs (entries != null) { entries = entries; };
 
-  mkBotConfig = b:
+  mkGatewayConfig = b:
     let
-      profile = getBotProfile b;
-      workspace = resolveBotWorkspace b;
+      profile = getGatewayProfile b;
+      workspace = resolveGatewayWorkspace b;
       skipBootstrap =
         if (profile.skipBootstrap or null) != null then profile.skipBootstrap
         else (profile.workspace.seedDir or null) != null;
@@ -68,7 +68,7 @@ let
       gatewayPort =
         if (profile.gatewayPort or null) != null
         then profile.gatewayPort
-        else botGatewayPort b;
+        else gatewayPortFor b;
       userCfg = profile.passthrough or { };
       baseCfg = (
         {
@@ -105,5 +105,5 @@ let
         invariants;
 in
 {
-  inherit mkSkillEntries mkSkillsConfig mkBotConfig;
+  inherit mkSkillEntries mkSkillsConfig mkGatewayConfig;
 }

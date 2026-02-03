@@ -12,13 +12,13 @@ const INCLUDE_PATTERN = /["']?\$include["']?\s*:\s*(['"])([^'"]+)\1/g;
 const MAX_SCAN_BYTES = 128 * 1024;
 
 function listClawdbotConfigFiles(root: string): string[] {
-  const botsDir = path.join(root, "fleet", "workspaces", "bots");
-  if (!fs.existsSync(botsDir)) return [];
-  const entries = fs.readdirSync(botsDir, { withFileTypes: true });
+  const gatewaysDir = path.join(root, "fleet", "workspaces", "gateways");
+  if (!fs.existsSync(gatewaysDir)) return [];
+  const entries = fs.readdirSync(gatewaysDir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const cfgPath = path.join(botsDir, entry.name, "clawdbot.json5");
+    const cfgPath = path.join(gatewaysDir, entry.name, "clawdbot.json5");
     if (fs.existsSync(cfgPath)) files.push(cfgPath);
   }
   return files;

@@ -229,7 +229,7 @@ describe("config write failures", () => {
               projectId: "p1" as any,
               ops: [
                 { path: "fleet.codex.enable", valueJson: "true", del: false },
-                { path: "fleet.codex.bots", valueJson: "{", del: false },
+                { path: "fleet.codex.gateways", valueJson: "{", del: false },
               ],
             },
           }),

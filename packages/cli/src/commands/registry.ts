@@ -1,4 +1,4 @@
-import { bot } from "./bot.js";
+import { gateway } from "./bot.js";
 import { bootstrap } from "./bootstrap.js";
 import { openclaw } from "./openclaw.js";
 import { config } from "./config.js";
@@ -16,7 +16,7 @@ import { secrets } from "./secrets.js";
 import { server } from "./server.js";
 
 export const baseCommands = {
-  bot,
+  gateway,
   bootstrap,
   openclaw,
   config,

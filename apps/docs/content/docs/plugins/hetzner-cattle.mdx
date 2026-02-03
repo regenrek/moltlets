@@ -37,7 +37,7 @@ Enable cattle in `fleet/clawlets.json` and set the Hetzner image and defaults:
 
 ```json
 {
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "cattle": {
     "enabled": true,
     "hetzner": {
@@ -68,7 +68,7 @@ orchestrator through a local Unix socket.
   - `systemctl status clf-orchestrator`
   - `systemctl status clf-orchestrator.socket`
 - Socket access:
-  - operator user in group `clf-bots` (or run as root).
+  - operator user in group `clf-gateways` (or run as root).
 - Tailscale installed + authenticated on the Pet host (used for SSH/logs): `tailscale status`
 
 ## Prereqs (project repo)

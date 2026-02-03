@@ -12,7 +12,7 @@ const tryParseGithubFlakeUriMock = vi.fn().mockReturnValue(null);
 const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((value: string) => value);
 const findRepoRootMock = vi.fn().mockReturnValue("/repo");
-const evalFleetConfigMock = vi.fn().mockResolvedValue({ bots: [] });
+const evalFleetConfigMock = vi.fn().mockResolvedValue({ gateways: [] });
 const withFlakesEnvMock = vi.fn((env: NodeJS.ProcessEnv) => env);
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "" });
 const loadClawletsConfigMock = vi.fn();
@@ -106,7 +106,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 15,
+      schemaVersion: 16,
       defaultHost: hostName,
       baseFlake: "",
       fleet: {
@@ -114,9 +114,9 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
         secretFiles: {},
         sshAuthorizedKeys: [],
         sshKnownHosts: [],
-        botOrder: [],
-        bots: {},
-        codex: { enable: false, bots: [] },
+        gatewayOrder: [],
+        gateways: {},
+        codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
       cattle: {

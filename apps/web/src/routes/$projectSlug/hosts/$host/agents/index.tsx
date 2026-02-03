@@ -74,7 +74,7 @@ function AgentsSetup() {
     enabled: Boolean(projectId) && canQuery,
   })
   const config = cfg.data?.config
-  const bots = useMemo(() => (config?.fleet?.botOrder as string[]) || [], [config])
+  const bots = useMemo(() => (config?.fleet?.gatewayOrder as string[]) || [], [config])
 
   const takenIds = useMemo(() => new Set(bots.map((b) => String(b || "").trim()).filter(Boolean)), [bots])
 

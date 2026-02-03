@@ -2,8 +2,8 @@
 
 let
   defs = import ./impl/defs.nix { inherit config lib pkgs project flakeInfo; };
-  botConfig = import ./impl/bot-config.nix { inherit lib defs; };
-  runtime = import ./impl/runtime.nix { inherit config lib pkgs defs botConfig; };
+  gatewayConfig = import ./impl/bot-config.nix { inherit lib defs; };
+  runtime = import ./impl/runtime.nix { inherit config lib pkgs defs gatewayConfig; };
   gatewayToken = import ./impl/gateway-token.nix { inherit config lib pkgs defs; };
   github = import ./impl/github.nix { inherit config lib pkgs defs; };
 
@@ -22,16 +22,16 @@ in
         message = "fleet/bundled-skills.json must be a JSON list of strings.";
       }
       {
-        assertion = lib.all (b: lib.elem b cfg.bots) (builtins.attrNames cfg.botProfiles);
-        message = "services.openclawFleet.botProfiles keys must be a subset of services.openclawFleet.bots.";
+        assertion = lib.all (b: lib.elem b cfg.gateways) (builtins.attrNames cfg.gatewayProfiles);
+        message = "services.openclawFleet.gatewayProfiles keys must be a subset of services.openclawFleet.gateways.";
       }
       {
-        assertion = lib.all (b: lib.elem b cfg.bots) cfg.codex.bots;
-        message = "services.openclawFleet.codex.bots must be a subset of services.openclawFleet.bots.";
+        assertion = lib.all (b: lib.elem b cfg.gateways) cfg.codex.gateways;
+        message = "services.openclawFleet.codex.gateways must be a subset of services.openclawFleet.gateways.";
       }
       {
-        assertion = lib.all (b: ((defs.getBotProfile b).skills.allowBundled or null) != null) cfg.bots;
-        message = "services.openclawFleet.botProfiles.<bot>.skills.allowBundled must be set (no null allow-all).";
+        assertion = lib.all (b: ((defs.getGatewayProfile b).skills.allowBundled or null) != null) cfg.gateways;
+        message = "services.openclawFleet.gatewayProfiles.<gateway>.skills.allowBundled must be set (no null allow-all).";
       }
       {
         assertion = (!cfg.githubSync.enable) || (cfg.githubSync.org != "" || cfg.githubSync.repos != []);
@@ -42,48 +42,48 @@ in
           (!cfg.githubSync.enable)
           || lib.any (b:
             let
-              gh = (defs.getBotProfile b).github or {};
+              gh = (defs.getGatewayProfile b).github or {};
             in
               (gh.appId or null) != null
               && (gh.installationId or null) != null
               && (gh.privateKeySecret or null) != null
-          ) cfg.bots;
-        message = "services.openclawFleet.githubSync.enable requires at least one botProfiles.<bot>.github App config.";
+          ) cfg.gateways;
+        message = "services.openclawFleet.githubSync.enable requires at least one gatewayProfiles.<gateway>.github App config.";
       }
       {
         assertion =
           lib.all (b:
             let
-              allow = (defs.getBotProfile b).skills.allowBundled or null;
+              allow = (defs.getGatewayProfile b).skills.allowBundled or null;
             in
               allow == null || lib.all (s: lib.elem s defs.knownBundledSkills) allow
-          ) cfg.bots;
-        message = "services.openclawFleet.botProfiles.<bot>.skills.allowBundled contains unknown skills (see fleet/bundled-skills.json).";
+          ) cfg.gateways;
+        message = "services.openclawFleet.gatewayProfiles.<gateway>.skills.allowBundled contains unknown skills (see fleet/bundled-skills.json).";
       }
       {
         assertion =
           lib.all (b:
             let
-              allow = (defs.getBotProfile b).skills.allowBundled or null;
-              gh = (defs.getBotProfile b).github or {};
+              allow = (defs.getGatewayProfile b).skills.allowBundled or null;
+              gh = (defs.getGatewayProfile b).github or {};
             in
               !(allow != null && lib.elem "github" allow)
               || ((gh.appId or null) != null && (gh.installationId or null) != null && (gh.privateKeySecret or null) != null && (gh.privateKeySecret or "") != "")
-          ) cfg.bots;
-        message = "bundled skill \"github\" requires botProfiles.<bot>.github.{ appId, installationId, privateKeySecret }.";
+          ) cfg.gateways;
+        message = "bundled skill \"github\" requires gatewayProfiles.<gateway>.github.{ appId, installationId, privateKeySecret }.";
       }
       {
         assertion =
           lib.all (b:
             let
-              allow = (defs.getBotProfile b).skills.allowBundled or null;
-              brave = (defs.getBotProfile b).skills.entries."brave-search" or {};
+              allow = (defs.getGatewayProfile b).skills.allowBundled or null;
+              brave = (defs.getGatewayProfile b).skills.entries."brave-search" or {};
               apiKeySecret = brave.apiKeySecret or null;
             in
               !(allow != null && lib.elem "brave-search" allow)
               || ((apiKeySecret != null && apiKeySecret != ""))
-          ) cfg.bots;
-        message = "bundled skill \"brave-search\" requires botProfiles.<bot>.skills.entries.\"brave-search\".apiKeySecret.";
+          ) cfg.gateways;
+        message = "bundled skill \"brave-search\" requires gatewayProfiles.<gateway>.skills.entries.\"brave-search\".apiKeySecret.";
       }
       {
         assertion =
@@ -94,17 +94,17 @@ in
     ]
     ++ (map (b:
       let
-        profile = defs.getBotProfile b;
+        profile = defs.getGatewayProfile b;
         dupes = defs.secretEnvDerivedDupes profile;
       in
         {
           assertion = dupes == [];
-          message = "services.openclawFleet.botProfiles.${b}: secretEnv conflicts with derived hooks/skill env vars: ${lib.concatStringsSep "," dupes}";
+          message = "services.openclawFleet.gatewayProfiles.${b}: secretEnv conflicts with derived hooks/skill env vars: ${lib.concatStringsSep "," dupes}";
         }
-    ) cfg.bots)
+    ) cfg.gateways)
     ++ (map (b:
       let
-        profile = defs.getBotProfile b;
+        profile = defs.getGatewayProfile b;
         allowlist = profile.secretEnvAllowlist or null;
         effective = defs.buildEffectiveSecretEnv profile;
         unknown =
@@ -114,12 +114,12 @@ in
       in
         {
           assertion = unknown == [];
-          message = "services.openclawFleet.botProfiles.${b}.secretEnvAllowlist contains unknown env vars: ${lib.concatStringsSep "," unknown}";
+          message = "services.openclawFleet.gatewayProfiles.${b}.secretEnvAllowlist contains unknown env vars: ${lib.concatStringsSep "," unknown}";
         }
-    ) cfg.bots)
+    ) cfg.gateways)
     ++ (map (b:
       let
-        profile = defs.getBotProfile b;
+        profile = defs.getGatewayProfile b;
         allowlist = profile.secretEnvAllowlist or null;
         required = builtins.attrNames (defs.buildDerivedSecretEnv profile);
         missing =
@@ -129,12 +129,12 @@ in
       in
         {
           assertion = missing == [];
-          message = "services.openclawFleet.botProfiles.${b}.secretEnvAllowlist missing hooks/skill env vars: ${lib.concatStringsSep "," missing}";
+          message = "services.openclawFleet.gatewayProfiles.${b}.secretEnvAllowlist missing hooks/skill env vars: ${lib.concatStringsSep "," missing}";
         }
-    ) cfg.bots)
+    ) cfg.gateways)
     ++ (lib.concatLists (map (b:
       let
-        entries = (defs.getBotProfile b).skills.entries or {};
+        entries = (defs.getGatewayProfile b).skills.entries or {};
       in
         lib.mapAttrsToList (skill: entry:
           let
@@ -142,13 +142,13 @@ in
           in
             {
               assertion = !hasInline;
-              message = "services.openclawFleet.botProfiles.${b}.skills.entries.${skill}: inline apiKey is not supported; use apiKeySecret (env var injection).";
+              message = "services.openclawFleet.gatewayProfiles.${b}.skills.entries.${skill}: inline apiKey is not supported; use apiKeySecret (env var injection).";
             }
         ) entries
-    ) cfg.bots));
+    ) cfg.gateways));
 
     sops.secrets = lib.mkMerge [
-      runtime.perBotSkillSecrets
+      runtime.perGatewaySkillSecrets
       runtime.secretFileSecrets
       (lib.optionalAttrs (cfg.backups.restic.enable && cfg.backups.restic.passwordSecret != "") {
         "${cfg.backups.restic.passwordSecret}" = defs.mkSopsSecretFor cfg.backups.restic.passwordSecret;
@@ -158,17 +158,17 @@ in
       })
     ];
 
-    sops.templates = lib.mkMerge [ runtime.perBotTemplates ];
+    sops.templates = lib.mkMerge [ runtime.perGatewayTemplates ];
 
-    users.users = builtins.listToAttrs (map runtime.mkBotUser cfg.bots);
-    users.groups = builtins.listToAttrs (map runtime.mkBotGroup cfg.bots);
+    users.users = builtins.listToAttrs (map runtime.mkGatewayUser cfg.gateways);
+    users.groups = builtins.listToAttrs (map runtime.mkGatewayGroup cfg.gateways);
 
     systemd.tmpfiles.rules =
       [
-        # Ensure parent exists for nested per-bot state dirs (service sandboxes rely on this).
+        # Ensure parent exists for nested per-gateway state dirs (service sandboxes rely on this).
         "d ${cfg.stateDirBase} 0755 root root - -"
       ]
-      ++ (lib.concatLists (map runtime.mkStateDir cfg.bots))
+      ++ (lib.concatLists (map runtime.mkStateDir cfg.gateways))
       ++ runtime.secretFileTmpfilesRules
       ++ lib.optionals cfg.opsSnapshot.enable [
         "d ${cfg.opsSnapshot.outDir} 0750 root root - -"
@@ -237,10 +237,10 @@ in
       ;
 
     systemd.services = lib.mkMerge [
-      (builtins.listToAttrs (map runtime.mkService cfg.bots))
-      (lib.mkMerge (map gatewayToken.mkGatewayTokenService cfg.bots))
-      (lib.mkMerge (map github.mkGithubTokenService cfg.bots))
-      (lib.mkMerge (map github.mkGithubSyncService cfg.bots))
+      (builtins.listToAttrs (map runtime.mkService cfg.gateways))
+      (lib.mkMerge (map gatewayToken.mkGatewayTokenService cfg.gateways))
+      (lib.mkMerge (map github.mkGithubTokenService cfg.gateways))
+      (lib.mkMerge (map github.mkGithubSyncService cfg.gateways))
       (lib.optionalAttrs cfg.opsSnapshot.enable {
         clawlets-ops-snapshot = {
           description = "Clawlets ops snapshot (no secrets)";
@@ -280,8 +280,8 @@ in
     ];
 
     systemd.timers = lib.mkMerge [
-      (lib.mkMerge (map github.mkGithubTokenTimer cfg.bots))
-      (lib.mkMerge (map github.mkGithubSyncTimer cfg.bots))
+      (lib.mkMerge (map github.mkGithubTokenTimer cfg.gateways))
+      (lib.mkMerge (map github.mkGithubSyncTimer cfg.gateways))
       (lib.optionalAttrs cfg.opsSnapshot.enable {
         clawlets-ops-snapshot = {
           description = "Periodic clawlets ops snapshot";

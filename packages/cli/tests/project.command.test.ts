@@ -39,7 +39,7 @@ describe("project init", () => {
       JSON.stringify(
         {
           schemaVersion: 8,
-          fleet: { botOrder: [], bots: {} },
+          fleet: { gatewayOrder: [], gateways: {} },
           hosts: {
             "clawdbot-fleet-host": {
               cache: { netrc: { enable: true } },

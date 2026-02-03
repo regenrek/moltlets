@@ -49,7 +49,7 @@ describe("cattle logs/ssh", () => {
   });
 
   it("logs via tailnet ssh", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: [] } });
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: [] } });
     (config as any).cattle = { enabled: true };
     loadHostContextMock.mockReturnValue({ config });
     loadDeployCredsMock.mockReturnValue({ values: { HCLOUD_TOKEN: "token" } });
@@ -61,7 +61,7 @@ describe("cattle logs/ssh", () => {
   });
 
   it("ssh opens session", async () => {
-    const config = makeConfig({ fleetOverrides: { botOrder: [] } });
+    const config = makeConfig({ fleetOverrides: { gatewayOrder: [] } });
     (config as any).cattle = { enabled: true };
     loadHostContextMock.mockReturnValue({ config });
     loadDeployCredsMock.mockReturnValue({ values: { HCLOUD_TOKEN: "token" } });

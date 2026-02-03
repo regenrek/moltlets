@@ -3,7 +3,7 @@
 #
 # Notes:
 # - no heuristics / scoring; raw inventory only
-# - safe to run under a bot user with GH_TOKEN/GITHUB_TOKEN
+# - safe to run under a gateway user with GH_TOKEN/GITHUB_TOKEN
 
 set -euo pipefail
 

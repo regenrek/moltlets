@@ -21,7 +21,7 @@ describe("fleet set", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findRepoRootMock.mockReturnValue("/repo");
-    const baseConfig = createDefaultClawletsConfig({ host: "clawdbot-fleet-host", bots: [] });
+    const baseConfig = createDefaultClawletsConfig({ host: "clawdbot-fleet-host", gateways: [] });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config: baseConfig });
   });
 

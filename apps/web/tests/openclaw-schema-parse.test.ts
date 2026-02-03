@@ -108,12 +108,12 @@ describe("openclaw schema output parsing", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -151,12 +151,12 @@ describe("openclaw schema output parsing", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -194,12 +194,12 @@ describe("openclaw schema output parsing", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -229,21 +229,21 @@ describe("openclaw schema output parsing", () => {
       import("@clawlets/core/lib/ssh-remote"),
     ])
     const cmd = __test_buildGatewaySchemaCommand({
-      botId: "bot-1",
+      gatewayId: "bot-1",
       port: 1234,
       sudo: true,
       nonce: "nonce",
     })
     const envFile = "/srv/openclaw/bot-1/credentials/gateway.env"
     const envFileQuoted = shellQuote(envFile).replace(/'/g, "'\\''")
-    expect(cmd).toContain(shellQuote("bot-bot-1"))
+    expect(cmd).toContain(shellQuote("gateway-bot-1"))
     expect(cmd).not.toContain(`source ${envFileQuoted}`)
     expect(cmd).toContain("OPENCLAW_GATEWAY_TOKEN")
     expect(cmd).toContain(`env OPENCLAW_GATEWAY_TOKEN="$token"`)
     expect(cmd).not.toContain(`--token "$token"`)
   })
 
-  it("escapes bot id metacharacters in gateway schema command", async () => {
+  it("escapes gateway id metacharacters in gateway schema command", async () => {
     vi.resetModules()
     vi.doMock("@clawlets/core/lib/ssh-remote", async () => {
       const actual = await vi.importActual<typeof import("@clawlets/core/lib/ssh-remote")>(
@@ -257,14 +257,14 @@ describe("openclaw schema output parsing", () => {
     ])
     const botId = "bot 1;echo pwned"
     const cmd = __test_buildGatewaySchemaCommand({
-      botId,
+      gatewayId: botId,
       port: 1234,
       sudo: true,
       nonce: "nonce",
     })
     const envFile = `/srv/openclaw/${botId}/credentials/gateway.env`
     const envFileQuoted = shellQuote(envFile).replace(/'/g, "'\\''")
-    expect(cmd).toContain(shellQuote(`bot-${botId}`))
+    expect(cmd).toContain(shellQuote(`gateway-${botId}`))
     expect(cmd).not.toContain(`source ${envFileQuoted}`)
     expect(cmd).toContain("OPENCLAW_GATEWAY_TOKEN")
     expect(cmd).toContain(`env OPENCLAW_GATEWAY_TOKEN="$token"`)
@@ -291,12 +291,12 @@ describe("openclaw schema output parsing", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))

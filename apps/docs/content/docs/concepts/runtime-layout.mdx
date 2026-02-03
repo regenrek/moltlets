@@ -29,7 +29,7 @@ Host-wide secrets/tools:
 The orchestrator runs as a separate service and keeps its queue state under `/var`.
 
 - socket dir: `/run/clf/`
-- API socket: `/run/clf/orchestrator.sock` (systemd socket `0660`, group `clf-bots`)
+- API socket: `/run/clf/orchestrator.sock` (systemd socket `0660`, group `clf-gateways`)
 - state dir: `/var/lib/clf/orchestrator/`
 - DB: `/var/lib/clf/orchestrator/state.sqlite` (SQLite WAL; contains job payloads/results + token hashes)
 - cattle personas snapshot: `/etc/clf/cattle-personas/<name>/{SOUL.md,config.json}` (read-only)

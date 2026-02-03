@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { ConfigCard } from "../shared/config-card"
-import { buildBotConfigPath } from "../shared/config-path"
+import { buildGatewayConfigPath } from "../shared/config-path"
 import { isPlainObject } from "../helpers"
 import { TextListField } from "../shared/text-list-field"
 
@@ -95,7 +95,7 @@ export function SkillsConfigCard(props: {
   }
 
   return (
-    <ConfigCard title="Skills config (first-class)" configPath={buildBotConfigPath(props.botId, "skills")}>
+    <ConfigCard title="Skills config (first-class)" configPath={buildGatewayConfigPath(props.botId, "skills")}>
       <div className="grid gap-4 md:grid-cols-2">
         <TextListField
           label="allowBundled (one per line)"

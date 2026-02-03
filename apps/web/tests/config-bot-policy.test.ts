@@ -37,11 +37,11 @@ async function loadConfig() {
       },
       loadClawletsConfig: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { openclaw: { ok: true } } } } },
+        config: { fleet: { gateways: { bot1: { openclaw: { ok: true } } } } },
       }),
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { openclaw: { ok: true } } } } },
+        config: { fleet: { gateways: { bot1: { openclaw: { ok: true } } } } },
       }),
       writeClawletsConfig: async () => {},
     }
@@ -60,7 +60,7 @@ describe("config bot openclaw policy", () => {
         await mod.configDotSet({
           data: {
             projectId: "p1" as any,
-            path: "fleet.bots.bot1.channels.discord.enabled",
+            path: "fleet.gateways.bot1.channels.discord.enabled",
             valueJson: "true",
             value: undefined,
             del: false,
@@ -85,7 +85,7 @@ describe("config bot openclaw policy", () => {
             projectId: "p1" as any,
             ops: [
               {
-                path: "fleet.bots.bot1.channels.discord.enabled",
+                path: "fleet.gateways.bot1.channels.discord.enabled",
                 valueJson: "true",
                 del: false,
               },
@@ -113,7 +113,7 @@ describe("config bot openclaw policy", () => {
       mod.configDotSet({
         data: {
           projectId: "p1" as any,
-          path: "fleet.bots.bot1.hooks.enabled",
+          path: "fleet.gateways.bot1.hooks.enabled",
           valueJson: "true",
           value: undefined,
           del: false,
@@ -126,7 +126,7 @@ describe("config bot openclaw policy", () => {
       mod.configDotSet({
         data: {
           projectId: "p1" as any,
-          path: "fleet.bots.bot1.skills.allowBundled",
+          path: "fleet.gateways.bot1.skills.allowBundled",
           valueJson: '["brave-search"]',
           value: undefined,
           del: false,
@@ -139,7 +139,7 @@ describe("config bot openclaw policy", () => {
       mod.configDotSet({
         data: {
           projectId: "p1" as any,
-          path: "fleet.bots.bot1.plugins.enabled",
+          path: "fleet.gateways.bot1.plugins.enabled",
           valueJson: "false",
           value: undefined,
           del: false,
@@ -160,7 +160,7 @@ describe("config bot openclaw policy", () => {
         await mod.configDotSet({
           data: {
             projectId: "p1" as any,
-            path: "fleet.bots.bot1.openclaw.token",
+            path: "fleet.gateways.bot1.openclaw.token",
             value: "nope",
             valueJson: undefined,
             del: false,
@@ -183,7 +183,7 @@ describe("config bot openclaw policy", () => {
         await mod.configDotBatch({
           data: {
             projectId: "p1" as any,
-            ops: [{ path: "fleet.bots.bot1.openclaw.token", value: "nope", del: false }],
+            ops: [{ path: "fleet.gateways.bot1.openclaw.token", value: "nope", del: false }],
           },
         }),
     )
@@ -203,7 +203,7 @@ describe("config bot openclaw policy", () => {
         await mod.writeClawletsConfigFile({
           data: {
             projectId: "p1" as any,
-            next: { fleet: { bots: { bot1: { openclaw: { ok: false } } } } },
+            next: { fleet: { gateways: { bot1: { openclaw: { ok: false } } } } },
             title: "Update config",
           },
         }),

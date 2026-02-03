@@ -57,7 +57,7 @@ describe("config set", () => {
   });
 
   it("show prints JSON", async () => {
-    const configObj = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const configObj = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigMock.mockReturnValue({ config: configObj });
     const { config } = await import("../src/commands/config");
     await config.subCommands.show.run({ args: { pretty: false } } as any);
@@ -65,7 +65,7 @@ describe("config set", () => {
   });
 
   it("validate prints ok", async () => {
-    const configObj = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const configObj = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigMock.mockReturnValue({ config: configObj });
     const { config } = await import("../src/commands/config");
     await config.subCommands.validate.run({ args: {} } as any);
@@ -73,7 +73,7 @@ describe("config set", () => {
   });
 
   it("get prints JSON path output", async () => {
-    const configObj = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const configObj = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigMock.mockReturnValue({ config: configObj });
     const { config } = await import("../src/commands/config");
     await config.subCommands.get.run({ args: { path: "defaultHost", json: true } } as any);
@@ -83,7 +83,7 @@ describe("config set", () => {
   });
 
   it("can fix an invalid config by applying a valid update", async () => {
-    const baseConfig = createDefaultClawletsConfig({ host: "clawdbot-fleet-host", bots: [] });
+    const baseConfig = createDefaultClawletsConfig({ host: "clawdbot-fleet-host", gateways: [] });
     baseConfig.cattle.enabled = true;
     baseConfig.cattle.hetzner.image = "";
     loadClawletsConfigRawMock.mockReturnValue({
@@ -102,31 +102,31 @@ describe("config set", () => {
   });
 
   it("set fails on invalid JSON", async () => {
-    const baseConfig = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigRawMock.mockReturnValue({
       configPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
-    await expect(config.subCommands.set.run({ args: { path: "fleet.botOrder", "value-json": "nope" } } as any)).rejects.toThrow(
+    await expect(config.subCommands.set.run({ args: { path: "fleet.gatewayOrder", "value-json": "nope" } } as any)).rejects.toThrow(
       /invalid --value-json/i,
     );
   });
 
   it("set rejects missing value flags", async () => {
-    const baseConfig = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigRawMock.mockReturnValue({
       configPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
-    await expect(config.subCommands.set.run({ args: { path: "fleet.botOrder" } } as any)).rejects.toThrow(
+    await expect(config.subCommands.set.run({ args: { path: "fleet.gatewayOrder" } } as any)).rejects.toThrow(
       /set requires/i,
     );
   });
 
   it("set delete errors on missing path", async () => {
-    const baseConfig = createDefaultClawletsConfig({ host: "alpha", bots: [] });
+    const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: [] });
     loadClawletsConfigRawMock.mockReturnValue({
       configPath: "/repo/fleet/clawlets.json",
       config: baseConfig,

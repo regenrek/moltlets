@@ -11,7 +11,7 @@ export function requireTargetHost(targetHost: string, hostName: string): string 
     [
       `missing target host for ${hostName}`,
       "set it in fleet/clawlets.json (hosts.<host>.targetHost) or pass --target-host",
-      "recommended: use an SSH config alias (e.g. botsmj)",
+      "recommended: use an SSH config alias (e.g. gatewaysmj)",
     ].join("; "),
   );
 }

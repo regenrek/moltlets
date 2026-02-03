@@ -12,7 +12,7 @@ export const openclawHarden = defineCommand({
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
-    bot: { type: "string", description: "Only apply hardening to this bot id." },
+    gateway: { type: "string", description: "Only apply hardening to this gateway id." },
     write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
   },
@@ -21,23 +21,23 @@ export const openclawHarden = defineCommand({
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot, runtimeDir: (args as any).runtimeDir });
     const validated = ClawletsConfigSchema.parse(raw);
 
-    const botArg = String(args.bot || "").trim();
-    const bots = botArg ? [botArg] : validated.fleet.botOrder || [];
-    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
+    const gatewayArg = String(args.gateway || "").trim();
+    const gateways = gatewayArg ? [gatewayArg] : validated.fleet.gatewayOrder || [];
+    if (gateways.length === 0) throw new Error("fleet.gatewayOrder is empty (set gateways in fleet/clawlets.json)");
 
     const next = structuredClone(validated) as any;
 
     const updates: Array<{
-      bot: string;
+      gatewayId: string;
       changes: Array<{ scope: "openclaw" | "channels"; path: string }>;
       warnings: string[];
     }> = [];
 
-    for (const bot of bots) {
-      const botId = String(bot || "").trim();
-      if (!botId) continue;
-      const existing = next?.fleet?.bots?.[botId];
-      if (!existing || typeof existing !== "object") throw new Error(`unknown bot id: ${botId}`);
+    for (const gatewayIdRaw of gateways) {
+      const gatewayId = String(gatewayIdRaw || "").trim();
+      if (!gatewayId) continue;
+      const existing = next?.fleet?.gateways?.[gatewayId];
+      if (!existing || typeof existing !== "object") throw new Error(`unknown gateway id: ${gatewayId}`);
 
       const patched = applySecurityDefaults({ openclaw: (existing as any).openclaw, channels: (existing as any).channels });
       if (patched.changes.length === 0) continue;
@@ -45,7 +45,7 @@ export const openclawHarden = defineCommand({
       (existing as any).openclaw = patched.openclaw;
       (existing as any).channels = patched.channels;
       updates.push({
-        bot: botId,
+        gatewayId,
         changes: patched.changes,
         warnings: patched.warnings,
       });
@@ -61,7 +61,7 @@ export const openclawHarden = defineCommand({
     }
 
     for (const u of updates) {
-      for (const w of u.warnings) console.error(`warn: bot=${u.bot} ${w}`);
+      for (const w of u.warnings) console.error(`warn: gateway=${u.gatewayId} ${w}`);
     }
 
     if (!args.write) {
@@ -71,7 +71,7 @@ export const openclawHarden = defineCommand({
       }
       console.log(`planned: update ${path.relative(repoRoot, configPath)}`);
       for (const u of updates) {
-        for (const c of u.changes) console.log(`- fleet.bots.${u.bot}.${c.scope}.${c.path}`);
+        for (const c of u.changes) console.log(`- fleet.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
       }
       console.log("run with --write to apply changes");
       return;
@@ -87,7 +87,7 @@ export const openclawHarden = defineCommand({
 
     console.log(`ok: updated ${path.relative(repoRoot, configPath)}`);
     for (const u of updates) {
-      for (const c of u.changes) console.log(`- fleet.bots.${u.bot}.${c.scope}.${c.path}`);
+      for (const c of u.changes) console.log(`- fleet.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
     }
   },
 });

@@ -60,7 +60,7 @@ let
   mkEnvLine = envVar: value: "${envVar}=${value}";
 
   cfg = config.services.clfOrchestrator;
-  openclawBots = lib.attrByPath [ "services" "openclawFleet" "bots" ] [ ] config;
+  openclawGateways = lib.attrByPath [ "services" "openclawFleet" "gateways" ] [ ] config;
   adminAuthorizedKeys = lib.attrByPath [ "users" "users" "admin" "openssh" "authorizedKeys" "keys" ] [ ] config;
 in
 {
@@ -176,7 +176,7 @@ in
     (lib.mkIf (cfg.enable && cfg.package != null) {
       networking.firewall.interfaces.tailscale0.allowedTCPPorts = lib.mkAfter [ cfg.cattle.secretsListenPort ];
 
-      users.groups.clf-bots = { };
+      users.groups.clf-gateways = { };
       users.groups.clf-orchestrator = { };
       users.users = lib.mkMerge [
         {
@@ -189,9 +189,9 @@ in
           };
         }
         (builtins.listToAttrs (map (b: {
-          name = "bot-${b}";
-          value = { extraGroups = lib.mkAfter [ "clf-bots" ]; };
-        }) openclawBots))
+          name = "gateway-${b}";
+          value = { extraGroups = lib.mkAfter [ "clf-gateways" ]; };
+        }) openclawGateways))
       ];
 
       environment.systemPackages = [ cfg.package ];
@@ -256,7 +256,7 @@ in
         socketConfig = {
           ListenStream = cfg.socketPath;
           SocketUser = "root";
-          SocketGroup = "clf-bots";
+          SocketGroup = "clf-gateways";
           SocketMode = "0660";
           RemoveOnStop = true;
         };

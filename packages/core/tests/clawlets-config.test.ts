@@ -18,8 +18,8 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "../pwn": {
             enable: false,
@@ -33,12 +33,12 @@ describe("clawlets config schema", () => {
     ).toThrow(/invalid host name/i);
   });
 
-  it("rejects duplicate bot ids", async () => {
+  it("rejects duplicate gateway ids", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren", "maren"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren", "maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -49,15 +49,15 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/duplicate bot id/i);
+    ).toThrow(/duplicate gateway id/i);
   });
 
-  it("rejects missing botOrder when bots present", async () => {
+  it("rejects missing gatewayOrder when gateways present", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: [], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: [], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -68,15 +68,15 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/botOrder must be set/i);
+    ).toThrow(/gatewayOrder must be set/i);
   });
 
-  it("rejects botOrder with unknown bot id", async () => {
+  it("rejects gatewayOrder with unknown gateway id", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren", "ghost"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren", "ghost"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -87,15 +87,15 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/unknown bot id/i);
+    ).toThrow(/unknown gateway id/i);
   });
 
-  it("rejects botOrder missing bots", async () => {
+  it("rejects gatewayOrder missing gateways", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren"], bots: { maren: {}, sonja: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {}, sonja: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -106,15 +106,15 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/botOrder missing bots/i);
+    ).toThrow(/gatewayOrder missing gateways/i);
   });
 
   it("rejects invalid adminCidr values", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -133,8 +133,8 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -153,8 +153,8 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 16,
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -175,13 +175,13 @@ describe("clawlets config schema", () => {
 
   it("createDefaultClawletsConfig trims and defaults", async () => {
     const { createDefaultClawletsConfig } = await import("../src/lib/clawlets-config");
-    const cfg = createDefaultClawletsConfig({ host: "   ", bots: [" maren ", "", "sonja"] });
+    const cfg = createDefaultClawletsConfig({ host: "   ", gateways: [" maren ", "", "sonja"] });
     expect(Object.keys(cfg.hosts)).toEqual(["openclaw-fleet-host"]);
     expect(cfg.defaultHost).toBe("openclaw-fleet-host");
-    expect(cfg.fleet.botOrder).toEqual(["maren", "sonja"]);
-    expect(Object.keys(cfg.fleet.bots)).toEqual(["maren", "sonja"]);
+    expect(cfg.fleet.gatewayOrder).toEqual(["maren", "sonja"]);
+    expect(Object.keys(cfg.fleet.gateways)).toEqual(["maren", "sonja"]);
     expect(cfg.fleet.secretEnv).toEqual({ ZAI_API_KEY: "z_ai_api_key" });
-    expect(cfg.fleet.bots.maren.profile.secretEnv).toEqual({});
+    expect(cfg.fleet.gateways.maren.profile.secretEnv).toEqual({});
     expect(cfg.cattle.enabled).toBe(false);
     expect(cfg.cattle.hetzner.defaultTtl).toBe("2h");
     expect(cfg.hosts["openclaw-fleet-host"].sshExposure?.mode).toBe("bootstrap");
@@ -201,31 +201,31 @@ describe("clawlets config schema", () => {
     } as const;
 
     const cfgA = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
-      fleet: { botOrder: ["maren"], bots: { maren: {} } },
+      schemaVersion: 16,
+      fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
       hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
     cfgA.fleet.secretEnv.NEW_ENV_VAR = "new_secret";
-    cfgA.fleet.bots.maren.profile.secretEnv.LOCAL_ENV_VAR = "local_secret";
+    cfgA.fleet.gateways.maren.profile.secretEnv.LOCAL_ENV_VAR = "local_secret";
 
     const cfgB = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
-      fleet: { botOrder: ["maren"], bots: { maren: {} } },
+      schemaVersion: 16,
+      fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
       hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
     expect(cfgB.fleet.secretEnv.NEW_ENV_VAR).toBeUndefined();
-    expect(cfgB.fleet.bots.maren.profile.secretEnv.LOCAL_ENV_VAR).toBeUndefined();
+    expect(cfgB.fleet.gateways.maren.profile.secretEnv.LOCAL_ENV_VAR).toBeUndefined();
   });
 
   it("rejects defaultHost not present in hosts", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
+        schemaVersion: 16,
         defaultHost: "missing-host",
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -326,7 +326,7 @@ describe("clawlets config schema", () => {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
         schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -351,7 +351,7 @@ describe("clawlets config schema", () => {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
         schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -376,7 +376,7 @@ describe("clawlets config schema", () => {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
         schemaVersion: 9,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -398,11 +398,11 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
+        schemaVersion: 16,
         fleet: {
-          botOrder: ["maren"],
+          gatewayOrder: ["maren"],
           secretEnv: { "bad-key": "../pwn" },
-          bots: { maren: {} },
+          gateways: { maren: {} },
         },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
@@ -418,7 +418,7 @@ describe("clawlets config schema", () => {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
         schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } } },
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -439,9 +439,9 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
+        schemaVersion: 16,
         cattle: { enabled: true, hetzner: { image: "img-1", defaultTtl: "2 hours" } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
@@ -453,9 +453,9 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
+        schemaVersion: 16,
         cattle: { enabled: true, hetzner: { image: "" } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
@@ -467,9 +467,9 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 15,
+        schemaVersion: 16,
         cattle: { enabled: false, hetzner: { labels: { "bad key": "x" } } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        fleet: { gatewayOrder: ["maren"], gateways: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },

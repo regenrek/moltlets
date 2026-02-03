@@ -1,21 +1,21 @@
 { config, lib, pkgs, defs }:
 
 let
-  inherit (defs) resolveBotCredsDir;
+  inherit (defs) resolveGatewayCredsDir;
 
   mkGatewayTokenService = b:
     let
-      credsDir = resolveBotCredsDir b;
+      credsDir = resolveGatewayCredsDir b;
       envFile = "${credsDir}/gateway.env";
     in
       {
         "openclaw-gateway-token-${b}" = {
-          description = "Ensure Gateway auth token for bot ${b}";
+          description = "Ensure Gateway auth token for gateway ${b}";
           path = [ pkgs.bash pkgs.coreutils pkgs.openssl ];
           environment = {
             CLAWLETS_GATEWAY_ENV_FILE = envFile;
-            CLAWLETS_BOT_USER = "bot-${b}";
-            CLAWLETS_BOT_GROUP = "bot-${b}";
+            CLAWLETS_GATEWAY_USER = "gateway-${b}";
+            CLAWLETS_GATEWAY_GROUP = "gateway-${b}";
           };
           serviceConfig = {
             Type = "oneshot";

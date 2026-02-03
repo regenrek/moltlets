@@ -92,7 +92,7 @@
           '';
 
           meta = {
-            description = "ClawletFleet (bot-facing control plane + orchestrator)";
+            description = "ClawletFleet (gateway-facing control plane + orchestrator)";
             mainProgram = "clf";
           };
         };

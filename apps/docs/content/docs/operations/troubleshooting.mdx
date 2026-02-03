@@ -90,7 +90,7 @@ clawlets server restart --target-host <host> --unit openclaw-melinda.service
   - `ls -la /run/clf/orchestrator.sock`
   - `systemctl status clf-orchestrator.socket`
 - Verify caller is allowed:
-  - `id` includes group `clf-bots`
+  - `id` includes group `clf-gateways`
   - or run as root
 
 ## Cattle job stuck (queued/running)

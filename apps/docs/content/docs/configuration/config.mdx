@@ -29,27 +29,27 @@ state; the local runtime dir holds generated artifacts and operator keys.
 
 The top-level keys split the fleet model, cattle, and per-host settings:
 
-- `schemaVersion`: currently `15`
+- `schemaVersion`: currently `16`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
-- `fleet.*`: bots + infra policy + raw OpenClaw config
+- `fleet.*`: gateways (bot instances) + infra policy + raw OpenClaw config
 - `cattle.*`: ephemeral agent instances (Hetzner)
 - `hosts.<host>`: host entries keyed by host name
 
 Fleet (`fleet.*`):
 
-Fleet settings define bot order, secret wiring, and the raw OpenClaw configuration
+Fleet settings define gateway order, secret wiring, and the raw OpenClaw configuration
 that gets rendered into services.
 
 - `fleet.secretEnv`: env var name → sops secret name (global defaults)
 - `fleet.secretFiles`: host‑scoped secret files (id → `{ secretName, targetPath, ... }`)
-- `fleet.botOrder`: ordered bot ids (deterministic ports/services)
-- `fleet.bots.<bot>`: per‑bot config object
+- `fleet.gatewayOrder`: ordered gateway ids (deterministic ports/services)
+- `fleet.gateways.<id>`: per‑gateway (bot instance) config object
   - `profile`: clawlets/template infra knobs (systemd/env/secrets/limits)
-    - `profile.secretEnv`: per‑bot env var → sops secret name overrides
-    - `profile.secretEnvAllowlist`: optional allowlist of env vars written into the bot env file
-    - `profile.secretFiles`: bot‑scoped secret files
-    - other keys are forwarded into Nix `services.openclawFleet.botProfiles.<bot>`
+    - `profile.secretEnv`: per‑gateway env var → sops secret name overrides
+    - `profile.secretEnvAllowlist`: optional allowlist of env vars written into the gateway env file
+    - `profile.secretFiles`: gateway‑scoped secret files
+    - other keys are forwarded into Nix `services.openclawFleet.gatewayProfiles.<id>`
   - `channels`: typed channel config (discord/telegram/etc)
   - `agents`: typed agent defaults (model/thinking/maxConcurrent/etc)
   - `hooks`: typed hooks config (token + Gmail push wiring)
@@ -94,7 +94,7 @@ special tasks.
 
 Secret mappings are declared in config and resolved into sops files under `secrets/`.
 OpenClaw config should use `${ENV_VAR}` (uppercase/underscores). Clawlets scans the
-effective bot config (typed fields + `fleet.bots.<bot>.openclaw` passthrough) for
+effective gateway config (typed fields + `fleet.gateways.<id>.openclaw` passthrough) for
 `${ENV_VAR}` refs plus channel tokens, hooks tokens, skill `apiKey` fields, and provider
 `apiKey` fields to build the secrets plan.
 
@@ -107,7 +107,7 @@ Hooks + skills env wiring:
 - `hooks.gmail.pushToken` → `${OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN}`
 - `skills.entries.<skill>.apiKey` → `${OPENCLAW_SKILL_<SKILL>_API_KEY}`
 
-If you set `fleet.bots.<bot>.hooks.*Secret` or `fleet.bots.<bot>.skills.entries.*.apiKeySecret`,
+If you set `fleet.gateways.<id>.hooks.*Secret` or `fleet.gateways.<id>.skills.entries.*.apiKeySecret`,
 Clawlets derives the env mapping automatically.
 
 ## Autowire missing secretEnv
@@ -128,10 +128,10 @@ UI:
 
 ## Least‑privilege env injection (optional)
 
-You can restrict which env vars are injected into each bot to reduce blast radius if
+You can restrict which env vars are injected into each gateway to reduce blast radius if
 an env file is exposed.
 
-- Set `profile.secretEnvAllowlist` to restrict which env vars are written into each bot env file.
+- Set `profile.secretEnvAllowlist` to restrict which env vars are written into each gateway env file.
 - Generate from current config: `clawlets config derive-allowlist --write`.
 - `clawlets config validate --strict` fails if the allowlist doesn’t match derived requirements.
 
@@ -147,19 +147,20 @@ Strict mode turns warnings into failures so CI can gate on configuration quality
 Schema versions change as the configuration model evolves. When you upgrade the CLI,
 scan these notes to see whether any keys moved or renamed.
 
+- v16: `fleet.botOrder` → `fleet.gatewayOrder`, `fleet.bots` → `fleet.gateways`, `fleet.codex.bots` → `fleet.codex.gateways`.
 - v12: Self‑updates use `hosts.<host>.selfUpdate.baseUrls` (mirror list).
 - v11: Cache settings are `hosts.<host>.cache.{substituters,trustedPublicKeys,netrc}`.
 - v10: SSH keys are project-scoped under `fleet.sshAuthorizedKeys`/`fleet.sshKnownHosts` (no longer per-host).
 - v9: inline secrets are deprecated; move tokens/api keys to `${ENV_VAR}` wiring and secretEnv mappings (hooks/skills included).
-- v13: bot channels are first-class under `fleet.bots.<bot>.channels` (do not use `fleet.bots.<bot>.openclaw.channels`).
-- v14: bot agent defaults are first-class under `fleet.bots.<bot>.agents.defaults` (model + thinkingDefault + maxConcurrent).
-- v14: bot hooks/skills/plugins are first-class under `fleet.bots.<bot>.hooks|skills|plugins` (avoid `fleet.bots.<bot>.openclaw.*`).
-- v15: bot `clawdbot` config key renamed to `openclaw` (use `fleet.bots.<bot>.openclaw`).
+- v13: gateway channels are first-class under `fleet.gateways.<id>.channels` (do not use `fleet.gateways.<id>.openclaw.channels`).
+- v14: gateway agent defaults are first-class under `fleet.gateways.<id>.agents.defaults` (model + thinkingDefault + maxConcurrent).
+- v14: gateway hooks/skills/plugins are first-class under `fleet.gateways.<id>.hooks|skills|plugins` (avoid `fleet.gateways.<id>.openclaw.*`).
+- v15: gateway `clawdbot` config key renamed to `openclaw` (use `fleet.gateways.<id>.openclaw`).
 ## Example
 
 ```json
 {
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -167,8 +168,8 @@ scan these notes to see whether any keys moved or renamed.
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "botOrder": ["maren"],
-    "bots": {
+    "gatewayOrder": ["maren"],
+    "gateways": {
       "maren": {
         "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" }, "secretFiles": {} },
         "channels": {
@@ -200,7 +201,7 @@ scan these notes to see whether any keys moved or renamed.
         }
       }
     },
-    "codex": { "enable": false, "bots": [] },
+    "codex": { "enable": false, "gateways": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
   "cattle": {

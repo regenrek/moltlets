@@ -7,7 +7,7 @@ import { validateDocsIndexIntegrity } from "../lib/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/fleet-policy.js";
 import { evalFleetConfig } from "../lib/fleet-nix-eval.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/clawlets-config.js";
-import { buildOpenClawBotConfig } from "../lib/openclaw-config-invariants.js";
+import { buildOpenClawGatewayConfig } from "../lib/openclaw-config-invariants.js";
 import { lintOpenclawSecurityConfig } from "../lib/openclaw-security-lint.js";
 import { checkSchemaVsNixClawdbot } from "./schema-checks.js";
 import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
@@ -18,7 +18,7 @@ import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./ut
 export type RepoDoctorResult = {
   bundledSkills: string[];
   fleet: FleetConfig | null;
-  fleetBots: string[] | null;
+  fleetGateways: string[] | null;
 };
 
 function allExist(paths: string[]): { ok: boolean; missing: string[] } {
@@ -36,7 +36,7 @@ export async function addRepoChecks(params: {
   const { repoRoot, layout } = params;
 
   let fleet: FleetConfig | null = null;
-  let fleetBots: string[] | null = null;
+  let fleetGateways: string[] | null = null;
   let clawletsConfig: ClawletsConfig | null = null;
 
   params.push({
@@ -338,13 +338,13 @@ export async function addRepoChecks(params: {
   }
 
   if (clawletsConfig) {
-    const bots = Array.isArray(clawletsConfig?.fleet?.botOrder) ? clawletsConfig.fleet.botOrder : [];
-    for (const botRaw of bots) {
-      const bot = String(botRaw || "").trim();
-      if (!bot) continue;
+    const gateways = Array.isArray(clawletsConfig?.fleet?.gatewayOrder) ? clawletsConfig.fleet.gatewayOrder : [];
+    for (const gatewayRaw of gateways) {
+      const gatewayId = String(gatewayRaw || "").trim();
+      if (!gatewayId) continue;
       try {
-        const merged = buildOpenClawBotConfig({ config: clawletsConfig, bot }).merged;
-        const report = lintOpenclawSecurityConfig({ openclaw: merged, botId: bot });
+        const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, gatewayId }).merged;
+        const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId });
         const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
         const top = report.findings
           .filter((f) => f.severity === "critical" || f.severity === "warn")
@@ -355,14 +355,14 @@ export async function addRepoChecks(params: {
         params.push({
           scope: "repo",
           status,
-          label: `clawdbot security (${bot})`,
+          label: `openclaw security (${gatewayId})`,
           detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
         });
       } catch (e) {
         params.push({
           scope: "repo",
           status: "warn",
-          label: `clawdbot security (${bot})`,
+          label: `openclaw security (${gatewayId})`,
           detail: `unable to lint: ${String((e as Error)?.message || e)}`,
         });
       }
@@ -371,20 +371,20 @@ export async function addRepoChecks(params: {
 
   try {
     fleet = await evalFleetConfig({ repoRoot, nixBin: params.nixBin });
-    fleetBots = fleet.bots;
+    fleetGateways = fleet.gateways;
 
     params.push({
       scope: "repo",
-      status: fleet.bots.length > 0 ? "ok" : "missing",
+      status: fleet.gateways.length > 0 ? "ok" : "missing",
       label: "fleet config eval",
-      detail: `(bots: ${fleet.bots.length})`,
+      detail: `(gateways: ${fleet.gateways.length})`,
     });
 
     params.push({
       scope: "repo",
-      status: fleet.bots.length > 0 ? "ok" : "warn",
-      label: "fleet bots list",
-      detail: fleet.bots.length > 0 ? fleet.bots.join(", ") : "(empty)",
+      status: fleet.gateways.length > 0 ? "ok" : "warn",
+      label: "fleet gateways list",
+      detail: fleet.gateways.length > 0 ? fleet.gateways.join(", ") : "(empty)",
     });
 
     {
@@ -406,9 +406,9 @@ export async function addRepoChecks(params: {
       const tplFleet = await evalFleetConfig({ repoRoot: templateRoot, nixBin: params.nixBin });
       params.push({
         scope: "repo",
-        status: tplFleet.bots.length > 0 ? "ok" : "warn",
+        status: tplFleet.gateways.length > 0 ? "ok" : "warn",
         label: "template fleet config eval",
-        detail: `(bots: ${tplFleet.bots.length})`,
+        detail: `(gateways: ${tplFleet.gateways.length})`,
       });
 
       const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
@@ -464,6 +464,6 @@ export async function addRepoChecks(params: {
   return {
     bundledSkills: bundledSkills.skills,
     fleet,
-    fleetBots,
+    fleetGateways,
   };
 }

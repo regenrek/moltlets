@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+const TEST_TIMEOUT_MS = 15_000;
+
 describe("clawlets config validate", () => {
-  it("warns on invariant overrides and fails under strict", async () => {
+  it(
+    "warns on invariant overrides and fails under strict",
+    async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        bots: {
+        gateways: {
           maren: {
             openclaw: {
               commands: { native: "auto", nativeSkills: "auto" },
@@ -30,18 +34,22 @@ describe("clawlets config validate", () => {
 
     const strictRes = validateClawletsConfig({ config: cfg, hostName: "openclaw-fleet-host", strict: true });
     expect(strictRes.errors.some((e) => e.includes("gateway.port"))).toBe(true);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("defaults required clawdbot commands", async () => {
+  it(
+    "defaults required clawdbot commands",
+    async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        bots: {
+        gateways: {
           maren: {
             channels: { discord: { groupPolicy: "allowlist" } },
           },
@@ -54,18 +62,22 @@ describe("clawlets config validate", () => {
 
     const res = validateClawletsConfig({ config: cfg, hostName: "openclaw-fleet-host", strict: true });
     expect(res.errors).toEqual([]);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("fails on inline secrets under strict", async () => {
+  it(
+    "fails on inline secrets under strict",
+    async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        bots: {
+        gateways: {
           maren: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
             channels: { discord: { groupPolicy: "allowlist", token: "inline-token" } },
@@ -82,18 +94,22 @@ describe("clawlets config validate", () => {
 
     const res = validateClawletsConfig({ config: cfg, hostName: "openclaw-fleet-host", strict: true });
     expect(res.errors.some((e) => e.includes("Inline"))).toBe(true);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("warns on secretEnvAllowlist mismatch and fails under strict", async () => {
+  it(
+    "warns on secretEnvAllowlist mismatch and fails under strict",
+    async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: {},
-        bots: {
+        gateways: {
           maren: {
             profile: {
               secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" },
@@ -118,18 +134,22 @@ describe("clawlets config validate", () => {
     const strictRes = validateClawletsConfig({ config: cfg, hostName: "openclaw-fleet-host", strict: true });
     expect(strictRes.errors.some((e) => e.includes("secretEnvAllowlist missing required env vars"))).toBe(true);
     expect(strictRes.errors.some((e) => e.includes("secretEnvAllowlist contains unused env vars"))).toBe(true);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("fails on secretEnv conflicts with derived hooks/skills", async () => {
+  it(
+    "fails on secretEnv conflicts with derived hooks/skills",
+    async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: {},
-        bots: {
+        gateways: {
           maren: {
             profile: { secretEnv: { OPENCLAW_HOOKS_TOKEN: "hooks_token_override" } },
             hooks: { tokenSecret: "hooks_token" },
@@ -143,5 +163,7 @@ describe("clawlets config validate", () => {
 
     const res = validateClawletsConfig({ config: cfg, hostName: "openclaw-fleet-host", strict: false });
     expect(res.errors.some((e) => e.includes("secretEnv conflicts with derived hooks/skill env vars"))).toBe(true);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

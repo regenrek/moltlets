@@ -6,11 +6,11 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["alpha", "beta"],
+        gatewayOrder: ["alpha", "beta"],
         secretEnv: {},
-        bots: {
+        gateways: {
           alpha: {
             channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
           },
@@ -25,11 +25,11 @@ describe("secrets autowire", () => {
     });
 
     const plan = planSecretsAutowire({ config: cfg, hostName: "openclaw-fleet-host" });
-    const summary = plan.updates.map((u) => `${u.envVar}:${u.bot}:${u.scope}:${u.secretName}`);
+    const summary = plan.updates.map((u) => `${u.envVar}:${u.gatewayId}:${u.scope}:${u.secretName}`);
     expect(summary).toEqual([
-      "DISCORD_BOT_TOKEN:alpha:bot:discord_token_alpha",
+      "DISCORD_BOT_TOKEN:alpha:gateway:discord_token_alpha",
       "OPENAI_API_KEY:alpha:fleet:openai_api_key",
-      "TELEGRAM_BOT_TOKEN:beta:bot:telegram_bot_token_beta",
+      "TELEGRAM_BOT_TOKEN:beta:gateway:telegram_bot_token_beta",
     ]);
   });
 
@@ -38,11 +38,11 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 15,
+      schemaVersion: 16,
       fleet: {
-        botOrder: ["maren"],
+        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        bots: {
+        gateways: {
           maren: {
             profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
             channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },

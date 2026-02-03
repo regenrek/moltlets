@@ -73,7 +73,7 @@ const serverAudit = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
-    const bots = config.fleet.botOrder ?? [];
+    const gateways = config.fleet.gatewayOrder ?? [];
 
     const checks: AuditCheck[] = [];
     const add = (c: AuditCheck) => checks.push(c);
@@ -116,16 +116,16 @@ const serverAudit = defineCommand({
       }
     }
 
-    if (Array.isArray(bots) && bots.length > 0) {
-      add({ status: "ok", label: "fleet bots list", detail: bots.join(", ") });
+    if (Array.isArray(gateways) && gateways.length > 0) {
+      add({ status: "ok", label: "fleet gateways list", detail: gateways.join(", ") });
     } else {
-      add({ status: "warn", label: "fleet bots list", detail: "(empty)" });
+      add({ status: "warn", label: "fleet gateways list", detail: "(empty)" });
     }
 
-    const botChecks = await mapWithConcurrency({
-      items: bots,
+    const gatewayChecks = await mapWithConcurrency({
+      items: gateways,
       concurrency: 4,
-      fn: async (bot) => {
+      fn: async (gateway) => {
         const out: AuditCheck[] = [];
 
         const mustBot = async (label: string, cmd: string): Promise<string | null> => {
@@ -137,8 +137,8 @@ const serverAudit = defineCommand({
           return captured.out;
         };
 
-        const botId = String(bot).trim();
-        const unit = normalizeOpenclawUnit(`openclaw-${botId}`);
+        const gatewayId = String(gateway).trim();
+        const unit = normalizeOpenclawUnit(`openclaw-${gatewayId}`);
 
         const show = await mustBot(
           `systemctl show ${unit}`,
@@ -160,22 +160,22 @@ const serverAudit = defineCommand({
         }
 
         const channelsStatus = await mustBot(
-          `channels status (${botId})`,
+          `channels status (${gatewayId})`,
           [
             ...(sudo ? ["sudo"] : []),
             "/etc/clawlets/bin/openclaw-channels",
-            "--bot",
-            shellQuote(botId),
+            "--gateway",
+            shellQuote(gatewayId),
             "status",
             "--json",
           ].join(" "),
         );
-        if (channelsStatus) out.push({ status: "ok", label: `channels status (${botId})` });
+        if (channelsStatus) out.push({ status: "ok", label: `channels status (${gatewayId})` });
 
         {
-          const stateDir = `/srv/openclaw/${botId}`;
-          const configPath = `/run/secrets/rendered/openclaw-${botId}.json`;
-          const user = `bot-${botId}`;
+          const stateDir = `/srv/openclaw/${gatewayId}`;
+          const configPath = `/run/secrets/rendered/openclaw-${gatewayId}.json`;
+          const user = `gateway-${gatewayId}`;
           const cmd = [
             "sudo",
             "-u",
@@ -192,13 +192,13 @@ const serverAudit = defineCommand({
 
           const captured = await trySshCapture(targetHost, cmd, { tty: sudo && args.sshTty });
           if (!captured.ok) {
-            openclawSecurityAudit[botId] = { error: captured.out };
-            out.push({ status: "warn", label: `openclaw security audit (${botId})`, detail: captured.out });
+            openclawSecurityAudit[gatewayId] = { error: captured.out };
+            out.push({ status: "warn", label: `openclaw security audit (${gatewayId})`, detail: captured.out });
           } else {
             const raw = captured.out;
             try {
               const parsed = JSON.parse(raw);
-              openclawSecurityAudit[botId] = parsed;
+              openclawSecurityAudit[gatewayId] = parsed;
 
               const summary = parsed?.summary;
               const critical = Number(summary?.critical ?? 0);
@@ -207,13 +207,13 @@ const serverAudit = defineCommand({
               const status: AuditCheck["status"] = critical > 0 ? "missing" : warn > 0 ? "warn" : "ok";
               out.push({
                 status,
-                label: `openclaw security audit (${botId})`,
+                label: `openclaw security audit (${gatewayId})`,
                 detail: `critical=${Number.isFinite(critical) ? critical : "?"} warn=${Number.isFinite(warn) ? warn : "?"} info=${Number.isFinite(info) ? info : "?"}`,
               });
             } catch (e) {
               const message = e instanceof Error ? e.message : String(e);
-              openclawSecurityAudit[botId] = { error: "invalid_json", message, raw };
-              out.push({ status: "warn", label: `openclaw security audit (${botId})`, detail: `invalid json: ${message}` });
+              openclawSecurityAudit[gatewayId] = { error: "invalid_json", message, raw };
+              out.push({ status: "warn", label: `openclaw security audit (${gatewayId})`, detail: `invalid json: ${message}` });
             }
           }
         }
@@ -222,7 +222,7 @@ const serverAudit = defineCommand({
       },
     });
 
-    for (const list of botChecks) {
+    for (const list of gatewayChecks) {
       for (const c of list) add(c);
     }
 

@@ -29,9 +29,9 @@ describe("server github-sync", () => {
     loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
     const { serverGithubSync } = await import("../src/commands/server/github-sync.js");
     await serverGithubSync.subCommands?.status?.run?.({ args: { host: "alpha", targetHost: "admin@host" } } as any);
-    await serverGithubSync.subCommands?.run?.run?.({ args: { host: "alpha", targetHost: "admin@host", bot: "maren" } } as any);
-    await serverGithubSync.subCommands?.logs?.run?.({ args: { host: "alpha", targetHost: "admin@host", bot: "maren", lines: "10" } } as any);
-    await serverGithubSync.subCommands?.show?.run?.({ args: { host: "alpha", targetHost: "admin@host", bot: "maren", kind: "prs", lines: "10" } } as any);
+    await serverGithubSync.subCommands?.run?.run?.({ args: { host: "alpha", targetHost: "admin@host", gateway: "maren" } } as any);
+    await serverGithubSync.subCommands?.logs?.run?.({ args: { host: "alpha", targetHost: "admin@host", gateway: "maren", lines: "10" } } as any);
+    await serverGithubSync.subCommands?.show?.run?.({ args: { host: "alpha", targetHost: "admin@host", gateway: "maren", kind: "prs", lines: "10" } } as any);
     expect(sshRunMock).toHaveBeenCalled();
   });
 });

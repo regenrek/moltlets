@@ -28,7 +28,7 @@ function LogsOperate() {
     enabled: Boolean(projectId),
   })
   const config = cfg.data?.config as any
-  const bots = useMemo(() => (config?.fleet?.botOrder || []) as string[], [config])
+  const bots = useMemo(() => (config?.fleet?.gatewayOrder || []) as string[], [config])
 
   const [unit, setUnit] = useState("clawdbot-*.service")
   const [lines, setLines] = useState("200")

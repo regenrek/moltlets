@@ -7,7 +7,7 @@ This page shows practical examples for the most common channel integrations.
 
 All channel config lives in `fleet/clawlets.json` under:
 
-- `fleet.bots.<bot>.channels.<channelId>`
+- `fleet.gateways.<bot>.channels.<channelId>`
 
 Clawlets renders this into the final OpenClaw config during deploy. In other words:
 **these values become `channels.*` in OpenClaw**.
@@ -31,7 +31,7 @@ Example:
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "profile": {
           "secretEnv": {
@@ -65,7 +65,7 @@ Example:
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "profile": {
           "secretEnv": {
@@ -108,7 +108,7 @@ Example (single-user allowlist):
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "channels": {
           "whatsapp": {

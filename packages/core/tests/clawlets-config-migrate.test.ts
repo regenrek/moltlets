@@ -239,7 +239,7 @@ describe("clawlets config migrate", () => {
     expect(migrated.fleet.bots.bot1.plugins).toEqual({ enabled: true, allow: ["@clawlets/plugin-cattle"] });
   });
 
-  it("migrates v12 -> latest (chains to v15)", async () => {
+  it("migrates v12 -> latest (chains to v16)", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
@@ -274,12 +274,12 @@ describe("clawlets config migrate", () => {
     expect(res.changed).toBe(true);
 
     const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(15);
-    expect(migrated.fleet.bots.bot1.channels.discord.enabled).toBe(true);
-    expect(migrated.fleet.bots.bot1.clawdbot).toBeUndefined();
-    expect(migrated.fleet.bots.bot1.profile.hooks).toBeUndefined();
-    expect(migrated.fleet.bots.bot1.profile.skills).toBeUndefined();
-    expect(migrated.fleet.bots.bot1.openclaw).toEqual({});
+    expect(migrated.schemaVersion).toBe(16);
+    expect(migrated.fleet.gateways.bot1.channels.discord.enabled).toBe(true);
+    expect(migrated.fleet.gateways.bot1.clawdbot).toBeUndefined();
+    expect(migrated.fleet.gateways.bot1.profile.hooks).toBeUndefined();
+    expect(migrated.fleet.gateways.bot1.profile.skills).toBeUndefined();
+    expect(migrated.fleet.gateways.bot1.openclaw).toEqual({});
   });
 
   it("migrates v14 -> v15 (renames clawdbot)", async () => {

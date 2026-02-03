@@ -4,26 +4,26 @@ set -euo pipefail
 usage() {
   cat >&2 <<'USAGE'
 Usage:
-  openclaw-channels --bot <botId> <login|logout|status|capabilities> [args...]
+  openclaw-channels --gateway <gatewayId> <login|logout|status|capabilities> [args...]
 
-Runs `openclaw channels ...` for a bot using the same Environment/EnvironmentFile
-as the systemd service `openclaw-<botId>.service`, executed as the bot user.
+Runs `openclaw channels ...` for a gateway using the same Environment/EnvironmentFile
+as the systemd service `openclaw-<gatewayId>.service`, executed as the gateway user.
 USAGE
 }
 
-bot_id=""
-if [[ "${1:-}" == "--bot" ]]; then
-  bot_id="${2:-}"
+gateway_id=""
+if [[ "${1:-}" == "--gateway" ]]; then
+  gateway_id="${2:-}"
   shift 2 || true
 fi
 
-if [[ -z "${bot_id}" ]]; then
-  echo "error: missing --bot" >&2
+if [[ -z "${gateway_id}" ]]; then
+  echo "error: missing --gateway" >&2
   usage
   exit 2
 fi
-if ! [[ "${bot_id}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-  echo "error: invalid bot id: ${bot_id}" >&2
+if ! [[ "${gateway_id}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "error: invalid gateway id: ${gateway_id}" >&2
   exit 2
 fi
 
@@ -39,7 +39,7 @@ case "${subcmd}" in
     ;;
 esac
 
-unit="openclaw-${bot_id}.service"
+unit="openclaw-${gateway_id}.service"
 
 user="$(systemctl show "${unit}" -p User --value || true)"
 group="$(systemctl show "${unit}" -p Group --value || true)"

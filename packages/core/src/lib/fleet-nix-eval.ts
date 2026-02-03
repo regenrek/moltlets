@@ -4,8 +4,8 @@ import type { FleetConfig } from "./fleet-policy.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 
 const FleetConfigSchema = z.object({
-  bots: z.array(z.string()).default([]),
-  botProfiles: z.record(z.string(), z.any()).default(() => ({})),
+  gateways: z.array(z.string()).default([]),
+  gatewayProfiles: z.record(z.string(), z.any()).default(() => ({})),
 });
 
 export async function evalFleetConfig(params: {
@@ -22,8 +22,8 @@ export async function evalFleetConfig(params: {
     "  };",
     "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project; };",
     "in {",
-    "  bots = fleet.bots;",
-    "  botProfiles = fleet.botProfiles;",
+    "  gateways = fleet.gateways;",
+    "  gatewayProfiles = fleet.gatewayProfiles;",
     "}",
   ].join("\n");
 

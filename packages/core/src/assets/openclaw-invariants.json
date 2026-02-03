@@ -1,7 +1,7 @@
 {
   "defaults": {
     "gatewayPortBase": 18789,
-    "gatewayPortStride": 20,
+    "gatewayPortStride": 120,
     "stateDirBase": "/srv/openclaw"
   },
   "gateway": {

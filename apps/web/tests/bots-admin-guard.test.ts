@@ -40,7 +40,7 @@ async function loadBots(role: "admin" | "viewer") {
       },
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { openclaw: {} } } } },
+        config: { fleet: { gateways: { bot1: { openclaw: {} } } } },
       }),
       writeClawletsConfig: async () => {},
     }

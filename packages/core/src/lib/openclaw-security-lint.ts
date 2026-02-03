@@ -203,11 +203,12 @@ function addInlineSecretFinding(params: {
 
 export function lintOpenclawSecurityConfig(params: {
   openclaw: unknown;
-  botId?: string;
+  gatewayId?: string;
 }): OpenclawSecurityLintReport {
   const cfg = isPlainObject(params.openclaw) ? params.openclaw : {};
   const findings: OpenclawSecurityFinding[] = [];
-  const botLabel = params.botId ? `bot=${params.botId} ` : "";
+  const gatewayLabel = params.gatewayId ? `gateway=${params.gatewayId} ` : "";
+  const botLabel = gatewayLabel;
 
   for (const channel of listPinnedChannelUiModels()) {
     for (const tokenField of channel.tokenFields) {
@@ -215,7 +216,7 @@ export function lintOpenclawSecurityConfig(params: {
       if (!value) continue;
       if (hasEnvVarRef(value)) continue;
       addInlineSecretFinding({
-        botLabel,
+        botLabel: gatewayLabel,
         findings,
         path: splitDotPath(tokenField.path),
         title: `${channel.name} token looks inline`,
@@ -229,7 +230,7 @@ export function lintOpenclawSecurityConfig(params: {
     const token = readString(getAtPath(cfg, ["gateway", "auth", "token"]));
     if (token && !hasEnvVarRef(token)) {
       addInlineSecretFinding({
-        botLabel,
+        botLabel: gatewayLabel,
         findings,
         path: ["gateway", "auth", "token"],
         title: "Gateway auth token looks inline",

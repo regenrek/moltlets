@@ -5,10 +5,11 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 
 ## Unreleased
 ### Added
-- First-class typed bot config surfaces (`channels`, `agents`, `hooks`, `skills`, `plugins`) across core/CLI/web/Nix.
+- First-class typed gateway config surfaces (`channels`, `agents`, `hooks`, `skills`, `plugins`) across core/CLI/web/Nix.
 - OpenClaw invariants/specs shared via JSON assets for Nix + core validation.
 
 ### Changed
+- Rename `fleet.botOrder` → `fleet.gatewayOrder`, `fleet.bots` → `fleet.gateways`, `fleet.codex.bots` → `fleet.codex.gateways`; schema bumped to v16 with migration path.
 - Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
 
 ### Fixed

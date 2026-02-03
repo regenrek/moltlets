@@ -44,7 +44,7 @@ describe("secrets sync", () => {
 
   it("uploads tar and runs install-secrets", async () => {
     const layout = getRepoLayout("/repo");
-    const config = makeConfig({ hostName: "alpha", fleetOverrides: { botOrder: [] } });
+    const config = makeConfig({ hostName: "alpha", fleetOverrides: { gatewayOrder: [] } });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
     resolveGitRevMock.mockResolvedValue("deadbeef");

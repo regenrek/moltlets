@@ -10,7 +10,7 @@ import fs from "node:fs"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
-import { findBotOpenclawChanges } from "~/sdk/config-helpers"
+import { findGatewayOpenclawChanges } from "~/sdk/config-helpers"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/run-with-events"
 import { parseProjectIdInput } from "~/sdk/serverfn-validators"
@@ -74,7 +74,7 @@ export const writeClawletsConfigFile = createServerFn({ method: "POST" })
     const redactTokens = await readClawletsEnvTokens(repoRoot)
 
     const { configPath, config: current } = loadClawletsConfigRaw({ repoRoot })
-    const blocked = findBotOpenclawChanges(current, data.next)
+    const blocked = findGatewayOpenclawChanges(current, data.next)
     if (blocked) {
       return { ok: false as const, issues: [{ code: "policy", path: blocked.path, message: blocked.message }] }
     }

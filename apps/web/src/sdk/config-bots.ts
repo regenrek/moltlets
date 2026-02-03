@@ -4,7 +4,7 @@ import {
   loadClawletsConfigRaw,
   writeClawletsConfig,
 } from "@clawlets/core/lib/clawlets-config"
-import { BotIdSchema } from "@clawlets/shared/lib/identifiers"
+import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
@@ -25,18 +25,21 @@ export const addBot = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const botId = data.bot.trim()
-    const parsedBot = BotIdSchema.safeParse(botId)
-    if (!parsedBot.success) throw new Error("invalid bot id")
+    const parsedBot = GatewayIdSchema.safeParse(botId)
+    if (!parsedBot.success) throw new Error("invalid gateway id")
 
     const next = structuredClone(raw) as any
     next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
-    next.fleet.botOrder = Array.isArray(next.fleet.botOrder) ? next.fleet.botOrder : []
-    next.fleet.bots = next.fleet.bots && typeof next.fleet.bots === "object" && !Array.isArray(next.fleet.bots) ? next.fleet.bots : {}
-    if (next.fleet.botOrder.includes(botId) || next.fleet.bots[botId]) return { ok: true as const }
-    next.fleet.botOrder = [...next.fleet.botOrder, botId]
+    next.fleet.gatewayOrder = Array.isArray(next.fleet.gatewayOrder) ? next.fleet.gatewayOrder : []
+    next.fleet.gateways =
+      next.fleet.gateways && typeof next.fleet.gateways === "object" && !Array.isArray(next.fleet.gateways)
+        ? next.fleet.gateways
+        : {}
+    if (next.fleet.gatewayOrder.includes(botId) || next.fleet.gateways[botId]) return { ok: true as const }
+    next.fleet.gatewayOrder = [...next.fleet.gatewayOrder, botId]
     // New bots should be channel-agnostic by default.
     // Integrations can be enabled later via per-bot config (and then wire secrets as needed).
-    next.fleet.bots[botId] = {}
+    next.fleet.gateways[botId] = {}
 
     const validated = ClawletsConfigSchema.parse(next)
     const { runId } = await client.mutation(api.runs.create, {
@@ -70,17 +73,20 @@ export const removeBot = createServerFn({ method: "POST" })
 
     const botId = data.bot.trim()
     const next = structuredClone(raw) as any
-    const existingOrder = Array.isArray(next?.fleet?.botOrder) ? next.fleet.botOrder : []
-    const existingBots = next?.fleet?.bots && typeof next.fleet.bots === "object" && !Array.isArray(next.fleet.bots) ? next.fleet.bots : {}
-    if (!existingOrder.includes(botId) && !existingBots[botId]) throw new Error("bot not found")
+    const existingOrder = Array.isArray(next?.fleet?.gatewayOrder) ? next.fleet.gatewayOrder : []
+    const existingGateways =
+      next?.fleet?.gateways && typeof next.fleet.gateways === "object" && !Array.isArray(next.fleet.gateways)
+        ? next.fleet.gateways
+        : {}
+    if (!existingOrder.includes(botId) && !existingGateways[botId]) throw new Error("bot not found")
 
     next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
-    next.fleet.botOrder = existingOrder.filter((b: string) => b !== botId)
-    const botsRecord = { ...existingBots }
-    delete botsRecord[botId]
-    next.fleet.bots = botsRecord
-    if (Array.isArray(next.fleet.codex?.bots)) {
-      next.fleet.codex.bots = next.fleet.codex.bots.filter((b: string) => b !== botId)
+    next.fleet.gatewayOrder = existingOrder.filter((b: string) => b !== botId)
+    const gatewaysRecord = { ...existingGateways }
+    delete gatewaysRecord[botId]
+    next.fleet.gateways = gatewaysRecord
+    if (Array.isArray(next.fleet.codex?.gateways)) {
+      next.fleet.codex.gateways = next.fleet.codex.gateways.filter((b: string) => b !== botId)
     }
 
     const validated = ClawletsConfigSchema.parse(next)

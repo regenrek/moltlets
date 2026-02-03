@@ -13,8 +13,8 @@ first-class channel config, then publish and apply an update so the host picks u
 new desired state:
 then publish and apply an update so the host picks up the new desired state:
 
-- edit `fleet/clawlets.json` → `fleet.bots.<bot>.openclaw` (routing/tools/etc)
-- edit `fleet/clawlets.json` → `fleet.bots.<bot>.channels` (typed channels)
+- edit `fleet/clawlets.json` → `fleet.gateways.<bot>.openclaw` (routing/tools/etc)
+- edit `fleet/clawlets.json` → `fleet.gateways.<bot>.channels` (typed channels)
 
 Then publish + apply updates (pinned):
 
@@ -54,8 +54,8 @@ clawlets bot add --bot <id>
 
 2) Add secret + config:
 
-- `fleet.bots.<id>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<id>"`
-- channel config: `fleet.bots.<id>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
+- `fleet.gateways.<id>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<id>"`
+- channel config: `fleet.gateways.<id>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
 
 Then:
 
@@ -73,9 +73,9 @@ the secret and allowlist, deploy the updated config.
 2) Allow per‑bot (example):
 
 ```bash
-clawlets config set --path fleet.bots.maren.skills.allowBundled --value-json '["github","brave-search"]'
+clawlets config set --path fleet.gateways.maren.skills.allowBundled --value-json '["github","brave-search"]'
 ```
-3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.skills.entries."<skill>".apiKeySecret`
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.gateways.<bot>.skills.entries."<skill>".apiKeySecret`
 4) Sync + deploy:
 
 ```bash
@@ -101,13 +101,13 @@ just server-logs admin@<ipv4> "--unit openclaw-maren.service --follow"
 
 ## Codex CLI (headless)
 
-If you enable Codex on a bot, the device login is a one-time step per bot user.
+If you enable Codex on a gateway, the device login is a one-time step per gateway user.
 
-One‑time device auth per bot:
+One‑time device auth per gateway:
 
 ```bash
-sudo -u bot-maren env HOME=/srv/openclaw/maren codex login --device-auth
-sudo -u bot-gunnar env HOME=/srv/openclaw/gunnar codex login --device-auth
+sudo -u gateway-maren env HOME=/srv/openclaw/maren codex login --device-auth
+sudo -u gateway-gunnar env HOME=/srv/openclaw/gunnar codex login --device-auth
 ```
 
 ## Orchestrator (`clf`)
@@ -122,11 +122,11 @@ systemctl status clf-orchestrator
 journalctl -u clf-orchestrator --since 10m --no-pager
 ```
 
-Bot/job inspection:
+Gateway/job inspection:
 
 ```bash
-sudo -u bot-maren clf jobs list --json
-sudo -u bot-maren clf jobs show --job-id <jobId> --json
+sudo -u gateway-maren clf jobs list --json
+sudo -u gateway-maren clf jobs show --job-id <jobId> --json
 ```
 
 ## Tailscale

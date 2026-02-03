@@ -24,12 +24,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -82,12 +82,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -132,12 +132,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -182,12 +182,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -250,12 +250,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))
@@ -291,12 +291,12 @@ describe("openclaw live schema cache", () => {
         config: {
           defaultHost: "h1",
           hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { bots: { bot1: {} } },
+          fleet: { gateways: { bot1: {} } },
         },
       }),
     }))
     vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
-      buildOpenClawBotConfig: () => ({
+      buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
     }))

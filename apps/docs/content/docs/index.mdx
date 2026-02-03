@@ -97,7 +97,7 @@ rotate secrets, inspect logs, audit the host, and ship upgrades.
 ## How it fits with OpenClaw
 
 Clawlets does not replace OpenClaw; it extends it. You still author raw OpenClaw
-config under `fleet.bots.<bot>.openclaw`, and Clawlets applies a small set of
+config under `fleet.gateways.<bot>.openclaw`, and Clawlets applies a small set of
 invariants around gateways, workspace layout, and bot environment wiring. The Nix
 layer is pinned via `nix-openclaw` so runtime behavior stays predictable across
 installs.

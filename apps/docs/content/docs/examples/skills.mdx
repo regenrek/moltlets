@@ -5,8 +5,8 @@ description: Allowlist and per-skill secrets.
 
 Skills are controlled per bot via:
 
-- `fleet.bots.<bot>.skills.allowBundled`
-- `fleet.bots.<bot>.skills.entries`
+- `fleet.gateways.<bot>.skills.allowBundled`
+- `fleet.gateways.<bot>.skills.entries`
 
 Clawlets expects an explicit allowlist on servers. This is both a UX constraint (you
 know what is enabled) and a Nix constraint (it can assert that only known bundled
@@ -17,7 +17,7 @@ skills are allowed).
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "skills": {
           "allowBundled": ["github"]
@@ -36,7 +36,7 @@ skill at deploy time.
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "skills": {
           "allowBundled": ["brave-search"],
@@ -61,7 +61,7 @@ to the OpenClaw skill loader.
 ```json
 {
   "fleet": {
-    "bots": {
+    "gateways": {
       "maren": {
         "skills": {
           "load": {

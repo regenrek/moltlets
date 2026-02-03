@@ -20,7 +20,7 @@ describe("secrets write allowlist", () => {
         },
         defaults: { autoShutdown: true, callbackUrl: "" },
       },
-      fleet: { botOrder: [], bots: {}, secretEnv: {}, secretFiles: {} },
+      fleet: { gatewayOrder: [], gateways: {}, secretEnv: {}, secretFiles: {} },
       hosts: { alpha: { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" } },
     })
 
@@ -50,8 +50,8 @@ describe("secrets write allowlist", () => {
         defaults: { autoShutdown: true, callbackUrl: "" },
       },
       fleet: {
-        botOrder: [],
-        bots: {},
+        gatewayOrder: [],
+        gateways: {},
         secretEnv: {},
         secretFiles: {},
         backups: { restic: { enable: true, repository: "s3://restic" } },

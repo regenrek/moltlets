@@ -30,12 +30,20 @@ describe("server channels command", () => {
 
     const { serverChannels } = await import("../src/commands/server/channels.js");
     await serverChannels.subCommands?.status?.run?.({
-      args: { host: "alpha", targetHost: "admin@host", bot: "maren", probe: true, timeout: "10000", json: true, sshTty: true },
+      args: {
+        host: "alpha",
+        targetHost: "admin@host",
+        gateway: "maren",
+        probe: true,
+        timeout: "10000",
+        json: true,
+        sshTty: true,
+      },
     } as any);
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'status' '--probe' '--timeout' '10000' '--json'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--gateway' 'maren' 'status' '--probe' '--timeout' '10000' '--json'",
       { tty: true },
     );
   });
@@ -48,7 +56,7 @@ describe("server channels command", () => {
       args: {
         host: "alpha",
         targetHost: "admin@host",
-        bot: "maren",
+        gateway: "maren",
         channel: "discord",
         account: "default",
         target: "discord channel:123",
@@ -60,7 +68,7 @@ describe("server channels command", () => {
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'capabilities' '--channel' 'discord' '--account' 'default' '--target' 'discord channel:123' '--timeout' '10000' '--json'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--gateway' 'maren' 'capabilities' '--channel' 'discord' '--account' 'default' '--target' 'discord channel:123' '--timeout' '10000' '--json'",
       { tty: false },
     );
   });
@@ -70,12 +78,20 @@ describe("server channels command", () => {
 
     const { serverChannels } = await import("../src/commands/server/channels.js");
     await serverChannels.subCommands?.login?.run?.({
-      args: { host: "alpha", targetHost: "admin@host", bot: "maren", channel: "whatsapp", account: "default", verbose: true, sshTty: true },
+      args: {
+        host: "alpha",
+        targetHost: "admin@host",
+        gateway: "maren",
+        channel: "whatsapp",
+        account: "default",
+        verbose: true,
+        sshTty: true,
+      },
     } as any);
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "admin@host",
-      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'login' '--channel' 'whatsapp' '--account' 'default' '--verbose'",
+      "'sudo' '/etc/clawlets/bin/openclaw-channels' '--gateway' 'maren' 'login' '--channel' 'whatsapp' '--account' 'default' '--verbose'",
       { tty: true },
     );
   });
@@ -85,14 +101,20 @@ describe("server channels command", () => {
 
     const { serverChannels } = await import("../src/commands/server/channels.js");
     await serverChannels.subCommands?.logout?.run?.({
-      args: { host: "alpha", targetHost: "root@host", bot: "maren", channel: "whatsapp", account: "default", sshTty: false },
+      args: {
+        host: "alpha",
+        targetHost: "root@host",
+        gateway: "maren",
+        channel: "whatsapp",
+        account: "default",
+        sshTty: false,
+      },
     } as any);
 
     expect(sshRunMock).toHaveBeenCalledWith(
       "root@host",
-      "'/etc/clawlets/bin/openclaw-channels' '--bot' 'maren' 'logout' '--channel' 'whatsapp' '--account' 'default'",
+      "'/etc/clawlets/bin/openclaw-channels' '--gateway' 'maren' 'logout' '--channel' 'whatsapp' '--account' 'default'",
       { tty: false },
     );
   });
 });
-

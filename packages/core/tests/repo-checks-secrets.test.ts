@@ -6,7 +6,7 @@ import { findClawdbotSecretViolations } from "../src/doctor/repo-checks-secrets"
 
 async function setupRepo(): Promise<{ dir: string; botDir: string }> {
   const dir = await mkdtemp(path.join(tmpdir(), "clawlets-repo-checks-secrets-"));
-  const botDir = path.join(dir, "fleet", "workspaces", "bots", "bot1");
+  const botDir = path.join(dir, "fleet", "workspaces", "gateways", "bot1");
   await mkdir(botDir, { recursive: true });
   return { dir, botDir };
 }
@@ -84,4 +84,3 @@ describe("repo-checks-secrets", () => {
     }
   });
 });
-

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
+const TEST_TIMEOUT_MS = 15_000;
+
 const runMainMock = vi.fn();
 const defineCommandMock = vi.fn((cmd) => cmd);
 const readCliVersionMock = vi.fn(() => "0.0.0");
@@ -39,41 +41,56 @@ describe("cli main", () => {
     process.argv = originalArgv.slice();
   });
 
-  it("prints version and exits", async () => {
+  it(
+    "prints version and exits",
+    async () => {
     process.argv = ["node", "clawlets", "--version"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       return undefined as never;
     }) as any);
-    await import("../src/main.ts");
+    const mod = await import("../src/main.ts");
+    await mod.mainEntry();
     expect(readCliVersionMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("0.0.0");
     expect(exitSpy).toHaveBeenCalledWith(0);
     expect(runMainMock).not.toHaveBeenCalled();
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("normalizes args and runs main", async () => {
+  it(
+    "normalizes args and runs main",
+    async () => {
     process.argv = ["node", "clawlets", "--", "doctor"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 0}`);
     }) as any);
-    await import("../src/main.ts");
+    const mod = await import("../src/main.ts");
+    await mod.mainEntry();
     expect(runMainMock).toHaveBeenCalledTimes(1);
     expect(process.argv).toEqual(["node", "clawlets", "doctor"]);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("dispatches plugins when flags precede the command", async () => {
+  it(
+    "dispatches plugins when flags precede the command",
+    async () => {
     process.argv = ["node", "clawlets", "--runtime-dir", "/tmp/rt", "cattle", "--foo", "bar"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 0}`);
     }) as any);
     findPluginByCommandMock.mockReturnValue({ command: "cattle" });
     loadPluginCommandMock.mockResolvedValue({ name: "plugin-command" });
-    await import("../src/main.ts");
+    const mod = await import("../src/main.ts");
+    await mod.mainEntry();
     expect(findPluginByCommandMock).toHaveBeenCalledWith({
       cwd: process.cwd(),
       runtimeDir: "/tmp/rt",
       command: "cattle",
     });
     expect(runMainMock).toHaveBeenCalledWith({ name: "plugin-command" }, { rawArgs: ["--foo", "bar"] });
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

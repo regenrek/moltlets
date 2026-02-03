@@ -9,7 +9,7 @@ const DEFAULT_STATE_DIR_BASE = invariantSpec.defaults.stateDirBase;
 const DEFAULT_COMMANDS = { native: "auto", nativeSkills: "auto" };
 
 export type OpenClawInvariantWarning = {
-  bot: string;
+  gateway: string;
   path: string;
   message: string;
   expected?: unknown;
@@ -90,25 +90,25 @@ function deepMerge(base: Record<string, unknown>, override: Record<string, unkno
   return out;
 }
 
-function resolveBotIndex(config: ClawletsConfig, bot: string): number {
-  const bots = Array.isArray(config.fleet.botOrder) ? config.fleet.botOrder : [];
-  const index = bots.indexOf(bot);
-  if (index === -1) throw new Error(`bot not found in fleet.botOrder: ${bot}`);
+function resolveGatewayIndex(config: ClawletsConfig, gatewayId: string): number {
+  const gateways = Array.isArray(config.fleet.gatewayOrder) ? config.fleet.gatewayOrder : [];
+  const index = gateways.indexOf(gatewayId);
+  if (index === -1) throw new Error(`gateway not found in fleet.gatewayOrder: ${gatewayId}`);
   return index;
 }
 
-function resolveGatewayPort(params: { config: ClawletsConfig; bot: string; profile: Record<string, unknown> }): number {
+function resolveGatewayPort(params: { config: ClawletsConfig; gatewayId: string; profile: Record<string, unknown> }): number {
   const override = toCleanNumber(params.profile["gatewayPort"]);
   if (override != null) return Math.floor(override);
-  const index = resolveBotIndex(params.config, params.bot);
+  const index = resolveGatewayIndex(params.config, params.gatewayId);
   return DEFAULT_GATEWAY_PORT_BASE + index * DEFAULT_GATEWAY_PORT_STRIDE;
 }
 
-function resolveWorkspaceDir(params: { bot: string; profile: Record<string, unknown> }): string {
+function resolveWorkspaceDir(params: { gatewayId: string; profile: Record<string, unknown> }): string {
   const workspace = isPlainObject(params.profile["workspace"]) ? (params.profile["workspace"] as Record<string, unknown>) : {};
   const dir = toCleanString(workspace["dir"]);
   if (dir) return dir;
-  return `${DEFAULT_STATE_DIR_BASE}/${params.bot}/workspace`;
+  return `${DEFAULT_STATE_DIR_BASE}/${params.gatewayId}/workspace`;
 }
 
 function resolveSkipBootstrap(params: { profile: Record<string, unknown> }): boolean {
@@ -120,7 +120,7 @@ function resolveSkipBootstrap(params: { profile: Record<string, unknown> }): boo
 }
 
 function warnOverrides(params: {
-  bot: string;
+  gateway: string;
   base: Record<string, unknown>;
   path: string[];
   expected: unknown;
@@ -130,7 +130,7 @@ function warnOverrides(params: {
   const pathLabel = params.path.join(".");
   const message = `openclaw.${pathLabel} is managed by clawlets invariants and will be overwritten`;
   return {
-    bot: params.bot,
+    gateway: params.gateway,
     path: pathLabel,
     message,
     expected: params.expected,
@@ -138,25 +138,25 @@ function warnOverrides(params: {
   };
 }
 
-export function buildOpenClawBotConfig(params: {
+export function buildOpenClawGatewayConfig(params: {
   config: ClawletsConfig;
-  bot: string;
+  gatewayId: string;
 }): {
-  bot: string;
+  gatewayId: string;
   base: Record<string, unknown>;
   merged: Record<string, unknown>;
   invariants: Record<string, unknown>;
   warnings: OpenClawInvariantWarning[];
 } {
-  const botCfg = (params.config.fleet.bots as Record<string, unknown> | undefined)?.[params.bot];
-  const botCfgObj = isPlainObject(botCfg) ? botCfg : {};
-  const profile = isPlainObject(botCfgObj["profile"]) ? (botCfgObj["profile"] as Record<string, unknown>) : {};
-  const base = isPlainObject(botCfgObj["openclaw"]) ? (botCfgObj["openclaw"] as Record<string, unknown>) : {};
-  const typedChannels = isPlainObject(botCfgObj["channels"]) ? (botCfgObj["channels"] as Record<string, unknown>) : {};
-  const typedAgents = isPlainObject(botCfgObj["agents"]) ? (botCfgObj["agents"] as Record<string, unknown>) : {};
-  const typedHooksRaw = isPlainObject(botCfgObj["hooks"]) ? (botCfgObj["hooks"] as Record<string, unknown>) : {};
-  const typedSkillsRaw = isPlainObject(botCfgObj["skills"]) ? (botCfgObj["skills"] as Record<string, unknown>) : {};
-  const typedPlugins = isPlainObject(botCfgObj["plugins"]) ? (botCfgObj["plugins"] as Record<string, unknown>) : {};
+  const gatewayCfg = (params.config.fleet.gateways as Record<string, unknown> | undefined)?.[params.gatewayId];
+  const gatewayCfgObj = isPlainObject(gatewayCfg) ? gatewayCfg : {};
+  const profile = isPlainObject(gatewayCfgObj["profile"]) ? (gatewayCfgObj["profile"] as Record<string, unknown>) : {};
+  const base = isPlainObject(gatewayCfgObj["openclaw"]) ? (gatewayCfgObj["openclaw"] as Record<string, unknown>) : {};
+  const typedChannels = isPlainObject(gatewayCfgObj["channels"]) ? (gatewayCfgObj["channels"] as Record<string, unknown>) : {};
+  const typedAgents = isPlainObject(gatewayCfgObj["agents"]) ? (gatewayCfgObj["agents"] as Record<string, unknown>) : {};
+  const typedHooksRaw = isPlainObject(gatewayCfgObj["hooks"]) ? (gatewayCfgObj["hooks"] as Record<string, unknown>) : {};
+  const typedSkillsRaw = isPlainObject(gatewayCfgObj["skills"]) ? (gatewayCfgObj["skills"] as Record<string, unknown>) : {};
+  const typedPlugins = isPlainObject(gatewayCfgObj["plugins"]) ? (gatewayCfgObj["plugins"] as Record<string, unknown>) : {};
   const typedHooks = normalizeHooks(typedHooksRaw);
   const typedSkills = normalizeSkills(typedSkillsRaw);
   const baseWithDefaults = deepMerge(
@@ -164,8 +164,8 @@ export function buildOpenClawBotConfig(params: {
     { channels: typedChannels, agents: typedAgents, hooks: typedHooks, skills: typedSkills, plugins: typedPlugins },
   );
 
-  const gatewayPort = resolveGatewayPort({ config: params.config, bot: params.bot, profile });
-  const workspaceDir = resolveWorkspaceDir({ bot: params.bot, profile });
+  const gatewayPort = resolveGatewayPort({ config: params.config, gatewayId: params.gatewayId, profile });
+  const workspaceDir = resolveWorkspaceDir({ gatewayId: params.gatewayId, profile });
   const skipBootstrap = resolveSkipBootstrap({ profile });
 
   const gatewayDefaults = invariantSpec.gateway;
@@ -189,7 +189,7 @@ export function buildOpenClawBotConfig(params: {
 
   const warnings: OpenClawInvariantWarning[] = [];
   const warn = (path: string[], expected: unknown) => {
-    const w = warnOverrides({ bot: params.bot, base, path, expected });
+    const w = warnOverrides({ gateway: params.gatewayId, base, path, expected });
     if (w) warnings.push(w);
   };
 
@@ -201,7 +201,7 @@ export function buildOpenClawBotConfig(params: {
   warn(["agents", "defaults", "skipBootstrap"], skipBootstrap);
 
   return {
-    bot: params.bot,
+    gatewayId: params.gatewayId,
     base,
     merged: deepMerge(baseWithDefaults, invariants),
     invariants,
