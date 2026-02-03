@@ -198,7 +198,8 @@ export async function planProjectInit(params: {
   templateSpec: string;
 }): Promise<ProjectInitPlan> {
   const destDir = path.resolve(process.cwd(), params.destDir);
-  const host = String(params.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+  const defaultHost = "openclaw-fleet-host";
+  const host = String(params.host || defaultHost).trim() || defaultHost;
   assertSafeHostName(host);
 
   const projectName = path.basename(destDir);
@@ -207,9 +208,9 @@ export async function planProjectInit(params: {
     "__PROJECT_NAME__": projectName,
     // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": hostUnderscore,
     // Newer templates use openclaw-* placeholders.
     "openclaw-fleet-host": host,
+    "clawdbot_fleet_host": hostUnderscore,
     "openclaw_fleet_host": hostUnderscore,
   };
 
@@ -240,7 +241,8 @@ export async function initProject(params: {
   gitInit?: boolean;
 }): Promise<ProjectInitResult> {
   const destDir = path.resolve(process.cwd(), params.destDir);
-  const host = String(params.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+  const defaultHost = "openclaw-fleet-host";
+  const host = String(params.host || defaultHost).trim() || defaultHost;
   assertSafeHostName(host);
 
   const exists = fs.existsSync(destDir);
@@ -254,9 +256,9 @@ export async function initProject(params: {
     "__PROJECT_NAME__": projectName,
     // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": hostUnderscore,
     // Newer templates use openclaw-* placeholders.
     "openclaw-fleet-host": host,
+    "clawdbot_fleet_host": hostUnderscore,
     "openclaw_fleet_host": hostUnderscore,
   };
 

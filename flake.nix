@@ -17,7 +17,7 @@
     nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
 
     openclaw-src = {
-      url = "github:openclaw/openclaw/92112a61db519296a7258d508677aa6c49f9a558";
+      url = "github:openclaw/openclaw";
       flake = false;
     };
 
