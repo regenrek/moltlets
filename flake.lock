@@ -3,16 +3,16 @@
     "clawdbot-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1769707899,
-        "narHash": "sha256-oOQyqtZbdNm9uN1AwTslo4QRokctqjJM/8w9guZDA4c=",
-        "owner": "moltbot",
-        "repo": "moltbot",
-        "rev": "c9fe062824cabdf919cfbedc1b915375b5e684d1",
+        "lastModified": 1770108349,
+        "narHash": "sha256-6lNsBv8J6cXFWE1gI6NkmjTDWQaRdIaWufWICEL7pSk=",
+        "owner": "openclaw",
+        "repo": "openclaw",
+        "rev": "e3b85b9829d64865ba7d3084d5f14d6e1fcef001",
         "type": "github"
       },
       "original": {
-        "owner": "moltbot",
-        "repo": "moltbot",
+        "owner": "openclaw",
+        "repo": "openclaw",
         "type": "github"
       }
     },

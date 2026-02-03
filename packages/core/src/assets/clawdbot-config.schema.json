@@ -370,7 +370,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "openclaw"
+                      "const": "clawd"
                     },
                     {
                       "type": "string",
@@ -1800,6 +1800,9 @@
                         "additionalProperties": false
                       }
                     ]
+                  },
+                  "thinking": {
+                    "type": "string"
                   }
                 },
                 "additionalProperties": false
@@ -2116,6 +2119,12 @@
                       "additionalProperties": false
                     }
                   ]
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "memorySearch": {
                   "type": "object",
@@ -2535,6 +2544,9 @@
                           "additionalProperties": false
                         }
                       ]
+                    },
+                    "thinking": {
+                      "type": "string"
                     }
                   },
                   "additionalProperties": false
@@ -8525,6 +8537,18 @@
                 },
                 "additionalProperties": false
               },
+              "pluralkit": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
               "accounts": {
                 "type": "object",
                 "propertyNames": {
@@ -9081,6 +9105,18 @@
                         },
                         "guildMembers": {
                           "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "pluralkit": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "token": {
+                          "type": "string"
                         }
                       },
                       "additionalProperties": false
@@ -11842,6 +11878,12 @@
                   "type": "string"
                 }
               },
+              "mediaAuthAllowHosts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "requireMention": {
                 "type": "boolean"
               },
@@ -14213,9 +14255,6 @@
             "properties": {
               "enabled": {
                 "type": "boolean"
-              },
-              "domain": {
-                "type": "string"
               }
             },
             "additionalProperties": false
@@ -14655,6 +14694,206 @@
                 "items": {
                   "type": "string"
                 }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "memory": {
+        "type": "object",
+        "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "builtin"
+              },
+              {
+                "type": "string",
+                "const": "qmd"
+              }
+            ]
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "auto"
+              },
+              {
+                "type": "string",
+                "const": "on"
+              },
+              {
+                "type": "string",
+                "const": "off"
+              }
+            ]
+          },
+          "qmd": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "includeDefaultMemory": {
+                "type": "boolean"
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "pattern": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sessions": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "exportDir": {
+                    "type": "string"
+                  },
+                  "retentionDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "additionalProperties": false
+              },
+              "update": {
+                "type": "object",
+                "properties": {
+                  "interval": {
+                    "type": "string"
+                  },
+                  "debounceMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "onBoot": {
+                    "type": "boolean"
+                  },
+                  "embedInterval": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "limits": {
+                "type": "object",
+                "properties": {
+                  "maxResults": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxSnippetChars": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxInjectedChars": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "additionalProperties": false
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "default": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "allow"
+                      },
+                      {
+                        "type": "string",
+                        "const": "deny"
+                      }
+                    ]
+                  },
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "allow"
+                            },
+                            {
+                              "type": "string",
+                              "const": "deny"
+                            }
+                          ]
+                        },
+                        "match": {
+                          "type": "object",
+                          "properties": {
+                            "channel": {
+                              "type": "string"
+                            },
+                            "chatType": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "const": "direct"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "group"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "channel"
+                                }
+                              ]
+                            },
+                            "keyPrefix": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
@@ -15124,6 +15363,23 @@
                     "required": [
                       "embedding"
                     ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "minimax-portal-auth": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "config": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": false,
+                    "properties": {}
                   }
                 },
                 "additionalProperties": false
@@ -16061,6 +16317,10 @@
       "label": "Identity Avatar",
       "help": "Agent avatar (workspace-relative path, http(s) URL, or data URI)."
     },
+    "agents.list.*.skills": {
+      "label": "Agent Skill Filter",
+      "help": "Optional allowlist of skills for this agent (omit = all skills; empty = no skills)."
+    },
     "gateway.remote.url": {
       "label": "Remote Gateway URL",
       "help": "Remote Gateway WebSocket URL (ws:// or wss://).",
@@ -16524,6 +16784,90 @@
       "label": "Memory Search Embedding Cache Max Entries",
       "help": "Optional cap on cached embeddings (best-effort)."
     },
+    "memory": {
+      "label": "Memory",
+      "help": "Memory backend configuration (global)."
+    },
+    "memory.backend": {
+      "label": "Memory Backend",
+      "help": "Memory backend (\"builtin\" for OpenClaw embeddings, \"qmd\" for QMD sidecar)."
+    },
+    "memory.citations": {
+      "label": "Memory Citations Mode",
+      "help": "Default citation behavior (\"auto\", \"on\", or \"off\")."
+    },
+    "memory.qmd.command": {
+      "label": "QMD Binary",
+      "help": "Path to the qmd binary (default: resolves from PATH)."
+    },
+    "memory.qmd.includeDefaultMemory": {
+      "label": "QMD Include Default Memory",
+      "help": "Whether to automatically index MEMORY.md + memory/**/*.md (default: true)."
+    },
+    "memory.qmd.paths": {
+      "label": "QMD Extra Paths",
+      "help": "Additional directories/files to index with QMD (path + optional glob pattern)."
+    },
+    "memory.qmd.paths.path": {
+      "label": "QMD Path",
+      "help": "Absolute or ~-relative path to index via QMD."
+    },
+    "memory.qmd.paths.pattern": {
+      "label": "QMD Path Pattern",
+      "help": "Glob pattern relative to the path root (default: **/*.md)."
+    },
+    "memory.qmd.paths.name": {
+      "label": "QMD Path Name",
+      "help": "Optional stable name for the QMD collection (default derived from path)."
+    },
+    "memory.qmd.sessions.enabled": {
+      "label": "QMD Session Indexing",
+      "help": "Enable QMD session transcript indexing (experimental, default: false)."
+    },
+    "memory.qmd.sessions.exportDir": {
+      "label": "QMD Session Export Directory",
+      "help": "Override directory for sanitized session exports before indexing."
+    },
+    "memory.qmd.sessions.retentionDays": {
+      "label": "QMD Session Retention (days)",
+      "help": "Retention window for exported sessions before pruning (default: unlimited)."
+    },
+    "memory.qmd.update.interval": {
+      "label": "QMD Update Interval",
+      "help": "How often the QMD sidecar refreshes indexes (duration string, default: 5m)."
+    },
+    "memory.qmd.update.debounceMs": {
+      "label": "QMD Update Debounce (ms)",
+      "help": "Minimum delay between successive QMD refresh runs (default: 15000)."
+    },
+    "memory.qmd.update.onBoot": {
+      "label": "QMD Update on Startup",
+      "help": "Run QMD update once on gateway startup (default: true)."
+    },
+    "memory.qmd.update.embedInterval": {
+      "label": "QMD Embed Interval",
+      "help": "How often QMD embeddings are refreshed (duration string, default: 60m). Set to 0 to disable periodic embed."
+    },
+    "memory.qmd.limits.maxResults": {
+      "label": "QMD Max Results",
+      "help": "Max QMD results returned to the agent loop (default: 6)."
+    },
+    "memory.qmd.limits.maxSnippetChars": {
+      "label": "QMD Max Snippet Chars",
+      "help": "Max characters per snippet pulled from QMD (default: 700)."
+    },
+    "memory.qmd.limits.maxInjectedChars": {
+      "label": "QMD Max Injected Chars",
+      "help": "Max total characters injected from QMD hits per turn."
+    },
+    "memory.qmd.limits.timeoutMs": {
+      "label": "QMD Search Timeout (ms)",
+      "help": "Per-query timeout for QMD searches (default: 4000)."
+    },
+    "memory.qmd.scope": {
+      "label": "QMD Surface Scope",
+      "help": "Session/channel scope for QMD recall (same syntax as session.sendPolicy; default: direct-only)."
+    },
     "auth.profiles": {
       "label": "Auth Profiles",
       "help": "Named auth profiles (provider + mode + optional email)."
@@ -16815,6 +17159,15 @@
       "label": "Discord Guild Members Intent",
       "help": "Enable the Guild Members privileged intent. Must also be enabled in the Discord Developer Portal. Default: false."
     },
+    "channels.discord.pluralkit.enabled": {
+      "label": "Discord PluralKit Enabled",
+      "help": "Resolve PluralKit proxied messages and treat system members as distinct senders."
+    },
+    "channels.discord.pluralkit.token": {
+      "label": "Discord PluralKit Token",
+      "help": "Optional PluralKit token for resolving private systems or members.",
+      "sensitive": true
+    },
     "channels.slack.dm.policy": {
       "label": "Slack DM Policy",
       "help": "Direct message access control (\"pairing\" recommended). \"open\" requires channels.slack.dm.allowFrom=[\"*\"]."
@@ -16878,6 +17231,10 @@
     },
     "channels.imessage.cliPath": {
       "label": "iMessage CLI Path"
+    },
+    "agents.list[].skills": {
+      "label": "Agent Skill Filter",
+      "help": "Optional allowlist of skills for this agent (omit = all skills; empty = no skills)."
     },
     "agents.list[].identity.avatar": {
       "label": "Agent Avatar",
@@ -17229,6 +17586,17 @@
     "plugins.entries.memory-lancedb.config.autoRecall": {
       "label": "Auto-Recall",
       "help": "Automatically inject relevant memories into context"
+    },
+    "plugins.entries.minimax-portal-auth": {
+      "label": "MiniMax OAuth",
+      "help": "OAuth flow for MiniMax models (plugin: minimax-portal-auth)"
+    },
+    "plugins.entries.minimax-portal-auth.enabled": {
+      "label": "Enable MiniMax OAuth"
+    },
+    "plugins.entries.minimax-portal-auth.config": {
+      "label": "MiniMax OAuth Config",
+      "help": "Plugin-defined config payload for minimax-portal-auth."
     },
     "plugins.entries.msteams": {
       "label": "Microsoft Teams",
@@ -17582,7 +17950,7 @@
       "placeholder": "last"
     }
   },
-  "version": "2026.1.29",
-  "generatedAt": "2026-01-29T17:31:39Z",
-  "clawdbotRev": "c9fe062824cabdf919cfbedc1b915375b5e684d1"
+  "version": "2026.2.1",
+  "generatedAt": "2026-02-03T08:45:49Z",
+  "clawdbotRev": "e3b85b9829d64865ba7d3084d5f14d6e1fcef001"
 }

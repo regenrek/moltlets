@@ -260,18 +260,25 @@ jobs:
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: |
           set -euo pipefail
+          owner="$(jq -r '.nodes["clawdbot-src"].locked.owner' flake.lock)"
+          repo="$(jq -r '.nodes["clawdbot-src"].locked.repo' flake.lock)"
           rev="$(jq -r '.nodes["clawdbot-src"].locked.rev' flake.lock)"
+          if [[ -z "${owner}" || "${owner}" == "null" || -z "${repo}" || "${repo}" == "null" ]]; then
+            echo "error: missing clawdbot-src owner/repo in flake.lock" >&2
+            exit 1
+          fi
           if [[ -z "${rev}" || "${rev}" == "null" ]]; then
             echo "error: missing clawdbot-src rev in flake.lock" >&2
             exit 1
           fi
+          echo "repo=${owner}/${repo}" >> "$GITHUB_OUTPUT"
           echo "rev=${rev}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout clawdbot source
         if: ${{ steps.assets.outputs.changed == 'true' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
         with:
-          repository: clawdbot/clawdbot
+          repository: ${{ steps.clawdbot.outputs.repo }}
           ref: ${{ steps.clawdbot.outputs.rev }}
           path: clawdbot-src
 

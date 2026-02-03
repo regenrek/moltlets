@@ -30,7 +30,7 @@ describe("project init", () => {
       const cfg = JSON.parse(await readFile(path.join(destDir, "fleet", "clawlets.json"), "utf8")) as any;
       expect(cfg.defaultHost).toBe("my-host");
       expect(cfg.hosts?.["my-host"]).toBeTruthy();
-      expect(cfg.hosts?.["clawdbot-fleet-host"]).toBeUndefined();
+      expect(cfg.hosts?.["openclaw-fleet-host"]).toBeUndefined();
 
       const readme = await readFile(path.join(destDir, "README.md"), "utf8");
       expect(readme.split("\n")[0]).toBe("# my-project");
@@ -39,4 +39,3 @@ describe("project init", () => {
     }
   });
 });
-
