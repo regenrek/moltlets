@@ -26,7 +26,7 @@ export const readWorkspaceDoc = createServerFn({ method: "POST" })
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
     const scope = String(d["scope"] || "")
-    if (scope !== "common" && scope !== "bot" && scope !== "effective") throw new Error("invalid scope")
+    if (scope !== "common" && scope !== "gateway" && scope !== "effective") throw new Error("invalid scope")
     return {
       ...base,
       botId: typeof d["botId"] === "string" ? d["botId"] : "",
@@ -44,7 +44,7 @@ export const writeWorkspaceDoc = createServerFn({ method: "POST" })
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
     const scope = String(d["scope"] || "")
-    if (scope !== "common" && scope !== "bot") throw new Error("invalid scope")
+    if (scope !== "common" && scope !== "gateway") throw new Error("invalid scope")
     return {
       ...base,
       botId: typeof d["botId"] === "string" ? d["botId"] : "",

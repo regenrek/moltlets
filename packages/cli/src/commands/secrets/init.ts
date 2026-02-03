@@ -101,46 +101,46 @@ export const secretsInit = defineCommand({
 
     const localSecretsDir = getHostSecretsDir(layout, hostName);
 
-	    const bots = clawletsConfig.fleet.botOrder;
-	    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
+    const gateways = hostCfg.botsOrder || [];
+    if (gateways.length === 0) throw new Error(`hosts.${hostName}.botsOrder is empty (set bots in fleet/clawlets.json)`);
 
-	    const cacheNetrc = hostCfg.cache?.netrc;
-	    const cacheNetrcEnabled = Boolean(cacheNetrc?.enable);
-	    const cacheNetrcPath = cacheNetrcEnabled ? String(cacheNetrc?.path || "/etc/nix/netrc").trim() : "";
+    const cacheNetrc = hostCfg.cache?.netrc;
+    const cacheNetrcEnabled = Boolean(cacheNetrc?.enable);
+    const cacheNetrcPath = cacheNetrcEnabled ? String(cacheNetrc?.path || "/etc/nix/netrc").trim() : "";
 
-	    let secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
-	    if (secretsPlan.missingSecretConfig.length > 0) {
-	      if (a.autowire) {
-	        const plan = planSecretsAutowire({ config: clawletsConfig, hostName });
+    let secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
+    if (secretsPlan.missingSecretConfig.length > 0) {
+      if (a.autowire) {
+        const plan = planSecretsAutowire({ config: clawletsConfig, hostName });
         if (plan.updates.length === 0) {
           const first = secretsPlan.missingSecretConfig[0]!;
           throw new Error(
             first.kind === "envVar"
-              ? `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); run: clawlets config wire-secrets --write`
+              ? `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.gateway}); run: clawlets config wire-secrets --write`
               : `invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`,
           );
         }
-        const nextConfig = applySecretsAutowire({ config: clawletsConfig, plan });
-	        await writeClawletsConfig({ configPath: layout.clawletsConfigPath, config: nextConfig });
-	        clawletsConfig = nextConfig;
-	        secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
-	      } else {
+        const nextConfig = applySecretsAutowire({ config: clawletsConfig, plan, hostName });
+        await writeClawletsConfig({ configPath: layout.clawletsConfigPath, config: nextConfig });
+        clawletsConfig = nextConfig;
+        secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
+      } else {
         const first = secretsPlan.missingSecretConfig[0]!;
         if (first.kind === "envVar") {
           throw new Error(
-            `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.bot}); set fleet.secretEnv.${first.envVar} or fleet.bots.${first.bot}.profile.secretEnv.${first.envVar} (or run: clawlets config wire-secrets --write)`,
+            `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.gateway}); set fleet.secretEnv.${first.envVar} or hosts.${hostName}.bots.${first.gateway}.profile.secretEnv.${first.envVar} (or run: clawlets config wire-secrets --write)`,
           );
         }
-	        throw new Error(`invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`);
-	      }
-	    }
+        throw new Error(`invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`);
+      }
+    }
 
-	    hostCfg = (clawletsConfig.hosts as any)?.[hostName] || hostCfg;
-	    const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg });
-	    const cacheNetrcSecretName = sets.cacheNetrcSecretName;
+    hostCfg = (clawletsConfig.hosts as any)?.[hostName] || hostCfg;
+    const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg });
+    const cacheNetrcSecretName = sets.cacheNetrcSecretName;
 
-	    const defaultSecretsJsonPath = path.join(layout.runtimeDir, "secrets.json");
-	    const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
+    const defaultSecretsJsonPath = path.join(layout.runtimeDir, "secrets.json");
+    const defaultSecretsJsonDisplay = path.relative(process.cwd(), defaultSecretsJsonPath) || defaultSecretsJsonPath;
 
     let fromJson = resolveSecretsInitFromJsonArg({
       fromJsonRaw: a.fromJson,
@@ -151,22 +151,22 @@ export const secretsInit = defineCommand({
       if (fs.existsSync(defaultSecretsJsonPath)) {
         fromJson = defaultSecretsJsonPath;
         if (!a.allowPlaceholders) {
-	          const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
-	          const parsed = parseSecretsInitJson(raw);
-	          const placeholders = listSecretsInitPlaceholders({ input: parsed, requiresTailscaleAuthKey: sets.requiresTailscaleAuthKey });
-	          if (placeholders.length > 0) {
-	            console.error(`error: placeholders found in ${defaultSecretsJsonDisplay} (fill it or pass --allow-placeholders)`);
-	            for (const p0 of placeholders) console.error(`- ${p0}`);
-	            process.exitCode = 1;
+          const raw = fs.readFileSync(defaultSecretsJsonPath, "utf8");
+          const parsed = parseSecretsInitJson(raw);
+          const placeholders = listSecretsInitPlaceholders({ input: parsed, requiresTailscaleAuthKey: sets.requiresTailscaleAuthKey });
+          if (placeholders.length > 0) {
+            console.error(`error: placeholders found in ${defaultSecretsJsonDisplay} (fill it or pass --allow-placeholders)`);
+            for (const p0 of placeholders) console.error(`- ${p0}`);
+            process.exitCode = 1;
             return;
           }
-	        }
-	      } else {
-	        const template = buildSecretsInitTemplate({ requiresTailscaleAuthKey: sets.requiresTailscaleAuthKey, secrets: sets.templateSecrets });
+        }
+      } else {
+        const template = buildSecretsInitTemplate({ requiresTailscaleAuthKey: sets.requiresTailscaleAuthKey, secrets: sets.templateSecrets });
 
-	        if (!a.dryRun) {
-	          await ensureDir(path.dirname(defaultSecretsJsonPath));
-	          await writeFileAtomic(defaultSecretsJsonPath, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
+        if (!a.dryRun) {
+          await ensureDir(path.dirname(defaultSecretsJsonPath));
+          await writeFileAtomic(defaultSecretsJsonPath, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
         }
 
         console.error(`${a.dryRun ? "would write" : "wrote"} secrets template: ${defaultSecretsJsonDisplay}`);

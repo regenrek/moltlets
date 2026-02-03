@@ -1,0 +1,15 @@
+{
+  "defaults": {
+    "gatewayPortBase": 18789,
+    "gatewayPortStride": 120,
+    "stateDirBase": "/srv/openclaw"
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    }
+  }
+}

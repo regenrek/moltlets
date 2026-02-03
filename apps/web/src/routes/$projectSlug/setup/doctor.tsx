@@ -22,7 +22,9 @@ function pickFixLink(
   host: string | null,
   check: any,
 ): { to: string; label: string } | null {
-  const label = String(check?.label || "").toLowerCase()
+  const rawLabel = String(check?.label || "")
+  const label = rawLabel.toLowerCase()
+  const detail = String(check?.detail || "")
   const scope = String(check?.scope || "")
   const base = `/${projectSlug}`
   const hostBase = host ? `${base}/hosts/${encodeURIComponent(host)}` : null
@@ -39,13 +41,28 @@ function pickFixLink(
   const toAudit = () => hostBase
     ? ({ to: `${hostBase}/audit`, label: "Open Audit" })
     : toHosts()
+  const toBotSettings = (botId: string) => hostBase
+    ? ({ to: `${hostBase}/bots/${encodeURIComponent(botId)}/settings`, label: "Open Bot Settings" })
+    : toHosts()
+
+  const botFromLabel = () => {
+    const match = rawLabel.match(/\(([^)]+)\)/)
+    return match?.[1]?.trim() || ""
+  }
+  const botFromDetail = () => {
+    const match = detail.match(/hosts\.[a-z0-9_-]+\.bots\.([a-z0-9_-]+)/i)
+    return match?.[1]?.trim() || ""
+  }
+  const botId = botFromLabel() || botFromDetail()
 
   if (label.includes("clawlets config") || label.includes("fleet config")) return toFleet()
-  if (label.includes("fleet policy") || label.includes("fleet bots") || label.includes("services.clawdbotfleet.enable")) return toFleet()
+  if (label.includes("fleet policy") || label.includes("fleet gateways") || label.includes("fleet bots") || label.includes("services.clawdbotfleet.enable")) return toFleet()
   if (label.includes("host config") || label.includes("targethost") || label.includes("sshexposure") || label.includes("diskdevice")) return toHosts()
   if (label.includes("provisioning") || label.includes("admin cidr") || label.includes("ssh pubkey")) return toHosts()
   if (label.includes("hcloud_token") || label.includes("github_token") || label.includes("sops_age_key_file")) return toProjectSecrets()
   if (label.includes("sops") || label.includes("secrets")) return toHostSecrets()
+  if (botId && label.includes("clawdbot security")) return toBotSettings(botId)
+  if (botId && detail.includes("hosts.") && detail.includes(".bots.")) return toBotSettings(botId)
   if (scope === "updates") return toUpdates()
   if (label.includes("tailscale")) return toAudit()
   return null

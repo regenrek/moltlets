@@ -1,6 +1,6 @@
 import type { Id } from "../../convex/_generated/dataModel"
 
-export type WorkspaceDocScope = "common" | "bot" | "effective"
+export type WorkspaceDocScope = "common" | "gateway" | "effective"
 
 export type WorkspaceDocWriteScope = Exclude<WorkspaceDocScope, "effective">
 

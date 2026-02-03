@@ -42,10 +42,10 @@ const buildPlan = (overrides: Record<string, unknown>) => {
       ...hostSecretNamesRequired.map((name) => ({ name, kind: "extra", scope: "host", source: "custom" })),
       ...secretNamesRequired
         .filter((name) => !hostSecretNamesRequired.includes(name))
-        .map((name) => ({ name, kind: "env", scope: "bot", source: "custom" })),
+        .map((name) => ({ name, kind: "env", scope: "gateway", source: "custom" })),
     ];
   return {
-    bots: [],
+    gateways: [],
     hostSecretNamesRequired,
     secretNamesAll: [],
     secretNamesRequired,
@@ -54,7 +54,7 @@ const buildPlan = (overrides: Record<string, unknown>) => {
     missing: [],
     warnings: [],
     missingSecretConfig: [],
-    byBot: {},
+    byGateway: {},
     hostSecretFiles: {},
     ...overrides,
   };
@@ -79,8 +79,7 @@ describe("secrets verify", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
-      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -114,8 +113,7 @@ describe("secrets verify", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
-      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });

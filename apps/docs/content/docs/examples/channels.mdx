@@ -1,0 +1,141 @@
+---
+title: Channels
+description: Discord, Telegram, WhatsApp.
+---
+
+This page shows practical examples for the most common channel integrations.
+
+All channel config lives in `fleet/clawlets.json` under:
+
+- `hosts.<host>.bots.<botId>.channels.<channelId>`
+
+Clawlets renders this into the final OpenClaw config during deploy. In other words:
+**these values become `channels.*` in OpenClaw**.
+
+<Callout type="warning" title="No plaintext tokens in config">
+  Put tokens/credentials in <code>secrets/</code> and reference them from config via
+  <code>${"{ENV_VAR}"}</code> placeholders.
+</Callout>
+
+## Discord
+
+Discord uses a bot token.
+
+Config pattern:
+
+1. Map an env var name to a sops secret name in the gateway profile.
+2. Reference the env var in `channels.discord.token`.
+
+Example:
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "profile": {
+            "secretEnv": {
+              "DISCORD_BOT_TOKEN": "discord_token_maren"
+            }
+          },
+          "channels": {
+            "discord": {
+              "enabled": true,
+              "groupPolicy": "allowlist",
+              "token": "${DISCORD_BOT_TOKEN}"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- `groupPolicy` controls how group messages are accepted. Keep it intentional.
+- The dashboard can help generate wiring, but the JSON layout above is canonical.
+
+## Telegram
+
+Telegram uses a bot token. It also supports allowlists for inbound DMs.
+
+Example:
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "profile": {
+            "secretEnv": {
+              "TELEGRAM_BOT_TOKEN": "telegram_bot_token_maren"
+            }
+          },
+          "channels": {
+            "telegram": {
+              "enabled": true,
+              "botToken": "${TELEGRAM_BOT_TOKEN}",
+              "groupPolicy": "allowlist",
+              "allowFrom": [
+                123456789,
+                "987654321"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- `allowFrom` supports Telegram user IDs (numbers) and string values.
+- Telegram group access uses `groupPolicy` plus group config (optional).
+
+## WhatsApp
+
+WhatsApp uses WhatsApp Web. There is no API token in config.
+
+Two parts:
+
+1. Configure DM access policy (`dmPolicy`) and allowlist (`allowFrom`).
+2. Link the WhatsApp session on the server (QR login).
+
+Example (single-user allowlist):
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "channels": {
+            "whatsapp": {
+              "dmPolicy": "allowlist",
+              "allowFrom": ["+15551234567"],
+              "groupPolicy": "allowlist"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Then link WhatsApp on the host:
+
+```bash
+clawlets server channels login --host <host> --gateway maren --channel whatsapp --sshTty
+```
+
+Notes:
+
+- `allowFrom` uses E.164 numbers (e.g. `+15551234567`) and can include `"*"` for broad access.
+- If you run WhatsApp on your personal number, you may want `selfChatMode: true`.

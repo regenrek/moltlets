@@ -7,14 +7,14 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
+      schemaVersion: 17,
       fleet: {
-        botOrder: ["alpha"],
         secretEnv: {},
-        bots: { alpha: {} },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
+          botsOrder: ["alpha"],
+          bots: { alpha: {} },
           tailnet: { mode: "tailscale" },
           cache: { netrc: { enable: true, secretName: "garnix_netrc" } },
           agentModelPrimary: "openai/gpt-4o",
@@ -22,8 +22,8 @@ describe("secrets init template sets", () => {
       },
     });
 
-    const secretsPlan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
-    const hostCfg = cfg.hosts["clawdbot-fleet-host"];
+    const secretsPlan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
+    const hostCfg = cfg.hosts["openclaw-fleet-host"];
     const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg });
 
     expect(sets.requiresTailscaleAuthKey).toBe(true);
@@ -42,19 +42,22 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
+      schemaVersion: 17,
       fleet: {
-        botOrder: ["alpha"],
         secretEnv: {},
-        bots: { alpha: {} },
       },
       hosts: {
-        "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["alpha"],
+          bots: { alpha: {} },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
-    const secretsPlan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
-    const hostCfg = cfg.hosts["clawdbot-fleet-host"];
+    const secretsPlan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
+    const hostCfg = cfg.hosts["openclaw-fleet-host"];
     const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg });
 
     expect(sets.requiresTailscaleAuthKey).toBe(false);

@@ -9,13 +9,14 @@ import { findRepoRoot } from "@clawlets/core/lib/repo";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
 import {
   createDefaultClawletsConfig,
+  CLAWLETS_CONFIG_SCHEMA_VERSION,
   ClawletsConfigSchema,
   loadClawletsConfig,
   loadClawletsConfigRaw,
   resolveHostName,
   writeClawletsConfig,
 } from "@clawlets/core/lib/clawlets-config";
-import { migrateClawletsConfigToV12 } from "@clawlets/core/lib/clawlets-config-migrate";
+import { migrateClawletsConfigToLatest } from "@clawlets/core/lib/clawlets-config-migrate";
 import { validateClawletsConfig } from "@clawlets/core/lib/clawlets-config-validate";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
 import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } from "@clawlets/core/lib/secrets-autowire";
@@ -23,13 +24,13 @@ import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } 
 const init = defineCommand({
   meta: { name: "init", description: "Initialize fleet/clawlets.json (canonical config)." },
   args: {
-    host: { type: "string", description: "Initial host name.", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Initial host name.", default: "openclaw-fleet-host" },
     force: { type: "boolean", description: "Overwrite existing clawlets.json.", default: false },
     "dry-run": { type: "boolean", description: "Print planned writes without writing.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const host = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const host = String(args.host || "openclaw-fleet-host").trim() || "openclaw-fleet-host";
     const configPath = getRepoLayout(repoRoot).clawletsConfigPath;
 
     if (fs.existsSync(configPath) && !args.force) {
@@ -63,7 +64,7 @@ const show = defineCommand({
 });
 
 const validate = defineCommand({
-  meta: { name: "validate", description: "Validate fleet/clawlets.json + rendered Clawdbot config." },
+  meta: { name: "validate", description: "Validate fleet/clawlets.json + rendered OpenClaw config." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     strict: { type: "boolean", description: "Fail on warnings (inline secrets, invariant overrides).", default: false },
@@ -90,8 +91,8 @@ const wireSecrets = defineCommand({
   meta: { name: "wire-secrets", description: "Autowire missing secretEnv mappings." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
-    bot: { type: "string", description: "Only wire secrets for this bot id." },
-    scope: { type: "string", description: "Override scope (bot|fleet)." },
+    gateway: { type: "string", description: "Only wire secrets for this bot id." },
+    scope: { type: "string", description: "Override scope (gateway|fleet)." },
     only: { type: "string", description: "Only wire a specific ENV_VAR (comma-separated)." },
     write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
@@ -108,8 +109,8 @@ const wireSecrets = defineCommand({
     }
 
     const scopeRaw = String(args.scope || "").trim();
-    const scope = scopeRaw ? (scopeRaw === "bot" || scopeRaw === "fleet" ? (scopeRaw as SecretsAutowireScope) : null) : null;
-    if (scopeRaw && !scope) throw new Error(`invalid --scope: ${scopeRaw} (expected bot|fleet)`);
+    const scope = scopeRaw ? (scopeRaw === "gateway" || scopeRaw === "fleet" ? (scopeRaw as SecretsAutowireScope) : null) : null;
+    if (scopeRaw && !scope) throw new Error(`invalid --scope: ${scopeRaw} (expected gateway|fleet)`);
 
     const onlyEnvVars = String(args.only || "")
       .split(",")
@@ -120,7 +121,7 @@ const wireSecrets = defineCommand({
       config: validated,
       hostName: resolved.host,
       scope: scope ?? undefined,
-      bot: args.bot ? String(args.bot).trim() : undefined,
+      gatewayId: args.gateway ? String(args.gateway).trim() : undefined,
       onlyEnvVars,
     });
 
@@ -134,7 +135,7 @@ const wireSecrets = defineCommand({
     }
 
     const summary = plan.updates.map((u) => ({
-      bot: u.bot,
+      gatewayId: u.gatewayId,
       envVar: u.envVar,
       scope: u.scope,
       secretName: u.secretName,
@@ -150,14 +151,14 @@ const wireSecrets = defineCommand({
         const target =
           entry.scope === "fleet"
             ? `fleet.secretEnv.${entry.envVar}`
-            : `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`;
+            : `hosts.${resolved.host}.bots.${entry.gatewayId}.profile.secretEnv.${entry.envVar}`;
         console.log(`- ${target} = ${entry.secretName}`);
       }
       console.log("run with --write to apply changes");
       return;
     }
 
-    const next = applySecretsAutowire({ config: validated, plan });
+    const next = applySecretsAutowire({ config: validated, plan, hostName: resolved.host });
     const validation = validateClawletsConfig({ config: next, hostName: resolved.host });
     if (!validation.ok) {
       for (const e of validation.errors) console.error(`error: ${e}`);
@@ -174,17 +175,17 @@ const wireSecrets = defineCommand({
       const target =
         entry.scope === "fleet"
           ? `fleet.secretEnv.${entry.envVar}`
-          : `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`;
+          : `hosts.${resolved.host}.bots.${entry.gatewayId}.profile.secretEnv.${entry.envVar}`;
       console.log(`- ${target} = ${entry.secretName}`);
     }
   },
 });
 
 const deriveAllowlist = defineCommand({
-  meta: { name: "derive-allowlist", description: "Derive per-bot secretEnvAllowlist from current config." },
+  meta: { name: "derive-allowlist", description: "Derive per-gateway secretEnvAllowlist from current config." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
-    bot: { type: "string", description: "Only derive allowlist for this bot id." },
+    gateway: { type: "string", description: "Only derive allowlist for this bot id." },
     write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
   },
@@ -199,14 +200,20 @@ const deriveAllowlist = defineCommand({
     }
 
     const plan = buildFleetSecretsPlan({ config: validated, hostName: resolved.host });
-    const botArg = args.bot ? String(args.bot).trim() : "";
-    const bots = botArg ? [botArg] : validated.fleet.botOrder || [];
-    if (bots.length === 0) throw new Error("fleet.botOrder is empty (set bots in fleet/clawlets.json)");
+    const gatewayArg = args.gateway ? String(args.gateway).trim() : "";
+    const hostCfg = validated.hosts?.[resolved.host];
+    if (!hostCfg) throw new Error(`missing host in config.hosts: ${resolved.host}`);
+    const gateways: string[] = gatewayArg
+      ? [gatewayArg]
+      : Array.isArray(hostCfg.botsOrder)
+        ? hostCfg.botsOrder.map((value) => String(value))
+        : [];
+    if (gateways.length === 0) throw new Error(`hosts.${resolved.host}.botsOrder is empty (set bots in fleet/clawlets.json)`);
 
-    const updates = bots.map((bot) => {
-      const envVars = plan.byBot?.[bot]?.envVarsRequired;
-      if (!envVars) throw new Error(`unknown bot id: ${bot}`);
-      return { bot, allowlist: envVars };
+    const updates = gateways.map((gatewayId) => {
+      const envVars = plan.byGateway?.[gatewayId]?.envVarsRequired;
+      if (!envVars) throw new Error(`unknown gateway id: ${gatewayId}`);
+      return { gatewayId, allowlist: envVars };
     });
 
     if (!args.write) {
@@ -216,17 +223,19 @@ const deriveAllowlist = defineCommand({
       }
       console.log(`planned: update ${path.relative(repoRoot, configPath)}`);
       for (const entry of updates) {
-        console.log(`- fleet.bots.${entry.bot}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
+        console.log(`- hosts.${resolved.host}.bots.${entry.gatewayId}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
       }
       console.log("run with --write to apply changes");
       return;
     }
 
     const next = structuredClone(validated) as any;
+    if (!next.hosts?.[resolved.host]) throw new Error(`missing host in config.hosts: ${resolved.host}`);
     for (const entry of updates) {
-      if (!next.fleet.bots[entry.bot]) next.fleet.bots[entry.bot] = {};
-      if (!next.fleet.bots[entry.bot].profile) next.fleet.bots[entry.bot].profile = {};
-      next.fleet.bots[entry.bot].profile.secretEnvAllowlist = entry.allowlist;
+      if (!next.hosts[resolved.host].bots) next.hosts[resolved.host].bots = {};
+      if (!next.hosts[resolved.host].bots[entry.gatewayId]) next.hosts[resolved.host].bots[entry.gatewayId] = {};
+      if (!next.hosts[resolved.host].bots[entry.gatewayId].profile) next.hosts[resolved.host].bots[entry.gatewayId].profile = {};
+      next.hosts[resolved.host].bots[entry.gatewayId].profile.secretEnvAllowlist = entry.allowlist;
     }
 
     const validation = validateClawletsConfig({ config: next, hostName: resolved.host });
@@ -242,7 +251,7 @@ const deriveAllowlist = defineCommand({
     }
     console.log(`ok: updated ${path.relative(repoRoot, configPath)}`);
     for (const entry of updates) {
-      console.log(`- fleet.bots.${entry.bot}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
+      console.log(`- hosts.${resolved.host}.bots.${entry.gatewayId}.profile.secretEnvAllowlist = ${JSON.stringify(entry.allowlist)}`);
     }
   },
 });
@@ -250,7 +259,7 @@ const deriveAllowlist = defineCommand({
 const get = defineCommand({
   meta: { name: "get", description: "Get a value from fleet/clawlets.json (dot path)." },
   args: {
-    path: { type: "string", description: "Dot path (e.g. fleet.botOrder)." },
+    path: { type: "string", description: "Dot path (e.g. hosts.<host>.botsOrder)." },
     json: { type: "boolean", description: "JSON output.", default: false },
   },
   async run({ args }) {
@@ -266,7 +275,7 @@ const get = defineCommand({
 const set = defineCommand({
   meta: { name: "set", description: "Set a value in fleet/clawlets.json (dot path)." },
   args: {
-    path: { type: "string", description: "Dot path (e.g. fleet.botOrder)." },
+    path: { type: "string", description: "Dot path (e.g. hosts.<host>.botsOrder)." },
     value: { type: "string", description: "String value." },
     "value-json": { type: "string", description: "JSON value (parsed)." },
     delete: { type: "boolean", description: "Delete the key at path.", default: false },
@@ -318,7 +327,11 @@ const set = defineCommand({
 const migrate = defineCommand({
   meta: { name: "migrate", description: "Migrate fleet/clawlets.json to a new schema version." },
   args: {
-    to: { type: "string", description: "Target schema version (only v12 supported).", default: "v12" },
+    to: {
+      type: "string",
+      description: `Target schema version (only v${CLAWLETS_CONFIG_SCHEMA_VERSION} supported).`,
+      default: `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`,
+    },
     "dry-run": { type: "boolean", description: "Print planned write without writing.", default: false },
   },
   async run({ args }) {
@@ -334,12 +347,15 @@ const migrate = defineCommand({
       throw new Error(`invalid JSON: ${configPath}`);
     }
 
-    const to = String((args as any).to || "v12").trim().toLowerCase();
-    if (to !== "v12" && to !== "12") throw new Error(`unsupported --to: ${to} (expected v12)`);
+    const target = `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`;
+    const to = String((args as any).to || target).trim().toLowerCase();
+    if (to !== target && to !== String(CLAWLETS_CONFIG_SCHEMA_VERSION)) {
+      throw new Error(`unsupported --to: ${to} (expected ${target})`);
+    }
 
-    const res = migrateClawletsConfigToV12(parsed);
+    const res = migrateClawletsConfigToLatest(parsed);
     if (!res.changed) {
-      console.log("ok: already schemaVersion 12");
+      console.log(`ok: already schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}`);
       return;
     }
 
@@ -353,7 +369,7 @@ const migrate = defineCommand({
 
     await ensureDir(path.dirname(configPath));
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: migrated to schemaVersion 12: ${path.relative(repoRoot, configPath)}`);
+    console.log(`ok: migrated to schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}: ${path.relative(repoRoot, configPath)}`);
     for (const w of res.warnings) console.log(`warn: ${w}`);
   },
 });

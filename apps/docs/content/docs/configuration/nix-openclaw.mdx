@@ -3,34 +3,33 @@ title: nix-openclaw integration
 description: How the Nix layer is pinned and updated.
 ---
 
-Clawlets consumes OpenClaw via the **nix-clawdbot** flake input (repo often referenced
-as `nix-openclaw`). This keeps the runtime pinned to a specific OpenClaw revision so
-deploys are deterministic and reproducible.
+Clawlets consumes OpenClaw via the **nix-openclaw** flake input. This keeps the runtime
+pinned to a specific OpenClaw revision so deploys are deterministic and reproducible.
 
 In the project repo created by `clawlets project init`, the lock file pins both
 Clawlets and OpenClaw:
 
-- `flake.lock` pins **clawlets** and **nix-clawdbot**
-- Nix modules read `nix-clawdbot.packages.${system}` directly (no shims)
-- Clawdbot source rev is checked for alignment in CI (`clawdbot-pin-align`)
+- `flake.lock` pins **clawlets** and **nix-openclaw**
+- Nix modules read `nix-openclaw.packages.${system}` directly (no shims)
+- OpenClaw source rev is checked for alignment in CI (`openclaw-pin-align`)
 
-## Where it’s wired
+## Where it's wired
 
 In this repo:
 
-- `flake.nix` declares the `nix-clawdbot` input
-- Nix modules (`nix/modules/*`) reference `nix-clawdbot.packages.${system}`
+- `flake.nix` declares the `nix-openclaw` input
+- Nix modules (`nix/modules/*`) reference `nix-openclaw.packages.${system}`
 
 In the project repo (template):
 
-- `templates/default/flake.nix` passes `nix-clawdbot` into the host modules
+- `templates/default/flake.nix` passes `nix-openclaw` into the host modules
 
 ## Update workflow
 
-Update `nix-clawdbot` in the **project repo**:
+Update `nix-openclaw` in the **project repo**:
 
 ```bash
-nix flake lock --update-input nix-clawdbot
+nix flake lock --update-input nix-openclaw
 ```
 
 Then deploy to a staging host first so you can validate behavior before production:

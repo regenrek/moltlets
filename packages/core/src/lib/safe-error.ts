@@ -8,7 +8,7 @@ const SAFE_ERROR_PATTERNS: RegExp[] = [
   /^run kind mismatch/i,
   /^missing host$/i,
   /^unknown host:/i,
-  /^unknown bot:/i,
+  /^unknown gateway:/i,
   /^invalid target host:/i,
   /^missing targethost /i,
   /^invalid gateway port /i,

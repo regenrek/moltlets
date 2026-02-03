@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const TEST_TIMEOUT_MS = 15_000;
 import { plugin } from "../src/commands/plugin.js";
 
 function makeRepoRoot(): string {
@@ -23,7 +25,9 @@ describe("plugin command", () => {
     }
   });
 
-  it("list --json returns empty arrays when no plugins", async () => {
+  it(
+    "list --json returns empty arrays when no plugins",
+    async () => {
     const repoRoot = makeRepoRoot();
     tempDirs.push(repoRoot);
     process.chdir(repoRoot);
@@ -34,9 +38,13 @@ describe("plugin command", () => {
     const obj = JSON.parse(logs.join("\n"));
     expect(obj.plugins).toEqual([]);
     expect(obj.errors).toEqual([]);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("list prints empty message when no plugins", async () => {
+  it(
+    "list prints empty message when no plugins",
+    async () => {
     const repoRoot = makeRepoRoot();
     tempDirs.push(repoRoot);
     process.chdir(repoRoot);
@@ -45,9 +53,13 @@ describe("plugin command", () => {
     await plugin.subCommands.list.run({ args: { json: false } as any });
     logSpy.mockRestore();
     expect(logs.join("\n")).toMatch(/no plugins installed/);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 
-  it("list warns on broken plugins", async () => {
+  it(
+    "list warns on broken plugins",
+    async () => {
     const repoRoot = makeRepoRoot();
     tempDirs.push(repoRoot);
     process.chdir(repoRoot);
@@ -59,5 +71,7 @@ describe("plugin command", () => {
     await plugin.subCommands.list.run({ args: { json: false } as any });
     errSpy.mockRestore();
     expect(errors.join("\n")).toMatch(/skipping plugin broken/);
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

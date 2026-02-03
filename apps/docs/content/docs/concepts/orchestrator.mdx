@@ -27,7 +27,7 @@ fetch their runtime environment over tailnet-only HTTP.
 
 - Bot → orchestrator: Unix socket HTTP
   - socket: `/run/clf/orchestrator.sock`
-  - auth: filesystem perms (systemd socket `0660`, group `clf-bots`)
+  - auth: filesystem perms (systemd socket `0660`, group `clf-gateways`)
 - Cattle → orchestrator: tailnet-only HTTP (secrets env fetch)
   - endpoint: `GET /v1/cattle/env` (bearer token, one-time)
   - bind: tailnet (`tailscale0`) only (default `CLF_CATTLE_SECRETS_LISTEN_HOST=auto`)
@@ -108,7 +108,7 @@ Most issues are either a missing socket or an expired token.
 
 - “connection refused” / “socket missing”
   - `systemctl status clf-orchestrator.socket`
-  - verify caller is in `clf-bots` group
+  - verify caller is in `clf-gateways` group
 - `GET /v1/cattle/env` 401
   - token expired or already used (one-time + TTL)
   - cattle didn’t join tailnet (bad `tailscale_auth_key`)

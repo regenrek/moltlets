@@ -19,7 +19,7 @@
     "clawlets:secrets": "node packages/cli/dist/main.mjs secrets",
     "clawlets:infra": "node packages/cli/dist/main.mjs infra",
     "clawlets:help": "node packages/cli/dist/main.mjs --help",
-    "clawlets:clawdbot-assets": "tsx scripts/generate-clawdbot-assets.ts"
+    "clawlets:openclaw-assets": "tsx scripts/generate-openclaw-assets.ts"
   },
   "devDependencies": {
     "tsx": "^4.7.0"

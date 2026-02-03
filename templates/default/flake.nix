@@ -43,14 +43,14 @@
           rev = nixpkgs.rev or null;
           lastModifiedDate = nixpkgs.lastModifiedDate or null;
         };
-        nix-clawdbot = {
-          rev = clawlets.inputs.nix-clawdbot.rev or null;
-          lastModifiedDate = clawlets.inputs.nix-clawdbot.lastModifiedDate or null;
+        nix-openclaw = {
+          rev = clawlets.inputs.nix-openclaw.rev or null;
+          lastModifiedDate = clawlets.inputs.nix-openclaw.lastModifiedDate or null;
         };
-        clawdbot =
-          if clawlets.inputs ? clawdbot-src then {
-            rev = clawlets.inputs.clawdbot-src.rev or null;
-            lastModifiedDate = clawlets.inputs.clawdbot-src.lastModifiedDate or null;
+        openclaw =
+          if clawlets.inputs ? openclaw-src then {
+            rev = clawlets.inputs.openclaw-src.rev or null;
+            lastModifiedDate = clawlets.inputs.openclaw-src.lastModifiedDate or null;
           } else {
             rev = null;
             lastModifiedDate = null;
@@ -62,7 +62,7 @@
           hostConfigs = lib.genAttrs hostNames (hostName:
             lib.nixosSystem {
               inherit system;
-              specialArgs = { inherit clawlets flakeInfo project; nix-clawdbot = clawlets.inputs.nix-clawdbot; };
+              specialArgs = { inherit clawlets flakeInfo project; nix-openclaw = clawlets.inputs.nix-openclaw; };
               modules = [
                 clawlets.inputs.disko.nixosModules.disko
                 clawlets.inputs.nixos-generators.nixosModules.all-formats

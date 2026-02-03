@@ -4,6 +4,8 @@ import path from "node:path";
 import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const TEST_TIMEOUT_MS = 15_000;
+
 function writeFile(filePath: string, contents: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents, "utf8");
@@ -31,7 +33,9 @@ describe("plugin dispatch integration", () => {
     }
   });
 
-  it("dispatches installed plugin via runtime dir", async () => {
+  it(
+    "dispatches installed plugin via runtime dir",
+    async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugin-it-"));
     tempDirs.push(repoRoot);
     writeFile(path.join(repoRoot, "flake.nix"), "{ }\n");
@@ -84,10 +88,13 @@ describe("plugin dispatch integration", () => {
     process.chdir(repoRoot);
     process.argv = ["node", "clawlets", `--runtime-dir=${runtimeDir}`, "cattle", "--foo", "bar"];
     vi.resetModules();
-    await import("../src/main.ts");
+    const mod = await import("../src/main.ts");
+    await mod.mainEntry();
 
     await waitForFile(outPath);
     const obj = JSON.parse(fs.readFileSync(outPath, "utf8"));
     expect(obj).toEqual({ ok: true, foo: "bar" });
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

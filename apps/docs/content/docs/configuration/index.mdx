@@ -8,6 +8,10 @@ write to this file, and NixOS modules render everything from it. This section ex
 the schema, how it extends OpenClaw, and how the Nix layer stays pinned via
 `nix-openclaw`.
 
+<Callout type="info" title="Looking for copy/paste snippets?">
+  See <a href="/examples">Examples</a> for ready-to-adapt config snippets (agents, channels, skills, passthrough).
+</Callout>
+
 ## Start here
 
 If you are new, begin with the top-level schema and then drill into the sections that
@@ -15,7 +19,8 @@ map to OpenClaw and the agent runtime. The compatibility and nix-openclaw pages 
 how Clawlets extends upstream without forking the core model.
 
 - [Config (fleet/clawlets.json)](/configuration/config) — schema and layout
-- [Clawdbot config](/configuration/clawdbot-config) — raw OpenClaw config and invariants
+- [Typed config surfaces](/configuration/typed-surfaces) — how config maps into Nix + OpenClaw
+- [OpenClaw config](/configuration/openclaw-config) — raw OpenClaw config and invariants
 - [Agent config](/configuration/agent-config) — workspaces, skills, per-bot profiles
 - [OpenClaw compatibility](/configuration/openclaw-compat) — schema alignment and overrides
 - [nix-openclaw](/configuration/nix-openclaw) — how the Nix layer is pinned

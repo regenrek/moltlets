@@ -1,0 +1,40 @@
+node_modules
+package-lock.json
+yarn.lock
+
+.DS_Store
+.cache
+.vercel
+
+/build/
+/api/
+/server/build
+/public/build
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.sentry-build-plugin
+
+# Convex (local state)
+.convex/
+
+# Generated fumadocs files
+.source/
+
+# Generated TanStack Router
+src/routeTree.gen.ts
+
+# TanStack Start / Vite
+dist/
+.output/
+.vinxi/
+.tanstack/
+coverage/
+
+# Alchemy runtime/state
+.alchemy/
+
+# Cloudflare Wrangler cache
+.wrangler/

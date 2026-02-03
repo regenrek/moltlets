@@ -29,9 +29,9 @@ async function loadWorkspaceDocs(options: { pathExists: boolean; writeThrows: bo
     getRepoLayout: () => ({
       repoRoot: "/tmp/repo",
       fleetWorkspacesCommonDir: "/tmp/repo/fleet/workspaces/common",
-      fleetWorkspacesBotDir: "/tmp/repo/fleet/workspaces/bots",
+      fleetWorkspacesGatewaysDir: "/tmp/repo/fleet/workspaces/gateways",
     }),
-    getBotWorkspaceDir: (_layout: unknown, botId: string) => `/tmp/repo/fleet/workspaces/bots/${botId}`,
+    getGatewayWorkspaceDir: (_layout: unknown, botId: string) => `/tmp/repo/fleet/workspaces/gateways/${botId}`,
   }))
   vi.doMock("@clawlets/core/lib/fleet-workspaces", () => ({
     isFleetWorkspaceEditableDoc: () => true,

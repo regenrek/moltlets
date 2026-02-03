@@ -1,0 +1,102 @@
+---
+title: Agents
+description: Model defaults, fallbacks, and concurrency.
+---
+
+This page shows common agent defaults and the optional multi-persona layout. These live under:
+
+- `hosts.<host>.bots.<botId>.agents.defaults`
+- `hosts.<host>.bots.<botId>.agents.list[]` (optional)
+
+## Model default (per gateway)
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "agents": {
+            "defaults": {
+              "model": {
+                "primary": "zai/glm-4.7",
+                "fallbacks": ["anthropic/claude-opus-4-5"]
+              },
+              "thinkingDefault": "low",
+              "maxConcurrent": 4
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- `thinkingDefault` is optional; use it to set a consistent baseline.
+- `maxConcurrent` is per-gateway concurrency, not a global host limit.
+
+## Multi-persona per gateway (optional)
+
+If you want **one gateway process** with **multiple OpenClaw personas**, use `agents.list[]`.
+
+- `id` is the persona id (unique per gateway).
+- at most one entry may set `default: true`.
+- `name` is optional (display name).
+
+Example:
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "defaults": {
+              "model": { "primary": "zai/glm-4.7" },
+              "thinkingDefault": "low",
+              "maxConcurrent": 4
+            },
+            "list": [
+              { "id": "ops", "default": true, "name": "Ops" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+You can also pass through advanced per-persona keys (workspace, model overrides, tools, sandbox, etc.).
+
+See also: [Gateways and personas](/configuration/gateways-and-personas).
+
+## Host default (applies to all bots unless overridden)
+
+You can set a host-level default model and then override per bot if needed:
+
+```json
+{
+  "hosts": {
+    "openclaw-fleet-host": {
+      "agentModelPrimary": "zai/glm-4.7"
+    }
+  }
+}
+```
+
+## Workspace + bootstrap policy (derived)
+
+Clawlets pins workspace paths and bootstrap behavior at deploy time (Nix invariants).
+You normally should not override these via passthrough.
+
+See:
+
+- [Typed config surfaces](/configuration/typed-surfaces)
+- [Agent config](/configuration/agent-config)

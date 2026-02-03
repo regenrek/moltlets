@@ -16,6 +16,12 @@ describe("identifiers", () => {
     expect(() => assertSafeSecretName("../pwn")).toThrow(/invalid secret name/i);
   });
 
+  it("assertSafeSecretName rejects pasted tokens", async () => {
+    const { assertSafeSecretName } = await import("@clawlets/shared/lib/identifiers");
+    expect(() => assertSafeSecretName("sk-1234567890abcdefghijklmnop")).toThrow(/invalid secret name/i);
+    expect(() => assertSafeSecretName("ghp_1234567890abcdefghijklmnopqrstuvwx1234")).toThrow(/invalid secret name/i);
+  });
+
   it("assertSafePersonaName accepts safe persona", async () => {
     const { assertSafePersonaName } = await import("@clawlets/shared/lib/identifiers");
     expect(() => assertSafePersonaName("rex")).not.toThrow();

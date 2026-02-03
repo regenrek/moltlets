@@ -8,7 +8,7 @@ export type SecretSpecAccumulator = {
   scope: SecretSpec["scope"];
   sources: Set<SecretSource>;
   envVars: Set<string>;
-  bots: Set<string>;
+  gateways: Set<string>;
   help?: string;
   optional: boolean;
   fileId?: string;
@@ -22,8 +22,8 @@ export const ENV_VAR_HELP: Record<string, string> = {
   TELEGRAM_BOT_TOKEN: "Telegram bot token",
   SLACK_BOT_TOKEN: "Slack bot token",
   SLACK_APP_TOKEN: "Slack app token",
-  CLAWDBOT_HOOKS_TOKEN: "Clawdbot hooks token",
-  CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN: "Clawdbot Gmail push token",
+  OPENCLAW_HOOKS_TOKEN: "OpenClaw hooks token",
+  OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN: "OpenClaw Gmail push token",
   OPENAI_API_KEY: "OpenAI API key",
   ANTHROPIC_API_KEY: "Anthropic API key",
   ANTHROPIC_OAUTH_TOKEN: "Anthropic OAuth token",
@@ -51,18 +51,18 @@ export const ENV_VAR_HELP: Record<string, string> = {
   GITHUB_TOKEN: "GitHub token",
 };
 
-const ENV_VAR_SECRET_NAME_SUGGESTIONS: Record<string, (bot?: string) => string> = {
-  DISCORD_BOT_TOKEN: (bot) => `discord_token_${bot || "bot"}`,
-  TELEGRAM_BOT_TOKEN: (bot) => `telegram_bot_token_${bot || "bot"}`,
-  SLACK_BOT_TOKEN: (bot) => `slack_bot_token_${bot || "bot"}`,
-  SLACK_APP_TOKEN: (bot) => `slack_app_token_${bot || "bot"}`,
+const ENV_VAR_SECRET_NAME_SUGGESTIONS: Record<string, (gatewayId?: string) => string> = {
+  DISCORD_BOT_TOKEN: (gatewayId) => `discord_token_${gatewayId || "gateway"}`,
+  TELEGRAM_BOT_TOKEN: (gatewayId) => `telegram_bot_token_${gatewayId || "gateway"}`,
+  SLACK_BOT_TOKEN: (gatewayId) => `slack_bot_token_${gatewayId || "gateway"}`,
+  SLACK_APP_TOKEN: (gatewayId) => `slack_app_token_${gatewayId || "gateway"}`,
 };
 
-export function suggestSecretNameForEnvVar(envVar: string, bot?: string): string {
+export function suggestSecretNameForEnvVar(envVar: string, gatewayId?: string): string {
   const key = String(envVar || "").trim();
   if (!key) return "";
   const direct = ENV_VAR_SECRET_NAME_SUGGESTIONS[key];
-  if (direct) return direct(bot);
+  if (direct) return direct(gatewayId);
   return key.toLowerCase();
 }
 
@@ -75,11 +75,11 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function collectBotModels(params: { clawdbot: any; hostDefaultModel: string }): string[] {
+export function collectGatewayModels(params: { openclaw: any; hostDefaultModel: string }): string[] {
   const models: string[] = [];
 
   const hostDefaultModel = String(params.hostDefaultModel || "").trim();
-  const defaults = params.clawdbot?.agents?.defaults;
+  const defaults = params.openclaw?.agents?.defaults;
 
   const pushModel = (v: unknown) => {
     if (typeof v !== "string") return;
@@ -108,8 +108,8 @@ export function collectBotModels(params: { clawdbot: any; hostDefaultModel: stri
   return Array.from(new Set(models));
 }
 
-export function isWhatsAppEnabled(clawdbot: any): boolean {
-  const whatsapp = clawdbot?.channels?.whatsapp;
+export function isWhatsAppEnabled(openclaw: any): boolean {
+  const whatsapp = openclaw?.channels?.whatsapp;
   if (!isPlainObject(whatsapp)) return false;
   return (whatsapp as any).enabled !== false;
 }
@@ -135,8 +135,8 @@ export function canonicalizeEnvVar(envVar: string, aliasMap: Map<string, string>
   if (!trimmed) return "";
   return aliasMap.get(trimmed) ?? trimmed;
 }
-export const HOOKS_TOKEN_ENV_VAR = "CLAWDBOT_HOOKS_TOKEN";
-export const HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR = "CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN";
+export const HOOKS_TOKEN_ENV_VAR = "OPENCLAW_HOOKS_TOKEN";
+export const HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR = "OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN";
 export function normalizeEnvKey(value: string): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -144,21 +144,21 @@ export function normalizeEnvKey(value: string): string {
 }
 export function skillApiKeyEnvVar(skill: string): string {
   const key = normalizeEnvKey(skill);
-  return key ? `CLAWDBOT_SKILL_${key}_API_KEY` : "CLAWDBOT_SKILL__API_KEY";
+  return key ? `OPENCLAW_SKILL_${key}_API_KEY` : "OPENCLAW_SKILL__API_KEY";
 }
 export type DerivedSecretEnvEntry = { envVar: string; secretName: string; path: string; help?: string };
 
-export function collectDerivedSecretEnvEntries(profile: unknown): DerivedSecretEnvEntry[] {
+export function collectDerivedSecretEnvEntries(gatewayCfg: unknown): DerivedSecretEnvEntry[] {
   const entries: DerivedSecretEnvEntry[] = [];
-  if (!isPlainObject(profile)) return entries;
-  const hooks = profile.hooks;
+  if (!isPlainObject(gatewayCfg)) return entries;
+  const hooks = (gatewayCfg as any).hooks;
   if (isPlainObject(hooks)) {
     const tokenSecret = String((hooks as any).tokenSecret || "").trim();
     if (tokenSecret) {
       entries.push({
         envVar: HOOKS_TOKEN_ENV_VAR,
         secretName: tokenSecret,
-        path: "profile.hooks.tokenSecret",
+        path: "hooks.tokenSecret",
         help: ENV_VAR_HELP[HOOKS_TOKEN_ENV_VAR],
       });
     }
@@ -167,12 +167,12 @@ export function collectDerivedSecretEnvEntries(profile: unknown): DerivedSecretE
       entries.push({
         envVar: HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR,
         secretName: gmailSecret,
-        path: "profile.hooks.gmailPushTokenSecret",
+        path: "hooks.gmailPushTokenSecret",
         help: ENV_VAR_HELP[HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR],
       });
     }
   }
-  const skills = (profile as any).skills;
+  const skills = (gatewayCfg as any).skills;
   const skillEntries = isPlainObject(skills) ? (skills as any).entries : null;
   if (isPlainObject(skillEntries)) {
     for (const [skill, entry] of Object.entries(skillEntries)) {
@@ -182,7 +182,7 @@ export function collectDerivedSecretEnvEntries(profile: unknown): DerivedSecretE
       entries.push({
         envVar: skillApiKeyEnvVar(skill),
         secretName,
-        path: `profile.skills.entries.${skill}.apiKeySecret`,
+        path: `skills.entries.${skill}.apiKeySecret`,
         help: `Skill ${skill} API key`,
       });
     }
@@ -190,9 +190,9 @@ export function collectDerivedSecretEnvEntries(profile: unknown): DerivedSecretE
   return entries;
 }
 
-export function buildDerivedSecretEnv(profile: unknown): Record<string, string> {
+export function buildDerivedSecretEnv(gatewayCfg: unknown): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const entry of collectDerivedSecretEnvEntries(profile)) {
+  for (const entry of collectDerivedSecretEnvEntries(gatewayCfg)) {
     if (!entry.envVar || !entry.secretName) continue;
     out[entry.envVar] = entry.secretName;
   }
@@ -201,12 +201,12 @@ export function buildDerivedSecretEnv(profile: unknown): Record<string, string> 
 type AddRequiredEnv = (envVar: string, source: SecretSource, path?: string) => void;
 
 export function applyChannelEnvRequirements(params: {
-  bot: string;
-  clawdbot: any;
+  gatewayId: string;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv } = params;
+  const { gatewayId, openclaw, warnings, addRequiredEnv } = params;
   const addChannelToken = (payload: { channel: string; envVar: string; path: string; value: unknown }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -216,26 +216,26 @@ export function applyChannelEnvRequirements(params: {
       warnings.push({
         kind: "inlineToken",
         channel: payload.channel,
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${payload.envVar}} for ${payload.channel} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Use \${${payload.envVar}} for ${payload.channel} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
       warnings.push({
         kind: "inlineToken",
         channel: payload.channel,
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Inline ${payload.channel} token detected at ${payload.path}`,
-        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(payload.envVar, "channel", payload.path);
   };
 
-  const channels = (clawdbot as any)?.channels;
+  const channels = (openclaw as any)?.channels;
   if (!isPlainObject(channels)) return;
 
   const discord = channels.discord;
@@ -298,12 +298,12 @@ export function applyChannelEnvRequirements(params: {
 }
 
 export function applyHookEnvRequirements(params: {
-  bot: string;
-  clawdbot: any;
+  gatewayId: string;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv } = params;
+  const { gatewayId, openclaw, warnings, addRequiredEnv } = params;
   const addHookToken = (payload: { envVar: string; path: string; value: unknown; label: string }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -313,26 +313,26 @@ export function applyHookEnvRequirements(params: {
       warnings.push({
         kind: "inlineToken",
         channel: "hooks",
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${payload.envVar}} for ${payload.label} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Use \${${payload.envVar}} for ${payload.label} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
       warnings.push({
         kind: "inlineToken",
         channel: "hooks",
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Inline hooks token detected at ${payload.path}`,
-        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(payload.envVar, "custom", payload.path);
   };
 
-  const hooks = (clawdbot as any)?.hooks;
+  const hooks = (openclaw as any)?.hooks;
   if (!isPlainObject(hooks)) return;
   addHookToken({
     envVar: HOOKS_TOKEN_ENV_VAR,
@@ -352,13 +352,13 @@ export function applyHookEnvRequirements(params: {
 }
 
 export function applySkillEnvRequirements(params: {
-  bot: string;
-  clawdbot: any;
+  gatewayId: string;
+  openclaw: any;
   warnings: SecretsPlanWarning[];
   addRequiredEnv: AddRequiredEnv;
   envVarHelpOverrides: Map<string, string>;
 }): void {
-  const { bot, clawdbot, warnings, addRequiredEnv, envVarHelpOverrides } = params;
+  const { gatewayId, openclaw, warnings, addRequiredEnv, envVarHelpOverrides } = params;
   const addSkillApiKey = (payload: { skill: string; path: string; value: unknown }) => {
     if (typeof payload.value !== "string") return;
     const trimmed = payload.value.trim();
@@ -371,25 +371,25 @@ export function applySkillEnvRequirements(params: {
     if (envVar && envVar !== expectedEnvVar) {
       warnings.push({
         kind: "inlineApiKey",
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${expectedEnvVar}} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Use \${${expectedEnvVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
       warnings.push({
         kind: "inlineApiKey",
-        bot,
+        gateway: gatewayId,
         path: payload.path,
         message: `Inline API key detected at ${payload.path}`,
-        suggestion: `Replace with \${${expectedEnvVar}} and map it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+        suggestion: `Replace with \${${expectedEnvVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(expectedEnvVar, "custom", payload.path);
   };
 
-  const skills = (clawdbot as any)?.skills;
+  const skills = (openclaw as any)?.skills;
   const skillEntries = isPlainObject(skills) ? (skills as any).entries : null;
   if (!isPlainObject(skillEntries)) return;
   for (const [skill, entry] of Object.entries(skillEntries)) {
@@ -404,14 +404,14 @@ export function applySkillEnvRequirements(params: {
 
 export function buildBaseSecretEnv(params: {
   globalEnv: unknown;
-  botEnv: unknown;
+  gatewayEnv: unknown;
   aliasMap: Map<string, string>;
   warnings: SecretsPlanWarning[];
-  bot: string;
+  gateway: string;
 }): Record<string, string> {
   const out: Record<string, string> = {};
 
-  const apply = (v: unknown, source: "fleet" | "bot") => {
+  const apply = (v: unknown, source: "fleet" | "gateway") => {
     if (!v || typeof v !== "object" || Array.isArray(v)) return;
     for (const [k, vv] of Object.entries(v as Record<string, unknown>)) {
       if (typeof vv !== "string") continue;
@@ -424,7 +424,7 @@ export function buildBaseSecretEnv(params: {
       if (existing && existing !== value) {
         params.warnings.push({
           kind: "config",
-          bot: params.bot,
+          gateway: params.gateway,
           message: `secretEnv mapping conflict for ${key} (${source} overrides ${existing})`,
         });
       }
@@ -433,7 +433,7 @@ export function buildBaseSecretEnv(params: {
   };
 
   apply(params.globalEnv, "fleet");
-  apply(params.botEnv, "bot");
+  apply(params.gatewayEnv, "gateway");
   return out;
 }
 
@@ -453,7 +453,7 @@ export function recordSecretSpec(
     source: SecretSource;
     optional: boolean;
     envVar?: string;
-    bot?: string;
+    gateway?: string;
     help?: string;
     fileId?: string;
   },
@@ -467,7 +467,7 @@ export function recordSecretSpec(
       scope: params.scope,
       sources: new Set([params.source]),
       envVars: new Set(params.envVar ? [params.envVar] : []),
-      bots: new Set(params.bot ? [params.bot] : []),
+      gateways: new Set(params.gateway ? [params.gateway] : []),
       help: params.help,
       optional: params.optional,
       fileId: params.fileId,
@@ -477,11 +477,11 @@ export function recordSecretSpec(
 
   existing.sources.add(params.source);
   if (params.envVar) existing.envVars.add(params.envVar);
-  if (params.bot) existing.bots.add(params.bot);
+  if (params.gateway) existing.gateways.add(params.gateway);
   if (params.help && !existing.help) existing.help = params.help;
   if (!params.optional) existing.optional = false;
   if (existing.scope !== params.scope) {
-    existing.scope = existing.scope === "host" || params.scope === "host" ? "host" : "bot";
+    existing.scope = existing.scope === "host" || params.scope === "host" ? "host" : "gateway";
   }
   if (!existing.fileId && params.fileId) existing.fileId = params.fileId;
 }

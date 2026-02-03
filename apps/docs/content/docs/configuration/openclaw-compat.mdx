@@ -1,22 +1,36 @@
 ---
 title: OpenClaw compatibility
-description: How Clawlets aligns with OpenClaw/Clawdbot config.
+description: How Clawlets aligns with OpenClaw config.
 ---
 
-Clawlets does **not** invent a second routing schema. It passes the OpenClaw (Clawdbot)
-config through directly and enforces a small set of invariants.
+Clawlets runs **OpenClaw** on servers.
+
+It does not try to maintain a parallel, competing configuration model. Instead:
+
+- you configure the common parts of OpenClaw via **typed surfaces**
+- you can still pass through advanced OpenClaw keys when you need to
+- Clawlets enforces a small set of invariants so the runtime stays consistent
+
+If you are new to the split, start with [Typed config surfaces](/configuration/typed-surfaces).
 
 ## Where the OpenClaw config lives
 
-OpenClaw config is embedded per bot inside the fleet file:
+In `fleet/clawlets.json`, OpenClaw config is composed per bot *inside a host*:
 
 ```json
 {
-  "fleet": {
-    "bots": {
-      "<bot>": {
-        "clawdbot": {
-          "...": "raw OpenClaw config"
+  "hosts": {
+    "<host>": {
+      "bots": {
+        "<botId>": {
+          "channels": {},
+          "agents": {},
+          "hooks": {},
+          "skills": {},
+          "plugins": {},
+          "openclaw": {
+            "...": "raw OpenClaw config"
+          }
         }
       }
     }
@@ -24,8 +38,9 @@ OpenClaw config is embedded per bot inside the fleet file:
 }
 ```
 
-Clawlets reads `fleet.bots.<bot>.clawdbot` and renders it into the on-host
-gateway config.
+At deploy time, Nix renders the final, merged OpenClaw config to:
+
+- `/run/secrets/rendered/openclaw-<botId>.json`
 
 ## Invariants Clawlets enforces
 
@@ -42,25 +57,25 @@ The rest of the OpenClaw config is preserved as-is.
 
 ## Schema source (pinned vs live)
 
-Clawlets ships a pinned OpenClaw schema that powers CLI validation and the UI editor.
-The pinned schema is generated from a specific OpenClaw revision so validation stays
-stable across installs.
+Clawlets ships a pinned OpenClaw schema for validation and editor tooling.
+The schema is generated from a pinned OpenClaw source revision so validation stays
+stable across installs and deploys.
 
 Source of truth:
-- `packages/core/src/assets/clawdbot-config.schema.json` (generated)
-- generator: `scripts/generate-clawdbot-assets.ts` (points at the pinned `clawdbot-src` rev)
+- `packages/core/src/assets/clawdbot-config.schema.json` (generated; name kept for compatibility)
+- generator: `scripts/generate-openclaw-assets.ts` (reads the pinned `openclaw-src` rev from `flake.lock`)
 
-- CLI: `clawlets clawdbot schema fetch --host <host> --bot <bot>` to fetch live schema
-- UI: “Use live schema” toggles to a gateway-fetched schema
+- CLI: `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>` to fetch live schema
+- UI: "Use live schema" toggles to a gateway-fetched schema
 
 The UI surfaces drift between:
 
-- Pinned schema vs the project’s pinned `nix-clawdbot` rev
-- Pinned schema vs upstream `nix-clawdbot` main
+- Pinned schema vs the project's pinned `nix-openclaw` rev
+- Pinned schema vs upstream `nix-openclaw` main
 
 ## Upgrade guidance
 
-When upgrading OpenClaw (via `nix-clawdbot`):
+When upgrading OpenClaw (via `nix-openclaw`):
 
 1. Update the project flake input
 2. Run `clawlets doctor` to catch schema drift

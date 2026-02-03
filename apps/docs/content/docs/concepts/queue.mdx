@@ -30,7 +30,7 @@ tailnet-only HTTP.
 - `clf-orchestrator` owns:
   - `HCLOUD_TOKEN` (Hetzner API) and fleet env secrets (LLM keys, optional `GITHUB_TOKEN`)
 - Bots talk only to:
-  - Unix socket `/run/clf/orchestrator.sock` (OS perms via group `clf-bots`)
+  - Unix socket `/run/clf/orchestrator.sock` (OS perms via group `clf-gateways`)
 - Cattle VMs fetch secrets at runtime:
   - one-time bootstrap token (stored hashed in SQLite)
   - tailnet-only HTTP endpoint `/v1/cattle/env` on the pet host

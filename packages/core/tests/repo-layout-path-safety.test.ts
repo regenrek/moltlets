@@ -9,11 +9,11 @@ describe("repo-layout path safety", () => {
     expect(() => getHostExtraFilesDir(layout, "../pwn")).toThrow(/invalid host name/i);
   });
 
-  it("rejects unsafe bot ids in getBotWorkspaceDir", async () => {
-    const { getRepoLayout, getBotWorkspaceDir } = await import("../src/repo-layout");
+  it("rejects unsafe gateway ids in getGatewayWorkspaceDir", async () => {
+    const { getRepoLayout, getGatewayWorkspaceDir } = await import("../src/repo-layout");
     const layout = getRepoLayout("/repo", "/repo/.clawlets");
-    expect(() => getBotWorkspaceDir(layout, "../pwn")).toThrow(/invalid bot id/i);
-    expect(() => getBotWorkspaceDir(layout, "A")).toThrow(/invalid bot id/i);
+    expect(() => getGatewayWorkspaceDir(layout, "../pwn")).toThrow(/invalid gateway id/i);
+    expect(() => getGatewayWorkspaceDir(layout, "A")).toThrow(/invalid gateway id/i);
   });
 
   it("rejects unsafe secret names in getHostSecretFile", async () => {
@@ -23,7 +23,7 @@ describe("repo-layout path safety", () => {
   });
 
   it("builds expected paths for valid inputs", async () => {
-    const { getRepoLayout, getBotWorkspaceDir, getHostSecretsDir, getHostSecretFile, getHostExtraFilesKeyPath } = await import("../src/repo-layout");
+    const { getRepoLayout, getGatewayWorkspaceDir, getHostSecretsDir, getHostSecretFile, getHostExtraFilesKeyPath } = await import("../src/repo-layout");
     const layout = getRepoLayout("/repo", "/repo/.clawlets");
 
     expect(getHostSecretsDir(layout, "clawdbot-fleet-host")).toBe(path.join("/repo", "secrets", "hosts", "clawdbot-fleet-host"));
@@ -33,6 +33,6 @@ describe("repo-layout path safety", () => {
     expect(getHostExtraFilesKeyPath(layout, "clawdbot-fleet-host")).toBe(
       path.join("/repo", ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
     );
-    expect(getBotWorkspaceDir(layout, "maren")).toBe(path.join("/repo", "fleet", "workspaces", "bots", "maren"));
+    expect(getGatewayWorkspaceDir(layout, "maren")).toBe(path.join("/repo", "fleet", "workspaces", "gateways", "maren"));
   });
 });

@@ -11,18 +11,19 @@ describe("clawlets config schema", () => {
 
   it("assertSafeHostName accepts valid names", async () => {
     const { assertSafeHostName } = await import("../src/lib/clawlets-config");
-    expect(() => assertSafeHostName("clawdbot-fleet-host")).not.toThrow();
+    expect(() => assertSafeHostName("openclaw-fleet-host")).not.toThrow();
   });
 
   it("rejects unsafe host names (path traversal)", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
           "../pwn": {
             enable: false,
+            botsOrder: ["maren"],
+            bots: { maren: {} },
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
@@ -33,15 +34,16 @@ describe("clawlets config schema", () => {
     ).toThrow(/invalid host name/i);
   });
 
-  it("rejects duplicate bot ids", async () => {
+  it("rejects duplicate gateway ids", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren", "maren"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
+            botsOrder: ["maren", "maren"],
+            bots: { maren: {} },
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
@@ -52,15 +54,16 @@ describe("clawlets config schema", () => {
     ).toThrow(/duplicate bot id/i);
   });
 
-  it("rejects missing botOrder when bots present", async () => {
+  it("rejects missing botsOrder when bots present", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: [], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
+            botsOrder: [],
+            bots: { maren: {} },
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
@@ -68,18 +71,19 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/botOrder must be set/i);
+    ).toThrow(/botsOrder must be set/i);
   });
 
-  it("rejects botOrder with unknown bot id", async () => {
+  it("rejects botsOrder with unknown bot id", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren", "ghost"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
+            botsOrder: ["maren", "ghost"],
+            bots: { maren: {} },
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
@@ -90,15 +94,16 @@ describe("clawlets config schema", () => {
     ).toThrow(/unknown bot id/i);
   });
 
-  it("rejects botOrder missing bots", async () => {
+  it("rejects botsOrder missing bots", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren"], bots: { maren: {}, sonja: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
+            botsOrder: ["maren"],
+            bots: { maren: {}, sonja: {} },
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
             tailnet: { mode: "none" },
@@ -106,17 +111,37 @@ describe("clawlets config schema", () => {
           },
         },
       }),
-    ).toThrow(/botOrder missing bots/i);
+    ).toThrow(/botsOrder missing bots/i);
+  });
+
+  it("rejects legacy fleet.bots and fleet.botOrder", async () => {
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
+    expect(() =>
+      ClawletsConfigSchema.parse({
+        schemaVersion: 17,
+        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        hosts: {
+          "openclaw-fleet-host": {
+            enable: false,
+            botsOrder: [],
+            bots: {},
+            diskDevice: "/dev/sda",
+            sshExposure: { mode: "tailnet" },
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      }),
+    ).toThrow(/fleet\.bots/i);
   });
 
   it("rejects invalid adminCidr values", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             provisioning: { adminCidr: "not-a-cidr", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
@@ -133,10 +158,9 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             provisioning: { adminCidr: "0.0.0.0/0", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
@@ -153,10 +177,9 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             provisioning: {
@@ -176,24 +199,26 @@ describe("clawlets config schema", () => {
   it("createDefaultClawletsConfig trims and defaults", async () => {
     const { createDefaultClawletsConfig } = await import("../src/lib/clawlets-config");
     const cfg = createDefaultClawletsConfig({ host: "   ", bots: [" maren ", "", "sonja"] });
-    expect(Object.keys(cfg.hosts)).toEqual(["clawdbot-fleet-host"]);
-    expect(cfg.defaultHost).toBe("clawdbot-fleet-host");
-    expect(cfg.fleet.botOrder).toEqual(["maren", "sonja"]);
-    expect(Object.keys(cfg.fleet.bots)).toEqual(["maren", "sonja"]);
+    expect(Object.keys(cfg.hosts)).toEqual(["openclaw-fleet-host"]);
+    expect(cfg.defaultHost).toBe("openclaw-fleet-host");
+    expect(cfg.hosts["openclaw-fleet-host"].botsOrder).toEqual(["maren", "sonja"]);
+    expect(Object.keys(cfg.hosts["openclaw-fleet-host"].bots)).toEqual(["maren", "sonja"]);
     expect(cfg.fleet.secretEnv).toEqual({ ZAI_API_KEY: "z_ai_api_key" });
-    expect(cfg.fleet.bots.maren.profile.secretEnv).toEqual({});
+    expect(cfg.hosts["openclaw-fleet-host"].bots.maren.profile.secretEnv).toEqual({});
     expect(cfg.cattle.enabled).toBe(false);
     expect(cfg.cattle.hetzner.defaultTtl).toBe("2h");
-    expect(cfg.hosts["clawdbot-fleet-host"].sshExposure?.mode).toBe("bootstrap");
-    expect(cfg.hosts["clawdbot-fleet-host"].cache?.netrc?.enable).toBe(false);
-    expect(cfg.hosts["clawdbot-fleet-host"].provisioning?.adminCidrAllowWorldOpen).toBe(false);
-    expect(cfg.hosts["clawdbot-fleet-host"].agentModelPrimary).toBe("zai/glm-4.7");
+    expect(cfg.hosts["openclaw-fleet-host"].sshExposure?.mode).toBe("bootstrap");
+    expect(cfg.hosts["openclaw-fleet-host"].cache?.netrc?.enable).toBe(false);
+    expect(cfg.hosts["openclaw-fleet-host"].provisioning?.adminCidrAllowWorldOpen).toBe(false);
+    expect(cfg.hosts["openclaw-fleet-host"].agentModelPrimary).toBe("zai/glm-4.7");
   });
 
   it("does not share default object references across parses", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const baseHost = {
       enable: false,
+      botsOrder: ["maren"],
+      bots: { maren: {} },
       diskDevice: "/dev/sda",
       sshExposure: { mode: "tailnet" },
       tailnet: { mode: "none" },
@@ -201,33 +226,30 @@ describe("clawlets config schema", () => {
     } as const;
 
     const cfgA = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
-      fleet: { botOrder: ["maren"], bots: { maren: {} } },
-      hosts: { "clawdbot-fleet-host": baseHost },
+      schemaVersion: 17,
+      hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
     cfgA.fleet.secretEnv.NEW_ENV_VAR = "new_secret";
-    cfgA.fleet.bots.maren.profile.secretEnv.LOCAL_ENV_VAR = "local_secret";
+    cfgA.hosts["openclaw-fleet-host"].bots.maren.profile.secretEnv.LOCAL_ENV_VAR = "local_secret";
 
     const cfgB = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
-      fleet: { botOrder: ["maren"], bots: { maren: {} } },
-      hosts: { "clawdbot-fleet-host": baseHost },
+      schemaVersion: 17,
+      hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
     expect(cfgB.fleet.secretEnv.NEW_ENV_VAR).toBeUndefined();
-    expect(cfgB.fleet.bots.maren.profile.secretEnv.LOCAL_ENV_VAR).toBeUndefined();
+    expect(cfgB.hosts["openclaw-fleet-host"].bots.maren.profile.secretEnv.LOCAL_ENV_VAR).toBeUndefined();
   });
 
   it("rejects defaultHost not present in hosts", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
+        schemaVersion: 17,
         defaultHost: "missing-host",
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             sshExposure: { mode: "tailnet" },
@@ -325,10 +347,10 @@ describe("clawlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
+        fleet: { secretEnv: {}, secretFiles: {} },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             publicSsh: { enable: false },
@@ -350,10 +372,10 @@ describe("clawlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
+        fleet: { secretEnv: {}, secretFiles: {} },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             opentofu: {},
@@ -375,10 +397,10 @@ describe("clawlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 9,
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
+        schemaVersion: 17,
+        fleet: { secretEnv: {}, secretFiles: {} },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
             diskDevice: "/dev/sda",
             sshAuthorizedKeys: ["ssh-ed25519 AAAATEST legacy"],
@@ -398,14 +420,12 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
+        schemaVersion: 17,
         fleet: {
-          botOrder: ["maren"],
           secretEnv: { "bad-key": "../pwn" },
-          bots: { maren: {} },
         },
         hosts: {
-          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
     ).toThrow(/invalid (env var name|secret name)/i);
@@ -417,11 +437,13 @@ describe("clawlets config schema", () => {
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
-        schemaVersion: 8,
-        fleet: { botOrder: ["maren"], bots: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } } },
+        schemaVersion: 17,
+        fleet: { secretEnv: {}, secretFiles: {} },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             enable: false,
+            botsOrder: ["maren"],
+            bots: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } },
             diskDevice: "/dev/sda",
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
@@ -439,11 +461,10 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
+        schemaVersion: 17,
         cattle: { enabled: true, hetzner: { image: "img-1", defaultTtl: "2 hours" } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
-          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
     ).toThrow(/invalid ttl/i);
@@ -453,11 +474,10 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
+        schemaVersion: 17,
         cattle: { enabled: true, hetzner: { image: "" } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
-          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
     ).toThrow(/cattle\.hetzner\.image must be set/i);
@@ -467,11 +487,10 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 12,
+        schemaVersion: 17,
         cattle: { enabled: false, hetzner: { labels: { "bad key": "x" } } },
-        fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
-          "clawdbot-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
     ).toThrow(/invalid label key/i);

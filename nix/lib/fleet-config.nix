@@ -1,33 +1,38 @@
-{ lib, project }:
+{ lib, project, hostName }:
 let
   cfg = project.config;
   fleetCfg = (cfg.fleet or { });
+  hostCfg =
+    if hostName == null || hostName == ""
+    then builtins.throw "hostName is required for fleet-config.nix"
+    else (cfg.hosts.${hostName} or (builtins.throw "unknown host in config.hosts"));
 
   _ =
     if builtins.hasAttr "guildId" fleetCfg
-    then builtins.throw "fleet.guildId was removed; configure Discord in fleet.bots.<bot>.clawdbot instead"
+    then builtins.throw "fleet.guildId was removed; configure Discord in hosts.<host>.bots.<botId>.channels.discord instead"
     else if builtins.hasAttr "modelSecrets" fleetCfg
     then builtins.throw "fleet.modelSecrets was removed; use fleet.secretEnv (ENV_VAR -> sops secret name)"
     else null;
 
-  botsById = fleetCfg.bots or { };
+  gatewaysById = hostCfg.bots or { };
 
-  # Single source of truth for bot instances (deterministic order).
-  bots =
+  # Single source of truth for gateway instances (deterministic order).
+  gateways =
     let
-      order = fleetCfg.botOrder or [ ];
+      order = hostCfg.botsOrder or [ ];
       derived =
         if builtins.isList order && order != [] then order
-        else if builtins.isAttrs botsById then builtins.attrNames botsById
+        else if builtins.isAttrs gatewaysById then builtins.attrNames gatewaysById
         else [ ];
     in
-      if derived == [] then builtins.throw "fleet.bots must define at least one bot id"
+      if derived == [] then builtins.throw "hosts.<host>.bots must define at least one bot id"
       else derived;
 
-  baseBot = {
+  baseGateway = {
     secretEnv = {};
     secretEnvAllowlist = null;
     secretFiles = {};
+    hooks = {};
     skills = {
       # Explicit allowlist required on servers. Avoid null (typically means “allow all bundled skills”).
       allowBundled = [ ];
@@ -37,24 +42,46 @@ let
     passthrough = { };
   };
 
-  mkBotProfile = b:
+  mkGatewayProfile = b:
     let
-      botCfg = botsById.${b} or { };
-      profile = botCfg.profile or { };
+      gatewayCfg = gatewaysById.${b} or { };
+      profile = gatewayCfg.profile or { };
       _ =
         if builtins.hasAttr "discordTokenSecret" profile
-        then builtins.throw "fleet.bots.<bot>.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN"
+        then builtins.throw "hosts.<host>.bots.<botId>.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN"
         else if builtins.hasAttr "modelSecrets" profile
-        then builtins.throw "fleet.bots.<bot>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
+        then builtins.throw "hosts.<host>.bots.<botId>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
         else null;
-      clawdbot = botCfg.clawdbot or { };
-      merged = lib.recursiveUpdate baseBot profile;
+      openclaw = gatewayCfg.openclaw or { };
+      channels = gatewayCfg.channels or { };
+      agents = gatewayCfg.agents or { };
+      hooks = gatewayCfg.hooks or { };
+      skills = gatewayCfg.skills or { };
+      plugins = gatewayCfg.plugins or { };
+      merged =
+        let
+          baseMerged = lib.recursiveUpdate baseGateway profile;
+          mergedSkills =
+            if skills == { }
+            then baseMerged.skills or { }
+            else lib.recursiveUpdate (baseMerged.skills or { }) skills;
+        in
+          baseMerged // { hooks = hooks; skills = mergedSkills; };
     in
-      merged // { passthrough = lib.recursiveUpdate (merged.passthrough or { }) clawdbot; };
+      merged // {
+        passthrough =
+          lib.recursiveUpdate
+            (lib.recursiveUpdate (merged.passthrough or { }) openclaw)
+            {
+              channels = channels;
+              agents = agents;
+              plugins = plugins;
+            };
+      };
 in {
-  inherit bots;
+  inherit gateways;
 
-  # Workspace seed root (common + per-bot overlay). See fleet/workspaces/.
+  # Workspace seed root (common + per-gateway overlay). See fleet/workspaces/.
   documentsDir = project.root + "/fleet/workspaces";
 
   secretEnv = fleetCfg.secretEnv or {};
@@ -62,10 +89,10 @@ in {
 
   codex = {
     enable = (fleetCfg.codex or { }).enable or false;
-    bots = (fleetCfg.codex or { }).bots or [ ];
+    bots = lib.filter (b: lib.elem b gateways) ((fleetCfg.codex or { }).bots or [ ]);
   };
 
-  botProfiles = lib.genAttrs bots mkBotProfile;
+  gatewayProfiles = lib.genAttrs gateways mkGatewayProfile;
 
   backups = {
     restic = {

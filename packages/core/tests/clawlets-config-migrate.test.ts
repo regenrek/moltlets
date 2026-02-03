@@ -176,4 +176,131 @@ describe("clawlets config migrate", () => {
     expect(migrated.hosts.alpha.selfUpdate.allowRollback).toBe(false);
     expect(migrated.hosts.alpha.selfUpdate.healthCheckUnit).toBe("");
   });
+
+  it("migrates v12 -> v13 (moves typed surfaces out of clawdbot/profile)", async () => {
+    const { migrateClawletsConfigToV13 } = await import("../src/lib/clawlets-config-migrate");
+
+    const raw = {
+      schemaVersion: 12,
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        botOrder: ["bot1"],
+        bots: {
+          bot1: {
+            profile: {
+              secretEnv: {},
+              secretFiles: {},
+              hooks: { enabled: true, token: "${CLAWDBOT_HOOKS_TOKEN}" },
+              skills: { allowBundled: ["brave-search"] },
+            },
+            clawdbot: {
+              channels: {
+                discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" },
+              },
+              agents: { defaults: { maxConcurrent: 3 } },
+              hooks: { gmail: { pushToken: "${CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN}" } },
+              skills: { entries: { "brave-search": { apiKeySecret: "brave_api_key" } } },
+              plugins: { enabled: true, allow: ["@clawlets/plugin-cattle"] },
+            },
+          },
+        },
+      },
+      hosts: { alpha: { enable: false } },
+    };
+
+    const res = migrateClawletsConfigToV13(raw);
+    expect(res.ok).toBe(true);
+    expect(res.changed).toBe(true);
+
+    const migrated = res.migrated as any;
+    expect(migrated.schemaVersion).toBe(13);
+    expect(migrated.fleet.bots.bot1.channels).toEqual({
+      discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" },
+    });
+    expect(migrated.fleet.bots.bot1.clawdbot.channels).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.clawdbot.agents).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.clawdbot.hooks).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.clawdbot.skills).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.clawdbot.plugins).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.profile.hooks).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.profile.skills).toBeUndefined();
+
+    expect(migrated.fleet.bots.bot1.agents).toEqual({ defaults: { maxConcurrent: 3 } });
+    expect(migrated.fleet.bots.bot1.hooks).toEqual({
+      enabled: true,
+      token: "${CLAWDBOT_HOOKS_TOKEN}",
+      gmail: { pushToken: "${CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN}" },
+    });
+    expect(migrated.fleet.bots.bot1.skills).toEqual({
+      allowBundled: ["brave-search"],
+      entries: { "brave-search": { apiKeySecret: "brave_api_key" } },
+    });
+    expect(migrated.fleet.bots.bot1.plugins).toEqual({ enabled: true, allow: ["@clawlets/plugin-cattle"] });
+  });
+
+  it("rejects migrate to latest for non-v17 configs", async () => {
+    const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
+
+    const raw = {
+      schemaVersion: 12,
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        botOrder: ["bot1"],
+        bots: {
+          bot1: {
+            profile: {
+              secretEnv: {},
+              secretFiles: {},
+              hooks: { enabled: true, token: "${CLAWDBOT_HOOKS_TOKEN}" },
+              skills: { allowBundled: ["brave-search"] },
+            },
+            clawdbot: {
+              channels: {
+                discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" },
+              },
+              hooks: { gmail: { pushToken: "${CLAWDBOT_HOOKS_GMAIL_PUSH_TOKEN}" } },
+              skills: { entries: { "brave-search": { apiKeySecret: "brave_api_key" } } },
+            },
+          },
+        },
+      },
+      hosts: { alpha: { enable: false } },
+    };
+
+    expect(() => migrateClawletsConfigToLatest(raw)).toThrow(/unsupported schemaVersion/i);
+  });
+
+  it("migrates v14 -> v15 (renames clawdbot)", async () => {
+    const { migrateClawletsConfigToV15 } = await import("../src/lib/clawlets-config-migrate");
+
+    const raw = {
+      schemaVersion: 14,
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        botOrder: ["bot1"],
+        bots: {
+          bot1: {
+            profile: { secretEnv: {}, secretFiles: {} },
+            openclaw: { logging: { redactSensitive: "off" }, channels: { telegram: { enabled: true } }, agents: { defaults: { maxConcurrent: 2 } } },
+            clawdbot: { channels: { discord: { enabled: true } } },
+          },
+        },
+      },
+      cattle: { enabled: false, hetzner: { image: "", serverType: "cx22", location: "nbg1", maxInstances: 10, defaultTtl: "2h", labels: { "managed-by": "clawlets" } }, defaults: { autoShutdown: true, callbackUrl: "" } },
+      hosts: { alpha: { enable: false } },
+    };
+
+    const res = migrateClawletsConfigToV15(raw);
+    expect(res.ok).toBe(true);
+    expect(res.changed).toBe(true);
+    const migrated = res.migrated as any;
+    expect(migrated.schemaVersion).toBe(15);
+    expect(migrated.fleet.bots.bot1.clawdbot).toBeUndefined();
+    expect(migrated.fleet.bots.bot1.channels).toEqual({ telegram: { enabled: true }, discord: { enabled: true } });
+    expect(migrated.fleet.bots.bot1.agents).toEqual({ defaults: { maxConcurrent: 2 } });
+    expect(migrated.fleet.bots.bot1.openclaw).toEqual({ logging: { redactSensitive: "off" } });
+  });
 });

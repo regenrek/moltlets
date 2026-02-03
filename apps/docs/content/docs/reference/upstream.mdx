@@ -1,10 +1,10 @@
 ---
 title: Upstream tracking
-description: nix-clawdbot updates.
+description: nix-openclaw updates.
 ---
 
-`nix-clawdbot` is pinned in the **project repo** (from `clawlets-template`), not this
-CLI repo. That pin is the source of truth for the runtime Clawdbot version.
+`nix-openclaw` is pinned in the **project repo** (from `clawlets-template`), not this
+CLI repo. That pin is the source of truth for the runtime OpenClaw version.
 
 ## Update procedure (project repo)
 
@@ -13,7 +13,7 @@ Update upstream in the project repo, then test on staging before production:
 1) Bump the input locally:
 
 ```bash
-nix flake lock --update-input nix-clawdbot
+nix flake lock --update-input nix-openclaw
 ```
 
 2) Apply updates on a staging host (pinned):

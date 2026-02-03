@@ -79,10 +79,6 @@ async function ensureTemplate() {
       path: path.relative(repoRoot, localTemplateDir) || localTemplateDir,
       ref: "local",
     };
-    const existing = await readMetadata(safeDestRoot);
-    if (existing && existing.repo === source.repo && existing.path === source.path && existing.ref === source.ref) {
-      return;
-    }
     await fs.rm(safeDestRoot, { recursive: true, force: true });
     await fs.mkdir(safeDestRoot, { recursive: true });
     await fs.cp(localTemplateDir, safeDestRoot, { recursive: true });

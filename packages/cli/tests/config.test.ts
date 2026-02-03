@@ -108,7 +108,7 @@ describe("config set", () => {
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
-    await expect(config.subCommands.set.run({ args: { path: "fleet.botOrder", "value-json": "nope" } } as any)).rejects.toThrow(
+    await expect(config.subCommands.set.run({ args: { path: "hosts.alpha.botsOrder", "value-json": "nope" } } as any)).rejects.toThrow(
       /invalid --value-json/i,
     );
   });
@@ -120,7 +120,7 @@ describe("config set", () => {
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
-    await expect(config.subCommands.set.run({ args: { path: "fleet.botOrder" } } as any)).rejects.toThrow(
+    await expect(config.subCommands.set.run({ args: { path: "hosts.alpha.botsOrder" } } as any)).rejects.toThrow(
       /set requires/i,
     );
   });

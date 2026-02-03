@@ -24,19 +24,19 @@ These components are the core of the system. The CLI and Nix modules define desi
 state, and the runtime pieces implement it on the host.
 
 - **CLI (`clawlets`)**: bootstrap, deploy, secrets, server ops.
-- **Nix modules**: `clawletsProjectHost`, `clawdbotFleet`, `clawletsSelfUpdate`, `clfOrchestrator`.
-- **Per-bot gateway**: one Clawdbot gateway per bot (user `bot-<id>`, state `/srv/clawdbot/<id>`).
+- **Nix modules**: `clawletsProjectHost`, `openclawFleet`, `clawletsSelfUpdate`, `clfOrchestrator`.
+- **Per-gateway instance**: one OpenClaw gateway per instance (user `gateway-<id>`, state `/srv/openclaw/<id>`).
 - **Orchestrator (`clf-orchestrator`)**: job queue + cattle worker, socket `/run/clf/orchestrator.sock`.
 - **Updater**: pulls signed manifests + optional secrets bundle, applies by store path.
 
 ## Data + secret flow
 
 Configuration and secrets follow a predictable flow from repo to host. The Nix layer
-renders bot config into `/run/secrets`, and sops-nix materializes secrets at runtime.
+renders gateway config into `/run/secrets`, and sops-nix materializes secrets at runtime.
 
-- **Config**: `fleet/clawlets.json` → Nix modules → rendered bot config in `/run/secrets/rendered/clawdbot-<bot>.json`.
+- **Config**: `fleet/clawlets.json` → Nix modules → rendered gateway config in `/run/secrets/rendered/openclaw-<id>.json`.
 - **Secrets**: sops-encrypted under `secrets/hosts/<host>/` → installed to `/var/lib/clawlets/secrets/hosts/<host>` → decrypted into `/run/secrets/**`.
-- **Gateway auth**: per-bot token stored in `/srv/clawdbot/<bot>/credentials/gateway.env`.
+- **Gateway auth**: per-gateway token stored in `/srv/openclaw/<id>/credentials/gateway.env`.
 
 ## Lifecycle (happy path)
 

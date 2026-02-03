@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   parseBotCapabilityPresetInput,
-  parseBotClawdbotConfigInput,
+  parseBotOpenclawConfigInput,
   parseProjectSshKeysInput,
   parseProjectIdInput,
   parseProjectBotInput,
@@ -153,27 +153,27 @@ describe("serverfn validators", () => {
 
   it("rejects invalid project ids for bot inputs", () => {
     expect(() => parseProjectBotInput({ projectId: "", botId: "maren" })).toThrow()
-    expect(() => parseBotClawdbotConfigInput({ projectId: "", botId: "maren", clawdbot: {} })).toThrow()
+    expect(() => parseBotOpenclawConfigInput({ projectId: "", botId: "maren", openclaw: {} })).toThrow()
   })
 
   it("trims botId and validates schemaMode", () => {
     expect(
-      parseBotClawdbotConfigInput({
+      parseBotOpenclawConfigInput({
         projectId: "p1",
         botId: " maren ",
         host: "alpha",
         schemaMode: "live",
-        clawdbot: {},
+        openclaw: {},
       }),
     ).toMatchObject({ botId: "maren", schemaMode: "live" })
 
     expect(() =>
-      parseBotClawdbotConfigInput({
+      parseBotOpenclawConfigInput({
         projectId: "p1",
         botId: "maren",
         host: "alpha",
         schemaMode: "fast",
-        clawdbot: {},
+        openclaw: {},
       }),
     ).toThrow(/invalid schemamode/i)
   })

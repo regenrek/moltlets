@@ -53,7 +53,7 @@ matches, otherwise the updater will refuse to install.
 If bots cannot connect to the control plane, check the Unix socket permissions:
 
 - socket path: `/run/clf/orchestrator.sock`
-- expected group: `clf-bots`
+- expected group: `clf-gateways`
 
 Confirm the bot service user is in the right group and that the socket is `0660`.
 

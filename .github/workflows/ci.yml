@@ -224,7 +224,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect clawdbot asset changes
+      - name: Detect openclaw asset changes
         id: assets
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -247,40 +247,40 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          base_info="$(printf '%s' "${base_lock}" | jq -c '{clawdbot: .nodes["clawdbot-src"], nix: .nodes["nix-clawdbot"]}')"
-          head_info="$(printf '%s' "${head_lock}" | jq -c '{clawdbot: .nodes["clawdbot-src"], nix: .nodes["nix-clawdbot"]}')"
+          base_info="$(printf '%s' "${base_lock}" | jq -c '{openclaw: .nodes["openclaw-src"], nix: .nodes["nix-openclaw"]}')"
+          head_info="$(printf '%s' "${head_lock}" | jq -c '{openclaw: .nodes["openclaw-src"], nix: .nodes["nix-openclaw"]}')"
           if [[ "${base_info}" == "${head_info}" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Read pinned clawdbot rev
-        id: clawdbot
+      - name: Read pinned openclaw rev
+        id: openclaw
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: |
           set -euo pipefail
-          owner="$(jq -r '.nodes["clawdbot-src"].locked.owner' flake.lock)"
-          repo="$(jq -r '.nodes["clawdbot-src"].locked.repo' flake.lock)"
-          rev="$(jq -r '.nodes["clawdbot-src"].locked.rev' flake.lock)"
+          owner="$(jq -r '.nodes["openclaw-src"].locked.owner' flake.lock)"
+          repo="$(jq -r '.nodes["openclaw-src"].locked.repo' flake.lock)"
+          rev="$(jq -r '.nodes["openclaw-src"].locked.rev' flake.lock)"
           if [[ -z "${owner}" || "${owner}" == "null" || -z "${repo}" || "${repo}" == "null" ]]; then
-            echo "error: missing clawdbot-src owner/repo in flake.lock" >&2
+            echo "error: missing openclaw-src owner/repo in flake.lock" >&2
             exit 1
           fi
           if [[ -z "${rev}" || "${rev}" == "null" ]]; then
-            echo "error: missing clawdbot-src rev in flake.lock" >&2
+            echo "error: missing openclaw-src rev in flake.lock" >&2
             exit 1
           fi
           echo "repo=${owner}/${repo}" >> "$GITHUB_OUTPUT"
           echo "rev=${rev}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout clawdbot source
+      - name: Checkout openclaw source
         if: ${{ steps.assets.outputs.changed == 'true' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
         with:
-          repository: ${{ steps.clawdbot.outputs.repo }}
-          ref: ${{ steps.clawdbot.outputs.rev }}
-          path: clawdbot-src
+          repository: ${{ steps.openclaw.outputs.repo }}
+          ref: ${{ steps.openclaw.outputs.rev }}
+          path: openclaw-src
 
       - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         if: ${{ steps.assets.outputs.changed == 'true' }}
@@ -294,29 +294,29 @@ jobs:
           cache: pnpm
           cache-dependency-path: |
             pnpm-lock.yaml
-            clawdbot-src/pnpm-lock.yaml
+            openclaw-src/pnpm-lock.yaml
 
       - name: Install clawlets deps
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: pnpm install --frozen-lockfile
 
-      - name: Install clawdbot deps
+      - name: Install openclaw deps
         if: ${{ steps.assets.outputs.changed == 'true' }}
-        working-directory: clawdbot-src
+        working-directory: openclaw-src
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Regenerate clawdbot assets
+      - name: Regenerate openclaw assets
         if: ${{ steps.assets.outputs.changed == 'true' }}
         env:
-          CLAWDBOT_SRC: ${{ github.workspace }}/clawdbot-src
-        run: pnpm clawlets:clawdbot-assets
+          OPENCLAW_SRC: ${{ github.workspace }}/openclaw-src
+        run: pnpm clawlets:openclaw-assets
 
-      - name: Verify clawdbot assets are committed
+      - name: Verify assets are committed
         if: ${{ steps.assets.outputs.changed == 'true' }}
         run: |
           set -euo pipefail
           if git diff --name-only -- packages/core/src/assets/clawdbot-config.schema.json packages/core/src/assets/llm-providers.json | grep -q .; then
-            echo "error: clawdbot assets out of date; run pnpm clawlets:clawdbot-assets and commit outputs" >&2
+            echo "error: schema assets out of date; run pnpm clawlets:openclaw-assets and commit outputs" >&2
             git diff --stat -- packages/core/src/assets/clawdbot-config.schema.json packages/core/src/assets/llm-providers.json
             exit 1
           fi

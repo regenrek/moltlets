@@ -139,8 +139,8 @@ function AppSidebar() {
     ...(hostBase
       ? [
           {
-            to: `${hostBase}/agents`,
-            label: "Agents",
+            to: `${hostBase}/bots`,
+            label: "Bots",
             icon: UserGroupIcon,
           },
           {

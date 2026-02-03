@@ -1,0 +1,13 @@
+{
+  "title": "Examples",
+  "description": "Copy/paste config starting points.",
+  "icon": "Code2",
+  "pages": [
+    "index",
+    "agents",
+    "channels",
+    "skills",
+    "passthrough"
+  ]
+}
+

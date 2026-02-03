@@ -39,13 +39,13 @@ async function loadBots(options: {
       },
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { bots: { bot1: { clawdbot: {} } } } },
+        config: { hosts: { h1: { botsOrder: ["bot1"], bots: { bot1: { openclaw: {} } } } } },
       }),
       writeClawletsConfig: async () => {},
     }
   })
-  vi.doMock("~/server/clawdbot-schema.server", () => ({
-    fetchClawdbotSchemaLive:
+  vi.doMock("~/server/openclaw-schema.server", () => ({
+    fetchOpenclawSchemaLive:
       options.fetchLive ?? (async () => ({ ok: true, schema: { schema: { type: "object" } } })),
   }))
 
@@ -53,7 +53,7 @@ async function loadBots(options: {
   return { mod, mutation }
 }
 
-describe("setBotClawdbotConfig schema error mapping", () => {
+describe("setBotOpenclawConfig schema error mapping", () => {
   const context = {
     request: new Request("http://localhost"),
     contextAfterGlobalMiddlewares: {},
@@ -65,8 +65,8 @@ describe("setBotClawdbotConfig schema error mapping", () => {
       fetchLive: async () => ({ ok: false, message: "too many requests" }),
     })
     const res = await runWithStartContext(context, async () =>
-      mod.setBotClawdbotConfig({
-        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "live", clawdbot: {} },
+      mod.setBotOpenclawConfig({
+        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "live", openclaw: {} },
       }),
     )
     expect(res.ok).toBe(false)
@@ -86,8 +86,8 @@ describe("setBotClawdbotConfig schema error mapping", () => {
       },
     })
     const res = await runWithStartContext(context, async () =>
-      mod.setBotClawdbotConfig({
-        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "live", clawdbot: {} },
+      mod.setBotOpenclawConfig({
+        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "live", openclaw: {} },
       }),
     )
     expect(res.ok).toBe(false)
@@ -101,13 +101,37 @@ describe("setBotClawdbotConfig schema error mapping", () => {
       validate: () => ({ ok: false, issues: [{ path: ["name"], message: "name: required" }] }),
     })
     const res = await runWithStartContext(context, async () =>
-      mod.setBotClawdbotConfig({
-        data: { projectId: "p1" as any, botId: "bot1", host: "", schemaMode: "pinned", clawdbot: {} },
+      mod.setBotOpenclawConfig({
+        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "pinned", openclaw: {} },
       }),
     )
     expect(res.ok).toBe(false)
     if (!res.ok) {
       expect(res.issues).toEqual([{ code: "schema", path: ["name"], message: "name: required" }])
+    }
+    const runCreates = mutation.mock.calls
+      .map(([, payload]) => payload)
+      .filter((payload) => payload?.kind)
+    expect(runCreates).toHaveLength(0)
+  })
+
+  it("rejects inline secrets before writing config", async () => {
+    const { mod, mutation } = await loadBots({})
+    const res = await runWithStartContext(context, async () =>
+      mod.setBotOpenclawConfig({
+        data: {
+          projectId: "p1" as any,
+          botId: "bot1",
+          host: "h1",
+          schemaMode: "pinned",
+          openclaw: { gateway: { auth: { token: "not-an-env-ref" } } },
+        },
+      }),
+    )
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.issues[0]?.code).toBe("security")
+      expect(res.issues[0]?.path).toEqual(["gateway", "auth", "token"])
     }
     const runCreates = mutation.mock.calls
       .map(([, payload]) => payload)

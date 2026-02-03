@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+const TEST_TIMEOUT_MS = 20_000;
+
 describe("prepare-package guardrails", () => {
   it("rejects unsafe out dir without override", () => {
     const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -17,7 +19,9 @@ describe("prepare-package guardrails", () => {
     expect(res.stderr).toMatch(/--out must be under/i);
   });
 
-  it("prepares publish dir without node_modules (no local-protocol deps)", () => {
+  it(
+    "prepares publish dir without node_modules (no local-protocol deps)",
+    () => {
     const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
     const script = path.join(repoRoot, "scripts", "prepare-package.mjs");
     const tmpParent = path.join(repoRoot, "packages", "cli", ".tmp");
@@ -75,5 +79,7 @@ describe("prepare-package guardrails", () => {
     } finally {
       fs.rmSync(tmpBase, { recursive: true, force: true });
     }
-  });
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

@@ -206,7 +206,9 @@ export async function planProjectInit(params: {
   const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
+    // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
+    // Newer templates use openclaw-* placeholders.
     "openclaw-fleet-host": host,
     "clawdbot_fleet_host": hostUnderscore,
     "openclaw_fleet_host": hostUnderscore,
@@ -252,7 +254,9 @@ export async function initProject(params: {
   const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
+    // Back-compat: templates historically used these placeholders.
     "clawdbot-fleet-host": host,
+    // Newer templates use openclaw-* placeholders.
     "openclaw-fleet-host": host,
     "clawdbot_fleet_host": hostUnderscore,
     "openclaw_fleet_host": hostUnderscore,

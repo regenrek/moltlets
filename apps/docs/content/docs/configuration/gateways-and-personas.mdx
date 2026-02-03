@@ -1,0 +1,107 @@
+---
+title: Gateways and personas
+description: One gateway process, optional multiple OpenClaw personas.
+---
+
+Clawlets has **two** levels of "agents" that are easy to mix up:
+
+1. **Gateway instance** (Clawlets config + CLI term): one OpenClaw gateway process with its own ports, state, Unix user, and workspace.
+2. **Persona / agent** (OpenClaw term): an entry in `agents.list[]` inside a single gateway.
+
+In the dashboard UI we call a **gateway instance** a **Bot** (because "gateway" is accurate but not very approachable).
+
+<Callout type="info" title="Dashboard preference (optional)">
+The dashboard may store your choice in `fleet.gatewayArchitecture` (`multi|single`). This is a UI preference and does not auto-migrate existing bots or personas.
+</Callout>
+
+## Prereqs
+
+- Access to `fleet/clawlets.json` in your repo.
+- Clawlets CLI installed (for validation) or dashboard access.
+
+## Steps
+
+<Steps>
+  <Step>Choose the architecture (Option A or Option B below).</Step>
+  <Step>Update `hosts.&lt;host&gt;.botsOrder` and `hosts.&lt;host&gt;.bots` to match the chosen shape.</Step>
+  <Step>Validate the config: <code>clawlets config validate --host &lt;host&gt;</code>.</Step>
+</Steps>
+
+## Two common setups
+
+### Option A: multiple gateways (multiple bots)
+
+Use this when you want isolation (separate state dirs, ports, credentials) or a dedicated rescue bot.
+
+```json
+{
+  "hosts": {
+    "business": {
+      "botsOrder": ["main", "rescue"],
+      "bots": {
+        "main": {},
+        "rescue": {}
+      }
+    }
+  }
+}
+```
+
+Each gateway gets a deterministic port block based on its position in `hosts.<host>.botsOrder`.
+
+### Option B: one gateway, multiple personas (agents.list[])
+
+Use this when you want multiple personas without running multiple gateway processes.
+
+```json
+{
+  "hosts": {
+    "business": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "list": [
+              { "id": "ops", "default": true, "name": "Ops" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Clawlets validates:
+
+- persona `id` uniqueness per gateway
+- at most one `default: true` per gateway
+
+Advanced per-persona settings are passed through to OpenClaw via the entry object (workspace, model overrides, tools, sandbox, etc.).
+
+## Workspaces (docs + skills)
+
+Workspace docs are layered:
+
+- shared defaults: `fleet/workspaces/common/`
+- per-gateway overrides: `fleet/workspaces/gateways/<gatewayId>/`
+
+At runtime, the gateway workspace is seeded from common + the gateway overlay (if present).
+
+## Verify
+
+- `clawlets config validate --host <host>` returns `ok`.
+- The expected bot ids appear in `hosts.<host>.botsOrder`.
+- For Option B, `agents.list[]` contains at most one `default: true`.
+
+## Troubleshooting
+
+- **"invalid gateway id"**: use lowercase letters, numbers, `_` or `-` (example: `main`, `rescue_1`).
+- **"invalid secret name (looks like a token)"**: use an identifier like `brave_api_key`, not a raw API key.
+- **"multiple default personas"**: only one entry in `agents.list[]` can set `default: true`.
+
+## Links
+
+- [Gateway reference](/reference/gateway)
+- [Config schema](/configuration/config)

@@ -3,37 +3,104 @@ title: Gateway
 description: Gateway behavior and ports.
 ---
 
-Clawlets runs **one Clawdbot Gateway per bot** to keep state and credentials isolated.
-This gives each bot its own user, workspace, and network ports.
+Clawlets runs **one OpenClaw Gateway per gateway instance (bot)** to keep state and credentials isolated.
+This gives each gateway its own user, workspace, and network ports.
 
 ## Why
 
-If a bot user is compromised, it should not be able to read or write another bot’s
+If a bot user is compromised, it should not be able to read or write another bot's
 state or workspace. Isolation also reduces the blast radius for credentials, sessions,
 tools, and config.
 
-## Per-bot invariants (required)
+## Prereqs
 
-For each bot `maren`:
+- Access to `fleet/clawlets.json`.
+- Clawlets CLI installed (for validation).
 
-- system user: `bot-maren`
-- state dir: `/srv/clawdbot/maren` (`CLAWDBOT_STATE_DIR`)
-- config path: `/run/secrets/rendered/clawdbot-maren.json` (`CLAWDBOT_CONFIG_PATH`)
-- workspace: `/srv/clawdbot/maren/workspace` (`agents.defaults.workspace`)
+## Gateway instances vs agents
+
+- **Gateway instance (bot)**: one OpenClaw gateway process with its own state dir, ports, and OS user.
+- **Agent/persona**: an entry in `agents.list[]` that runs **inside** a gateway instance.
+
+Use agents when you want multiple personas sharing the same gateway process. Use multiple gateways when you need hard
+isolation per persona.
+
+## Steps
+
+<Steps>
+  <Step>Define bot ids in <code>hosts.&lt;host&gt;.botsOrder</code> and <code>hosts.&lt;host&gt;.bots</code>.</Step>
+  <Step>Override a base port per bot if needed via <code>hosts.&lt;host&gt;.bots.&lt;botId&gt;.profile.gatewayPort</code>.</Step>
+  <Step>Validate the config: <code>clawlets config validate --host &lt;host&gt;</code>.</Step>
+</Steps>
+
+## Gateway architecture
+
+The dashboard stores the chosen shape in `fleet.gatewayArchitecture` (`multi|single`). This is a UI preference only; it does not rewrite or migrate your config.
+
+### Option A — multiple gateways (`multi`)
+
+Each bot is its own gateway instance.
+
+```jsonc
+{
+  "hosts": {
+    "business": {
+      "botsOrder": ["main", "rescue"],
+      "bots": {
+        "main": {},
+        "rescue": {}
+      }
+    }
+  }
+}
+```
+
+### Option B — one gateway, multiple agents (`single`)
+
+One gateway process, multiple agents via `agents.list[]`.
+
+```jsonc
+{
+  "hosts": {
+    "business": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "list": [
+              { "id": "primary", "default": true, "name": "Primary" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Isolation checklist (per gateway)
+
+For each gateway `maren`:
+
+- system user: `gateway-maren`
+- state dir: `/srv/openclaw/maren` (`OPENCLAW_STATE_DIR`)
+- config path: `/run/secrets/rendered/openclaw-maren.json` (`OPENCLAW_CONFIG_PATH`)
+- workspace: `/srv/openclaw/maren/workspace` (`agents.defaults.workspace`)
 - base port: `gateway.port` (derived ports must not collide)
 - gateway mode: `gateway.mode = "local"`
 - auth: `gateway.auth` is always enabled (even on loopback)
 
 ## Ports
 
-Default port base is `18789`, stride `20`.
+Default port base is `18789`, stride `120`.
 
-Reason: clawdbot uses derived ports (bridge/browser/canvas). Spacing avoids collisions across gateways.
+Reason: openclaw uses derived ports (bridge/browser/canvas). Spacing avoids collisions across gateways.
 
-Override per bot:
+Override per gateway:
 
 ```bash
-clawlets config set --path fleet.bots.maren.profile.gatewayPort --value 18809
+clawlets config set --path hosts.<host>.bots.maren.profile.gatewayPort --value 18809
 ```
 
 ## Gateway auth token
@@ -44,12 +111,28 @@ Loopback gateways should not run unauthenticated because any local process could
 Clawlets-template enforces:
 
 - `gateway.auth.mode = "token"`
-- `gateway.auth.token = "${CLAWDBOT_GATEWAY_TOKEN}"`
+- `gateway.auth.token = "${OPENCLAW_GATEWAY_TOKEN}"`
 
 Token source (per bot):
 
-- `/srv/clawdbot/<bot>/credentials/gateway.env`
+- `/srv/openclaw/<bot>/credentials/gateway.env`
 
 Generated automatically by:
 
-- `clawdbot-gateway-token-<bot>.service` (oneshot)
+- `openclaw-gateway-token-<bot>.service` (oneshot)
+
+## Verify
+
+- `clawlets config validate --host <host>` returns `ok`.
+- Each gateway resolves to a unique base port (no overlaps).
+- `gateway.auth.mode` is `token` in the rendered OpenClaw config.
+
+## Troubleshooting
+
+- **Port collisions**: ensure `hosts.<host>.botsOrder` is stable and `gatewayPort` overrides do not overlap.
+- **Missing auth token**: verify the gateway credential service ran and the `gateway.env` file exists.
+
+## Links
+
+- [Gateways and personas](/configuration/gateways-and-personas)
+- [Config schema](/configuration/config)

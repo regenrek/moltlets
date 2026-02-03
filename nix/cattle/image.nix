@@ -3,7 +3,7 @@
 {
   imports = [
     ../modules/clawlets-host-meta.nix
-    ../modules/clawdbot-cattle.nix
+    ../modules/openclaw-cattle.nix
   ];
 
   formatConfigs.raw = { ... }: {
@@ -80,7 +80,7 @@
     authKeyFile = "/run/secrets/tailscale_auth_key";
   };
 
-  services.clawdbotCattle = {
+  services.openclawCattle = {
     enable = true;
     autoShutdown = true;
   };

@@ -13,7 +13,7 @@ function normalizeKind(raw: string): "prs" | "issues" {
 const serverGithubSyncStatus = defineCommand({
   meta: {
     name: "status",
-    description: "Show GitHub sync timers (clawdbot-gh-sync-*.timer).",
+    description: "Show GitHub sync timers (openclaw-gh-sync-*.timer).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
@@ -35,7 +35,7 @@ const serverGithubSyncStatus = defineCommand({
       "list-timers",
       "--all",
       "--no-pager",
-      shellQuote("clawdbot-gh-sync-*.timer"),
+      shellQuote("openclaw-gh-sync-*.timer"),
     ].join(" ");
     await sshRun(targetHost, remoteCmd, { tty: sudo && args.sshTty });
   },
@@ -50,7 +50,7 @@ const serverGithubSyncRun = defineCommand({
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (default: all bots with sync enabled)." },
+    gateway: { type: "string", description: "Gateway id (default: all gateways with sync enabled)." },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
   },
   async run({ args }) {
@@ -60,8 +60,8 @@ const serverGithubSyncRun = defineCommand({
     const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const bot = String(args.bot || "").trim();
-    const unit = bot ? `clawdbot-gh-sync-${bot}.service` : "clawdbot-gh-sync-*.service";
+    const gatewayId = String(args.gateway || "").trim();
+    const unit = gatewayId ? `openclaw-gh-sync-${gatewayId}.service` : "openclaw-gh-sync-*.service";
     const sudo = needsSudo(targetHost);
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
@@ -82,7 +82,7 @@ const serverGithubSyncLogs = defineCommand({
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (required)." },
+    gateway: { type: "string", description: "Gateway id (required)." },
     follow: { type: "boolean", description: "Follow logs.", default: false },
     lines: { type: "string", description: "Number of lines (default: 200).", default: "200" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
@@ -94,11 +94,11 @@ const serverGithubSyncLogs = defineCommand({
     const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const bot = String(args.bot || "").trim();
-    if (!bot) throw new Error("missing --bot (example: --bot maren)");
+    const gatewayId = String(args.gateway || "").trim();
+    if (!gatewayId) throw new Error("missing --gateway (example: --gateway main)");
 
     const sudo = needsSudo(targetHost);
-    const unit = `clawdbot-gh-sync-${bot}.service`;
+    const unit = `openclaw-gh-sync-${gatewayId}.service`;
     const n = String(args.lines || "200").trim() || "200";
     if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
     const remoteCmd = [
@@ -118,13 +118,13 @@ const serverGithubSyncLogs = defineCommand({
 const serverGithubSyncShow = defineCommand({
   meta: {
     name: "show",
-    description: "Show the last synced snapshot (prs|issues) from bot workspace memory.",
+    description: "Show the last synced snapshot (prs|issues) from gateway workspace memory.",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
-    bot: { type: "string", description: "Bot id (required)." },
+    gateway: { type: "string", description: "Gateway id (required)." },
     kind: { type: "string", description: "Snapshot kind: prs|issues.", default: "prs" },
     lines: { type: "string", description: "Max lines to print (default: 200).", default: "200" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
@@ -136,8 +136,8 @@ const serverGithubSyncShow = defineCommand({
     const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
-    const bot = String(args.bot || "").trim();
-    if (!bot) throw new Error("missing --bot (example: --bot maren)");
+    const gatewayId = String(args.gateway || "").trim();
+    if (!gatewayId) throw new Error("missing --gateway (example: --gateway main)");
     const kind = normalizeKind(String(args.kind || "prs"));
     const n = String(args.lines || "200").trim() || "200";
     if (!/^\d+$/.test(n) || Number(n) <= 0) throw new Error(`invalid --lines: ${n}`);
@@ -146,7 +146,7 @@ const serverGithubSyncShow = defineCommand({
     const remoteCmd = [
       ...(sudo ? ["sudo"] : []),
       "/etc/clawlets/bin/gh-sync-read",
-      shellQuote(bot),
+      shellQuote(gatewayId),
       shellQuote(kind),
       shellQuote(n),
     ].join(" ");

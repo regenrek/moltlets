@@ -11,32 +11,33 @@ import { suggestSecretNameForEnvVar } from "~/lib/secret-name-suggest"
 import { configDotSet } from "~/sdk/config"
 
 type MissingEnvVar = Extract<MissingSecretConfig, { kind: "envVar" }>
-type WireScope = "bot" | "fleet"
+type WireScope = "gateway" | "fleet"
 type WireDraft = { scope: WireScope; secretName: string }
 
 type MissingEnvWiringPanelProps = {
   projectId: Id<"projects">
+  host: string
   missingEnvVars: MissingEnvVar[]
   onWired?: () => void
 }
 
 function defaultScopeForSources(sources: string[]): WireScope {
-  return sources.some((source) => source === "model" || source === "provider") ? "fleet" : "bot"
+  return sources.some((source) => source === "model" || source === "provider") ? "fleet" : "gateway"
 }
 
 function wireKey(entry: MissingEnvVar): string {
-  return `${entry.bot}:${entry.envVar}`
+  return `${entry.gateway}:${entry.envVar}`
 }
 
 function buildDefaultDraft(entry: MissingEnvVar): WireDraft {
   const scope = defaultScopeForSources(entry.sources || [])
-  const botHint = scope === "bot" ? entry.bot : undefined
-  return { scope, secretName: suggestSecretNameForEnvVar(entry.envVar, botHint) }
+  const gatewayHint = scope === "gateway" ? entry.gateway : undefined
+  return { scope, secretName: suggestSecretNameForEnvVar(entry.envVar, gatewayHint) }
 }
 
-function wirePath(entry: MissingEnvVar, scope: WireScope): string {
-  return scope === "bot"
-    ? `fleet.bots.${entry.bot}.profile.secretEnv.${entry.envVar}`
+function wirePath(entry: MissingEnvVar, scope: WireScope, host: string): string {
+  return scope === "gateway"
+    ? `hosts.${host}.bots.${entry.gateway}.profile.secretEnv.${entry.envVar}`
     : `fleet.secretEnv.${entry.envVar}`
 }
 
@@ -44,12 +45,15 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
   const grouped = useMemo(() => {
     const buckets = new Map<string, MissingEnvVar[]>()
     for (const entry of props.missingEnvVars) {
-      if (!buckets.has(entry.bot)) buckets.set(entry.bot, [])
-      buckets.get(entry.bot)!.push(entry)
+      if (!buckets.has(entry.gateway)) buckets.set(entry.gateway, [])
+      buckets.get(entry.gateway)!.push(entry)
     }
     return Array.from(buckets.entries())
-      .map(([bot, entries]) => ({ bot, entries: entries.sort((a, b) => a.envVar.localeCompare(b.envVar)) }))
-      .sort((a, b) => a.bot.localeCompare(b.bot))
+      .map(([gateway, entries]) => ({
+        gateway,
+        entries: entries.sort((a, b) => a.envVar.localeCompare(b.envVar)),
+      }))
+      .sort((a, b) => a.gateway.localeCompare(b.gateway))
   }, [props.missingEnvVars])
 
   const [drafts, setDrafts] = useState<Record<string, WireDraft>>({})
@@ -75,7 +79,7 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
     mutationFn: async (params: { entry: MissingEnvVar; draft: WireDraft }) => {
       const secretName = params.draft.secretName.trim()
       if (!secretName) throw new Error("missing secret name")
-      const path = wirePath(params.entry, params.draft.scope)
+      const path = wirePath(params.entry, params.draft.scope, props.host)
       const res = await configDotSet({
         data: {
           projectId: props.projectId,
@@ -102,7 +106,7 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
         const draft = drafts[wireKey(entry)]
         const secretName = draft?.secretName.trim() || ""
         if (!secretName) throw new Error(`missing secret name for ${entry.envVar}`)
-        const path = wirePath(entry, draft.scope)
+        const path = wirePath(entry, draft.scope, props.host)
         const res = await configDotSet({
           data: {
             projectId: props.projectId,
@@ -147,15 +151,15 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
 
       <div className="space-y-4">
         {grouped.map((group) => (
-          <div key={group.bot} className="space-y-2">
+          <div key={group.gateway} className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">
-              Bot <code>{group.bot}</code>
+              Bot <code>{group.gateway}</code>
             </div>
             <div className="grid gap-3">
               {group.entries.map((entry) => {
                 const key = wireKey(entry)
                 const draft = drafts[key] || buildDefaultDraft(entry)
-                const path = wirePath(entry, draft.scope)
+                const path = wirePath(entry, draft.scope, props.host)
                 const sourcesLabel = entry.sources?.length ? entry.sources.join(", ") : "unknown"
                 const pathsLabel = entry.paths?.length ? entry.paths.join(", ") : "(none)"
                 return (
@@ -172,13 +176,13 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
                           setDrafts((prev) => ({
                             ...prev,
                             [key]: {
-                              scope: e.target.value === "fleet" ? "fleet" : "bot",
+                              scope: e.target.value === "fleet" ? "fleet" : "gateway",
                               secretName: prev[key]?.secretName || draft.secretName,
                             },
                           }))
                         }
                       >
-                        <NativeSelectOption value="bot">bot scope</NativeSelectOption>
+                        <NativeSelectOption value="gateway">bot scope</NativeSelectOption>
                         <NativeSelectOption value="fleet">fleet scope</NativeSelectOption>
                       </NativeSelect>
                       <Input

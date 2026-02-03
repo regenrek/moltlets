@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withFlakesEnv } from "../src/lib/nix-flakes";
 
-const NIX_EVAL_TIMEOUT_MS = 120_000;
+const NIX_EVAL_TIMEOUT_MS = 240_000;
 
 function resolveRepoRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
@@ -19,11 +19,11 @@ function hasNix(): boolean {
   }
 }
 
-describe("clawdbot fleet tmpfiles", () => {
+describe("openclaw fleet tmpfiles", () => {
   const testIt = hasNix() && fs.existsSync(resolveRepoRoot()) ? it : it.skip;
 
   testIt(
-    "creates stateDirBase and per-bot dirs via tmpfiles",
+    "creates stateDirBase and per-gateway dirs via tmpfiles",
     () => {
       const repoRoot = resolveRepoRoot();
       const fixtureRoot = "./packages/core/tests/fixtures/project";
@@ -40,21 +40,21 @@ describe("clawdbot fleet tmpfiles", () => {
         "    specialArgs = { inherit project; flakeInfo = { clawlets = { rev = \"test\"; lastModifiedDate = null; }; }; };",
         "    modules = [",
         "      flake.inputs.sops-nix.nixosModules.sops",
-        "      flake.nixosModules.clawdbotFleet",
+        "      flake.nixosModules.openclawFleet",
         "      ({ ... }: { system.stateVersion = \"25.11\"; networking.hostName = \"test-host\"; })",
         "      ({ ... }: {",
-        "        services.clawdbotFleet.enable = true;",
-        "        services.clawdbotFleet.bots = [ \"maren\" \"sonja\" ];",
-        "        services.clawdbotFleet.botProfiles.maren.skills.allowBundled = [ ];",
-        "        services.clawdbotFleet.botProfiles.sonja.skills.allowBundled = [ ];",
+        "        services.openclawFleet.enable = true;",
+        "        services.openclawFleet.gateways = [ \"maren\" \"sonja\" ];",
+        "        services.openclawFleet.gatewayProfiles.maren.skills.allowBundled = [ ];",
+        "        services.openclawFleet.gatewayProfiles.sonja.skills.allowBundled = [ ];",
         "      })",
         "    ];",
         "  }).config;",
         "in {",
         "  rules = cfg.systemd.tmpfiles.rules;",
         "  botHomes = {",
-        "    maren = cfg.users.users.\"bot-maren\".home;",
-        "    sonja = cfg.users.users.\"bot-sonja\".home;",
+        "    maren = cfg.users.users.\"gateway-maren\".home;",
+        "    sonja = cfg.users.users.\"gateway-sonja\".home;",
         "  };",
         "}",
       ].join("\n");
@@ -68,12 +68,12 @@ describe("clawdbot fleet tmpfiles", () => {
 
       const out = JSON.parse(raw) as { rules: string[]; botHomes: Record<string, string> };
 
-      expect(out.rules).toContain("d /srv/clawdbot 0755 root root - -");
-      expect(out.rules).toContain("d /srv/clawdbot/maren 0700 bot-maren bot-maren - -");
-      expect(out.rules).toContain("d /srv/clawdbot/maren/credentials 0700 bot-maren bot-maren - -");
+      expect(out.rules).toContain("d /srv/openclaw 0755 root root - -");
+      expect(out.rules).toContain("d /srv/openclaw/maren 0700 gateway-maren gateway-maren - -");
+      expect(out.rules).toContain("d /srv/openclaw/maren/credentials 0700 gateway-maren gateway-maren - -");
 
-      expect(out.botHomes.maren).toBe("/srv/clawdbot/maren");
-      expect(out.botHomes.sonja).toBe("/srv/clawdbot/sonja");
+      expect(out.botHomes.maren).toBe("/srv/openclaw/maren");
+      expect(out.botHomes.sonja).toBe("/srv/openclaw/sonja");
       expect(out.botHomes.maren).not.toBe(out.botHomes.sonja);
     },
     NIX_EVAL_TIMEOUT_MS,

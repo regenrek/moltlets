@@ -1,0 +1,20 @@
+---
+title: Examples
+description: Copy/paste config starting points.
+---
+
+These pages are practical, copy/paste examples for `fleet/clawlets.json`.
+
+Before you start:
+
+- Keep secrets in `secrets/` only (sops); reference them via `${"{ENV_VAR}"}` in config.
+- Prefer the **typed surfaces** (`channels`, `agents`, `hooks`, `skills`, `plugins`) for anything common.
+- Use `openclaw` passthrough for advanced keys and edge cases.
+
+Start with:
+
+- [Agents](/examples/agents)
+- [Channels](/examples/channels)
+- [Skills](/examples/skills)
+- [Passthrough](/examples/passthrough)
+

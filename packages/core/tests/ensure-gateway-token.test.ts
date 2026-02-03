@@ -17,15 +17,15 @@ describe("ensure-gateway-token script", () => {
       env: {
         ...process.env,
         CLAWLETS_GATEWAY_ENV_FILE: outEnvFile,
-        CLAWLETS_BOT_USER: user,
-        CLAWLETS_BOT_GROUP: group,
+        CLAWLETS_GATEWAY_USER: user,
+        CLAWLETS_GATEWAY_GROUP: group,
       },
       stdio: "pipe",
     });
 
     expect(fs.existsSync(outEnvFile)).toBe(true);
     const contents = fs.readFileSync(outEnvFile, "utf8");
-    expect(contents).toMatch(/^CLAWDBOT_GATEWAY_TOKEN=/);
+    expect(contents).toMatch(/^OPENCLAW_GATEWAY_TOKEN=/);
 
     const mode = fs.statSync(outEnvFile).mode & 0o777;
     expect(mode).toBe(0o400);

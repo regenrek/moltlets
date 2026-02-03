@@ -6,12 +6,14 @@ description: Day‑2 operations and maintenance.
 This page collects the most common day‑2 workflows: updating config, rotating secrets,
 adding bots, and checking host health.
 
-## Update Clawdbot config (routing/channels)
+## Update OpenClaw config (routing/channels)
 
-Clawlets does not own routing. Update routing and channels through Clawdbot config,
-then publish and apply an update so the host picks up the new desired state:
+Clawlets does not own routing. Update routing via OpenClaw config and channels via
+first-class channel config, then publish and apply an update so the host picks up the
+new desired state:
 
-- edit `fleet/clawlets.json` → `fleet.bots.<bot>.clawdbot`
+- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.openclaw` (routing/tools/etc)
+- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.channels` (typed channels)
 
 Then publish + apply updates (pinned):
 
@@ -46,13 +48,13 @@ dashboard can do most of this for you; the CLI steps are here for repeatability.
 1) Add bot id:
 
 ```bash
-clawlets bot add --bot <id>
+clawlets gateway add --host <host> --gateway <botId>
 ```
 
 2) Add secret + config:
 
-- `fleet.bots.<id>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<id>"`
-- Clawdbot config: `fleet.bots.<id>.clawdbot.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
+- `hosts.<host>.bots.<botId>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<botId>"`
+- channel config: `hosts.<host>.bots.<botId>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
 
 Then:
 
@@ -70,10 +72,9 @@ the secret and allowlist, deploy the updated config.
 2) Allow per‑bot (example):
 
 ```bash
-clawlets config set --path fleet.bots.maren.profile.skills.allowBundled --value-json '["github","brave-search"]'
+clawlets config set --path hosts.<host>.bots.maren.skills.allowBundled --value-json '["github","brave-search"]'
 ```
-
-3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.bots.<bot>.profile.skills.entries."<skill>".*Secret`
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `hosts.<host>.bots.<botId>.skills.entries."<skill>".apiKeySecret`
 4) Sync + deploy:
 
 ```bash
@@ -86,7 +87,7 @@ clawlets server update apply --host <host>
 These commands give a quick signal of service health, logs, and audit status:
 ```bash
 clawlets server status --target-host admin@<ipv4>
-clawlets server logs --target-host admin@<ipv4> --unit clawdbot-maren.service --follow
+clawlets server logs --target-host admin@<ipv4> --unit openclaw-maren.service --follow
 clawlets server audit --target-host admin@<ipv4>
 ```
 
@@ -94,18 +95,18 @@ Justfile helpers:
 
 ```bash
 just server-units admin@<ipv4>
-just server-logs admin@<ipv4> "--unit clawdbot-maren.service --follow"
+just server-logs admin@<ipv4> "--unit openclaw-maren.service --follow"
 ```
 
 ## Codex CLI (headless)
 
-If you enable Codex on a bot, the device login is a one-time step per bot user.
+If you enable Codex on a gateway, the device login is a one-time step per gateway user.
 
-One‑time device auth per bot:
+One‑time device auth per gateway:
 
 ```bash
-sudo -u bot-maren env HOME=/srv/clawdbot/maren codex login --device-auth
-sudo -u bot-gunnar env HOME=/srv/clawdbot/gunnar codex login --device-auth
+sudo -u gateway-maren env HOME=/srv/openclaw/maren codex login --device-auth
+sudo -u gateway-gunnar env HOME=/srv/openclaw/gunnar codex login --device-auth
 ```
 
 ## Orchestrator (`clf`)
@@ -120,11 +121,11 @@ systemctl status clf-orchestrator
 journalctl -u clf-orchestrator --since 10m --no-pager
 ```
 
-Bot/job inspection:
+Gateway/job inspection:
 
 ```bash
-sudo -u bot-maren clf jobs list --json
-sudo -u bot-maren clf jobs show --job-id <jobId> --json
+sudo -u gateway-maren clf jobs list --json
+sudo -u gateway-maren clf jobs show --job-id <jobId> --json
 ```
 
 ## Tailscale
@@ -140,38 +141,38 @@ tailscale ip -4
 Token refreshers run as systemd units; check status when GitHub auth fails.
 
 ```bash
-systemctl status clawdbot-gh-token-maren
-systemctl status clawdbot-gh-token-maren.timer
+systemctl status openclaw-gh-token-maren
+systemctl status openclaw-gh-token-maren.timer
 ```
 
 ## GitHub inventory sync (optional)
 
 If enabled, the host periodically writes GitHub issues and PRs into the bot workspace.
-If enabled (`services.clawdbotFleet.githubSync.enable = true`), each bot writes:
+If enabled (`services.openclawFleet.githubSync.enable = true`), each bot writes:
 
-- `/srv/clawdbot/<bot>/workspace/memory/github/prs.md`
-- `/srv/clawdbot/<bot>/workspace/memory/github/issues.md`
+- `/srv/openclaw/<bot>/workspace/memory/github/prs.md`
+- `/srv/openclaw/<bot>/workspace/memory/github/issues.md`
 
 Ops helpers:
 
 ```bash
 clawlets server github-sync status --target-host admin@<ipv4>
-clawlets server github-sync run --target-host admin@<ipv4> --bot maren
-clawlets server github-sync show --target-host admin@<ipv4> --bot maren --kind prs --lines 80
+clawlets server github-sync run --target-host admin@<ipv4> --gateway maren
+clawlets server github-sync show --target-host admin@<ipv4> --gateway maren --kind prs --lines 80
 ```
 
 ## Ops snapshots (optional)
 
 Snapshots are optional and designed for quick ops state inspection and backups.
-If enabled (`services.clawdbotFleet.opsSnapshot.enable = true`), the host writes JSON snapshots to:
+If enabled (`services.openclawFleet.opsSnapshot.enable = true`), the host writes JSON snapshots to:
 
 - `/var/lib/clawlets/ops/snapshots/latest.json`
 - `/var/lib/clawlets/ops/snapshots/<timestamp>-<host>.json`
 
 Retention:
 
-- `services.clawdbotFleet.opsSnapshot.keepDays` (default: 30)
-- `services.clawdbotFleet.opsSnapshot.keepLast` (default: 200)
+- `services.openclawFleet.opsSnapshot.keepDays` (default: 30)
+- `services.openclawFleet.opsSnapshot.keepLast` (default: 200)
 
 Backup:
 
@@ -189,14 +190,14 @@ Restic is opt-in. Enable it in the fleet config, wire its secrets, then deploy.
 Enable via CLI:
 
 ```bash
-clawlets fleet set --restic-enable true --restic-repository "s3:s3.amazonaws.com/<bucket>/clawdbot"
+clawlets fleet set --restic-enable true --restic-repository "s3:s3.amazonaws.com/<bucket>/openclaw"
 ```
 
-Add secrets under `secrets/hosts/clawdbot-fleet-host/` (example: `restic_password.yaml`), sync, then deploy.
+Add secrets under `secrets/hosts/openclaw-fleet-host/` (example: `restic_password.yaml`), sync, then deploy.
 
 Restore (example, run as root on the host):
 
 ```bash
 restic snapshots
-restic restore latest --target / --include /srv/clawdbot
+restic restore latest --target / --include /srv/openclaw
 ```

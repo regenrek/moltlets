@@ -27,8 +27,8 @@ fi
 nixos_ver="$("${sysbin}/nixos-version" 2>/dev/null || true)"
 kernel="$(uname -a 2>/dev/null || true)"
 
-gh_timers="$("${sysbin}/systemctl" list-timers --all --no-pager 'clawdbot-gh-sync-*.timer' 2>/dev/null || true)"
-token_timers="$("${sysbin}/systemctl" list-timers --all --no-pager 'clawdbot-gh-token-*.timer' 2>/dev/null || true)"
+gh_timers="$("${sysbin}/systemctl" list-timers --all --no-pager 'openclaw-gh-sync-*.timer' 2>/dev/null || true)"
+token_timers="$("${sysbin}/systemctl" list-timers --all --no-pager 'openclaw-gh-token-*.timer' 2>/dev/null || true)"
 
 read_build_info='null'
 if [ -r "$build_info" ]; then

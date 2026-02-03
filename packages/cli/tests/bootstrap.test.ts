@@ -12,7 +12,7 @@ const tryParseGithubFlakeUriMock = vi.fn().mockReturnValue(null);
 const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((value: string) => value);
 const findRepoRootMock = vi.fn().mockReturnValue("/repo");
-const evalFleetConfigMock = vi.fn().mockResolvedValue({ bots: [] });
+const evalFleetConfigMock = vi.fn().mockResolvedValue({ gateways: [] });
 const withFlakesEnvMock = vi.fn((env: NodeJS.ProcessEnv) => env);
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "" });
 const loadClawletsConfigMock = vi.fn();
@@ -81,9 +81,11 @@ vi.mock("@clawlets/core/lib/clawlets-config", async () => {
   };
 });
 
-const hostName = "clawdbot-beta-3";
+const hostName = "openclaw-beta-3";
 const baseHost = {
   enable: false,
+  botsOrder: [],
+  bots: {},
   diskDevice: "/dev/sda",
   flakeHost: "",
   hetzner: { serverType: "cx43" },
@@ -106,8 +108,29 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 12,
-      fleet: { sshAuthorizedKeys: [], sshKnownHosts: [] },
+      schemaVersion: 17,
+      defaultHost: hostName,
+      baseFlake: "",
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        sshAuthorizedKeys: [],
+        sshKnownHosts: [],
+        codex: { enable: false, bots: [] },
+        backups: { restic: { enable: false, repository: "" } },
+      },
+      cattle: {
+        enabled: false,
+        hetzner: {
+          image: "",
+          serverType: "cx22",
+          location: "nbg1",
+          maxInstances: 10,
+          defaultTtl: "2h",
+          labels: { "managed-by": "clawlets" },
+        },
+        defaults: { autoShutdown: true, callbackUrl: "" },
+      },
       hosts: {
         [hostName]: { ...baseHost, ...hostOverrides },
       },

@@ -2,6 +2,8 @@ import type { ClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 
 export const baseHost = {
   enable: false,
+  botsOrder: [],
+  bots: {},
   diskDevice: "/dev/sda",
   flakeHost: "",
   targetHost: "admin@host",
@@ -45,16 +47,27 @@ export function makeConfig(params?: {
     secretFiles: {},
     sshAuthorizedKeys: [] as string[],
     sshKnownHosts: [] as string[],
-    botOrder: [] as string[],
-    bots: {} as Record<string, unknown>,
     codex: { enable: false, bots: [] },
     backups: { restic: { enable: false, repository: "" } },
     ...(params?.fleetOverrides ?? {}),
   };
   return {
-    schemaVersion: 12,
+    schemaVersion: 17,
     defaultHost: hostName,
+    baseFlake: "",
     fleet,
+    cattle: {
+      enabled: false,
+      hetzner: {
+        image: "",
+        serverType: "cx22",
+        location: "nbg1",
+        maxInstances: 10,
+        defaultTtl: "2h",
+        labels: { "managed-by": "clawlets" },
+      },
+      defaults: { autoShutdown: true, callbackUrl: "" },
+    },
     hosts: { [hostName]: host } as Record<string, typeof host>,
   } as ClawletsConfig;
 }

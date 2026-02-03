@@ -1,4 +1,4 @@
-export const BOT_CLAWDBOT_POLICY_MESSAGE = "Bot clawdbot config updates must use bot endpoints."
+export const GATEWAY_OPENCLAW_POLICY_MESSAGE = "Bot openclaw config updates must use bot endpoints."
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -13,39 +13,50 @@ function stableStringify(value: unknown): string {
   return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`).join(",")}}`
 }
 
-function getBots(value: unknown): Record<string, unknown> {
+function getBotsByHost(value: unknown): Record<string, Record<string, unknown>> {
   if (!isPlainRecord(value)) return {}
-  const fleet = value["fleet"]
-  if (!isPlainRecord(fleet)) return {}
-  const bots = fleet["bots"]
-  return isPlainRecord(bots) ? bots : {}
+  const hosts = value["hosts"]
+  if (!isPlainRecord(hosts)) return {}
+  const out: Record<string, Record<string, unknown>> = {}
+  for (const [host, hostCfg] of Object.entries(hosts)) {
+    if (!isPlainRecord(hostCfg)) continue
+    const bots = hostCfg["bots"]
+    if (isPlainRecord(bots)) out[host] = bots
+  }
+  return out
 }
 
-export function isBotClawdbotPath(parts: Array<string | number>): boolean {
+export function isGatewayOpenclawPath(parts: Array<string | number>): boolean {
   return (
-    parts.length >= 4 &&
-    parts[0] === "fleet" &&
-    parts[1] === "bots" &&
-    typeof parts[2] === "string" &&
-    parts[3] === "clawdbot"
+    parts.length >= 5 &&
+    parts[0] === "hosts" &&
+    typeof parts[1] === "string" &&
+    parts[2] === "bots" &&
+    typeof parts[3] === "string" &&
+    parts[4] === "openclaw"
   )
 }
 
-export function findBotClawdbotChanges(
+export function findGatewayOpenclawChanges(
   current: unknown,
   next: unknown,
 ): { path: Array<string | number>; message: string } | null {
-  const currentBots = getBots(current)
-  const nextBots = getBots(next)
-  const allIds = new Set([...Object.keys(currentBots), ...Object.keys(nextBots)])
-  for (const botId of allIds) {
-    const currentBot = currentBots[botId]
-    const nextBot = nextBots[botId]
-    const currentClawdbot = isPlainRecord(currentBot) ? currentBot["clawdbot"] : undefined
-    const nextClawdbot = isPlainRecord(nextBot) ? nextBot["clawdbot"] : undefined
-    if (currentClawdbot === undefined && nextClawdbot === undefined) continue
-    if (stableStringify(currentClawdbot) !== stableStringify(nextClawdbot)) {
-      return { path: ["fleet", "bots", botId, "clawdbot"], message: BOT_CLAWDBOT_POLICY_MESSAGE }
+  const currentBotsByHost = getBotsByHost(current)
+  const nextBotsByHost = getBotsByHost(next)
+  const allHosts = new Set([...Object.keys(currentBotsByHost), ...Object.keys(nextBotsByHost)])
+  for (const host of allHosts) {
+    const currentBots = currentBotsByHost[host] || {}
+    const nextBots = nextBotsByHost[host] || {}
+    const allIds = new Set([...Object.keys(currentBots), ...Object.keys(nextBots)])
+    for (const botId of allIds) {
+      const currentBot = currentBots[botId]
+      const nextBot = nextBots[botId]
+      const currentOpenclaw = isPlainRecord(currentBot) ? currentBot["openclaw"] : undefined
+      const nextOpenclaw = isPlainRecord(nextBot) ? nextBot["openclaw"] : undefined
+      if (currentOpenclaw === undefined && nextOpenclaw === undefined) continue
+      if (stableStringify(currentOpenclaw) !== stableStringify(nextOpenclaw)) {
+        return { path: ["hosts", host, "bots", botId, "openclaw"], message: GATEWAY_OPENCLAW_POLICY_MESSAGE }
+      }
     }
   }
   return null

@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import crypto from "node:crypto"
 
-import { getRepoLayout, getBotWorkspaceDir } from "@clawlets/core/repo-layout"
+import { getRepoLayout, getGatewayWorkspaceDir } from "@clawlets/core/repo-layout"
 import { ensureDir, pathExists, writeFileAtomic } from "@clawlets/core/lib/fs-safe"
 import { isFleetWorkspaceEditableDoc, FLEET_WORKSPACE_EDITABLE_DOCS } from "@clawlets/core/lib/fleet-workspaces"
 import { moveToTrash } from "@clawlets/core/lib/fs-trash"
@@ -54,11 +54,11 @@ function resolveDocPath(params: {
   const layout = getRepoLayout(params.repoRoot)
   const commonPath = path.join(layout.fleetWorkspacesCommonDir, params.name)
 
-  const botDir = params.botId ? getBotWorkspaceDir(layout, params.botId) : ""
+  const botDir = params.botId ? getGatewayWorkspaceDir(layout, params.botId) : ""
   const botPath = botDir ? path.join(botDir, params.name) : ""
 
-  if (params.scope === "bot" && !botPath) throw new Error("botId required for scope=bot")
-  if (params.scope === "effective" && !botPath) throw new Error("botId required for scope=effective")
+  if (params.scope === "gateway" && !botPath) throw new Error("gateway id required for scope=gateway")
+  if (params.scope === "effective" && !botPath) throw new Error("gateway id required for scope=effective")
 
   return { commonPath, botPath }
 }
@@ -71,7 +71,7 @@ export async function listWorkspaceDocsServer(params: {
   const repoRoot = await getRepoRoot(client, params.projectId)
 
   const layout = getRepoLayout(repoRoot)
-  const botDir = getBotWorkspaceDir(layout, params.botId)
+  const botDir = getGatewayWorkspaceDir(layout, params.botId)
 
   const results: WorkspaceDocListItem[] = []
   for (const name of FLEET_WORKSPACE_EDITABLE_DOCS) {
@@ -112,7 +112,7 @@ export async function readWorkspaceDocServer(params: {
   const chosen =
     params.scope === "common"
       ? commonPath
-      : params.scope === "bot"
+      : params.scope === "gateway"
         ? botPath
         : (await pathExists(botPath)) ? botPath : commonPath
 
@@ -167,7 +167,7 @@ export async function writeWorkspaceDocServer(params: {
     title:
       params.scope === "common"
         ? `workspace write common/${params.name}`
-        : `workspace write bots/${params.botId}/${params.name}`,
+        : `workspace write gateways/${params.botId}/${params.name}`,
   })
 
   return await runWithEventsAndStatus({
@@ -183,7 +183,7 @@ export async function writeWorkspaceDocServer(params: {
     onAfterEvents: async () => {
       await client.mutation(api.auditLogs.append, {
         projectId: params.projectId,
-        action: params.scope === "common" ? "workspace.common.write" : "workspace.bot.write",
+        action: params.scope === "common" ? "workspace.common.write" : "workspace.gateway.write",
         target: params.scope === "common" ? { doc: params.name } : { botId: params.botId, doc: params.name },
         data: { runId },
       })
@@ -204,7 +204,7 @@ export async function resetWorkspaceDocOverrideServer(params: {
 
   const { botPath } = resolveDocPath({
     repoRoot,
-    scope: "bot",
+    scope: "gateway",
     botId: params.botId,
     name: params.name,
   })
@@ -228,7 +228,7 @@ export async function resetWorkspaceDocOverrideServer(params: {
   const { runId } = await client.mutation(api.runs.create, {
     projectId: params.projectId,
     kind: "workspace_write",
-    title: `workspace reset bots/${params.botId}/${params.name}`,
+    title: `workspace reset gateways/${params.botId}/${params.name}`,
   })
 
   return await runWithEventsAndStatus({
@@ -243,7 +243,7 @@ export async function resetWorkspaceDocOverrideServer(params: {
     onAfterEvents: async () => {
       await client.mutation(api.auditLogs.append, {
         projectId: params.projectId,
-        action: "workspace.bot.reset",
+        action: "workspace.gateway.reset",
         target: { botId: params.botId, doc: params.name },
         data: { runId },
       })

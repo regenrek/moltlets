@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withFlakesEnv } from "../src/lib/nix-flakes";
 
-const NIX_EVAL_TIMEOUT_MS = 120_000;
+const NIX_EVAL_TIMEOUT_MS = 240_000;
 
 function resolveRepoRoot(): string {
   return path.resolve(process.env.CLAWLETS_TEMPLATE_DIR || path.join(__dirname, ".template"));
@@ -32,7 +32,7 @@ let
   clawlets = builtins.getFlake ${clawletsRef};
   flake = baseFlake // { inputs = baseFlake.inputs // { clawlets = clawlets; }; };
   system = "x86_64-linux";
-  hostName = "clawdbot-fleet-host";
+  hostName = "openclaw-fleet-host";
   nixpkgs = flake.inputs.clawlets.inputs.nixpkgs;
   lib = nixpkgs.lib;
   project = {

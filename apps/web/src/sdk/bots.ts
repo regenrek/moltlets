@@ -6,6 +6,7 @@ import { validateClawdbotConfig } from "@clawlets/core/lib/clawdbot-schema-valid
 import { diffChannelSchemasFromArtifacts } from "@clawlets/core/lib/clawdbot-schema-diff"
 import { getPinnedClawdbotSchema } from "@clawlets/core/lib/clawdbot-schema"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/fleet-secrets-plan-helpers"
+import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw-security-lint"
 import {
   ClawletsConfigSchema,
   loadClawletsConfigRaw,
@@ -17,7 +18,7 @@ import { createConvexClient } from "~/server/convex"
 import { readClawletsEnvTokens } from "~/server/redaction"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import {
-  parseBotClawdbotConfigInput,
+  parseBotOpenclawConfigInput,
   parseBotCapabilityPresetInput,
   parseBotCapabilityPresetPreviewInput,
   parseProjectBotInput,
@@ -36,6 +37,22 @@ export function sanitizeLiveSchemaError(err: unknown): string {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function buildEffectiveOpenclawConfig(bot: Record<string, unknown>): Record<string, unknown> {
+  const openclaw = isPlainObject(bot["openclaw"]) ? (bot["openclaw"] as Record<string, unknown>) : {}
+  const out: Record<string, unknown> = { ...openclaw }
+  const channels = bot["channels"]
+  const agents = bot["agents"]
+  const hooks = bot["hooks"]
+  const skills = bot["skills"]
+  const plugins = bot["plugins"]
+  if (isPlainObject(channels)) out["channels"] = channels
+  if (isPlainObject(agents)) out["agents"] = agents
+  if (isPlainObject(hooks)) out["hooks"] = hooks
+  if (isPlainObject(skills)) out["skills"] = skills
+  if (isPlainObject(plugins)) out["plugins"] = plugins
+  return out
 }
 
 function resolvePreset(kind: string, presetId: string): CapabilityPreset {
@@ -75,12 +92,13 @@ function mapSchemaFailure(message: string): ValidationIssue[] {
   return [{ code: "schema", path: [], message }]
 }
 
-export const setBotClawdbotConfig = createServerFn({ method: "POST" })
-  .inputValidator(parseBotClawdbotConfigInput)
+export const setBotOpenclawConfig = createServerFn({ method: "POST" })
+  .inputValidator(parseBotOpenclawConfigInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
 
-    if (!isPlainObject(data.clawdbot)) throw new Error("clawdbot config must be a JSON object")
+    if (!isPlainObject(data.openclaw)) throw new Error("openclaw config must be a JSON object")
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -88,17 +106,19 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
-    existingBot.clawdbot = data.clawdbot
+    existingBot.openclaw = data.openclaw
 
     const schemaMode = data.schemaMode === "live" ? "live" : "pinned"
     let schema: Record<string, unknown> | undefined = undefined
     if (schemaMode === "live") {
       try {
-        const { fetchClawdbotSchemaLive } = await import("~/server/clawdbot-schema.server")
-        const live = await fetchClawdbotSchemaLive({
+        const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+        const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
           host: data.host,
           botId,
@@ -109,7 +129,7 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
         schema = live.schema.schema as Record<string, unknown>
       } catch (err) {
         const message = sanitizeLiveSchemaError(err)
-        console.error("setBotClawdbotConfig live schema failed", message)
+        console.error("setBotOpenclawConfig live schema failed", message)
         return {
           ok: false as const,
           issues: mapSchemaFailure(message),
@@ -117,11 +137,27 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const schemaValidation = validateClawdbotConfig(existingBot.clawdbot, schema)
+    const schemaValidation = validateClawdbotConfig(existingBot.openclaw, schema)
     if (!schemaValidation.ok) {
       return {
         ok: false as const,
         issues: mapSchemaIssues(schemaValidation.issues),
+      }
+    }
+
+    const securityReport = lintOpenclawSecurityConfig({ openclaw: existingBot.openclaw, gatewayId: botId })
+    const inlineSecrets = securityReport.findings.filter((f) => f.id.startsWith("inlineSecret."))
+    if (inlineSecrets.length > 0) {
+      return {
+        ok: false as const,
+        issues: inlineSecrets.slice(0, 20).map((f) => ({
+          code: "security",
+          path: f.id
+            .slice("inlineSecret.".length)
+            .split(".")
+            .filter(Boolean),
+          message: f.detail,
+        })),
       }
     }
 
@@ -131,24 +167,24 @@ export const setBotClawdbotConfig = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} clawdbot config`,
+      title: `bot ${hostName}/${botId} openclaw config`,
     })
 
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
-      action: "bot.clawdbot.write",
+      action: "bot.openclaw.write",
       target: { botId },
       data: { runId },
     })
 
-    type SetClawdbotResult = { ok: true; runId: typeof runId } | RunFailure
+    type SetOpenclawResult = { ok: true; runId: typeof runId } | RunFailure
 
-    return await runWithEventsAndStatus<SetClawdbotResult>({
+    return await runWithEventsAndStatus<SetOpenclawResult>({
       client,
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Updating fleet.bots.${botId}.clawdbot` })
+        await emit({ level: "info", message: `Updating hosts.${hostName}.bots.${botId}.openclaw` })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
@@ -161,10 +197,8 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseBotCapabilityPresetInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
-    if (data.schemaMode === "live" && !data.host.trim()) {
-      return { ok: false as const, issues: mapSchemaFailure("live schema validation requires a host") }
-    }
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -172,13 +206,16 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     let warnings: string[] = []
     try {
-      const result = applyCapabilityPreset({ clawdbot: existingBot.clawdbot, preset })
-      existingBot.clawdbot = result.clawdbot
+      const result = applyCapabilityPreset({ openclaw: existingBot.openclaw, channels: existingBot.channels, preset })
+      existingBot.openclaw = result.openclaw
+      existingBot.channels = result.channels
       warnings = result.warnings
       const secretEnv = ensureBotProfileSecretEnv(existingBot)
       for (const envVar of result.requiredEnv) {
@@ -188,15 +225,16 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
       return { ok: false as const, issues: mapSchemaFailure(String((err as Error)?.message || err)) }
     }
 
-    const schemaValidation = validateClawdbotConfig(existingBot.clawdbot)
+    const effectiveConfig = buildEffectiveOpenclawConfig(existingBot as Record<string, unknown>)
+    const schemaValidation = validateClawdbotConfig(effectiveConfig)
     if (!schemaValidation.ok) {
       return { ok: false as const, issues: mapSchemaIssues(schemaValidation.issues) }
     }
 
     if (data.schemaMode === "live") {
       try {
-        const { fetchClawdbotSchemaLive } = await import("~/server/clawdbot-schema.server")
-        const live = await fetchClawdbotSchemaLive({
+        const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+        const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
           host: data.host,
           botId,
@@ -204,7 +242,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
         if (!live.ok) {
           return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
         }
-        const liveValidation = validateClawdbotConfig(existingBot.clawdbot, live.schema.schema as Record<string, unknown>)
+        const liveValidation = validateClawdbotConfig(effectiveConfig, live.schema.schema as Record<string, unknown>)
         if (!liveValidation.ok) {
           return { ok: false as const, issues: mapSchemaIssues(liveValidation.issues) }
         }
@@ -220,7 +258,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} preset ${preset.id}`,
+      title: `bot ${hostName}/${botId} preset ${preset.id}`,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -237,7 +275,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Applying ${preset.id} preset for ${botId}` })
+        await emit({ level: "info", message: `Applying ${preset.id} preset for ${botId} (host=${hostName})` })
         for (const w of warnings) await emit({ level: "warn", message: w })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
@@ -251,19 +289,23 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseBotCapabilityPresetPreviewInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
     const { config: raw } = loadClawletsConfigRaw({
       repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
     })
-    const existingBot = (raw as any)?.fleet?.bots?.[botId]
+    const hostCfg = (raw as any)?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = (hostCfg as any)?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const nextBot = structuredClone(existingBot) as Record<string, unknown>
     let warnings: string[] = []
     let requiredEnv: string[] = []
     try {
-      const result = applyCapabilityPreset({ clawdbot: (nextBot as any).clawdbot, preset })
-      ;(nextBot as any).clawdbot = result.clawdbot
+      const result = applyCapabilityPreset({ openclaw: (nextBot as any).openclaw, channels: (nextBot as any).channels, preset })
+      ;(nextBot as any).openclaw = result.openclaw
+      ;(nextBot as any).channels = result.channels
       warnings = result.warnings
       requiredEnv = result.requiredEnv
       const secretEnv = ensureBotProfileSecretEnv(nextBot)
@@ -274,8 +316,8 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
       return { ok: false as const, issues: mapSchemaFailure(String((err as Error)?.message || err)) }
     }
 
-    const schemaValidation = validateClawdbotConfig((nextBot as any).clawdbot)
-    const diff = diffConfig(existingBot, nextBot, `fleet.bots.${botId}`)
+    const schemaValidation = validateClawdbotConfig(buildEffectiveOpenclawConfig(nextBot))
+    const diff = diffConfig(existingBot, nextBot, `hosts.${hostName}.bots.${botId}`)
 
     return {
       ok: true as const,
@@ -286,33 +328,33 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
     }
   })
 
-export const verifyBotClawdbotSchema = createServerFn({ method: "POST" })
+export const verifyBotOpenclawSchema = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostBotInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
-    if (!data.host.trim()) {
-      return { ok: false as const, issues: mapSchemaFailure("live schema verification requires a host") }
-    }
+    const hostName = data.host.trim()
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const { config: raw } = loadClawletsConfigRaw({ repoRoot })
-    const existingBot = (raw as any)?.fleet?.bots?.[botId]
+    const hostCfg = (raw as any)?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = (hostCfg as any)?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const pinned = getPinnedClawdbotSchema()
     let liveSchema: Record<string, unknown> | null = null
     try {
-      const { fetchClawdbotSchemaLive } = await import("~/server/clawdbot-schema.server")
-      const live = await fetchClawdbotSchemaLive({
-        projectId: data.projectId,
-        host: data.host,
-        botId,
-      })
+      const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+        const live = await fetchOpenclawSchemaLive({
+          projectId: data.projectId,
+          host: hostName,
+          botId,
+        })
       if (!live.ok) {
         return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
       }
       liveSchema = live.schema.schema as Record<string, unknown>
-      const liveValidation = validateClawdbotConfig((existingBot as any).clawdbot, liveSchema)
+      const liveValidation = validateClawdbotConfig((existingBot as any).openclaw, liveSchema)
       return {
         ok: true as const,
         issues: liveValidation.ok ? [] : mapSchemaIssues(liveValidation.issues),
@@ -326,10 +368,11 @@ export const verifyBotClawdbotSchema = createServerFn({ method: "POST" })
     }
   })
 
-export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
+export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
   .inputValidator(parseProjectBotInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -337,25 +380,28 @@ export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.bots?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
-    const hardened = applySecurityDefaults({ clawdbot: existingBot.clawdbot })
+    const hardened = applySecurityDefaults({ openclaw: existingBot.openclaw, channels: existingBot.channels })
     if (hardened.changes.length === 0) return { ok: true as const, changes: [], warnings: [] }
 
-    existingBot.clawdbot = hardened.clawdbot
+    existingBot.openclaw = hardened.openclaw
+    existingBot.channels = hardened.channels
     const validated = ClawletsConfigSchema.safeParse(next)
     if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} clawdbot harden`,
+      title: `bot ${hostName}/${botId} openclaw harden`,
     })
 
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
-      action: "bot.clawdbot.harden",
+      action: "bot.openclaw.harden",
       target: { botId },
       data: { runId, changes: hardened.changes, warnings: hardened.warnings },
     })
@@ -372,7 +418,7 @@ export const hardenBotClawdbotConfig = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Hardening fleet.bots.${botId}.clawdbot` })
+        await emit({ level: "info", message: `Hardening hosts.${hostName}.bots.${botId}` })
         for (const w of hardened.warnings) await emit({ level: "warn", message: w })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })

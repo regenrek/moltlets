@@ -43,7 +43,7 @@ export async function addDeployChecks(params: {
   hcloudToken?: string;
   sopsAgeKeyFile?: string;
   githubToken?: string;
-  fleetBots: string[] | null;
+  fleetGateways: string[] | null;
   push: DoctorPush;
   skipGithubTokenCheck?: boolean;
   scope: "bootstrap" | "updates";
@@ -275,8 +275,8 @@ export async function addDeployChecks(params: {
       for (const m of secretsPlan.missingSecretConfig.slice(0, 10)) {
         const detail =
           m.kind === "envVar"
-            ? `missing mapping bot=${m.bot} envVar=${m.envVar} (set fleet.secretEnv.${m.envVar} or fleet.bots.${m.bot}.profile.secretEnv.${m.envVar})`
-            : `invalid secret file scope=${m.scope}${m.bot ? ` bot=${m.bot}` : ""} id=${m.fileId} targetPath=${m.targetPath} (${m.message})`;
+            ? `missing mapping bot=${m.gateway} envVar=${m.envVar} (set fleet.secretEnv.${m.envVar} or hosts.${host}.bots.${m.gateway}.profile.secretEnv.${m.envVar})`
+            : `invalid secret file scope=${m.scope}${m.gateway ? ` bot=${m.gateway}` : ""} id=${m.fileId} targetPath=${m.targetPath} (${m.message})`;
         push({
           status: "missing",
           label: "fleet secrets",
@@ -292,11 +292,11 @@ export async function addDeployChecks(params: {
       }
     }
 
-    const botsForSecrets = secretsPlan?.bots?.length ? secretsPlan.bots : params.fleetBots || [];
+    const gatewaysForSecrets = secretsPlan?.gateways?.length ? secretsPlan.gateways : params.fleetGateways || [];
     const hostSecretNamesRequired = secretsPlan?.hostSecretNamesRequired || ["admin_password_hash"];
     const secretNamesAll = secretsPlan?.secretNamesAll || [];
 
-    if (botsForSecrets.length > 0) {
+    if (gatewaysForSecrets.length > 0) {
       const required = Array.from(new Set([
         ...hostSecretNamesRequired,
         ...secretNamesAll,
@@ -310,7 +310,7 @@ export async function addDeployChecks(params: {
         });
       }
     } else {
-      push({ status: "warn", label: "required secrets", detail: "(fleet bots list missing; cannot validate per-bot secrets)" });
+      push({ status: "warn", label: "required secrets", detail: "(host bots list missing; cannot validate per-bot secrets)" });
     }
 
     const requiredForValues = Array.from(new Set([

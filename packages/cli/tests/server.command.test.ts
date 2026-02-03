@@ -30,8 +30,7 @@ describe("server command", () => {
   it("audit emits ok checks and json", async () => {
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" } },
-      fleetOverrides: { botOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ config, hostName: "alpha", hostCfg });
@@ -56,13 +55,13 @@ describe("server command", () => {
       args: {
         host: "alpha",
         targetHost: "admin@host",
-        unit: "clawdbot-maren",
+        unit: "openclaw-maren",
         since: "5m",
         lines: "10",
       },
     } as any);
     const call = sshRunMock.mock.calls[0]?.[1] as string;
-    expect(call).toContain("clawdbot-maren.service");
+    expect(call).toContain("openclaw-maren.service");
     expect(call).toContain("5 min ago");
   });
 

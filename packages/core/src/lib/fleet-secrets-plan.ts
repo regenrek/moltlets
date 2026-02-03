@@ -8,7 +8,7 @@ import {
   buildDerivedSecretEnv,
   buildEnvVarAliasMap,
   canonicalizeEnvVar,
-  collectBotModels,
+  collectGatewayModels,
   collectDerivedSecretEnvEntries,
   extractEnvVarRef,
   isPlainObject,
@@ -27,11 +27,12 @@ import {
 import type { ClawletsConfig } from "./clawlets-config.js";
 import type { SecretFileSpec } from "./secret-wiring.js";
 import type { MissingSecretConfig, SecretSource, SecretSpec, SecretsPlanWarning } from "./secrets-plan.js";
+import { buildOpenClawGatewayConfig } from "./openclaw-config-invariants.js";
 
 export type MissingFleetSecretConfig = MissingSecretConfig;
 
 export type FleetSecretsPlan = {
-  bots: string[];
+  gateways: string[];
   hostSecretNamesRequired: string[];
 
   secretNamesAll: string[];
@@ -44,7 +45,7 @@ export type FleetSecretsPlan = {
 
   missingSecretConfig: MissingSecretConfig[];
 
-  byBot: Record<
+  byGateway: Record<
     string,
     {
       envVarsRequired: string[];
@@ -67,15 +68,15 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   const hostCfg = (params.config.hosts as any)?.[hostName];
   if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
 
-  const bots = params.config.fleet.botOrder || [];
-  const botConfigs = (params.config.fleet.bots || {}) as Record<string, unknown>;
+  const gateways = Array.isArray((hostCfg as any)?.botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
+  const gatewayConfigs = ((hostCfg as any)?.bots || {}) as Record<string, unknown>;
 
   const secretNamesAll = new Set<string>();
   const secretNamesRequired = new Set<string>();
   const missingSecretConfig: MissingSecretConfig[] = [];
   const warnings: SecretsPlanWarning[] = [];
   const secretSpecs = new Map<string, SecretSpecAccumulator>();
-  const secretEnvMetaByName = new Map<string, { envVars: Set<string>; bots: Set<string> }>();
+  const secretEnvMetaByName = new Map<string, { envVars: Set<string>; gateways: Set<string> }>();
   const envVarHelpOverrides = new Map<string, string>();
 
   const hostSecretNamesRequired = new Set<string>(["admin_password_hash"]);
@@ -102,7 +103,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     });
   }
 
-  const byBot: FleetSecretsPlan["byBot"] = {};
+  const byGateway: FleetSecretsPlan["byGateway"] = {};
 
   const hostSecretFiles = normalizeSecretFiles((params.config.fleet as any)?.secretFiles);
   for (const [fileId, spec] of Object.entries(hostSecretFiles)) {
@@ -140,36 +141,40 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   }
 
   const fleetSecretEnv = (params.config.fleet as any)?.secretEnv;
-  const recordSecretEnvMeta = (secretName: string, envVar: string, bot: string) => {
+  const recordSecretEnvMeta = (secretName: string, envVar: string, gatewayId: string) => {
     if (!secretName) return;
     const existing = secretEnvMetaByName.get(secretName);
     if (!existing) {
       secretEnvMetaByName.set(secretName, {
         envVars: new Set(envVar ? [envVar] : []),
-        bots: new Set(bot ? [bot] : []),
+        gateways: new Set(gatewayId ? [gatewayId] : []),
       });
       return;
     }
     if (envVar) existing.envVars.add(envVar);
-    if (bot) existing.bots.add(bot);
+    if (gatewayId) existing.gateways.add(gatewayId);
   };
 
   const envVarAliasMap = buildEnvVarAliasMap();
+  const ignoredEnvVars = new Set<string>([
+    // Managed by the Nix runtime (generated/injected), not by fleet.secretEnv/profile.secretEnv.
+    "OPENCLAW_GATEWAY_TOKEN",
+  ]);
 
-  for (const bot of bots) {
-    const botCfg = (botConfigs as any)?.[bot] || {};
-    const profile = (botCfg as any)?.profile || {};
-    const clawdbot = (botCfg as any)?.clawdbot || {};
+  for (const gatewayId of gateways) {
+    const gatewayCfg = (gatewayConfigs as any)?.[gatewayId] || {};
+    const profile = (gatewayCfg as any)?.profile || {};
+    const openclaw = buildOpenClawGatewayConfig({ config: params.config, hostName, botId: gatewayId }).merged;
 
     const baseSecretEnv = buildBaseSecretEnv({
       globalEnv: fleetSecretEnv,
-      botEnv: profile?.secretEnv,
+      gatewayEnv: profile?.secretEnv,
       aliasMap: envVarAliasMap,
       warnings,
-      bot,
+      gateway: gatewayId,
     });
-    const derivedEntries = collectDerivedSecretEnvEntries(profile);
-    const derivedSecretEnv = buildDerivedSecretEnv(profile);
+    const derivedEntries = collectDerivedSecretEnvEntries(gatewayCfg);
+    const derivedSecretEnv = buildDerivedSecretEnv(gatewayCfg);
     const secretEnv = { ...baseSecretEnv, ...derivedSecretEnv };
     const derivedDupes = derivedEntries
       .map((entry) => entry.envVar)
@@ -182,7 +187,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     if (derivedDupes.length > 0) {
       warnings.push({
         kind: "config",
-        bot,
+        gateway: gatewayId,
         message: `secretEnv conflicts with derived hooks/skill env vars: ${derivedDupes.join(",")}`,
       });
     }
@@ -190,14 +195,15 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       const secretName = String(secretNameRaw || "").trim();
       if (!secretName) continue;
       secretNamesAll.add(secretName);
-      recordSecretEnvMeta(secretName, envVar, bot);
+      recordSecretEnvMeta(secretName, envVar, gatewayId);
     }
 
-    const envVarRefsRaw = findEnvVarRefs(clawdbot);
+    const envVarRefsRaw = findEnvVarRefs(openclaw);
     const envVarPathsByVar: Record<string, string[]> = {};
     for (const [envVar, paths] of Object.entries(envVarRefsRaw.pathsByVar)) {
       const canonical = canonicalizeEnvVar(envVar, envVarAliasMap);
       if (!canonical) continue;
+      if (ignoredEnvVars.has(canonical)) continue;
       envVarPathsByVar[canonical] = (envVarPathsByVar[canonical] || []).concat(paths);
     }
     const envVarRefs = {
@@ -220,11 +226,11 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     for (const envVar of envVarRefs.vars) addRequiredEnv(envVar, "custom");
     for (const entry of derivedEntries) addRequiredEnv(entry.envVar, "custom", entry.path);
 
-    applyChannelEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv });
-    applyHookEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv });
-    applySkillEnvRequirements({ bot, clawdbot, warnings, addRequiredEnv, envVarHelpOverrides });
+    applyChannelEnvRequirements({ gatewayId, openclaw, warnings, addRequiredEnv });
+    applyHookEnvRequirements({ gatewayId, openclaw, warnings, addRequiredEnv });
+    applySkillEnvRequirements({ gatewayId, openclaw, warnings, addRequiredEnv, envVarHelpOverrides });
 
-    const models = collectBotModels({ clawdbot, hostDefaultModel: String(hostCfg.agentModelPrimary || "") });
+    const models = collectGatewayModels({ openclaw, hostDefaultModel: String(hostCfg.agentModelPrimary || "") });
     const providersFromModels = new Set<string>();
     for (const model of models) {
       const provider = getLlmProviderFromModelId(model);
@@ -232,7 +238,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     }
 
     const providersFromConfig = new Set<string>();
-    const providers = (clawdbot as any)?.models?.providers;
+    const providers = (openclaw as any)?.models?.providers;
     if (isPlainObject(providers)) {
       for (const [providerIdRaw, providerCfg] of Object.entries(providers)) {
         const providerId = String(providerIdRaw || "").trim();
@@ -252,9 +258,9 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
             warnings.push({
               kind: "inlineApiKey",
               path: `models.providers.${providerId}.apiKey`,
-              bot,
+              gateway: gatewayId,
               message: `Inline API key detected at models.providers.${providerId}.apiKey`,
-              suggestion: `Replace with ${suggested} and wire it in fleet.secretEnv or fleet.bots.${bot}.profile.secretEnv.`,
+              suggestion: `Replace with ${suggested} and wire it in fleet.secretEnv or hosts.${hostName}.bots.${gatewayId}.profile.secretEnv.`,
             });
           }
         }
@@ -282,7 +288,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
           warnings.push({
             kind: "auth",
             provider,
-            bot,
+            gateway: gatewayId,
             message: `Provider ${provider} requires OAuth login (no env vars required).`,
           });
         }
@@ -308,7 +314,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
         warnings.push({
           kind: "auth",
           provider,
-          bot,
+          gateway: gatewayId,
           message: auth === "mixed"
             ? `Provider ${provider} supports OAuth or API key; no env wiring found (manual login required).`
             : `Provider ${provider} requires OAuth login (no env wiring found).`,
@@ -316,12 +322,12 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       }
     }
 
-    const whatsappEnabled = isWhatsAppEnabled(clawdbot);
+    const whatsappEnabled = isWhatsAppEnabled(openclaw);
     if (whatsappEnabled) {
       warnings.push({
         kind: "statefulChannel",
         channel: "whatsapp",
-        bot,
+        gateway: gatewayId,
         message: "WhatsApp enabled; requires stateful login on the gateway host.",
       });
     }
@@ -336,7 +342,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       if (!secretName) {
         missingSecretConfig.push({
           kind: "envVar",
-          bot,
+          gateway: gatewayId,
           envVar,
           sources: Array.from(sources).sort(),
           paths: envVarPathsByVar[envVar] || [],
@@ -349,62 +355,62 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       recordSecretSpec(secretSpecs, {
         name: secretName,
         kind: "env",
-        scope: "bot",
+        scope: "gateway",
         source: pickPrimarySource(sources),
         optional: false,
         envVar,
-        bot,
+        gateway: gatewayId,
         help,
       });
     }
 
-    const botSecretFiles = normalizeSecretFiles(profile?.secretFiles);
-    for (const [fileId, spec] of Object.entries(botSecretFiles)) {
+    const gatewaySecretFiles = normalizeSecretFiles(profile?.secretFiles);
+    for (const [fileId, spec] of Object.entries(gatewaySecretFiles)) {
       if (!spec?.secretName) continue;
       secretNamesAll.add(spec.secretName);
       secretNamesRequired.add(spec.secretName);
       recordSecretSpec(secretSpecs, {
         name: spec.secretName,
         kind: "file",
-        scope: "bot",
+        scope: "gateway",
         source: "custom",
         optional: false,
-        bot,
+        gateway: gatewayId,
         fileId,
       });
-      const expectedPrefix = `/var/lib/clawlets/secrets/bots/${bot}/`;
+      const expectedPrefix = `/var/lib/clawlets/secrets/gateways/${gatewayId}/`;
       const targetPath = String(spec.targetPath || "");
       if (isUnsafeTargetPath(targetPath)) {
         missingSecretConfig.push({
           kind: "secretFile",
-          scope: "bot",
-          bot,
+          scope: "gateway",
+          gateway: gatewayId,
           fileId,
           targetPath,
-          message: `fleet.bots.${bot}.profile.secretFiles targetPath must not contain /../, end with /.., or include NUL`,
+          message: `hosts.${hostName}.bots.${gatewayId}.profile.secretFiles targetPath must not contain /../, end with /.., or include NUL`,
         });
         continue;
       }
       if (!targetPath.startsWith(expectedPrefix)) {
         missingSecretConfig.push({
           kind: "secretFile",
-          scope: "bot",
-          bot,
+          scope: "gateway",
+          gateway: gatewayId,
           fileId,
           targetPath,
-          message: `fleet.bots.${bot}.profile.secretFiles targetPath must be under ${expectedPrefix}`,
+          message: `hosts.${hostName}.bots.${gatewayId}.profile.secretFiles targetPath must be under ${expectedPrefix}`,
         });
       }
     }
 
     const statefulChannels = whatsappEnabled ? ["whatsapp"] : [];
 
-    byBot[bot] = {
+    byGateway[gatewayId] = {
       envVarsRequired,
       envVarRefs,
       secretEnv,
       envVarToSecretName,
-      secretFiles: botSecretFiles,
+      secretFiles: gatewaySecretFiles,
       statefulChannels,
     };
   }
@@ -416,7 +422,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       recordSecretSpec(secretSpecs, {
         name: secretName,
         kind: "env",
-        scope: "bot",
+        scope: "gateway",
         source: "custom",
         optional: true,
       });
@@ -427,28 +433,28 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       recordSecretSpec(secretSpecs, {
         name: secretName,
         kind: "env",
-        scope: "bot",
+        scope: "gateway",
         source: "custom",
         optional: true,
         envVar,
         help,
       });
     }
-    for (const botId of meta.bots) {
+    for (const gatewayId of meta.gateways) {
       recordSecretSpec(secretSpecs, {
         name: secretName,
         kind: "env",
-        scope: "bot",
+        scope: "gateway",
         source: "custom",
         optional: true,
-        bot: botId,
+        gateway: gatewayId,
       });
     }
   }
 
   const specList: SecretSpec[] = Array.from(secretSpecs.values()).map((spec) => {
     const envVars = Array.from(spec.envVars).sort();
-    const bots = Array.from(spec.bots).sort();
+    const gateways = Array.from(spec.gateways).sort();
     return {
       name: spec.name,
       kind: spec.kind,
@@ -457,7 +463,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       optional: spec.optional || undefined,
       help: spec.help,
       envVars: envVars.length ? envVars : undefined,
-      bots: bots.length ? bots : undefined,
+      gateways: gateways.length ? gateways : undefined,
       fileId: spec.fileId,
     };
   });
@@ -467,7 +473,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   const optional = specList.filter((spec) => spec.optional).sort(byName);
 
   return {
-    bots,
+    gateways,
     hostSecretNamesRequired: Array.from(hostSecretNamesRequired).sort(),
     secretNamesAll: Array.from(secretNamesAll).sort(),
     secretNamesRequired: Array.from(secretNamesRequired).sort(),
@@ -476,7 +482,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     missing: missingSecretConfig,
     warnings,
     missingSecretConfig,
-    byBot,
+    byGateway,
     hostSecretFiles,
   };
 }

@@ -1,4 +1,4 @@
-import { BotIdSchema, HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers"
+import { GatewayIdSchema, HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers"
 import { assertSafeRecordKey, createNullProtoRecord } from "@clawlets/core/lib/safe-record"
 
 import type { SystemTableNames } from "convex/server"
@@ -35,11 +35,11 @@ function parseHostNameRequired(value: unknown): string {
   return HostNameSchema.parse(trimmed)
 }
 
-function parseBotIdRequired(value: unknown): string {
+function parseGatewayIdRequired(value: unknown): string {
   if (typeof value !== "string") throw new Error("invalid botId")
   const trimmed = value.trim()
   if (!trimmed) throw new Error("invalid botId")
-  return BotIdSchema.parse(trimmed)
+  return GatewayIdSchema.parse(trimmed)
 }
 
 function parseServerChannelOp(value: unknown): ServerChannelOp {
@@ -110,7 +110,7 @@ export function parseServerChannelsStartInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     op: parseServerChannelOp(d["op"]),
   }
 }
@@ -134,7 +134,7 @@ export function parseServerChannelsExecuteInput(data: unknown): {
     projectId: parseConvexId(d["projectId"], "projectId"),
     runId: parseConvexId(d["runId"], "runId"),
     host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
     op: parseServerChannelOp(d["op"]),
     channel: parseOptionalString(d["channel"], 64),
     account: parseOptionalString(d["account"], 64),
@@ -183,16 +183,17 @@ export function parseProjectHostBotInput(data: unknown): { projectId: Id<"projec
   const d = requireObject(data)
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    host: parseOptionalHostName(d["host"]),
-    botId: parseBotIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
+    botId: parseGatewayIdRequired(d["botId"]),
   }
 }
 
-export function parseProjectBotInput(data: unknown): { projectId: Id<"projects">; botId: string } {
+export function parseProjectBotInput(data: unknown): { projectId: Id<"projects">; host: string; botId: string } {
   const d = requireObject(data)
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
+    botId: parseGatewayIdRequired(d["botId"]),
   }
 }
 
@@ -214,8 +215,8 @@ export function parseBotCapabilityPresetInput(data: unknown): {
   if (!presetId) throw new Error("invalid presetId")
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
-    host: parseOptionalHostName(d["host"]),
+    botId: parseGatewayIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
     schemaMode,
@@ -225,6 +226,7 @@ export function parseBotCapabilityPresetInput(data: unknown): {
 export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   projectId: Id<"projects">
   botId: string
+  host: string
   kind: CapabilityPresetKind
   presetId: string
 } {
@@ -233,18 +235,19 @@ export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   if (!presetId) throw new Error("invalid presetId")
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
+    botId: parseGatewayIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
   }
 }
 
-export function parseBotClawdbotConfigInput(data: unknown): {
+export function parseBotOpenclawConfigInput(data: unknown): {
   projectId: Id<"projects">
   botId: string
   host: string
   schemaMode: "live" | "pinned"
-  clawdbot: unknown
+  openclaw: unknown
 } {
   const d = requireObject(data)
   let schemaMode: "live" | "pinned" = "pinned"
@@ -257,10 +260,10 @@ export function parseBotClawdbotConfigInput(data: unknown): {
   }
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    botId: parseBotIdRequired(d["botId"]),
-    host: parseOptionalHostName(d["host"]),
+    botId: parseGatewayIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
     schemaMode,
-    clawdbot: d["clawdbot"],
+    openclaw: d["openclaw"],
   }
 }
 

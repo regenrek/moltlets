@@ -4,14 +4,17 @@ import type { FleetConfig } from "./fleet-policy.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 
 const FleetConfigSchema = z.object({
-  bots: z.array(z.string()).default([]),
-  botProfiles: z.record(z.string(), z.any()).default(() => ({})),
+  gateways: z.array(z.string()).default([]),
+  gatewayProfiles: z.record(z.string(), z.any()).default(() => ({})),
 });
 
 export async function evalFleetConfig(params: {
   repoRoot: string;
   nixBin: string;
+  hostName: string;
 }): Promise<FleetConfig> {
+  const hostName = String(params.hostName || "").trim();
+  if (!hostName) throw new Error("hostName is required for fleet config eval");
   const expr = [
     "let",
     "  flake = builtins.getFlake (toString ./.);",
@@ -20,10 +23,11 @@ export async function evalFleetConfig(params: {
     "    root = flake.outPath;",
     "    config = builtins.fromJSON (builtins.readFile (flake.outPath + \"/fleet/clawlets.json\"));",
     "  };",
-    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project; };",
+    `  hostName = ${JSON.stringify(hostName)};`,
+    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project hostName; };",
     "in {",
-    "  bots = fleet.bots;",
-    "  botProfiles = fleet.botProfiles;",
+    "  gateways = fleet.gateways;",
+    "  gatewayProfiles = fleet.gatewayProfiles;",
     "}",
   ].join("\n");
 

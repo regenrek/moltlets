@@ -29,27 +29,33 @@ export function assertNoLegacyEnvSecrets(parsed: unknown): void {
       throw new Error("fleet.modelSecrets was removed; use fleet.secretEnv (e.g. OPENAI_API_KEY -> openai_api_key)");
     }
     if ("guildId" in fleet) {
-      throw new Error("fleet.guildId was removed; configure Discord in clawdbot config (fleet.bots.<bot>.clawdbot)");
+      throw new Error("fleet.guildId was removed; configure Discord in hosts.<host>.bots.<botId>.channels.discord");
     }
-    const bots = fleet.bots;
-    if (bots && typeof bots === "object" && !Array.isArray(bots)) {
-      for (const [bot, botCfg] of Object.entries(bots as Record<string, unknown>)) {
+  }
+
+  const hosts = (parsed as { hosts?: unknown }).hosts;
+  if (hosts && typeof hosts === "object" && !Array.isArray(hosts)) {
+    for (const [host, hostCfg] of Object.entries(hosts as Record<string, unknown>)) {
+      if (!hostCfg || typeof hostCfg !== "object" || Array.isArray(hostCfg)) continue;
+      const bots = (hostCfg as any).bots;
+      if (!bots || typeof bots !== "object" || Array.isArray(bots)) continue;
+      for (const [botId, botCfg] of Object.entries(bots as Record<string, unknown>)) {
         if (!botCfg || typeof botCfg !== "object" || Array.isArray(botCfg)) continue;
         const profile = (botCfg as any).profile;
         if (profile && typeof profile === "object" && !Array.isArray(profile)) {
           if ("envSecrets" in profile) {
             throw new Error(
-              `fleet.bots.${bot}.profile.envSecrets was removed; use profile.secretEnv (ENV_VAR -> sops secret name)`,
+              `hosts.${host}.bots.${botId}.profile.envSecrets was removed; use profile.secretEnv (ENV_VAR -> sops secret name)`,
             );
           }
           if ("discordTokenSecret" in profile) {
             throw new Error(
-              `fleet.bots.${bot}.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN`,
+              `hosts.${host}.bots.${botId}.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN`,
             );
           }
           if ("modelSecrets" in profile) {
             throw new Error(
-              `fleet.bots.${bot}.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/ANTHROPIC_API_KEY/etc)`,
+              `hosts.${host}.bots.${botId}.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/ANTHROPIC_API_KEY/etc)`,
             );
           }
           const skills = (profile as any).skills;
@@ -59,9 +65,22 @@ export function assertNoLegacyEnvSecrets(parsed: unknown): void {
               if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
               if ("envSecrets" in (entry as any)) {
                 throw new Error(
-                  `fleet.bots.${bot}.profile.skills.entries.${skill}.envSecrets was removed; use apiKeySecret or inline config`,
+                  `hosts.${host}.bots.${botId}.profile.skills.entries.${skill}.envSecrets was removed; use hosts.${host}.bots.${botId}.skills.entries.${skill}.apiKeySecret or apiKey`,
                 );
               }
+            }
+          }
+        }
+
+        const botSkills = (botCfg as any).skills;
+        const botSkillEntries = botSkills?.entries;
+        if (botSkillEntries && typeof botSkillEntries === "object" && !Array.isArray(botSkillEntries)) {
+          for (const [skill, entry] of Object.entries(botSkillEntries as Record<string, unknown>)) {
+            if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+            if ("envSecrets" in (entry as any)) {
+              throw new Error(
+                `hosts.${host}.bots.${botId}.skills.entries.${skill}.envSecrets was removed; use hosts.${host}.bots.${botId}.skills.entries.${skill}.apiKeySecret or apiKey`,
+              );
             }
           }
         }

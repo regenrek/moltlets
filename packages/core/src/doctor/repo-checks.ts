@@ -7,8 +7,8 @@ import { validateDocsIndexIntegrity } from "../lib/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/fleet-policy.js";
 import { evalFleetConfig } from "../lib/fleet-nix-eval.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/clawlets-config.js";
-import { buildClawdbotBotConfig } from "../lib/clawdbot-config-invariants.js";
-import { lintClawdbotSecurityConfig } from "../lib/clawdbot-security-lint.js";
+import { buildOpenClawGatewayConfig } from "../lib/openclaw-config-invariants.js";
+import { lintOpenclawSecurityConfig } from "../lib/openclaw-security-lint.js";
 import { checkSchemaVsNixClawdbot } from "./schema-checks.js";
 import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
 import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
@@ -18,7 +18,7 @@ import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./ut
 export type RepoDoctorResult = {
   bundledSkills: string[];
   fleet: FleetConfig | null;
-  fleetBots: string[] | null;
+  fleetGateways: string[] | null;
 };
 
 function allExist(paths: string[]): { ok: boolean; missing: string[] } {
@@ -36,8 +36,9 @@ export async function addRepoChecks(params: {
   const { repoRoot, layout } = params;
 
   let fleet: FleetConfig | null = null;
-  let fleetBots: string[] | null = null;
+  let fleetGateways: string[] | null = null;
   let clawletsConfig: ClawletsConfig | null = null;
+  let templateHostNames: string[] = [];
 
   params.push({
     scope: "repo",
@@ -317,7 +318,8 @@ export async function addRepoChecks(params: {
         try {
           const raw = fs.readFileSync(templateConfigPath, "utf8");
           const parsed = JSON.parse(raw);
-          ClawletsConfigSchema.parse(parsed);
+          const parsedConfig = ClawletsConfigSchema.parse(parsed);
+          templateHostNames = Object.keys(parsedConfig.hosts || {});
           params.push({
             scope: "repo",
             status: "ok",
@@ -338,90 +340,109 @@ export async function addRepoChecks(params: {
   }
 
   if (clawletsConfig) {
-    const bots = Array.isArray(clawletsConfig?.fleet?.botOrder) ? clawletsConfig.fleet.botOrder : [];
-    for (const botRaw of bots) {
-      const bot = String(botRaw || "").trim();
-      if (!bot) continue;
-      try {
-        const merged = buildClawdbotBotConfig({ config: clawletsConfig, bot }).merged;
-        const report = lintClawdbotSecurityConfig({ clawdbot: merged, botId: bot });
-        const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
-        const top = report.findings
-          .filter((f) => f.severity === "critical" || f.severity === "warn")
-          .slice(0, 2)
-          .map((f) => f.id)
-          .join(", ");
-        const hint = top ? ` (${top}${report.findings.length > 2 ? ` +${report.findings.length - 2}` : ""})` : "";
-        params.push({
-          scope: "repo",
-          status,
-          label: `clawdbot security (${bot})`,
-          detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
-        });
-      } catch (e) {
-        params.push({
-          scope: "repo",
-          status: "warn",
-          label: `clawdbot security (${bot})`,
-          detail: `unable to lint: ${String((e as Error)?.message || e)}`,
-        });
+    const hostNames = Object.keys(clawletsConfig.hosts || {});
+    const targetHost = params.host.trim() || clawletsConfig.defaultHost || hostNames[0] || "";
+    if (targetHost) {
+      const hostCfg = (clawletsConfig.hosts as any)?.[targetHost] || {};
+      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+      const botsKeys = Object.keys(hostCfg.bots || {});
+      fleetGateways = (botsOrder.length > 0 ? botsOrder : botsKeys).map((id: unknown) => String(id || "").trim()).filter(Boolean);
+    }
+
+    for (const hostName of hostNames) {
+      const hostCfg = (clawletsConfig.hosts as any)?.[hostName] || {};
+      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+      const botsKeys = Object.keys(hostCfg.bots || {});
+      const bots = botsOrder.length > 0 ? botsOrder : botsKeys;
+      for (const botRaw of bots) {
+        const botId = String(botRaw || "").trim();
+        if (!botId) continue;
+        try {
+          const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, hostName, botId }).merged;
+          const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId: botId });
+          const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
+          const top = report.findings
+            .filter((f) => f.severity === "critical" || f.severity === "warn")
+            .slice(0, 2)
+            .map((f) => f.id)
+            .join(", ");
+          const hint = top ? ` (${top}${report.findings.length > 2 ? ` +${report.findings.length - 2}` : ""})` : "";
+          params.push({
+            scope: "repo",
+            status,
+            label: `openclaw security (${hostName}/${botId})`,
+            detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
+          });
+        } catch (e) {
+          params.push({
+            scope: "repo",
+            status: "warn",
+            label: `openclaw security (${hostName}/${botId})`,
+            detail: `unable to lint: ${String((e as Error)?.message || e)}`,
+          });
+        }
       }
     }
   }
 
   try {
-    fleet = await evalFleetConfig({ repoRoot, nixBin: params.nixBin });
-    fleetBots = fleet.bots;
+    const hostNames = clawletsConfig ? Object.keys(clawletsConfig.hosts || {}) : [];
+    if (hostNames.length === 0) throw new Error("no hosts found in config");
 
-    params.push({
-      scope: "repo",
-      status: fleet.bots.length > 0 ? "ok" : "missing",
-      label: "fleet config eval",
-      detail: `(bots: ${fleet.bots.length})`,
-    });
+    for (const hostName of hostNames) {
+      const hostFleet = await evalFleetConfig({ repoRoot, nixBin: params.nixBin, hostName });
+      if (!fleet) fleet = hostFleet;
 
-    params.push({
-      scope: "repo",
-      status: fleet.bots.length > 0 ? "ok" : "warn",
-      label: "fleet bots list",
-      detail: fleet.bots.length > 0 ? fleet.bots.join(", ") : "(empty)",
-    });
+      params.push({
+        scope: "repo",
+        status: hostFleet.gateways.length > 0 ? "ok" : "missing",
+        label: `fleet config eval (${hostName})`,
+        detail: `(bots: ${hostFleet.gateways.length})`,
+      });
 
-    {
-      const r = validateFleetPolicy({ filePath: layout.clawletsConfigPath, fleet, knownBundledSkills: bundledSkills.skills });
+      params.push({
+        scope: "repo",
+        status: hostFleet.gateways.length > 0 ? "ok" : "warn",
+        label: `host bots list (${hostName})`,
+        detail: hostFleet.gateways.length > 0 ? hostFleet.gateways.join(", ") : "(empty)",
+      });
+
+      const r = validateFleetPolicy({ filePath: layout.clawletsConfigPath, fleet: hostFleet, knownBundledSkills: bundledSkills.skills });
       if (!r.ok) {
         const first = r.violations[0]!;
         params.push({
           scope: "repo",
           status: "missing",
-          label: "fleet policy",
+          label: `fleet policy (${hostName})`,
           detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
         });
       } else {
-        params.push({ scope: "repo", status: "ok", label: "fleet policy", detail: "(ok)" });
+        params.push({ scope: "repo", status: "ok", label: `fleet policy (${hostName})`, detail: "(ok)" });
       }
     }
 
-    if (templateRoot) {
-      const tplFleet = await evalFleetConfig({ repoRoot: templateRoot, nixBin: params.nixBin });
-      params.push({
-        scope: "repo",
-        status: tplFleet.bots.length > 0 ? "ok" : "warn",
-        label: "template fleet config eval",
-        detail: `(bots: ${tplFleet.bots.length})`,
-      });
-
-      const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
-      if (!r.ok) {
-        const first = r.violations[0]!;
+    if (templateRoot && templateHostNames.length > 0) {
+      for (const hostName of templateHostNames) {
+        const tplFleet = await evalFleetConfig({ repoRoot: templateRoot, nixBin: params.nixBin, hostName });
         params.push({
           scope: "repo",
-          status: "missing",
-          label: "template fleet policy",
-          detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
+          status: tplFleet.gateways.length > 0 ? "ok" : "warn",
+          label: `template fleet config eval (${hostName})`,
+          detail: `(bots: ${tplFleet.gateways.length})`,
         });
-      } else {
-        params.push({ scope: "repo", status: "ok", label: "template fleet policy", detail: "(ok)" });
+
+        const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
+        if (!r.ok) {
+          const first = r.violations[0]!;
+          params.push({
+            scope: "repo",
+            status: "missing",
+            label: `template fleet policy (${hostName})`,
+            detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
+          });
+        } else {
+          params.push({ scope: "repo", status: "ok", label: `template fleet policy (${hostName})`, detail: "(ok)" });
+        }
       }
     }
   } catch (e) {
@@ -464,6 +485,6 @@ export async function addRepoChecks(params: {
   return {
     bundledSkills: bundledSkills.skills,
     fleet,
-    fleetBots,
+    fleetGateways,
   };
 }

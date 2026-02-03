@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { BotIdSchema, EnvVarNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers";
+import { EnvVarNameSchema, GatewayIdSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers";
 
 export const SECRET_KINDS = ["env", "file", "extra"] as const;
 export const SecretKindSchema = z.enum(SECRET_KINDS);
 export type SecretKind = z.infer<typeof SecretKindSchema>;
 
-export const SECRET_SCOPES = ["host", "bot"] as const;
+export const SECRET_SCOPES = ["host", "gateway"] as const;
 export const SecretScopeSchema = z.enum(SECRET_SCOPES);
 export type SecretScope = z.infer<typeof SecretScopeSchema>;
 
@@ -23,7 +23,7 @@ export const SecretSpecSchema = z
     optional: z.boolean().optional(),
     help: z.string().trim().optional(),
     envVars: z.array(EnvVarNameSchema).optional(),
-    bots: z.array(BotIdSchema).optional(),
+    gateways: z.array(GatewayIdSchema).optional(),
     fileId: z.string().trim().optional(),
   })
   .strict();
@@ -34,7 +34,7 @@ export const MissingSecretConfigSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("envVar"),
-      bot: BotIdSchema,
+      gateway: GatewayIdSchema,
       envVar: EnvVarNameSchema,
       sources: z.array(SecretSourceSchema).default(() => []),
       paths: z.array(z.string().trim()).default(() => []),
@@ -44,7 +44,7 @@ export const MissingSecretConfigSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("secretFile"),
       scope: SecretScopeSchema,
-      bot: BotIdSchema.optional(),
+      gateway: GatewayIdSchema.optional(),
       fileId: z.string().trim().min(1),
       targetPath: z.string().trim().min(1),
       message: z.string().trim().min(1),
@@ -62,7 +62,7 @@ export const SecretsPlanWarningSchema = z
     suggestion: z.string().trim().optional(),
     channel: z.string().trim().optional(),
     provider: z.string().trim().optional(),
-    bot: BotIdSchema.optional(),
+    gateway: GatewayIdSchema.optional(),
   })
   .strict();
 

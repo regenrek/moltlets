@@ -2,13 +2,26 @@ import { describe, expect, it } from "vitest"
 
 describe("secrets write allowlist", () => {
   it("rejects unmanaged secret names", async () => {
-    const { ClawletsConfigSchema } = await import("@clawlets/core/lib/clawlets-config")
+    const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/clawlets-config")
     const { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
 
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
-      fleet: { botOrder: [], bots: {}, secretEnv: {} },
-      hosts: { alpha: { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" } },
+      schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
+      baseFlake: "",
+      cattle: {
+        enabled: false,
+        hetzner: {
+          image: "",
+          serverType: "cx22",
+          location: "nbg1",
+          maxInstances: 10,
+          defaultTtl: "2h",
+          labels: { "managed-by": "clawlets" },
+        },
+        defaults: { autoShutdown: true, callbackUrl: "" },
+      },
+      fleet: { secretEnv: {}, secretFiles: {} },
+      hosts: { alpha: { botsOrder: [], bots: {}, tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" } },
     })
 
     const allowlist = buildManagedHostSecretNameAllowlist({ config, host: "alpha" })
@@ -18,19 +31,33 @@ describe("secrets write allowlist", () => {
   })
 
   it("includes required host secrets", async () => {
-    const { ClawletsConfigSchema } = await import("@clawlets/core/lib/clawlets-config")
+    const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/clawlets-config")
     const { buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
 
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 12,
+      schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
+      baseFlake: "",
+      cattle: {
+        enabled: false,
+        hetzner: {
+          image: "",
+          serverType: "cx22",
+          location: "nbg1",
+          maxInstances: 10,
+          defaultTtl: "2h",
+          labels: { "managed-by": "clawlets" },
+        },
+        defaults: { autoShutdown: true, callbackUrl: "" },
+      },
       fleet: {
-        botOrder: [],
-        bots: {},
         secretEnv: {},
+        secretFiles: {},
         backups: { restic: { enable: true, repository: "s3://restic" } },
       },
       hosts: {
         alpha: {
+          botsOrder: [],
+          bots: {},
           tailnet: { mode: "tailscale" },
           cache: { netrc: { enable: true, secretName: "garnix_netrc" } },
         },

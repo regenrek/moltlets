@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 
 export type { ClawletsConfig } from "@clawlets/core/lib/clawlets-config"
 export type { SshExposureMode, TailnetMode } from "@clawlets/core/lib/clawlets-config"
-export { BotIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers"
+export { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers"
 
 export type ValidationIssue = {
   code: string

@@ -17,7 +17,7 @@ import { Activity, Boxes, LayoutDashboard, Terminal } from "lucide-react"
   </a>
 </div>
 
-Clawlets is a local-first, self-hosted control plane for running Clawdbot fleets on
+Clawlets is a local-first, self-hosted control plane for running OpenClaw fleets on
 NixOS. It is built around the operator workflow you repeat every time: set up the
 project, bootstrap a host, deploy updates, and keep things stable over time. The
 dashboard is the primary interface, with the CLI reserved for automation and edge
@@ -96,11 +96,11 @@ rotate secrets, inspect logs, audit the host, and ship upgrades.
 
 ## How it fits with OpenClaw
 
-Clawlets does not replace OpenClaw; it extends it. You still author raw Clawdbot
-config under `fleet.bots.<bot>.clawdbot`, and Clawlets applies a small set of
+Clawlets does not replace OpenClaw; it extends it. You still author raw OpenClaw
+config under `hosts.<host>.bots.<botId>.openclaw`, and Clawlets applies a small set of
 invariants around gateways, workspace layout, and bot environment wiring. The Nix
-layer is pinned via `nix-clawdbot` (often called `nix-openclaw`) so runtime behavior
-stays predictable across installs.
+layer is pinned via `nix-openclaw` so runtime behavior stays predictable across
+installs.
 
 <Callout type="error" title="Not affiliated with OpenClaw">
   Clawlets is an independent project and is **not affiliated with OpenClaw**. Please
@@ -139,5 +139,5 @@ the official tie‑in announcement. [Episode: “Plaything”](https://en.wikipe
 Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and
 Nix packaging goes to the core projects:
 
-- [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
-- [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)
+- [nix-openclaw](https://github.com/openclaw/nix-openclaw) by [joshp123](https://github.com/joshp123)
+- [openclaw](https://github.com/openclaw/openclaw) by [steipete](https://x.com/steipete)

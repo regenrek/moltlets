@@ -1,4 +1,5 @@
 import { applySecurityDefaults } from "./config-patch.js";
+import { getPinnedChannelUiModel } from "./channel-ui-metadata.js";
 
 export type CapabilityPresetKind = "channel" | "model" | "security" | "plugin";
 
@@ -19,7 +20,8 @@ export type CapabilityPreset = {
 };
 
 export type CapabilityPresetApplyResult = {
-  clawdbot: Record<string, unknown>;
+  channels: Record<string, unknown>;
+  openclaw: Record<string, unknown>;
   warnings: string[];
   requiredEnv: string[];
   envVarRefs: EnvVarRef[];
@@ -103,78 +105,52 @@ function ensureEnvRef(obj: Record<string, unknown>, envRef: EnvVarRef): void {
   }
 }
 
-const CHANNEL_PRESETS: Record<string, CapabilityPreset> = {
-  discord: {
-    id: "channel.discord",
-    title: "Discord",
-    kind: "channel",
-    patch: {
-      channels: {
-        discord: {
-          enabled: true,
-          token: "${DISCORD_BOT_TOKEN}",
-        },
-      },
-    },
-    requiredEnv: ["DISCORD_BOT_TOKEN"],
-    envVarRefs: [{ path: "channels.discord.token", envVar: "DISCORD_BOT_TOKEN" }],
-  },
-  telegram: {
-    id: "channel.telegram",
-    title: "Telegram",
-    kind: "channel",
-    patch: {
-      channels: {
-        telegram: {
-          enabled: true,
-          botToken: "${TELEGRAM_BOT_TOKEN}",
-        },
-      },
-    },
-    requiredEnv: ["TELEGRAM_BOT_TOKEN"],
-    envVarRefs: [{ path: "channels.telegram.botToken", envVar: "TELEGRAM_BOT_TOKEN" }],
-  },
-  slack: {
-    id: "channel.slack",
-    title: "Slack",
-    kind: "channel",
-    patch: {
-      channels: {
-        slack: {
-          enabled: true,
-          botToken: "${SLACK_BOT_TOKEN}",
-          appToken: "${SLACK_APP_TOKEN}",
-        },
-      },
-    },
-    requiredEnv: ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
-    envVarRefs: [
-      { path: "channels.slack.botToken", envVar: "SLACK_BOT_TOKEN" },
-      { path: "channels.slack.appToken", envVar: "SLACK_APP_TOKEN" },
-    ],
-  },
+const CHANNEL_PRESET_OVERRIDES: Record<string, Partial<CapabilityPreset>> = {
   whatsapp: {
-    id: "channel.whatsapp",
-    title: "WhatsApp",
-    kind: "channel",
     patch: {
-      channels: {
-        whatsapp: {
-          enabled: true,
-        },
-      },
+      // WhatsApp doesn't support a simple `enabled` toggle, but we still want the preset to
+      // materialize the channel config so security defaults can be applied.
+      channels: { whatsapp: {} },
     },
     warnings: ["WhatsApp requires stateful login on the gateway host (clawdbot channels login)."],
   },
 };
+
+function buildChannelPresetFromMetadata(channelId: string): CapabilityPreset | null {
+  const channel = getPinnedChannelUiModel(channelId);
+  if (!channel) return null;
+
+  const patch: Record<string, unknown> = {};
+  if (channel.supportsEnabled) {
+    setAtPath(patch, `channels.${channelId}.enabled`, true);
+  }
+  for (const tokenField of channel.tokenFields) {
+    setAtPath(patch, tokenField.path, `\${${tokenField.envVar}}`);
+  }
+  const requiredEnv = Array.from(new Set(channel.tokenFields.map((token) => token.envVar)));
+  const envVarRefs = channel.tokenFields.map((token) => ({ path: token.path, envVar: token.envVar }));
+  const override = CHANNEL_PRESET_OVERRIDES[channelId];
+  const mergedPatch = override?.patch ? (applyMergePatch(patch, override.patch) as Record<string, unknown>) : patch;
+
+  return {
+    id: `channel.${channelId}`,
+    title: channel.name,
+    kind: "channel",
+    patch: mergedPatch,
+    requiredEnv: requiredEnv.length ? requiredEnv : undefined,
+    envVarRefs: envVarRefs.length ? envVarRefs : undefined,
+    warnings: override?.warnings,
+    docsUrl: channel.docsUrl,
+  };
+}
 
 export function getChannelCapabilityPreset(channelId: string): CapabilityPreset {
   const normalized = channelId.trim().toLowerCase();
   if (!normalized) {
     throw new Error("invalid channel id");
   }
-  const existing = CHANNEL_PRESETS[normalized];
-  if (existing) return existing;
+  const derived = buildChannelPresetFromMetadata(normalized);
+  if (derived) return derived;
   return {
     id: `channel.${normalized}`,
     title: titleCase(normalized),
@@ -190,27 +166,28 @@ export function getChannelCapabilityPreset(channelId: string): CapabilityPreset 
 }
 
 export function applyCapabilityPreset(params: {
-  clawdbot: unknown;
+  openclaw: unknown;
+  channels: unknown;
   preset: CapabilityPreset;
 }): CapabilityPresetApplyResult {
-  const base = isPlainObject(params.clawdbot) ? params.clawdbot : {};
+  const base = isPlainObject(params.openclaw) ? params.openclaw : {};
+  const baseChannels = isPlainObject(params.channels) ? params.channels : {};
   const envVarRefs = params.preset.envVarRefs ?? [];
+  const rootBase: Record<string, unknown> = { openclaw: structuredClone(base), channels: structuredClone(baseChannels) };
   for (const ref of envVarRefs) {
-    const current = getAtPath(base, ref.path);
+    const current = getAtPath(rootBase, ref.path);
     const refValue = `\${${ref.envVar}}`;
     if (current === undefined || current === null || current === "") continue;
-    if (typeof current !== "string") {
-      throw new Error(`${ref.path} must be a string env ref like ${refValue}`);
-    }
-    if (current !== refValue) {
-      throw new Error(`${ref.path} already set; remove inline value and use ${refValue}`);
-    }
+    if (typeof current !== "string") throw new Error(`${ref.path} must be a string env ref like ${refValue}`);
+    if (current !== refValue) throw new Error(`${ref.path} already set; remove inline value and use ${refValue}`);
   }
-  const patched = applyMergePatch(structuredClone(base), params.preset.patch) as Record<string, unknown>;
-  for (const ref of envVarRefs) ensureEnvRef(patched, ref);
-  const hardened = applySecurityDefaults({ clawdbot: patched });
+  const patchedRoot = applyMergePatch(structuredClone(rootBase), params.preset.patch) as Record<string, unknown>;
+  for (const ref of envVarRefs) ensureEnvRef(patchedRoot, ref);
+
+  const hardened = applySecurityDefaults({ openclaw: patchedRoot["openclaw"], channels: patchedRoot["channels"] });
   return {
-    clawdbot: hardened.clawdbot,
+    openclaw: hardened.openclaw,
+    channels: hardened.channels,
     warnings: [...(params.preset.warnings ?? []), ...hardened.warnings],
     requiredEnv: params.preset.requiredEnv ?? [],
     envVarRefs,

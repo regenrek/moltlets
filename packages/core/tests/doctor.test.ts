@@ -92,34 +92,49 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawletsConfig = {
-      schemaVersion: 12,
+      schemaVersion: 17,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
+        secretFiles: {},
         sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
         sshKnownHosts: [],
-        botOrder: ["alpha", "beta"],
-        bots: {
-          alpha: {
-            profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_alpha" } },
-            clawdbot: { channels: { discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" } } },
-          },
-          beta: {
-            profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_beta" } },
-            clawdbot: { channels: { discord: { enabled: true, token: "${DISCORD_BOT_TOKEN}" } } },
-          },
-        },
         codex: { enable: false, bots: [] },
         backups: { restic: { enable: false, repository: "" } },
+      },
+      cattle: {
+        enabled: false,
+        hetzner: {
+          image: "",
+          serverType: "cx22",
+          location: "nbg1",
+          maxInstances: 10,
+          defaultTtl: "2h",
+          labels: { "managed-by": "clawlets" },
+        },
+        defaults: { autoShutdown: true, callbackUrl: "" },
       },
       hosts: {
         "clawdbot-fleet-host": {
           enable: false,
+          botsOrder: ["alpha", "beta"],
+          bots: {
+            alpha: {
+              profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_alpha" }, secretFiles: {} },
+              channels: { discord: { enabled: true, allowFrom: ["discord user:123"] } },
+              openclaw: {},
+            },
+            beta: {
+              profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_beta" }, secretFiles: {} },
+              channels: { discord: { enabled: true, allowFrom: ["discord user:456"] } },
+              openclaw: {},
+            },
+          },
           diskDevice: "/dev/disk/by-id/TEST",
           flakeHost: "",
           hetzner: { serverType: "cx43" },
-          provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "id_ed25519.pub" },
+          provisioning: { adminCidr: "203.0.113.10/32", adminCidrAllowWorldOpen: false, sshPubkeyFile: "id_ed25519.pub" },
           sshExposure: { mode: "tailnet" },
           tailnet: { mode: "none" },
           agentModelPrimary: "zai/glm-4.7",
@@ -131,8 +146,8 @@ describe("doctor", () => {
     await writeFile(path.join(templateRoot, "fleet", "clawlets.json"), JSON.stringify(clawletsConfig, null, 2) + "\n", "utf8");
 
     mockFleetMain = {
-      bots: ["alpha", "beta"],
-      botProfiles: {
+      gateways: ["alpha", "beta"],
+      gatewayProfiles: {
         alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
@@ -193,8 +208,8 @@ describe("doctor", () => {
   afterEach(() => {
     process.env = { ...originalEnv, CLAWLETS_TEMPLATE_DIR: templateRoot };
     mockFleetMain = {
-      bots: ["alpha", "beta"],
-      botProfiles: {
+      gateways: ["alpha", "beta"],
+      gatewayProfiles: {
         alpha: { skills: { allowBundled: [], entries: {} }, github: {} },
         beta: { skills: { allowBundled: [], entries: {} }, github: {} },
       },
@@ -315,30 +330,30 @@ describe("doctor", () => {
   });
 
   it("rejects skills.allowBundled = null in fleet configs", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = null;
-    mockFleetTemplate.botProfiles.alpha.skills.allowBundled = null;
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = null;
+    mockFleetTemplate.gatewayProfiles.alpha.skills.allowBundled = null;
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
-    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
-    expect(checks.some((c) => c.label === "template fleet policy" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "template fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("rejects unknown bundled skills", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["unknown-skill"];
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = ["unknown-skill"];
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("requires GitHub app auth config when bundled github enabled", async () => {
-    mockFleetMain.botProfiles.alpha.skills.allowBundled = ["github"];
-    mockFleetMain.botProfiles.alpha.github = {};
+    mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = ["github"];
+    mockFleetMain.gatewayProfiles.alpha.github = {};
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    expect(checks.some((c) => c.label === "fleet policy" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("requires breakglass in wheel and forbids admin in wheel", async () => {
@@ -374,7 +389,7 @@ describe("doctor", () => {
   });
 
   it("flags secrets in clawdbot.json5 and includes", async () => {
-    const botDir = path.join(repoRoot, "fleet", "workspaces", "bots", "maren");
+    const botDir = path.join(repoRoot, "fleet", "workspaces", "gateways", "maren");
     const includeDir = path.join(botDir, "includes");
     await mkdir(includeDir, { recursive: true });
     await writeFile(path.join(includeDir, "extra.json5"), '{ "token": "SUPER_SECRET_1234567890" }\n', "utf8");
@@ -393,8 +408,8 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.fleet.bots.alpha = raw.fleet.bots.alpha || {};
-    raw.fleet.bots.alpha.clawdbot = {
+    raw.hosts["clawdbot-fleet-host"].bots.alpha = raw.hosts["clawdbot-fleet-host"].bots.alpha || {};
+    raw.hosts["clawdbot-fleet-host"].bots.alpha.clawdbot = {
       channels: { discord: { enabled: true, token: "SUPER_SECRET_1234567890" } },
     };
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");

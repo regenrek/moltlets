@@ -45,6 +45,8 @@ const add = defineCommand({
 
     const nextHost: ClawletsHostConfig = {
       enable: false,
+      botsOrder: [],
+      bots: {},
       diskDevice: "/dev/sda",
       flakeHost: "",
       targetHost: undefined,

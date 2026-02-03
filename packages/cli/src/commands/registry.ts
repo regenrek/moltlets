@@ -1,6 +1,6 @@
-import { bot } from "./bot.js";
+import { gateway } from "./gateway.js";
 import { bootstrap } from "./bootstrap.js";
-import { clawdbot } from "./clawdbot.js";
+import { openclaw } from "./openclaw.js";
 import { config } from "./config.js";
 import { doctor } from "./doctor.js";
 import { env } from "./env.js";
@@ -16,9 +16,9 @@ import { secrets } from "./secrets.js";
 import { server } from "./server.js";
 
 export const baseCommands = {
-  bot,
+  gateway,
   bootstrap,
-  clawdbot,
+  openclaw,
   config,
   doctor,
   env,

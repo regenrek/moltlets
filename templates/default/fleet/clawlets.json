@@ -1,21 +1,12 @@
 {
-  "schemaVersion": 12,
-  "defaultHost": "clawdbot-fleet-host",
+  "schemaVersion": 17,
+  "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
     "secretEnv": {},
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "botOrder": ["agent"],
-    "bots": {
-      "agent": {
-        "profile": { "secretEnv": {}, "secretFiles": {} },
-        "clawdbot": {
-          "channels": {}
-        }
-      }
-    },
     "codex": { "enable": false, "bots": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
@@ -32,8 +23,20 @@
     "defaults": { "autoShutdown": true, "callbackUrl": "" }
   },
   "hosts": {
-    "clawdbot-fleet-host": {
+    "openclaw-fleet-host": {
       "enable": false,
+      "botsOrder": ["agent"],
+      "bots": {
+        "agent": {
+          "profile": { "secretEnv": {}, "secretFiles": {} },
+          "channels": {},
+          "agents": { "defaults": {} },
+          "hooks": {},
+          "skills": {},
+          "plugins": {},
+          "openclaw": {}
+        }
+      },
       "diskDevice": "/dev/sda",
       "flakeHost": "",
       "hetzner": { "serverType": "cx22" },

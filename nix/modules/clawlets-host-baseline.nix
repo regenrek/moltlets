@@ -159,10 +159,10 @@ in
         type = lib.types.enum [ "smtp-only" "proxy-allowlist" "none" ];
         default = "smtp-only";
         description = ''
-          Outbound network posture for bot services.
+          Outbound network posture for gateway services.
 
           - smtp-only: blocks outbound SMTP ports (anti-spam only).
-          - proxy-allowlist: forces bot services to use a local HTTP proxy which enforces a destination domain allowlist.
+          - proxy-allowlist: forces gateway services to use a local HTTP proxy which enforces a destination domain allowlist.
           - none: no additional outbound controls.
         '';
       };

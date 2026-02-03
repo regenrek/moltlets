@@ -9,8 +9,8 @@ out_env_file="${CLAWLETS_GH_ENV_FILE:-}"
 out_git_creds_file="${CLAWLETS_GH_GIT_CREDENTIALS_FILE:-}"
 out_gitconfig_file="${CLAWLETS_GH_GITCONFIG_FILE:-}"
 
-bot_user="${CLAWLETS_BOT_USER:-}"
-bot_group="${CLAWLETS_BOT_GROUP:-}"
+gateway_user="${CLAWLETS_GATEWAY_USER:-}"
+gateway_group="${CLAWLETS_GATEWAY_GROUP:-}"
 
 if [[ -z "${app_id}" || -z "${installation_id}" || -z "${private_key_path}" ]]; then
   echo "error: missing CLAWLETS_GH_APP_ID / CLAWLETS_GH_INSTALLATION_ID / CLAWLETS_GH_PRIVATE_KEY_PATH" >&2
@@ -20,8 +20,8 @@ if [[ -z "${out_env_file}" || -z "${out_git_creds_file}" || -z "${out_gitconfig_
   echo "error: missing CLAWLETS_GH_ENV_FILE / CLAWLETS_GH_GIT_CREDENTIALS_FILE / CLAWLETS_GH_GITCONFIG_FILE" >&2
   exit 2
 fi
-if [[ -z "${bot_user}" || -z "${bot_group}" ]]; then
-  echo "error: missing CLAWLETS_BOT_USER / CLAWLETS_BOT_GROUP" >&2
+if [[ -z "${gateway_user}" || -z "${gateway_group}" ]]; then
+  echo "error: missing CLAWLETS_GATEWAY_USER / CLAWLETS_GATEWAY_GROUP" >&2
   exit 2
 fi
 if [[ ! -f "${private_key_path}" ]]; then
@@ -69,13 +69,13 @@ umask 077
 
 tmp_env="$(mktemp)"
 printf 'GH_TOKEN=%s\n' "${token}" >"${tmp_env}"
-chown "${bot_user}:${bot_group}" "${tmp_env}"
+chown "${gateway_user}:${gateway_group}" "${tmp_env}"
 chmod 0400 "${tmp_env}"
 mv "${tmp_env}" "${out_env_file}"
 
 tmp_creds="$(mktemp)"
 printf 'https://x-access-token:%s@github.com\n' "${token}" >"${tmp_creds}"
-chown "${bot_user}:${bot_group}" "${tmp_creds}"
+chown "${gateway_user}:${gateway_group}" "${tmp_creds}"
 chmod 0600 "${tmp_creds}"
 mv "${tmp_creds}" "${out_git_creds_file}"
 
@@ -84,7 +84,6 @@ cat >"${tmp_gitcfg}" <<EOF
 [credential]
 	helper = store --file ${out_git_creds_file}
 EOF
-chown "${bot_user}:${bot_group}" "${tmp_gitcfg}"
+chown "${gateway_user}:${gateway_group}" "${tmp_gitcfg}"
 chmod 0600 "${tmp_gitcfg}"
 mv "${tmp_gitcfg}" "${out_gitconfig_file}"
-

@@ -7,10 +7,12 @@ import { ArrowPathIcon } from "@heroicons/react/24/outline"
 import { Button } from "~/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
 import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Switch } from "~/components/ui/switch"
+import { Textarea } from "~/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip"
 import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
 import { singleHostCidrFromIp } from "~/lib/ip-utils"
@@ -52,7 +54,20 @@ function HostsSetup() {
   const [flakeHost, setFlakeHost] = useState("")
   const [agentModelPrimary, setAgentModelPrimary] = useState("")
 
+  const [selfUpdateEnable, setSelfUpdateEnable] = useState(false)
+  const [selfUpdateChannel, setSelfUpdateChannel] = useState("prod")
+  const [selfUpdateBaseUrls, setSelfUpdateBaseUrls] = useState("")
+  const [selfUpdatePublicKeys, setSelfUpdatePublicKeys] = useState("")
+  const [selfUpdateAllowUnsigned, setSelfUpdateAllowUnsigned] = useState(false)
+
   const [detectingAdminCidr, setDetectingAdminCidr] = useState(false)
+
+  function parseTextList(value: string): string[] {
+    return value
+      .split(/[\n,]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+  }
 
   async function detectAdminCidr() {
     setDetectingAdminCidr(true)
@@ -94,6 +109,13 @@ function HostsSetup() {
     setHetznerLocation(hostCfg.hetzner?.location || "nbg1")
     setFlakeHost(hostCfg.flakeHost || "")
     setAgentModelPrimary((hostCfg as any).agentModelPrimary || "")
+
+    const su = (hostCfg as any).selfUpdate || {}
+    setSelfUpdateEnable(Boolean(su.enable))
+    setSelfUpdateChannel(String(su.channel || "prod"))
+    setSelfUpdateBaseUrls(Array.isArray(su.baseUrls) ? su.baseUrls.map(String).join("\n") : "")
+    setSelfUpdatePublicKeys(Array.isArray(su.publicKeys) ? su.publicKeys.map(String).join("\n") : "")
+    setSelfUpdateAllowUnsigned(Boolean(su.allowUnsigned))
   }, [hostCfg, selectedHost])
 
   const save = useMutation({
@@ -127,6 +149,14 @@ function HostsSetup() {
               location: hetznerLocation.trim(),
             },
             agentModelPrimary: agentModelPrimary.trim(),
+            selfUpdate: {
+              ...(hostCfg as any).selfUpdate,
+              enable: Boolean(selfUpdateEnable),
+              channel: selfUpdateChannel.trim(),
+              baseUrls: parseTextList(selfUpdateBaseUrls),
+              publicKeys: parseTextList(selfUpdatePublicKeys),
+              allowUnsigned: Boolean(selfUpdateAllowUnsigned),
+            },
           },
         },
       }
@@ -238,6 +268,115 @@ function HostsSetup() {
                   </InputGroupAddon>
                 </InputGroup>
               </div>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Updates (pull-only)"
+            description={
+              <>
+                Per-host update ring and signature settings (stored in{" "}
+                <code className="text-xs">hosts.{selectedHost}.selfUpdate</code>). Use rings (e.g. prod/staging/canary) to stage updates across many hosts.
+              </>
+            }
+            actions={
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link to="/$projectSlug/hosts/$host/updates" params={{ projectSlug, host: selectedHost }} />}
+                >
+                  Open updater tools
+                </Button>
+                <Button disabled={save.isPending} onClick={() => save.mutate()}>
+                  Save
+                </Button>
+              </div>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">Enable self-updates</div>
+                  <div className="text-xs text-muted-foreground">
+                    Requires baseUrls + (publicKeys or allowUnsigned).
+                  </div>
+                </div>
+                <Switch checked={selfUpdateEnable} onCheckedChange={setSelfUpdateEnable} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Update ring (channel)</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selfUpdateChannel.trim() === "prod" ? "default" : "outline"}
+                    onClick={() => setSelfUpdateChannel("prod")}
+                  >
+                    prod
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selfUpdateChannel.trim() === "staging" ? "default" : "outline"}
+                    onClick={() => setSelfUpdateChannel("staging")}
+                  >
+                    staging
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selfUpdateChannel.trim() === "canary" ? "default" : "outline"}
+                    onClick={() => setSelfUpdateChannel("canary")}
+                  >
+                    canary
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Channel is used to resolve <code>latest.json</code> pointers on the host.
+                </div>
+                <Input
+                  value={selfUpdateChannel}
+                  onChange={(e) => setSelfUpdateChannel(e.target.value)}
+                  placeholder="prod"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Update mirrors (baseUrls)</Label>
+                <Textarea
+                  value={selfUpdateBaseUrls}
+                  onChange={(e) => setSelfUpdateBaseUrls(e.target.value)}
+                  placeholder={"https://example.com/deploy\nhttps://mirror.example.com/deploy"}
+                  className="min-h-[120px] font-mono"
+                />
+                <div className="text-xs text-muted-foreground">One URL per line.</div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Minisign public keys</Label>
+                <Textarea
+                  value={selfUpdatePublicKeys}
+                  onChange={(e) => setSelfUpdatePublicKeys(e.target.value)}
+                  placeholder={"RWR...your-minisign-public-key...\nRWR...second-key..."}
+                  className="min-h-[120px] font-mono"
+                />
+                <div className="text-xs text-muted-foreground">One key per line.</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Allow unsigned updates (dev-only)</div>
+                <div className="text-xs text-muted-foreground">
+                  Disables signature verification. Use only for local/dev experiments.
+                </div>
+              </div>
+              <Switch checked={selfUpdateAllowUnsigned} onCheckedChange={setSelfUpdateAllowUnsigned} />
             </div>
           </SettingsSection>
 

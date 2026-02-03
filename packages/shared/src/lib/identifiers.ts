@@ -1,11 +1,28 @@
 import { z } from "zod";
 
+import { detectKnownToken } from "./token-patterns.js";
+
 const SAFE_HOSTNAME_RE = /^[a-z][a-z0-9-]*$/;
-const SAFE_BOT_ID_RE = /^[a-z][a-z0-9_-]*$/;
-const SAFE_PERSONA_NAME_RE = /^[a-z][a-z0-9_-]*$/;
+const SAFE_GATEWAY_ID_RE = /^[a-z][a-z0-9_-]*$/;
+const SAFE_SKILL_ID_RE = SAFE_GATEWAY_ID_RE;
+const SAFE_PERSONA_NAME_RE = SAFE_GATEWAY_ID_RE;
 const SAFE_SECRET_NAME_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const SAFE_OPERATOR_ID_RE = /^[a-zA-Z0-9._-]+$/;
 const SAFE_ENV_VAR_NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
+
+function looksLikePastedToken(value: string): boolean {
+  const s = value.trim();
+  if (detectKnownToken(s)) return true;
+  if (s.length < 40) return false;
+  const hasLetter = /[A-Za-z]/.test(s);
+  const hasDigit = /\d/.test(s);
+  if (!hasLetter || !hasDigit) return false;
+  // Heuristic: long identifier with no underscores is almost always a pasted token.
+  if (!s.includes("_")) return true;
+  // Heuristic: "prefix_<verylongalnum>" looks like GitHub tokens, etc.
+  const match = s.match(/^([A-Za-z]{2,8})_([A-Za-z0-9]{24,})$/);
+  return Boolean(match);
+}
 
 export const HostNameSchema = z
   .string()
@@ -13,11 +30,17 @@ export const HostNameSchema = z
   .min(1)
   .refine((v) => SAFE_HOSTNAME_RE.test(v), { message: "invalid host name (use [a-z][a-z0-9-]*)" });
 
-export const BotIdSchema = z
+export const GatewayIdSchema = z
   .string()
   .trim()
   .min(1)
-  .refine((v) => SAFE_BOT_ID_RE.test(v), { message: "invalid bot id (use [a-z][a-z0-9_-]*)" });
+  .refine((v) => SAFE_GATEWAY_ID_RE.test(v), { message: "invalid gateway id (use [a-z][a-z0-9_-]*)" });
+
+export const SkillIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((v) => SAFE_SKILL_ID_RE.test(v), { message: "invalid skill id (use [a-z][a-z0-9_-]*)" });
 
 export const PersonaNameSchema = z
   .string()
@@ -29,7 +52,10 @@ export const SecretNameSchema = z
   .string()
   .trim()
   .min(1)
-  .refine((v) => SAFE_SECRET_NAME_RE.test(v), { message: "invalid secret name (use [A-Za-z][A-Za-z0-9_-]*)" });
+  .refine((v) => SAFE_SECRET_NAME_RE.test(v), { message: "invalid secret name (use [A-Za-z][A-Za-z0-9_-]*)" })
+  .refine((v) => !looksLikePastedToken(v), {
+    message: "invalid secret name (looks like a token; expected identifier like brave_api_key)",
+  });
 
 export const EnvVarNameSchema = z
   .string()
