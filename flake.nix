@@ -17,7 +17,7 @@
     nix-clawdbot.inputs.nixpkgs.follows = "nixpkgs";
 
     clawdbot-src = {
-      url = "github:moltbot/moltbot";
+      url = "github:openclaw/openclaw";
       flake = false;
     };
 
@@ -28,7 +28,14 @@
       systemLinux = "x86_64-linux";
       pkgsLinux = import nixpkgs { system = systemLinux; };
       dev = import ./devenv.nix { pkgs = pkgsLinux; };
-      clawdbotSourceInfo = import "${nix-clawdbot}/nix/sources/moltbot-source.nix";
+      clawdbotSourcePath =
+        let
+          sourcesDir = "${nix-clawdbot}/nix/sources";
+          openclaw = sourcesDir + "/openclaw-source.nix";
+          moltbot = sourcesDir + "/moltbot-source.nix";
+        in
+          if builtins.pathExists openclaw then openclaw else moltbot;
+      clawdbotSourceInfo = import clawdbotSourcePath;
 
       mkCliPackages = (system:
         let
@@ -130,12 +137,12 @@
           src_rev="${clawdbot-src.rev or ""}"
 
           if [ -z "$pinned_rev" ] || [ -z "$src_rev" ]; then
-            echo "error: missing clawdbot rev (nix-clawdbot pinned=$pinned_rev clawdbot-src=$src_rev)" >&2
+            echo "error: missing openclaw rev (nix-clawdbot pinned=$pinned_rev clawdbot-src=$src_rev)" >&2
             exit 1
           fi
 
           if [ "$pinned_rev" != "$src_rev" ]; then
-            echo "error: clawdbot-src rev mismatch (nix-clawdbot=$pinned_rev clawdbot-src=$src_rev)" >&2
+            echo "error: clawdbot-src rev mismatch (nix-clawdbot(openclaw)=$pinned_rev clawdbot-src=$src_rev)" >&2
             exit 1
           fi
 

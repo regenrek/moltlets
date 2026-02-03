@@ -80,6 +80,34 @@ describe("fetchNixClawdbotSourceInfo", () => {
     }
   });
 
+  it("falls back to moltbot-source.nix when openclaw-source.nix is missing", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const urls: string[] = [];
+      globalThis.fetch = async (url) => {
+        urls.push(String(url));
+        if (urls.length === 1) {
+          return { ok: false, status: 404, text: async () => "not found" } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          text: async () => `{
+            rev = "abc123";
+            hash = "sha256-x";
+            pnpmDepsHash = "sha256-y";
+          }`,
+        } as Response;
+      };
+      const res = await fetchNixClawdbotSourceInfo({ ref: "main", timeoutMs: 1000 });
+      expect(res.ok).toBe(true);
+      expect(urls[0]).toContain("/openclaw-source.nix");
+      expect(urls[1]).toContain("/moltbot-source.nix");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("handles non-200 responses", async () => {
     const originalFetch = globalThis.fetch;
     try {
