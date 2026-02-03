@@ -198,14 +198,18 @@ export async function planProjectInit(params: {
   templateSpec: string;
 }): Promise<ProjectInitPlan> {
   const destDir = path.resolve(process.cwd(), params.destDir);
-  const host = String(params.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+  const defaultHost = "openclaw-fleet-host";
+  const host = String(params.host || defaultHost).trim() || defaultHost;
   assertSafeHostName(host);
 
   const projectName = path.basename(destDir);
+  const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": host.replace(/-/g, "_"),
+    "openclaw-fleet-host": host,
+    "clawdbot_fleet_host": hostUnderscore,
+    "openclaw_fleet_host": hostUnderscore,
   };
 
   return await withDownloadedTemplate(params.templateSpec, async ({ templateDir }) => {
@@ -235,7 +239,8 @@ export async function initProject(params: {
   gitInit?: boolean;
 }): Promise<ProjectInitResult> {
   const destDir = path.resolve(process.cwd(), params.destDir);
-  const host = String(params.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+  const defaultHost = "openclaw-fleet-host";
+  const host = String(params.host || defaultHost).trim() || defaultHost;
   assertSafeHostName(host);
 
   const exists = fs.existsSync(destDir);
@@ -244,10 +249,13 @@ export async function initProject(params: {
   }
 
   const projectName = path.basename(destDir);
+  const hostUnderscore = host.replace(/-/g, "_");
   const subs = {
     "__PROJECT_NAME__": projectName,
     "clawdbot-fleet-host": host,
-    "clawdbot_fleet_host": host.replace(/-/g, "_"),
+    "openclaw-fleet-host": host,
+    "clawdbot_fleet_host": hostUnderscore,
+    "openclaw_fleet_host": hostUnderscore,
   };
 
   const plannedFiles = await withDownloadedTemplate(params.templateSpec, async ({ templateDir }) => {
