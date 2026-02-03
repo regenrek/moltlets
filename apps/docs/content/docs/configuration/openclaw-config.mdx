@@ -72,7 +72,7 @@ uses by default. If you want to validate against a live gateway, the web editor 
 fetch the schema from a running bot, which requires `hosts.<host>.targetHost` and an
 active gateway. The same fetch is available via the CLI:
 
-- `clawlets openclaw schema fetch --host <host> --bot <bot>`
+- `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>`
 
 The UI also shows schema drift between the pinned schema, the project's pinned
 `nix-openclaw` rev, and upstream `nix-openclaw` main.

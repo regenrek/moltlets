@@ -1,0 +1,78 @@
+---
+title: Gateways and personas
+description: One gateway process, optional multiple OpenClaw personas.
+---
+
+Clawlets has **two** levels of "agents" that are easy to mix up:
+
+1. **Gateway instance** (Clawlets config + CLI term): one OpenClaw gateway process with its own ports, state, Unix user, and workspace.
+2. **Persona / agent** (OpenClaw term): an entry in `agents.list[]` inside a single gateway.
+
+In the dashboard UI we call a **gateway instance** a **Bot** (because "gateway" is accurate but not very approachable).
+
+## Two common setups
+
+### Option A: multiple gateways (multiple bots)
+
+Use this when you want isolation (separate state dirs, ports, credentials) or a dedicated rescue bot.
+
+```json
+{
+  "fleet": {
+    "gatewayOrder": ["main", "rescue"],
+    "gateways": {
+      "main": {},
+      "rescue": {}
+    }
+  }
+}
+```
+
+Each gateway gets a deterministic port block based on its position in `fleet.gatewayOrder`.
+
+### Option B: one gateway, multiple personas (agents.list[])
+
+Use this when you want multiple personas without running multiple gateway processes.
+
+```json
+{
+  "fleet": {
+    "gatewayOrder": ["main"],
+    "gateways": {
+      "main": {
+        "agents": {
+          "list": [
+            { "id": "ops", "default": true, "name": "Ops" },
+            { "id": "support", "name": "Support" }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+Clawlets validates:
+
+- persona `id` uniqueness per gateway
+- at most one `default: true` per gateway
+
+Advanced per-persona settings are passed through to OpenClaw via the entry object (workspace, model overrides, tools, sandbox, etc.).
+
+## Dashboard preference: gatewayArchitecture
+
+The dashboard may store a UI preference at `fleet.gatewayArchitecture`:
+
+- `multi`: treat new additions as new gateways (bots)
+- `single`: prefer adding personas under one gateway via `agents.list[]`
+
+This is **UI metadata** only; it does not change how OpenClaw interprets the config.
+
+## Workspaces (docs + skills)
+
+Workspace docs are layered:
+
+- shared defaults: `fleet/workspaces/common/`
+- per-gateway overrides: `fleet/workspaces/gateways/<gatewayId>/`
+
+At runtime, the gateway workspace is seeded from common + the gateway overlay (if present).

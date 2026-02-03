@@ -6,6 +6,7 @@
     "index",
     "config",
     "typed-surfaces",
+    "gateways-and-personas",
     "openclaw-config",
     "agent-config",
     "openclaw-compat",

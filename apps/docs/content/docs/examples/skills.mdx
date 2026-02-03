@@ -5,8 +5,8 @@ description: Allowlist and per-skill secrets.
 
 Skills are controlled per bot via:
 
-- `fleet.gateways.<bot>.skills.allowBundled`
-- `fleet.gateways.<bot>.skills.entries`
+- `fleet.gateways.<gatewayId>.skills.allowBundled`
+- `fleet.gateways.<gatewayId>.skills.entries`
 
 Clawlets expects an explicit allowlist on servers. This is both a UX constraint (you
 know what is enabled) and a Nix constraint (it can assert that only known bundled
@@ -78,4 +78,3 @@ Notes:
 
 - By default, Clawlets already adds `<workspace>/skills` automatically.
 - Don’t store secrets in skill folders; they may be copied via Nix workspace seeding.
-

@@ -49,7 +49,7 @@ dashboard can do most of this for you; the CLI steps are here for repeatability.
 1) Add bot id:
 
 ```bash
-clawlets bot add --bot <id>
+clawlets gateway add --gateway <id>
 ```
 
 2) Add secret + config:
@@ -158,8 +158,8 @@ Ops helpers:
 
 ```bash
 clawlets server github-sync status --target-host admin@<ipv4>
-clawlets server github-sync run --target-host admin@<ipv4> --bot maren
-clawlets server github-sync show --target-host admin@<ipv4> --bot maren --kind prs --lines 80
+clawlets server github-sync run --target-host admin@<ipv4> --gateway maren
+clawlets server github-sync show --target-host admin@<ipv4> --gateway maren --kind prs --lines 80
 ```
 
 ## Ops snapshots (optional)

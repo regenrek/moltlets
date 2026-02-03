@@ -12,7 +12,61 @@ If a bot user is compromised, it should not be able to read or write another bot
 state or workspace. Isolation also reduces the blast radius for credentials, sessions,
 tools, and config.
 
-## Per-gateway invariants (required)
+## Gateway instances vs agents
+
+- **Gateway instance (bot)**: one OpenClaw gateway process with its own state dir, ports, and OS user.
+- **Agent/persona**: an entry in `agents.list[]` that runs **inside** a gateway instance.
+
+Use agents when you want multiple personas sharing the same gateway process. Use multiple gateways when you need hard
+isolation per persona.
+
+## Gateway architecture
+
+Clawlets stores the preferred architecture at `fleet.gatewayArchitecture`:
+
+### Option A — multiple gateways (`multi`)
+
+Each bot is its own gateway instance.
+
+```jsonc
+{
+  "fleet": {
+    "gatewayArchitecture": "multi",
+    "gatewayOrder": ["main", "rescue"],
+    "gateways": {
+      "main": {},
+      "rescue": {}
+    }
+  }
+}
+```
+
+### Option B — one gateway, multiple agents (`single`)
+
+One gateway process, multiple agents via `agents.list[]`.
+
+```jsonc
+{
+  "fleet": {
+    "gatewayArchitecture": "single",
+    "gatewayOrder": ["main"],
+    "gateways": {
+      "main": {
+        "agents": {
+          "list": [
+            { "id": "primary", "default": true, "name": "Primary" },
+            { "id": "support", "name": "Support" }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+`fleet.gatewayArchitecture` is a Clawlets UI preference. It does not get forwarded into OpenClaw.
+
+## Isolation checklist (per gateway)
 
 For each gateway `maren`:
 

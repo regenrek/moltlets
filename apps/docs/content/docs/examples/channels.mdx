@@ -7,7 +7,7 @@ This page shows practical examples for the most common channel integrations.
 
 All channel config lives in `fleet/clawlets.json` under:
 
-- `fleet.gateways.<bot>.channels.<channelId>`
+- `fleet.gateways.<gatewayId>.channels.<channelId>`
 
 Clawlets renders this into the final OpenClaw config during deploy. In other words:
 **these values become `channels.*` in OpenClaw**.
@@ -23,7 +23,7 @@ Discord uses a bot token.
 
 Config pattern:
 
-1. Map an env var name to a sops secret name in the bot profile.
+1. Map an env var name to a sops secret name in the gateway profile.
 2. Reference the env var in `channels.discord.token`.
 
 Example:
@@ -126,7 +126,7 @@ Example (single-user allowlist):
 Then link WhatsApp on the host:
 
 ```bash
-clawlets server channels login --host <host> --bot maren --channel whatsapp --sshTty
+clawlets server channels login --host <host> --gateway maren --channel whatsapp --sshTty
 ```
 
 Notes:

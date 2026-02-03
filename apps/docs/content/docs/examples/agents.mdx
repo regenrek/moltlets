@@ -3,11 +3,12 @@ title: Agents
 description: Model defaults, fallbacks, and concurrency.
 ---
 
-This page shows common agent defaults. These live under:
+This page shows common agent defaults and the optional multi-persona layout. These live under:
 
-- `fleet.gateways.<bot>.agents.defaults`
+- `fleet.gateways.<gatewayId>.agents.defaults`
+- `fleet.gateways.<gatewayId>.agents.list[]` (optional)
 
-## Model default (per bot)
+## Model default (per gateway)
 
 ```json
 {
@@ -33,7 +34,44 @@ This page shows common agent defaults. These live under:
 Notes:
 
 - `thinkingDefault` is optional; use it to set a consistent baseline.
-- `maxConcurrent` is per-bot concurrency, not a global host limit.
+- `maxConcurrent` is per-gateway concurrency, not a global host limit.
+
+## Multi-persona per gateway (optional)
+
+If you want **one gateway process** with **multiple OpenClaw personas**, use `agents.list[]`.
+
+- `id` is the persona id (unique per gateway).
+- at most one entry may set `default: true`.
+- `name` is optional (display name).
+
+Example:
+
+```json
+{
+  "fleet": {
+    "gatewayOrder": ["main"],
+    "gateways": {
+      "main": {
+        "agents": {
+          "defaults": {
+            "model": { "primary": "zai/glm-4.7" },
+            "thinkingDefault": "low",
+            "maxConcurrent": 4
+          },
+          "list": [
+            { "id": "ops", "default": true, "name": "Ops" },
+            { "id": "support", "name": "Support" }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+You can also pass through advanced per-persona keys (workspace, model overrides, tools, sandbox, etc.).
+
+See also: [Gateways and personas](/configuration/gateways-and-personas).
 
 ## Host default (applies to all bots unless overridden)
 
@@ -58,4 +96,3 @@ See:
 
 - [Typed config surfaces](/configuration/typed-surfaces)
 - [Agent config](/configuration/agent-config)
-

@@ -43,6 +43,7 @@ that gets rendered into services.
 
 - `fleet.secretEnv`: env var name → sops secret name (global defaults)
 - `fleet.secretFiles`: host‑scoped secret files (id → `{ secretName, targetPath, ... }`)
+- `fleet.gatewayArchitecture` (optional): `multi` or `single` (gateway instances vs. multiple agents in one gateway)
 - `fleet.gatewayOrder`: ordered gateway ids (deterministic ports/services)
 - `fleet.gateways.<id>`: per‑gateway (bot instance) config object
   - `profile`: clawlets/template infra knobs (systemd/env/secrets/limits)
@@ -51,7 +52,7 @@ that gets rendered into services.
     - `profile.secretFiles`: gateway‑scoped secret files
     - other keys are forwarded into Nix `services.openclawFleet.gatewayProfiles.<id>`
   - `channels`: typed channel config (discord/telegram/etc)
-  - `agents`: typed agent defaults (model/thinking/maxConcurrent/etc)
+  - `agents`: typed agent defaults + optional `list[]` (personas)
   - `hooks`: typed hooks config (token + Gmail push wiring)
   - `skills`: typed skills config (allowBundled/load/entries)
   - `plugins`: typed plugin config (allow/deny/load/entries)
