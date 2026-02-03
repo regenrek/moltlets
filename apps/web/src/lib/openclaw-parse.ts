@@ -39,7 +39,7 @@ export function createOpenclawParseScheduler(params: {
         params.onSecurity(null)
         return
       }
-      const report = lintOpenclawSecurityConfig({ openclaw: parsed.value, botId: params.getBotId() })
+      const report = lintOpenclawSecurityConfig({ openclaw: parsed.value, gatewayId: params.getBotId() })
       params.onSecurity(report)
     },
   })

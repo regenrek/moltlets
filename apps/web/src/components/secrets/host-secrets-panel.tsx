@@ -313,7 +313,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
                               <div className="text-sm font-medium">{warning.message}</div>
                               <div className="text-xs text-muted-foreground">
                                 {warning.kind}
-                                {warning.bot ? ` · bot ${warning.bot}` : ""}
+                                {warning.gateway ? ` · bot ${warning.gateway}` : ""}
                                 {warning.path ? ` · ${warning.path}` : ""}
                               </div>
                               {warning.suggestion ? (
