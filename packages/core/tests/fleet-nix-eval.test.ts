@@ -32,9 +32,10 @@ describe("fleet nix eval", () => {
         "  lib = flake.inputs.nixpkgs.lib;",
         "  project = {",
         "    root = flake.outPath;",
-        "    config = { fleet = { gatewayOrder = []; gateways = {}; }; };",
+        "    config = { hosts = { alpha = { botsOrder = []; bots = {}; }; }; };",
         "  };",
-        "  fleet = import (flake.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project; };",
+        "  hostName = \"alpha\";",
+        "  fleet = import (flake.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project hostName; };",
         "in fleet.gateways",
       ].join("\n");
 

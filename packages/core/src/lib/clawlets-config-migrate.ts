@@ -703,53 +703,11 @@ export type MigrateToLatestResult = {
 export function migrateClawletsConfigToLatest(raw: unknown): MigrateToLatestResult {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
   const warnings: string[] = [];
-  let changed = false;
-  let current: unknown = raw;
-
   const schemaVersion = Number((raw as any)["schemaVersion"] ?? 0);
-  if (schemaVersion === 16) return { ok: true, changed: false, warnings, migrated: structuredClone(raw) as Record<string, unknown> };
-
-  if (schemaVersion < 12) {
-    const r12 = migrateClawletsConfigToV12(current);
-    warnings.push(...r12.warnings);
-    if (r12.changed) changed = true;
-    current = r12.migrated;
+  if (schemaVersion === 17) {
+    return { ok: true, changed: false, warnings, migrated: structuredClone(raw) as Record<string, unknown> };
   }
-
-  const v12 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v12 === 12) {
-    const r13 = migrateClawletsConfigToV13(current);
-    warnings.push(...r13.warnings);
-    if (r13.changed) changed = true;
-    current = r13.migrated;
-  }
-
-  const v13 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v13 === 13) {
-    const r14 = migrateClawletsConfigToV14(current);
-    warnings.push(...r14.warnings);
-    if (r14.changed) changed = true;
-    current = r14.migrated;
-  }
-
-  const v14 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v14 === 14) {
-    const r15 = migrateClawletsConfigToV15(current);
-    warnings.push(...r15.warnings);
-    if (r15.changed) changed = true;
-    current = r15.migrated;
-  }
-
-  const v15 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v15 === 15) {
-    const r16 = migrateClawletsConfigToV16(current);
-    warnings.push(...r16.warnings);
-    if (r16.changed) changed = true;
-    current = r16.migrated;
-  }
-
-  const v16 = Number((current as any)["schemaVersion"] ?? 0);
-  if (v16 !== 16) throw new Error(`unsupported schemaVersion: ${v16} (expected 16)`);
-
-  return { ok: true, changed, warnings, migrated: current as Record<string, unknown> };
+  throw new Error(
+    `unsupported schemaVersion: ${schemaVersion} (expected 17). Update your config to host-scoped bots (hosts.<host>.bots + hosts.<host>.botsOrder).`,
+  );
 }

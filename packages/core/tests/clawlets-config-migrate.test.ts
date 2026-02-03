@@ -239,7 +239,7 @@ describe("clawlets config migrate", () => {
     expect(migrated.fleet.bots.bot1.plugins).toEqual({ enabled: true, allow: ["@clawlets/plugin-cattle"] });
   });
 
-  it("migrates v12 -> latest (chains to v16)", async () => {
+  it("rejects migrate to latest for non-v17 configs", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
 
     const raw = {
@@ -269,17 +269,7 @@ describe("clawlets config migrate", () => {
       hosts: { alpha: { enable: false } },
     };
 
-    const res = migrateClawletsConfigToLatest(raw);
-    expect(res.ok).toBe(true);
-    expect(res.changed).toBe(true);
-
-    const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(16);
-    expect(migrated.fleet.gateways.bot1.channels.discord.enabled).toBe(true);
-    expect(migrated.fleet.gateways.bot1.clawdbot).toBeUndefined();
-    expect(migrated.fleet.gateways.bot1.profile.hooks).toBeUndefined();
-    expect(migrated.fleet.gateways.bot1.profile.skills).toBeUndefined();
-    expect(migrated.fleet.gateways.bot1.openclaw).toEqual({});
+    expect(() => migrateClawletsConfigToLatest(raw)).toThrow(/unsupported schemaVersion/i);
   });
 
   it("migrates v14 -> v15 (renames clawdbot)", async () => {

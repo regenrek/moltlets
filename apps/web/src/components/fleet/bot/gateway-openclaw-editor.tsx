@@ -132,6 +132,7 @@ export function BotOpenclawEditor(props: {
         data: {
           projectId: props.projectId as Id<"projects">,
           botId: props.botId,
+          host: props.host,
         },
       })
     },
@@ -242,7 +243,7 @@ export function BotOpenclawEditor(props: {
         <div>
           <div className="font-medium">OpenClaw config (JSON)</div>
           <div className="text-xs text-muted-foreground">
-            Stored as <code>fleet.gateways.{props.botId}.openclaw</code>.
+            Stored as <code>hosts.{props.host}.bots.{props.botId}.openclaw</code>.
           </div>
         </div>
         <div className="flex items-center gap-2">

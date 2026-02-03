@@ -329,6 +329,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
                     <MissingEnvWiringPanel
                       projectId={projectId}
+                      host={host}
                       missingEnvVars={missingEnvVars}
                       onWired={() => void template.refetch()}
                     />

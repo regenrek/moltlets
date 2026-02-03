@@ -14,7 +14,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/bots/$botId/pers
 })
 
 function BotPersonas() {
-  const { projectSlug, botId } = Route.useParams()
+  const { projectSlug, host, botId } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const { data: session, isPending } = authClient.useSession()
@@ -36,7 +36,7 @@ function BotPersonas() {
   })
 
   const config = cfg.data?.config
-  const botCfg = config?.fleet?.gateways?.[botId] as any
+  const botCfg = (config as any)?.hosts?.[host]?.bots?.[botId] as any
   const agentsCfg = botCfg?.agents ?? {}
 
   if (projectQuery.isPending) return <div className="text-muted-foreground">Loading…</div>
@@ -48,6 +48,6 @@ function BotPersonas() {
   if (!botCfg) return <div className="text-muted-foreground">Bot not found.</div>
 
   return (
-    <GatewayPersonas projectId={projectId} botId={botId} agents={agentsCfg} canEdit={canEdit} />
+    <GatewayPersonas projectId={projectId} host={host} botId={botId} agents={agentsCfg} canEdit={canEdit} />
   )
 }

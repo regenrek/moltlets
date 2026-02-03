@@ -11,7 +11,7 @@ let
   cacheNetrc = (cacheCfg.netrc or { });
   selfUpdate = (hostCfg.selfUpdate or { });
   allowMissingSecrets = config.clawlets.bootstrap.allowMissingSecrets;
-  fleet = import ../lib/fleet-config.nix { inherit lib project; };
+  fleet = import ../lib/fleet-config.nix { inherit lib project; hostName = config.clawlets.hostName; };
   enableRootPassword = false;
 in {
   imports = [

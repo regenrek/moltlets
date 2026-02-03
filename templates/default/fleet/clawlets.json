@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 16,
+  "schemaVersion": 17,
   "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -7,19 +7,7 @@
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "gatewayOrder": ["agent"],
-    "gateways": {
-      "agent": {
-        "profile": { "secretEnv": {}, "secretFiles": {} },
-        "channels": {},
-        "agents": { "defaults": {} },
-        "hooks": {},
-        "skills": {},
-        "plugins": {},
-        "openclaw": {}
-      }
-    },
-    "codex": { "enable": false, "gateways": [] },
+    "codex": { "enable": false, "bots": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
   "cattle": {
@@ -37,6 +25,18 @@
   "hosts": {
     "openclaw-fleet-host": {
       "enable": false,
+      "botsOrder": ["agent"],
+      "bots": {
+        "agent": {
+          "profile": { "secretEnv": {}, "secretFiles": {} },
+          "channels": {},
+          "agents": { "defaults": {} },
+          "hooks": {},
+          "skills": {},
+          "plugins": {},
+          "openclaw": {}
+        }
+      },
       "diskDevice": "/dev/sda",
       "flakeHost": "",
       "hetzner": { "serverType": "cx22" },

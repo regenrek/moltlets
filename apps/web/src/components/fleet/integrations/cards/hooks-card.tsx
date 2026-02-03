@@ -6,6 +6,7 @@ import { isPlainObject } from "../helpers"
 import { SecretField } from "../shared/secret-field"
 
 export function HooksConfigCard(props: {
+  host: string
   botId: string
   hooks: unknown
   canEdit: boolean
@@ -23,7 +24,7 @@ export function HooksConfigCard(props: {
   const [gmailPushTokenSecretText, setGmailPushTokenSecretText] = useState(() => props.initialGmailPushTokenSecret)
 
   return (
-    <ConfigCard title="Hooks config (first-class)" configPath={buildGatewayConfigPath(props.botId, "hooks")}>
+    <ConfigCard title="Hooks config (first-class)" configPath={buildGatewayConfigPath(props.host, props.botId, "hooks")}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">Enabled</div>

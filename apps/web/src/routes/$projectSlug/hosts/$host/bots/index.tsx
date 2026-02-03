@@ -77,7 +77,8 @@ function BotsSetup() {
     enabled: Boolean(projectId) && canQuery,
   })
   const config = cfg.data?.config
-  const bots = useMemo(() => (config?.fleet?.gatewayOrder as string[]) || [], [config])
+  const hostCfg = (config as any)?.hosts?.[host]
+  const bots = useMemo(() => (hostCfg?.botsOrder as string[]) || [], [hostCfg])
   const gatewayArchitecture = (config?.fleet as { gatewayArchitecture?: GatewayArchitecture } | undefined)
     ?.gatewayArchitecture
   const hasGateways = bots.length > 0
@@ -96,7 +97,7 @@ function BotsSetup() {
     if (!config) return []
     const found = new Set<string>()
     for (const botId of bots) {
-      for (const channel of getBotChannels({ config, botId })) {
+      for (const channel of getBotChannels({ config, host, botId })) {
         found.add(channel)
       }
     }
@@ -111,7 +112,7 @@ function BotsSetup() {
       if (query && !botId.toLowerCase().includes(query)) return false
       if (filter === "all") return true
       if (!config) return false
-      return getBotChannels({ config, botId }).includes(filter)
+      return getBotChannels({ config, host, botId }).includes(filter)
     })
   }, [bots, channelFilter, config, normalizedQuery])
 
@@ -134,6 +135,7 @@ function BotsSetup() {
       await addBot({
         data: {
           projectId: projectId as Id<"projects">,
+          host,
           bot,
           architecture: needsArchitectureChoice ? architectureDraft : "",
         },

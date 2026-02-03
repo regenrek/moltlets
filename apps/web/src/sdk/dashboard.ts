@@ -54,14 +54,18 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
           const repoRoot = assertRepoRootPath(p.localPath, { allowMissing: false })
           const { configPath, config } = loadClawletsConfig({ repoRoot })
 
-          const botIds = (Array.isArray(config.fleet?.gatewayOrder) ? config.fleet.gatewayOrder : []).filter(
-            (b): b is string => typeof b === "string" && b.trim().length > 0,
-          )
-          const botKeys = Object.keys(config.fleet?.gateways || {})
-          const effectiveBotIds = botIds.length > 0 ? botIds : botKeys
-
           const hostNames = Object.keys(config.hosts || {})
           const hostsEnabled = hostNames.filter((h) => Boolean((config.hosts as any)?.[h]?.enable)).length
+          const botEntries: string[] = []
+          for (const host of hostNames) {
+            const hostCfg = (config.hosts as any)?.[host] || {}
+            const botsOrder = Array.isArray(hostCfg?.botsOrder) ? hostCfg.botsOrder : []
+            const botsKeys = Object.keys(hostCfg?.bots || {})
+            const bots = botsOrder.length > 0 ? botsOrder : botsKeys
+            for (const botId of bots) {
+              if (typeof botId === "string" && botId.trim()) botEntries.push(`${host}:${botId}`)
+            }
+          }
 
           const mtime = await stat(configPath).then((s) => s.mtimeMs).catch(() => null)
 
@@ -70,8 +74,8 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
             cfg: {
               configPath,
               configMtimeMs: mtime,
-              botsTotal: effectiveBotIds.length,
-              botIdsPreview: effectiveBotIds.slice(0, 8),
+              botsTotal: botEntries.length,
+              botIdsPreview: botEntries.slice(0, 8),
               hostsTotal: hostNames.length,
               hostsEnabled,
               defaultHost: typeof config.defaultHost === "string" ? config.defaultHost : null,

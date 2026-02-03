@@ -38,6 +38,7 @@ export async function addRepoChecks(params: {
   let fleet: FleetConfig | null = null;
   let fleetGateways: string[] | null = null;
   let clawletsConfig: ClawletsConfig | null = null;
+  let templateHostNames: string[] = [];
 
   params.push({
     scope: "repo",
@@ -317,7 +318,8 @@ export async function addRepoChecks(params: {
         try {
           const raw = fs.readFileSync(templateConfigPath, "utf8");
           const parsed = JSON.parse(raw);
-          ClawletsConfigSchema.parse(parsed);
+          const parsedConfig = ClawletsConfigSchema.parse(parsed);
+          templateHostNames = Object.keys(parsedConfig.hosts || {});
           params.push({
             scope: "repo",
             status: "ok",
@@ -338,90 +340,109 @@ export async function addRepoChecks(params: {
   }
 
   if (clawletsConfig) {
-    const gateways = Array.isArray(clawletsConfig?.fleet?.gatewayOrder) ? clawletsConfig.fleet.gatewayOrder : [];
-    for (const gatewayRaw of gateways) {
-      const gatewayId = String(gatewayRaw || "").trim();
-      if (!gatewayId) continue;
-      try {
-        const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, gatewayId }).merged;
-        const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId });
-        const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
-        const top = report.findings
-          .filter((f) => f.severity === "critical" || f.severity === "warn")
-          .slice(0, 2)
-          .map((f) => f.id)
-          .join(", ");
-        const hint = top ? ` (${top}${report.findings.length > 2 ? ` +${report.findings.length - 2}` : ""})` : "";
-        params.push({
-          scope: "repo",
-          status,
-          label: `openclaw security (${gatewayId})`,
-          detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
-        });
-      } catch (e) {
-        params.push({
-          scope: "repo",
-          status: "warn",
-          label: `openclaw security (${gatewayId})`,
-          detail: `unable to lint: ${String((e as Error)?.message || e)}`,
-        });
+    const hostNames = Object.keys(clawletsConfig.hosts || {});
+    const targetHost = params.host.trim() || clawletsConfig.defaultHost || hostNames[0] || "";
+    if (targetHost) {
+      const hostCfg = (clawletsConfig.hosts as any)?.[targetHost] || {};
+      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+      const botsKeys = Object.keys(hostCfg.bots || {});
+      fleetGateways = (botsOrder.length > 0 ? botsOrder : botsKeys).map((id: unknown) => String(id || "").trim()).filter(Boolean);
+    }
+
+    for (const hostName of hostNames) {
+      const hostCfg = (clawletsConfig.hosts as any)?.[hostName] || {};
+      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+      const botsKeys = Object.keys(hostCfg.bots || {});
+      const bots = botsOrder.length > 0 ? botsOrder : botsKeys;
+      for (const botRaw of bots) {
+        const botId = String(botRaw || "").trim();
+        if (!botId) continue;
+        try {
+          const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, hostName, botId }).merged;
+          const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId: botId });
+          const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
+          const top = report.findings
+            .filter((f) => f.severity === "critical" || f.severity === "warn")
+            .slice(0, 2)
+            .map((f) => f.id)
+            .join(", ");
+          const hint = top ? ` (${top}${report.findings.length > 2 ? ` +${report.findings.length - 2}` : ""})` : "";
+          params.push({
+            scope: "repo",
+            status,
+            label: `openclaw security (${hostName}/${botId})`,
+            detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
+          });
+        } catch (e) {
+          params.push({
+            scope: "repo",
+            status: "warn",
+            label: `openclaw security (${hostName}/${botId})`,
+            detail: `unable to lint: ${String((e as Error)?.message || e)}`,
+          });
+        }
       }
     }
   }
 
   try {
-    fleet = await evalFleetConfig({ repoRoot, nixBin: params.nixBin });
-    fleetGateways = fleet.gateways;
+    const hostNames = clawletsConfig ? Object.keys(clawletsConfig.hosts || {}) : [];
+    if (hostNames.length === 0) throw new Error("no hosts found in config");
 
-    params.push({
-      scope: "repo",
-      status: fleet.gateways.length > 0 ? "ok" : "missing",
-      label: "fleet config eval",
-      detail: `(gateways: ${fleet.gateways.length})`,
-    });
+    for (const hostName of hostNames) {
+      const hostFleet = await evalFleetConfig({ repoRoot, nixBin: params.nixBin, hostName });
+      if (!fleet) fleet = hostFleet;
 
-    params.push({
-      scope: "repo",
-      status: fleet.gateways.length > 0 ? "ok" : "warn",
-      label: "fleet gateways list",
-      detail: fleet.gateways.length > 0 ? fleet.gateways.join(", ") : "(empty)",
-    });
+      params.push({
+        scope: "repo",
+        status: hostFleet.gateways.length > 0 ? "ok" : "missing",
+        label: `fleet config eval (${hostName})`,
+        detail: `(bots: ${hostFleet.gateways.length})`,
+      });
 
-    {
-      const r = validateFleetPolicy({ filePath: layout.clawletsConfigPath, fleet, knownBundledSkills: bundledSkills.skills });
+      params.push({
+        scope: "repo",
+        status: hostFleet.gateways.length > 0 ? "ok" : "warn",
+        label: `host bots list (${hostName})`,
+        detail: hostFleet.gateways.length > 0 ? hostFleet.gateways.join(", ") : "(empty)",
+      });
+
+      const r = validateFleetPolicy({ filePath: layout.clawletsConfigPath, fleet: hostFleet, knownBundledSkills: bundledSkills.skills });
       if (!r.ok) {
         const first = r.violations[0]!;
         params.push({
           scope: "repo",
           status: "missing",
-          label: "fleet policy",
+          label: `fleet policy (${hostName})`,
           detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
         });
       } else {
-        params.push({ scope: "repo", status: "ok", label: "fleet policy", detail: "(ok)" });
+        params.push({ scope: "repo", status: "ok", label: `fleet policy (${hostName})`, detail: "(ok)" });
       }
     }
 
-    if (templateRoot) {
-      const tplFleet = await evalFleetConfig({ repoRoot: templateRoot, nixBin: params.nixBin });
-      params.push({
-        scope: "repo",
-        status: tplFleet.gateways.length > 0 ? "ok" : "warn",
-        label: "template fleet config eval",
-        detail: `(gateways: ${tplFleet.gateways.length})`,
-      });
-
-      const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
-      if (!r.ok) {
-        const first = r.violations[0]!;
+    if (templateRoot && templateHostNames.length > 0) {
+      for (const hostName of templateHostNames) {
+        const tplFleet = await evalFleetConfig({ repoRoot: templateRoot, nixBin: params.nixBin, hostName });
         params.push({
           scope: "repo",
-          status: "missing",
-          label: "template fleet policy",
-          detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
+          status: tplFleet.gateways.length > 0 ? "ok" : "warn",
+          label: `template fleet config eval (${hostName})`,
+          detail: `(bots: ${tplFleet.gateways.length})`,
         });
-      } else {
-        params.push({ scope: "repo", status: "ok", label: "template fleet policy", detail: "(ok)" });
+
+        const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });
+        if (!r.ok) {
+          const first = r.violations[0]!;
+          params.push({
+            scope: "repo",
+            status: "missing",
+            label: `template fleet policy (${hostName})`,
+            detail: `${path.relative(repoRoot, first.filePath)} ${first.message}${first.detail ? ` (${first.detail})` : ""}`,
+          });
+        } else {
+          params.push({ scope: "repo", status: "ok", label: `template fleet policy (${hostName})`, detail: "(ok)" });
+        }
       }
     }
   } catch (e) {

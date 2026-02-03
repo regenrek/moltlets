@@ -16,6 +16,7 @@ type WireDraft = { scope: WireScope; secretName: string }
 
 type MissingEnvWiringPanelProps = {
   projectId: Id<"projects">
+  host: string
   missingEnvVars: MissingEnvVar[]
   onWired?: () => void
 }
@@ -34,9 +35,9 @@ function buildDefaultDraft(entry: MissingEnvVar): WireDraft {
   return { scope, secretName: suggestSecretNameForEnvVar(entry.envVar, gatewayHint) }
 }
 
-function wirePath(entry: MissingEnvVar, scope: WireScope): string {
+function wirePath(entry: MissingEnvVar, scope: WireScope, host: string): string {
   return scope === "gateway"
-    ? `fleet.gateways.${entry.gateway}.profile.secretEnv.${entry.envVar}`
+    ? `hosts.${host}.bots.${entry.gateway}.profile.secretEnv.${entry.envVar}`
     : `fleet.secretEnv.${entry.envVar}`
 }
 
@@ -78,7 +79,7 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
     mutationFn: async (params: { entry: MissingEnvVar; draft: WireDraft }) => {
       const secretName = params.draft.secretName.trim()
       if (!secretName) throw new Error("missing secret name")
-      const path = wirePath(params.entry, params.draft.scope)
+      const path = wirePath(params.entry, params.draft.scope, props.host)
       const res = await configDotSet({
         data: {
           projectId: props.projectId,
@@ -105,7 +106,7 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
         const draft = drafts[wireKey(entry)]
         const secretName = draft?.secretName.trim() || ""
         if (!secretName) throw new Error(`missing secret name for ${entry.envVar}`)
-        const path = wirePath(entry, draft.scope)
+        const path = wirePath(entry, draft.scope, props.host)
         const res = await configDotSet({
           data: {
             projectId: props.projectId,
@@ -158,7 +159,7 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
               {group.entries.map((entry) => {
                 const key = wireKey(entry)
                 const draft = drafts[key] || buildDefaultDraft(entry)
-                const path = wirePath(entry, draft.scope)
+                const path = wirePath(entry, draft.scope, props.host)
                 const sourcesLabel = entry.sources?.length ? entry.sources.join(", ") : "unknown"
                 const pathsLabel = entry.paths?.length ? entry.paths.join(", ") : "(none)"
                 return (

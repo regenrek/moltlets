@@ -219,7 +219,7 @@ export function applyChannelEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${payload.envVar}} for ${payload.channel} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Use \${${payload.envVar}} for ${payload.channel} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
@@ -229,7 +229,7 @@ export function applyChannelEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Inline ${payload.channel} token detected at ${payload.path}`,
-        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(payload.envVar, "channel", payload.path);
@@ -316,7 +316,7 @@ export function applyHookEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${payload.envVar}} for ${payload.label} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Use \${${payload.envVar}} for ${payload.label} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
@@ -326,7 +326,7 @@ export function applyHookEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Inline hooks token detected at ${payload.path}`,
-        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Replace with \${${payload.envVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(payload.envVar, "custom", payload.path);
@@ -374,7 +374,7 @@ export function applySkillEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Unexpected env ref at ${payload.path}: ${trimmed}`,
-        suggestion: `Use \${${expectedEnvVar}} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Use \${${expectedEnvVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     if (!envVar) {
@@ -383,7 +383,7 @@ export function applySkillEnvRequirements(params: {
         gateway: gatewayId,
         path: payload.path,
         message: `Inline API key detected at ${payload.path}`,
-        suggestion: `Replace with \${${expectedEnvVar}} and map it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+        suggestion: `Replace with \${${expectedEnvVar}} and map it in fleet.secretEnv or hosts.<host>.bots.${gatewayId}.profile.secretEnv.`,
       });
     }
     addRequiredEnv(expectedEnvVar, "custom", payload.path);

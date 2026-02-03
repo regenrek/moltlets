@@ -96,6 +96,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
   .inputValidator(parseBotOpenclawConfigInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
 
     if (!isPlainObject(data.openclaw)) throw new Error("openclaw config must be a JSON object")
 
@@ -105,7 +106,9 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.gateways?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     existingBot.openclaw = data.openclaw
@@ -164,7 +167,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} openclaw config`,
+      title: `bot ${hostName}/${botId} openclaw config`,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -181,7 +184,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Updating fleet.gateways.${botId}.openclaw` })
+        await emit({ level: "info", message: `Updating hosts.${hostName}.bots.${botId}.openclaw` })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
@@ -194,10 +197,8 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseBotCapabilityPresetInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
-    if (data.schemaMode === "live" && !data.host.trim()) {
-      return { ok: false as const, issues: mapSchemaFailure("live schema validation requires a host") }
-    }
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -205,7 +206,9 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.gateways?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     let warnings: string[] = []
@@ -255,7 +258,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} preset ${preset.id}`,
+      title: `bot ${hostName}/${botId} preset ${preset.id}`,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -272,7 +275,7 @@ export const applyBotCapabilityPreset = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Applying ${preset.id} preset for ${botId}` })
+        await emit({ level: "info", message: `Applying ${preset.id} preset for ${botId} (host=${hostName})` })
         for (const w of warnings) await emit({ level: "warn", message: w })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
@@ -286,11 +289,14 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseBotCapabilityPresetPreviewInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
     const { config: raw } = loadClawletsConfigRaw({
       repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
     })
-    const existingBot = (raw as any)?.fleet?.gateways?.[botId]
+    const hostCfg = (raw as any)?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = (hostCfg as any)?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const nextBot = structuredClone(existingBot) as Record<string, unknown>
@@ -311,7 +317,7 @@ export const previewBotCapabilityPreset = createServerFn({ method: "POST" })
     }
 
     const schemaValidation = validateClawdbotConfig(buildEffectiveOpenclawConfig(nextBot))
-    const diff = diffConfig(existingBot, nextBot, `fleet.gateways.${botId}`)
+    const diff = diffConfig(existingBot, nextBot, `hosts.${hostName}.bots.${botId}`)
 
     return {
       ok: true as const,
@@ -326,24 +332,24 @@ export const verifyBotOpenclawSchema = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostBotInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
-    if (!data.host.trim()) {
-      return { ok: false as const, issues: mapSchemaFailure("live schema verification requires a host") }
-    }
+    const hostName = data.host.trim()
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const { config: raw } = loadClawletsConfigRaw({ repoRoot })
-    const existingBot = (raw as any)?.fleet?.gateways?.[botId]
+    const hostCfg = (raw as any)?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = (hostCfg as any)?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const pinned = getPinnedClawdbotSchema()
     let liveSchema: Record<string, unknown> | null = null
     try {
       const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-      const live = await fetchOpenclawSchemaLive({
-        projectId: data.projectId,
-        host: data.host,
-        botId,
-      })
+        const live = await fetchOpenclawSchemaLive({
+          projectId: data.projectId,
+          host: hostName,
+          botId,
+        })
       if (!live.ok) {
         return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
       }
@@ -366,6 +372,7 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
   .inputValidator(parseProjectBotInput)
   .handler(async ({ data }) => {
     const botId = data.botId.trim()
+    const hostName = data.host.trim()
 
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -373,7 +380,9 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
     const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
 
     const next = structuredClone(raw) as any
-    const existingBot = next?.fleet?.gateways?.[botId]
+    const hostCfg = next?.hosts?.[hostName]
+    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+    const existingBot = hostCfg?.bots?.[botId]
     if (!existingBot || typeof existingBot !== "object") throw new Error("bot not found")
 
     const hardened = applySecurityDefaults({ openclaw: existingBot.openclaw, channels: existingBot.channels })
@@ -387,7 +396,7 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "config_write",
-      title: `bot ${botId} openclaw harden`,
+      title: `bot ${hostName}/${botId} openclaw harden`,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -409,7 +418,7 @@ export const hardenBotOpenclawConfig = createServerFn({ method: "POST" })
       runId,
       redactTokens,
       fn: async (emit) => {
-        await emit({ level: "info", message: `Hardening fleet.gateways.${botId}` })
+        await emit({ level: "info", message: `Hardening hosts.${hostName}.bots.${botId}` })
         for (const w of hardened.warnings) await emit({ level: "warn", message: w })
         await writeClawletsConfig({ configPath, config: validated.data })
         await emit({ level: "info", message: "Done." })

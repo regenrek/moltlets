@@ -9,11 +9,13 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - OpenClaw invariants/specs shared via JSON assets for Nix + core validation.
 
 ### Changed
-- Rename `fleet.botOrder` → `fleet.gatewayOrder`, `fleet.bots` → `fleet.gateways`, `fleet.codex.bots` → `fleet.codex.gateways`; schema bumped to v16 with migration path.
+- Bots are now host-scoped: `hosts.<host>.botsOrder` / `hosts.<host>.bots` replace `fleet.gatewayOrder` / `fleet.gateways` (schema bumped to v17; manual update required, no auto-migration).
+- `fleet.codex.gateways` replaced by `fleet.codex.bots` (if used).
 - Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
 
 ### Fixed
 - Config batch validation now rejects ambiguous ops early; migration now moves legacy `openclaw.*` typed surfaces.
+- Prevent bots/gateways from fan-out across all enabled hosts by enforcing host-scoped bot lists.
 
 ## [0.4.4] - 2026-02-01
 ### Added

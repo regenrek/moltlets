@@ -189,7 +189,7 @@ export async function fetchOpenclawSchemaLive(params: {
   const host = hostCandidate || config.defaultHost || ""
   if (!host) throw new Error("missing host")
   if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
-  if (!config.fleet.gateways[botId]) throw new Error(`unknown bot: ${botId}`)
+  if (!(config.hosts as any)?.[host]?.bots?.[botId]) throw new Error(`unknown bot: ${botId}`)
 
   const cacheKey = `${params.projectId}:${host}:${botId}`
   const now = Date.now()
@@ -205,7 +205,7 @@ export async function fetchOpenclawSchemaLive(params: {
   }
   const targetHost = validateTargetHost(targetHostRaw)
 
-  const gatewayConfig = buildOpenClawGatewayConfig({ config, gatewayId: botId })
+  const gatewayConfig = buildOpenClawGatewayConfig({ config, hostName: host, botId })
   const gateway = (gatewayConfig.invariants as any)?.gateway || {}
   const port = typeof gateway.port === "number" ? gateway.port : Number(gateway.port || 0)
   if (!Number.isFinite(port) || port <= 0) throw new Error(`invalid gateway port for bot ${botId}`)

@@ -7,9 +7,9 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } f
 import { cn } from "~/lib/utils"
 import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw-config-invariants"
 
-export function getBotChannels(params: { config: unknown; botId: string }): string[] {
-  const fleet = (params.config as any)?.fleet
-  const botCfg = fleet?.gateways?.[params.botId] || {}
+export function getBotChannels(params: { config: unknown; host: string; botId: string }): string[] {
+  const hostCfg = (params.config as any)?.hosts?.[params.host]
+  const botCfg = hostCfg?.bots?.[params.botId] || {}
   const openclawCfg = botCfg?.openclaw || {}
   const typedChannels =
     botCfg?.channels && typeof botCfg.channels === "object" && !Array.isArray(botCfg.channels)
@@ -28,9 +28,9 @@ export function formatChannelsLabel(channels: string[]): string {
   return `${channels.slice(0, 4).join(", ")} (+${channels.length - 4})`
 }
 
-function getGatewayPort(params: { config: unknown; botId: string }): number | null {
+function getGatewayPort(params: { config: unknown; host: string; botId: string }): number | null {
   try {
-    const res = buildOpenClawGatewayConfig({ config: params.config as any, gatewayId: params.botId })
+    const res = buildOpenClawGatewayConfig({ config: params.config as any, hostName: params.host, botId: params.botId })
     const port = (res.invariants as any)?.gateway?.port
     if (typeof port === "number") return port
     if (typeof port === "string") {
@@ -59,7 +59,7 @@ export function BotRoster(props: {
   const portByBot = useMemo(() => {
     const next = new Map<string, number | null>()
     for (const botId of props.bots) {
-      next.set(botId, getGatewayPort({ config: props.config, botId }))
+      next.set(botId, getGatewayPort({ config: props.config, host: props.host, botId }))
     }
     return next
   }, [props.bots, props.config])
@@ -95,7 +95,7 @@ export function BotRoster(props: {
       <div className="w-full overflow-hidden rounded-lg border">
         <ItemGroup className="gap-0">
           {props.bots.map((botId) => {
-            const channels = getBotChannels({ config: props.config, botId })
+            const channels = getBotChannels({ config: props.config, host: props.host, botId })
             const channelsLabel = formatChannelsLabel(channels)
             const port = portByBot.get(botId)
             const portLabel = typeof port === "number" ? `port ${port}` : null

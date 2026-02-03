@@ -68,8 +68,8 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   const hostCfg = (params.config.hosts as any)?.[hostName];
   if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
 
-  const gateways = params.config.fleet.gatewayOrder || [];
-  const gatewayConfigs = (params.config.fleet.gateways || {}) as Record<string, unknown>;
+  const gateways = Array.isArray((hostCfg as any)?.botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
+  const gatewayConfigs = ((hostCfg as any)?.bots || {}) as Record<string, unknown>;
 
   const secretNamesAll = new Set<string>();
   const secretNamesRequired = new Set<string>();
@@ -164,7 +164,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   for (const gatewayId of gateways) {
     const gatewayCfg = (gatewayConfigs as any)?.[gatewayId] || {};
     const profile = (gatewayCfg as any)?.profile || {};
-    const openclaw = buildOpenClawGatewayConfig({ config: params.config, gatewayId }).merged;
+    const openclaw = buildOpenClawGatewayConfig({ config: params.config, hostName, botId: gatewayId }).merged;
 
     const baseSecretEnv = buildBaseSecretEnv({
       globalEnv: fleetSecretEnv,
@@ -260,7 +260,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
               path: `models.providers.${providerId}.apiKey`,
               gateway: gatewayId,
               message: `Inline API key detected at models.providers.${providerId}.apiKey`,
-              suggestion: `Replace with ${suggested} and wire it in fleet.secretEnv or fleet.gateways.${gatewayId}.profile.secretEnv.`,
+              suggestion: `Replace with ${suggested} and wire it in fleet.secretEnv or hosts.${hostName}.bots.${gatewayId}.profile.secretEnv.`,
             });
           }
         }
@@ -387,7 +387,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
           gateway: gatewayId,
           fileId,
           targetPath,
-          message: `fleet.gateways.${gatewayId}.profile.secretFiles targetPath must not contain /../, end with /.., or include NUL`,
+          message: `hosts.${hostName}.bots.${gatewayId}.profile.secretFiles targetPath must not contain /../, end with /.., or include NUL`,
         });
         continue;
       }
@@ -398,7 +398,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
           gateway: gatewayId,
           fileId,
           targetPath,
-          message: `fleet.gateways.${gatewayId}.profile.secretFiles targetPath must be under ${expectedPrefix}`,
+          message: `hosts.${hostName}.bots.${gatewayId}.profile.secretFiles targetPath must be under ${expectedPrefix}`,
         });
       }
     }

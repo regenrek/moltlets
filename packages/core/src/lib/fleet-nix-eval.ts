@@ -11,7 +11,10 @@ const FleetConfigSchema = z.object({
 export async function evalFleetConfig(params: {
   repoRoot: string;
   nixBin: string;
+  hostName: string;
 }): Promise<FleetConfig> {
+  const hostName = String(params.hostName || "").trim();
+  if (!hostName) throw new Error("hostName is required for fleet config eval");
   const expr = [
     "let",
     "  flake = builtins.getFlake (toString ./.);",
@@ -20,7 +23,8 @@ export async function evalFleetConfig(params: {
     "    root = flake.outPath;",
     "    config = builtins.fromJSON (builtins.readFile (flake.outPath + \"/fleet/clawlets.json\"));",
     "  };",
-    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project; };",
+    `  hostName = ${JSON.stringify(hostName)};`,
+    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project hostName; };",
     "in {",
     "  gateways = fleet.gateways;",
     "  gatewayProfiles = fleet.gatewayProfiles;",

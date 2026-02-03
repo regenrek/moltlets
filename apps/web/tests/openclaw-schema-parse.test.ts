@@ -107,8 +107,7 @@ describe("openclaw schema output parsing", () => {
       loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { gateways: { bot1: {} } },
+          hosts: { h1: { targetHost: "root@127.0.0.1", botsOrder: ["bot1"], bots: { bot1: {} } } },
         },
       }),
     }))
@@ -150,8 +149,7 @@ describe("openclaw schema output parsing", () => {
       loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { gateways: { bot1: {} } },
+          hosts: { h1: { targetHost: "root@127.0.0.1", botsOrder: ["bot1"], bots: { bot1: {} } } },
         },
       }),
     }))
@@ -193,8 +191,7 @@ describe("openclaw schema output parsing", () => {
       loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { gateways: { bot1: {} } },
+          hosts: { h1: { targetHost: "root@127.0.0.1", botsOrder: ["bot1"], bots: { bot1: {} } } },
         },
       }),
     }))
@@ -290,8 +287,7 @@ describe("openclaw schema output parsing", () => {
       loadClawletsConfig: () => ({
         config: {
           defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1" } },
-          fleet: { gateways: { bot1: {} } },
+          hosts: { h1: { targetHost: "root@127.0.0.1", botsOrder: ["bot1"], bots: { bot1: {} } } },
         },
       }),
     }))

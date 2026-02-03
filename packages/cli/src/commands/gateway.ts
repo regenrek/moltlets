@@ -2,7 +2,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
 import { findRepoRoot } from "@clawlets/core/lib/repo";
-import { ClawletsConfigSchema, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
+import { ClawletsConfigSchema, loadClawletsConfig, resolveHostName, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
 
 function validateGatewayId(value: string): string | undefined {
@@ -13,24 +13,40 @@ function validateGatewayId(value: string): string | undefined {
 }
 
 const list = defineCommand({
-  meta: { name: "list", description: "List gateways (from fleet/clawlets.json)." },
-  args: {},
+  meta: { name: "list", description: "List bots for a host (from fleet/clawlets.json)." },
+  args: {
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+  },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { config } = loadClawletsConfig({ repoRoot });
-    console.log((config.fleet.gatewayOrder || []).join("\n"));
+    const resolved = resolveHostName({ config, host: args.host });
+    if (!resolved.ok) {
+      const tips = resolved.tips.length > 0 ? `; ${resolved.tips.join("; ")}` : "";
+      throw new Error(`${resolved.message}${tips}`);
+    }
+    const hostCfg = (config.hosts as any)?.[resolved.host];
+    console.log((hostCfg?.botsOrder || []).join("\n"));
   },
 });
 
 const add = defineCommand({
-  meta: { name: "add", description: "Add a gateway id to fleet/clawlets.json." },
+  meta: { name: "add", description: "Add a bot id to a host in fleet/clawlets.json." },
   args: {
     gateway: { type: "string", description: "Gateway id (e.g. main)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     interactive: { type: "boolean", description: "Prompt for missing inputs (requires TTY).", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawletsConfig({ repoRoot });
+    const resolved = resolveHostName({ config, host: args.host });
+    if (!resolved.ok) {
+      const tips = resolved.tips.length > 0 ? `; ${resolved.tips.join("; ")}` : "";
+      throw new Error(`${resolved.message}${tips}`);
+    }
+    const hostCfg = (config.hosts as any)?.[resolved.host];
+    if (!hostCfg) throw new Error(`missing host in config.hosts: ${resolved.host}`);
 
     let gatewayId = String(args.gateway || "").trim();
     if (!gatewayId) {
@@ -49,47 +65,59 @@ const add = defineCommand({
     const err = validateGatewayId(gatewayId);
     if (err) throw new Error(err);
 
-    const existingGateways = config.fleet.gatewayOrder;
-    if (existingGateways.includes(gatewayId) || config.fleet.gateways[gatewayId]) {
-      console.log(`ok: already present: ${gatewayId}`);
+    const existingBots = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+    const botsById = (hostCfg.bots as any) || {};
+    if (existingBots.includes(gatewayId) || botsById[gatewayId]) {
+      console.log(`ok: already present: ${gatewayId} (host=${resolved.host})`);
       return;
     }
 
+    const nextHost = {
+      ...hostCfg,
+      botsOrder: [...existingBots, gatewayId],
+      bots: { ...botsById, [gatewayId]: {} },
+    };
     const next = {
       ...config,
-      fleet: {
-        ...config.fleet,
-        gatewayOrder: [...existingGateways, gatewayId],
-        gateways: { ...config.fleet.gateways, [gatewayId]: {} },
-      },
+      hosts: { ...config.hosts, [resolved.host]: nextHost },
     };
     const validated = ClawletsConfigSchema.parse(next);
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: added gateway ${gatewayId}`);
+    console.log(`ok: added bot ${gatewayId} (host=${resolved.host})`);
   },
 });
 
 const rm = defineCommand({
-  meta: { name: "rm", description: "Remove a gateway id from fleet/clawlets.json." },
+  meta: { name: "rm", description: "Remove a bot id from a host in fleet/clawlets.json." },
   args: {
     gateway: { type: "string", description: "Gateway id to remove." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawletsConfig({ repoRoot });
+    const resolved = resolveHostName({ config, host: args.host });
+    if (!resolved.ok) {
+      const tips = resolved.tips.length > 0 ? `; ${resolved.tips.join("; ")}` : "";
+      throw new Error(`${resolved.message}${tips}`);
+    }
+    const hostCfg = (config.hosts as any)?.[resolved.host];
+    if (!hostCfg) throw new Error(`missing host in config.hosts: ${resolved.host}`);
     const gatewayId = String(args.gateway || "").trim();
     if (!gatewayId) throw new Error("missing --gateway");
-    const existingGateways = config.fleet.gatewayOrder;
-    if (!existingGateways.includes(gatewayId) && !config.fleet.gateways[gatewayId]) {
-      throw new Error(`gateway not found: ${gatewayId}`);
+    const existingBots = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
+    const botsById = (hostCfg.bots as any) || {};
+    if (!existingBots.includes(gatewayId) && !botsById[gatewayId]) {
+      throw new Error(`bot not found on host=${resolved.host}: ${gatewayId}`);
     }
-    const nextGateways = existingGateways.filter((id) => id !== gatewayId);
-    const nextGatewaysRecord = { ...config.fleet.gateways };
-    delete (nextGatewaysRecord as any)[gatewayId];
-    const next = { ...config, fleet: { ...config.fleet, gatewayOrder: nextGateways, gateways: nextGatewaysRecord } };
+    const nextBotsOrder = existingBots.filter((id) => id !== gatewayId);
+    const nextBots = { ...botsById };
+    delete (nextBots as any)[gatewayId];
+    const nextHost = { ...hostCfg, botsOrder: nextBotsOrder, bots: nextBots };
+    const next = { ...config, hosts: { ...config.hosts, [resolved.host]: nextHost } };
     const validated = ClawletsConfigSchema.parse(next);
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: removed gateway ${gatewayId}`);
+    console.log(`ok: removed bot ${gatewayId} (host=${resolved.host})`);
   },
 });
 

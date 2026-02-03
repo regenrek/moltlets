@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 function baseConfig(host: string) {
   return {
-    schemaVersion: 16,
+    schemaVersion: 17,
     defaultHost: host,
     baseFlake: "",
     fleet: {
@@ -13,18 +13,7 @@ function baseConfig(host: string) {
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      gatewayOrder: ["agent"],
-      gateways: {
-        agent: {
-          profile: { secretEnv: {}, secretFiles: {} },
-          channels: {
-            whatsapp: { enabled: true, dmPolicy: "open", allowFrom: ["*"] },
-          },
-          openclaw: {},
-          clf: {},
-        },
-      },
-      codex: { enable: false, gateways: [] },
+      codex: { enable: false, bots: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {
@@ -42,6 +31,17 @@ function baseConfig(host: string) {
     hosts: {
       [host]: {
         enable: false,
+        botsOrder: ["agent"],
+        bots: {
+          agent: {
+            profile: { secretEnv: {}, secretFiles: {} },
+            channels: {
+              whatsapp: { enabled: true, dmPolicy: "open", allowFrom: ["*"] },
+            },
+            openclaw: {},
+            clf: {},
+          },
+        },
         diskDevice: "/dev/sda",
         flakeHost: "",
         hetzner: { serverType: "cx22" },
@@ -107,10 +107,10 @@ describe("openclaw harden command", () => {
     await openclawHarden.run({ args: {} } as any);
     const out = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
     expect(out).toMatch(/planned: update fleet\/clawlets\.json/);
-    expect(out).toMatch(/fleet\.gateways\.agent\.openclaw\.logging\.redactSensitive/);
-    expect(out).toMatch(/fleet\.gateways\.agent\.openclaw\.session\.dmScope/);
-    expect(out).toMatch(/fleet\.gateways\.agent\.channels\.whatsapp\.dmPolicy/);
-    expect(out).toMatch(/fleet\.gateways\.agent\.channels\.whatsapp\.groupPolicy/);
+    expect(out).toMatch(/hosts\.openclaw-fleet-host\.bots\.agent\.openclaw\.logging\.redactSensitive/);
+    expect(out).toMatch(/hosts\.openclaw-fleet-host\.bots\.agent\.openclaw\.session\.dmScope/);
+    expect(out).toMatch(/hosts\.openclaw-fleet-host\.bots\.agent\.channels\.whatsapp\.dmPolicy/);
+    expect(out).toMatch(/hosts\.openclaw-fleet-host\.bots\.agent\.channels\.whatsapp\.groupPolicy/);
   });
 
   it("writes changes when --write is set", async () => {
@@ -118,9 +118,9 @@ describe("openclaw harden command", () => {
     await openclawHarden.run({ args: { write: true } } as any);
     const raw = await readFile(path.join(dir, "fleet", "clawlets.json"), "utf8");
     const parsed = JSON.parse(raw);
-    expect(parsed.fleet.gateways.agent.openclaw.logging.redactSensitive).toBe("tools");
-    expect(parsed.fleet.gateways.agent.openclaw.session.dmScope).toBe("per-channel-peer");
-    expect(parsed.fleet.gateways.agent.channels.whatsapp.dmPolicy).toBe("pairing");
-    expect(parsed.fleet.gateways.agent.channels.whatsapp.groupPolicy).toBe("allowlist");
+    expect(parsed.hosts["openclaw-fleet-host"].bots.agent.openclaw.logging.redactSensitive).toBe("tools");
+    expect(parsed.hosts["openclaw-fleet-host"].bots.agent.openclaw.session.dmScope).toBe("per-channel-peer");
+    expect(parsed.hosts["openclaw-fleet-host"].bots.agent.channels.whatsapp.dmPolicy).toBe("pairing");
+    expect(parsed.hosts["openclaw-fleet-host"].bots.agent.channels.whatsapp.groupPolicy).toBe("allowlist");
   });
 });

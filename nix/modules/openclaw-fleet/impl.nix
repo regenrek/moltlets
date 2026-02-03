@@ -26,8 +26,8 @@ in
         message = "services.openclawFleet.gatewayProfiles keys must be a subset of services.openclawFleet.gateways.";
       }
       {
-        assertion = lib.all (b: lib.elem b cfg.gateways) cfg.codex.gateways;
-        message = "services.openclawFleet.codex.gateways must be a subset of services.openclawFleet.gateways.";
+        assertion = lib.all (b: lib.elem b cfg.gateways) cfg.codex.bots;
+        message = "services.openclawFleet.codex.bots must be a subset of services.openclawFleet.gateways.";
       }
       {
         assertion = lib.all (b: ((defs.getGatewayProfile b).skills.allowBundled or null) != null) cfg.gateways;

@@ -56,6 +56,7 @@ function normalizeAgentList(agents: unknown): AgentEntry[] {
 
 export function GatewayPersonas(props: {
   projectId: string
+  host: string
   botId: string
   agents: unknown
   canEdit: boolean
@@ -89,6 +90,7 @@ export function GatewayPersonas(props: {
       await addGatewayAgent({
         data: {
           projectId: props.projectId,
+          host: props.host,
           gatewayId: props.botId,
           agentId: effectiveAgentId,
           name: displayName,
@@ -110,7 +112,7 @@ export function GatewayPersonas(props: {
   const removeAgent = useMutation({
     mutationFn: async (agentId: string) =>
       await removeGatewayAgent({
-        data: { projectId: props.projectId, gatewayId: props.botId, agentId },
+        data: { projectId: props.projectId, host: props.host, gatewayId: props.botId, agentId },
       }),
     onSuccess: () => {
       toast.success("Agent removed")

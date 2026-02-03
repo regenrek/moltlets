@@ -15,22 +15,24 @@ const baseHost = {
 describe("openclaw gateway config builder", () => {
   it("merges typed surfaces into openclaw config", () => {
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
-      fleet: {
-        gatewayOrder: ["main"],
-        gateways: {
-          main: {
-            channels: { discord: { enabled: true } },
-            hooks: { tokenSecret: "hooks_token" },
-            skills: { entries: { "brave-search": { apiKeySecret: "brave_api_key" } } },
-            plugins: { enabled: true },
+      schemaVersion: 17,
+      hosts: {
+        "openclaw-fleet-host": {
+          ...baseHost,
+          botsOrder: ["main"],
+          bots: {
+            main: {
+              channels: { discord: { enabled: true } },
+              hooks: { tokenSecret: "hooks_token" },
+              skills: { entries: { "brave-search": { apiKeySecret: "brave_api_key" } } },
+              plugins: { enabled: true },
+            },
           },
         },
       },
-      hosts: { "openclaw-fleet-host": baseHost },
     });
 
-    const res = buildOpenClawGatewayConfig({ config, gatewayId: "main" });
+    const res = buildOpenClawGatewayConfig({ config, hostName: "openclaw-fleet-host", botId: "main" });
     const expectedEnvVar = skillApiKeyEnvVar("brave-search");
 
     expect((res.merged as any).channels?.discord?.enabled).toBe(true);
@@ -45,19 +47,21 @@ describe("openclaw gateway config builder", () => {
       { id: "support", name: "Support" },
     ];
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
-      fleet: {
-        gatewayOrder: ["main"],
-        gateways: {
-          main: {
-            agents: { list: agentsList },
+      schemaVersion: 17,
+      hosts: {
+        "openclaw-fleet-host": {
+          ...baseHost,
+          botsOrder: ["main"],
+          bots: {
+            main: {
+              agents: { list: agentsList },
+            },
           },
         },
       },
-      hosts: { "openclaw-fleet-host": baseHost },
     });
 
-    const res = buildOpenClawGatewayConfig({ config, gatewayId: "main" });
+    const res = buildOpenClawGatewayConfig({ config, hostName: "openclaw-fleet-host", botId: "main" });
     expect((res.merged as any).agents?.list).toEqual(agentsList);
   });
 });

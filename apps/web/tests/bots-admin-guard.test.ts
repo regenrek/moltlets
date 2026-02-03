@@ -40,7 +40,7 @@ async function loadBots(role: "admin" | "viewer") {
       },
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { gateways: { bot1: { openclaw: {} } } } },
+        config: { hosts: { alpha: { botsOrder: ["bot1"], bots: { bot1: { openclaw: {} } } } } },
       }),
       writeClawletsConfig: async () => {},
     }
@@ -63,7 +63,7 @@ describe("bots admin guard", () => {
               botId: "bot1",
               openclaw: {},
               schemaMode: "pinned",
-              host: "",
+              host: "alpha",
             },
           }),
       ),
@@ -83,7 +83,7 @@ describe("bots admin guard", () => {
             botId: "bot1",
             openclaw: {},
             schemaMode: "pinned",
-            host: "",
+            host: "alpha",
           },
         }),
     )

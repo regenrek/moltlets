@@ -30,8 +30,7 @@ describe("server command", () => {
   it("audit emits ok checks and json", async () => {
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" } },
-      fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ config, hostName: "alpha", hostCfg });

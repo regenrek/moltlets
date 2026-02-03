@@ -38,7 +38,7 @@ export function validateFleetPolicy(params: {
   const gatewayProfiles = fleet.gatewayProfiles && typeof fleet.gatewayProfiles === "object" ? fleet.gatewayProfiles : {};
 
   if (gateways.length === 0) {
-    violations.push({ filePath, message: "fleet.gateways is empty or missing" });
+    violations.push({ filePath, message: "host bots list is empty or missing" });
     return { ok: false, violations };
   }
 

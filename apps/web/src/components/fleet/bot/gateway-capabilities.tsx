@@ -30,6 +30,7 @@ export function BotCapabilities(props: {
         data: {
           projectId: props.projectId as Id<"projects">,
           botId: props.botId,
+          host: props.host,
           kind: "channel",
           presetId,
         },

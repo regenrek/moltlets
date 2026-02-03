@@ -19,7 +19,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWLETS_CONFIG_SCHEMA_VERSION = 16 as const;
+export const CLAWLETS_CONFIG_SCHEMA_VERSION = 17 as const;
 
 export const GATEWAY_ARCHITECTURES = ["multi", "single"] as const;
 export const GatewayArchitectureSchema = z.enum(GATEWAY_ARCHITECTURES);
@@ -208,18 +208,18 @@ const FleetGatewaySchema = z
         code: z.ZodIssueCode.custom,
         path: ["clawdbot"],
         message:
-          "The 'clawdbot' key has been renamed to 'openclaw'. Please update fleet.gateways.<gateway>.clawdbot to fleet.gateways.<gateway>.openclaw.",
+          "The 'clawdbot' key has been renamed to 'openclaw'. Please update hosts.<host>.bots.<botId>.clawdbot to hosts.<host>.bots.<botId>.openclaw.",
       });
     }
 
-    // No backwards-compat: typed surfaces must not be set under fleet.gateways.<gateway>.openclaw.*.
+    // No backwards-compat: typed surfaces must not be set under hosts.<host>.bots.<botId>.openclaw.*.
     const legacy = gateway.openclaw as any;
     const rejectLegacy = (key: string) => {
       if (legacy?.[key] === undefined) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["openclaw", key],
-        message: `Do not set fleet.gateways.<gateway>.openclaw.${key}; use fleet.gateways.<gateway>.${key} instead.`,
+        message: `Do not set hosts.<host>.bots.<botId>.openclaw.${key}; use hosts.<host>.bots.<botId>.${key} instead.`,
       });
     };
     rejectLegacy("channels");
@@ -233,14 +233,14 @@ const FleetGatewaySchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "hooks"],
-        message: "Do not set fleet.gateways.<gateway>.profile.hooks; use fleet.gateways.<gateway>.hooks instead.",
+        message: "Do not set hosts.<host>.bots.<botId>.profile.hooks; use hosts.<host>.bots.<botId>.hooks instead.",
       });
     }
     if (profile?.skills !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "skills"],
-        message: "Do not set fleet.gateways.<gateway>.profile.skills; use fleet.gateways.<gateway>.skills instead.",
+        message: "Do not set hosts.<host>.bots.<botId>.profile.skills; use hosts.<host>.bots.<botId>.skills instead.",
       });
     }
   })
@@ -263,14 +263,21 @@ const FleetSchema = z
     sshAuthorizedKeys: z.array(z.string().trim().min(1)).default(() => []),
     sshKnownHosts: z.array(z.string().trim().min(1)).default(() => []),
     gatewayArchitecture: GatewayArchitectureSchema.optional(),
-    gatewayOrder: z.array(GatewayIdSchema).default(() => []),
-    gateways: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
     codex: z
       .object({
         enable: z.boolean().default(false),
-        gateways: z.array(GatewayIdSchema).default(() => []),
+        bots: z.array(GatewayIdSchema).default(() => []),
       })
-      .default(() => ({ enable: false, gateways: [] })),
+      .default(() => ({ enable: false, bots: [] }))
+      .superRefine((codex, ctx) => {
+        if ((codex as any).gateways !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["gateways"],
+            message: "fleet.codex.gateways was removed; use fleet.codex.bots",
+          });
+        }
+      }),
     backups: z
       .object({
         restic: z
@@ -284,244 +291,253 @@ const FleetSchema = z
   })
   .passthrough()
   .superRefine((fleet, ctx) => {
+    if ((fleet as any).gatewayOrder !== undefined || (fleet as any).gateways !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [],
+        message: "fleet.gateways and fleet.gatewayOrder were removed; use hosts.<host>.bots and hosts.<host>.botsOrder",
+      });
+      return;
+    }
     if ((fleet as any).botOrder !== undefined || (fleet as any).bots !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: [],
-        message: "fleet.bots and fleet.botOrder were removed; use fleet.gateways and fleet.gatewayOrder",
+        message: "fleet.bots and fleet.botOrder were removed; use hosts.<host>.bots and hosts.<host>.botsOrder",
       });
       return;
-    }
-
-    const gatewayIds = Object.keys(fleet.gateways || {});
-    const gatewayOrder = fleet.gatewayOrder || [];
-
-    const seen = new Set<string>();
-    for (let i = 0; i < gatewayOrder.length; i++) {
-      const id = gatewayOrder[i]!;
-      if (seen.has(id)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gatewayOrder", i], message: `duplicate gateway id: ${id}` });
-        continue;
-      }
-      seen.add(id);
-      if (!fleet.gateways[id]) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gatewayOrder", i], message: `unknown gateway id: ${id}` });
-      }
-    }
-
-    if (gatewayIds.length > 0 && gatewayOrder.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["gatewayOrder"],
-        message: "gatewayOrder must be set (deterministic order for ports/services)",
-      });
-      return;
-    }
-
-    const missing = gatewayIds.filter((id) => !seen.has(id));
-    if (missing.length > 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["gatewayOrder"],
-        message: `gatewayOrder missing gateways: ${missing.slice(0, 6).join(", ")}${
-          missing.length > 6 ? ` (+${missing.length - 6})` : ""
-        }`,
-      });
     }
   });
 
-const HostSchema = z.object({
-  enable: z.boolean().default(false),
-  diskDevice: z.string().trim().default("/dev/sda"),
-  flakeHost: z.string().trim().default(""),
-  targetHost: z
-    .string()
-    .trim()
-    .min(1)
-    .optional()
-    .refine((v) => (v ? isValidTargetHost(v) : true), {
-      message: "invalid targetHost (expected ssh alias or user@host)",
-    }),
-  hetzner: z
-    .object({
-      serverType: z.string().trim().min(1).default("cx43"),
-      image: z.string().trim().default(""),
-      location: z.string().trim().default("nbg1"),
-    })
-    .default(() => ({ serverType: "cx43", image: "", location: "nbg1" })),
-  provisioning: z
-    .object({
-      adminCidr: z.string().trim().default(""),
-      adminCidrAllowWorldOpen: z.boolean().default(false),
-      // Local path on the operator machine that runs provisioning.
-      // Intentionally default empty to avoid silently persisting a guessed path in shared config.
-      sshPubkeyFile: z.string().trim().default(""),
-    })
-    .superRefine((value, ctx) => {
-      const adminCidr = value.adminCidr.trim();
-      if (!adminCidr) return;
-      const parsed = parseCidr(adminCidr);
-      if (!parsed) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "provisioning.adminCidr must be a valid CIDR (e.g. 203.0.113.10/32)",
-          path: ["adminCidr"],
-        });
-        return;
-      }
-      if (isWorldOpenCidr(parsed) && !value.adminCidrAllowWorldOpen) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "provisioning.adminCidr cannot be world-open unless adminCidrAllowWorldOpen is true",
-          path: ["adminCidr"],
-        });
-      }
-    })
-    .default(() => ({ adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "" })),
-  sshExposure: z
-    .object({
-      mode: SshExposureModeSchema.default("bootstrap"),
-    })
-    .default(() => ({ mode: "bootstrap" as const })),
-  tailnet: z
-    .object({
-      mode: TailnetModeSchema.default("tailscale"),
-    })
-    .default(() => ({ mode: "tailscale" as const })),
-  cache: z
-    .object({
-      substituters: z
-        .array(z.string().trim().min(1))
-        .min(1, { message: "cache.substituters must not be empty" })
-        .default(() => Array.from(DEFAULT_NIX_SUBSTITUTERS)),
-      trustedPublicKeys: z
-        .array(z.string().trim().min(1))
-        .min(1, { message: "cache.trustedPublicKeys must not be empty" })
-        .default(() => Array.from(DEFAULT_NIX_TRUSTED_PUBLIC_KEYS)),
-      netrc: z
-        .object({
-          enable: z.boolean().default(false),
-          secretName: SecretNameSchema.default("garnix_netrc"),
-          path: z.string().trim().default("/etc/nix/netrc"),
-          narinfoCachePositiveTtl: z.number().int().positive().default(3600),
-        })
-        .default(() => ({
+const HostSchema = z
+  .object({
+    enable: z.boolean().default(false),
+    botsOrder: z.array(GatewayIdSchema).default(() => []),
+    bots: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
+    diskDevice: z.string().trim().default("/dev/sda"),
+    flakeHost: z.string().trim().default(""),
+    targetHost: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .refine((v) => (v ? isValidTargetHost(v) : true), {
+        message: "invalid targetHost (expected ssh alias or user@host)",
+      }),
+    hetzner: z
+      .object({
+        serverType: z.string().trim().min(1).default("cx43"),
+        image: z.string().trim().default(""),
+        location: z.string().trim().default("nbg1"),
+      })
+      .default(() => ({ serverType: "cx43", image: "", location: "nbg1" })),
+    provisioning: z
+      .object({
+        adminCidr: z.string().trim().default(""),
+        adminCidrAllowWorldOpen: z.boolean().default(false),
+        // Local path on the operator machine that runs provisioning.
+        // Intentionally default empty to avoid silently persisting a guessed path in shared config.
+        sshPubkeyFile: z.string().trim().default(""),
+      })
+      .superRefine((value, ctx) => {
+        const adminCidr = value.adminCidr.trim();
+        if (!adminCidr) return;
+        const parsed = parseCidr(adminCidr);
+        if (!parsed) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "provisioning.adminCidr must be a valid CIDR (e.g. 203.0.113.10/32)",
+            path: ["adminCidr"],
+          });
+          return;
+        }
+        if (isWorldOpenCidr(parsed) && !value.adminCidrAllowWorldOpen) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "provisioning.adminCidr cannot be world-open unless adminCidrAllowWorldOpen is true",
+            path: ["adminCidr"],
+          });
+        }
+      })
+      .default(() => ({ adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "" })),
+    sshExposure: z
+      .object({
+        mode: SshExposureModeSchema.default("bootstrap"),
+      })
+      .default(() => ({ mode: "bootstrap" as const })),
+    tailnet: z
+      .object({
+        mode: TailnetModeSchema.default("tailscale"),
+      })
+      .default(() => ({ mode: "tailscale" as const })),
+    cache: z
+      .object({
+        substituters: z
+          .array(z.string().trim().min(1))
+          .min(1, { message: "cache.substituters must not be empty" })
+          .default(() => Array.from(DEFAULT_NIX_SUBSTITUTERS)),
+        trustedPublicKeys: z
+          .array(z.string().trim().min(1))
+          .min(1, { message: "cache.trustedPublicKeys must not be empty" })
+          .default(() => Array.from(DEFAULT_NIX_TRUSTED_PUBLIC_KEYS)),
+        netrc: z
+          .object({
+            enable: z.boolean().default(false),
+            secretName: SecretNameSchema.default("garnix_netrc"),
+            path: z.string().trim().default("/etc/nix/netrc"),
+            narinfoCachePositiveTtl: z.number().int().positive().default(3600),
+          })
+          .default(() => ({
+            enable: false,
+            secretName: "garnix_netrc",
+            path: "/etc/nix/netrc",
+            narinfoCachePositiveTtl: 3600,
+          })),
+      })
+      .superRefine((cache, ctx) => {
+        if (cache.netrc.enable && !cache.netrc.secretName.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["netrc", "secretName"],
+            message: "cache.netrc.secretName must be set when cache.netrc.enable is true",
+          });
+        }
+        if (cache.netrc.enable && !cache.netrc.path.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["netrc", "path"],
+            message: "cache.netrc.path must be set when cache.netrc.enable is true",
+          });
+        }
+      })
+      .default(() => ({
+        substituters: Array.from(DEFAULT_NIX_SUBSTITUTERS),
+        trustedPublicKeys: Array.from(DEFAULT_NIX_TRUSTED_PUBLIC_KEYS),
+        netrc: {
           enable: false,
           secretName: "garnix_netrc",
           path: "/etc/nix/netrc",
           narinfoCachePositiveTtl: 3600,
-        })),
-    })
-    .superRefine((cache, ctx) => {
-      if (cache.netrc.enable && !cache.netrc.secretName.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["netrc", "secretName"],
-          message: "cache.netrc.secretName must be set when cache.netrc.enable is true",
-        });
-      }
-      if (cache.netrc.enable && !cache.netrc.path.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["netrc", "path"],
-          message: "cache.netrc.path must be set when cache.netrc.enable is true",
-        });
-      }
-    })
-    .default(() => ({
-      substituters: Array.from(DEFAULT_NIX_SUBSTITUTERS),
-      trustedPublicKeys: Array.from(DEFAULT_NIX_TRUSTED_PUBLIC_KEYS),
-      netrc: {
+        },
+      })),
+    operator: z
+      .object({
+        deploy: z
+          .object({
+            enable: z.boolean().default(false),
+          })
+          .default(() => ({ enable: false })),
+      })
+      .default(() => ({ deploy: { enable: false } })),
+    selfUpdate: z
+      .object({
+        enable: z.boolean().default(false),
+        interval: z.string().trim().default("30min"),
+        baseUrls: z.array(z.string().trim().min(1)).default([]),
+        channel: z
+          .string()
+          .trim()
+          .default("prod")
+          .refine((v) => /^[a-z][a-z0-9-]*$/.test(v), { message: "invalid selfUpdate.channel (use [a-z][a-z0-9-]*)" }),
+        publicKeys: z.array(z.string().trim().min(1)).default([]),
+        previousPublicKeys: z.array(z.string().trim().min(1)).default([]),
+        previousPublicKeysValidUntil: z.string().trim().default(""),
+        allowUnsigned: z.boolean().default(false),
+        allowRollback: z.boolean().default(false),
+        healthCheckUnit: z.string().trim().default(""),
+      })
+      .superRefine((v, ctx) => {
+        if (v.enable && v.baseUrls.length === 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["baseUrls"],
+            message: "selfUpdate.baseUrls must be set when enabled",
+          });
+        }
+        if (v.enable && !v.allowUnsigned && v.publicKeys.length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["publicKeys"], message: "selfUpdate.publicKeys must be set when enabled (or enable allowUnsigned for dev)" });
+        }
+        if (v.previousPublicKeys.length > 0 && !v.previousPublicKeysValidUntil) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["previousPublicKeysValidUntil"],
+            message: "selfUpdate.previousPublicKeysValidUntil is required when previousPublicKeys is set",
+          });
+        }
+        if (v.previousPublicKeysValidUntil && v.previousPublicKeys.length === 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["previousPublicKeys"],
+            message: "selfUpdate.previousPublicKeys is required when previousPublicKeysValidUntil is set",
+          });
+        }
+        if (v.previousPublicKeysValidUntil && Number.isNaN(Date.parse(v.previousPublicKeysValidUntil))) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["previousPublicKeysValidUntil"],
+            message: "invalid selfUpdate.previousPublicKeysValidUntil (expected ISO timestamp)",
+          });
+        }
+        const allKeys = new Set([...v.publicKeys, ...v.previousPublicKeys]);
+        if (allKeys.size !== v.publicKeys.length + v.previousPublicKeys.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["previousPublicKeys"],
+            message: "selfUpdate.previousPublicKeys must not overlap selfUpdate.publicKeys",
+          });
+        }
+        if (v.healthCheckUnit && !/^[A-Za-z0-9@._:-]+(\.service)?$/.test(v.healthCheckUnit)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["healthCheckUnit"], message: "invalid selfUpdate.healthCheckUnit" });
+        }
+      })
+      .default(() => ({
         enable: false,
-        secretName: "garnix_netrc",
-        path: "/etc/nix/netrc",
-        narinfoCachePositiveTtl: 3600,
-      },
-    })),
-  operator: z
-    .object({
-      deploy: z
-        .object({
-          enable: z.boolean().default(false),
-        })
-        .default(() => ({ enable: false })),
-    })
-    .default(() => ({ deploy: { enable: false } })),
-  selfUpdate: z
-    .object({
-      enable: z.boolean().default(false),
-      interval: z.string().trim().default("30min"),
-      baseUrls: z.array(z.string().trim().min(1)).default([]),
-      channel: z
-        .string()
-        .trim()
-        .default("prod")
-        .refine((v) => /^[a-z][a-z0-9-]*$/.test(v), { message: "invalid selfUpdate.channel (use [a-z][a-z0-9-]*)" }),
-      publicKeys: z.array(z.string().trim().min(1)).default([]),
-      previousPublicKeys: z.array(z.string().trim().min(1)).default([]),
-      previousPublicKeysValidUntil: z.string().trim().default(""),
-      allowUnsigned: z.boolean().default(false),
-      allowRollback: z.boolean().default(false),
-      healthCheckUnit: z.string().trim().default(""),
-    })
-    .superRefine((v, ctx) => {
-      if (v.enable && v.baseUrls.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["baseUrls"],
-          message: "selfUpdate.baseUrls must be set when enabled",
-        });
+        interval: "30min",
+        baseUrls: [],
+        channel: "prod",
+        publicKeys: [],
+        previousPublicKeys: [],
+        previousPublicKeysValidUntil: "",
+        allowUnsigned: false,
+        allowRollback: false,
+        healthCheckUnit: "",
+      })),
+    agentModelPrimary: z.string().trim().default("anthropic/claude-opus-4-5"),
+  })
+  .superRefine((host, ctx) => {
+    const botIds = Object.keys(host.bots || {});
+    const botsOrder = host.botsOrder || [];
+    const seen = new Set<string>();
+    for (let i = 0; i < botsOrder.length; i++) {
+      const id = botsOrder[i]!;
+      if (seen.has(id)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botsOrder", i], message: `duplicate bot id: ${id}` });
+        continue;
       }
-      if (v.enable && !v.allowUnsigned && v.publicKeys.length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["publicKeys"], message: "selfUpdate.publicKeys must be set when enabled (or enable allowUnsigned for dev)" });
+      seen.add(id);
+      if (!host.bots[id]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botsOrder", i], message: `unknown bot id: ${id}` });
       }
-      if (v.previousPublicKeys.length > 0 && !v.previousPublicKeysValidUntil) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousPublicKeysValidUntil"],
-          message: "selfUpdate.previousPublicKeysValidUntil is required when previousPublicKeys is set",
-        });
-      }
-      if (v.previousPublicKeysValidUntil && v.previousPublicKeys.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousPublicKeys"],
-          message: "selfUpdate.previousPublicKeys is required when previousPublicKeysValidUntil is set",
-        });
-      }
-      if (v.previousPublicKeysValidUntil && Number.isNaN(Date.parse(v.previousPublicKeysValidUntil))) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousPublicKeysValidUntil"],
-          message: "invalid selfUpdate.previousPublicKeysValidUntil (expected ISO timestamp)",
-        });
-      }
-      const allKeys = new Set([...v.publicKeys, ...v.previousPublicKeys]);
-      if (allKeys.size !== v.publicKeys.length + v.previousPublicKeys.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousPublicKeys"],
-          message: "selfUpdate.previousPublicKeys must not overlap selfUpdate.publicKeys",
-        });
-      }
-      if (v.healthCheckUnit && !/^[A-Za-z0-9@._:-]+(\.service)?$/.test(v.healthCheckUnit)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["healthCheckUnit"], message: "invalid selfUpdate.healthCheckUnit" });
-      }
-    })
-    .default(() => ({
-      enable: false,
-      interval: "30min",
-      baseUrls: [],
-      channel: "prod",
-      publicKeys: [],
-      previousPublicKeys: [],
-      previousPublicKeysValidUntil: "",
-      allowUnsigned: false,
-      allowRollback: false,
-      healthCheckUnit: "",
-    })),
-  agentModelPrimary: z.string().trim().default("anthropic/claude-opus-4-5"),
-});
+    }
+
+    if (botIds.length > 0 && botsOrder.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["botsOrder"],
+        message: "botsOrder must be set (deterministic order for ports/services)",
+      });
+      return;
+    }
+
+    const missing = botIds.filter((id) => !seen.has(id));
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["botsOrder"],
+        message: `botsOrder missing bots: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? ` (+${missing.length - 6})` : ""}`,
+      });
+    }
+  });
 
 const CattleSchema = z
   .object({
@@ -572,9 +588,7 @@ export const ClawletsConfigSchema = z.object({
     secretFiles: {},
     sshAuthorizedKeys: [],
     sshKnownHosts: [],
-    gatewayOrder: [],
-    gateways: {},
-    codex: { enable: false, gateways: [] },
+    codex: { enable: false, bots: [] },
     backups: { restic: { enable: false, repository: "" } },
   })),
   cattle: CattleSchema,
@@ -629,10 +643,10 @@ export function getTailnetMode(hostCfg: ClawletsHostConfig | null | undefined): 
   return "none";
 }
 
-export function createDefaultClawletsConfig(params: { host: string; gateways?: string[] }): ClawletsConfig {
+export function createDefaultClawletsConfig(params: { host: string; bots?: string[] }): ClawletsConfig {
   const host = params.host.trim() || "openclaw-fleet-host";
-  const gateways = (params.gateways || ["maren", "sonja", "gunnar", "melinda"]).map((id) => id.trim()).filter(Boolean);
-  const gatewaysRecord = Object.fromEntries(gateways.map((id) => [id, {}]));
+  const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((id) => id.trim()).filter(Boolean);
+  const botsRecord = Object.fromEntries(bots.map((id) => [id, {}]));
   return ClawletsConfigSchema.parse({
     schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
     defaultHost: host,
@@ -642,9 +656,7 @@ export function createDefaultClawletsConfig(params: { host: string; gateways?: s
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      gatewayOrder: gateways,
-      gateways: gatewaysRecord,
-      codex: { enable: false, gateways: [] },
+      codex: { enable: false, bots: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {
@@ -662,6 +674,8 @@ export function createDefaultClawletsConfig(params: { host: string; gateways?: s
     hosts: {
       [host]: {
         enable: false,
+        botsOrder: bots,
+        bots: botsRecord,
         diskDevice: "/dev/sda",
         flakeHost: "",
         hetzner: { serverType: "cx43", image: "", location: "nbg1" },

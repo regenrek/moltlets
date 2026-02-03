@@ -7,6 +7,7 @@ import { isPlainObject } from "../helpers"
 import { TextListField } from "../shared/text-list-field"
 
 export function ChannelsConfigCard(props: {
+  host: string
   botId: string
   channels: unknown
   channelModels: ChannelUiModel[]
@@ -29,7 +30,7 @@ export function ChannelsConfigCard(props: {
   })
 
   return (
-    <ConfigCard title="Channels config (first-class)" configPath={buildGatewayConfigPath(props.botId, "channels")}>
+    <ConfigCard title="Channels config (first-class)" configPath={buildGatewayConfigPath(props.host, props.botId, "channels")}>
       <div className="grid gap-4 md:grid-cols-2">
         {props.channelModels.map((channel) => {
           const entry = channelsObj[channel.id]

@@ -27,7 +27,8 @@ function RestartOperate() {
     enabled: Boolean(projectId),
   })
   const config = cfg.data?.config as any
-  const bots = useMemo(() => (config?.fleet?.gatewayOrder || []) as string[], [config])
+  const hostCfg = (config as any)?.hosts?.[host]
+  const bots = useMemo(() => (hostCfg?.botsOrder || []) as string[], [hostCfg])
 
   const [unit, setUnit] = useState("clawdbot-*.service")
   const [targetHost, setTargetHost] = useState("")

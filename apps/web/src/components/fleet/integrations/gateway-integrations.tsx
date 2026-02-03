@@ -106,7 +106,7 @@ export function BotIntegrations(props: {
 
       if (params.enabled !== undefined) {
         ops.push({
-          path: buildGatewayConfigPath(props.botId, "channels", params.channelId, "enabled"),
+          path: buildGatewayConfigPath(props.host, props.botId, "channels", params.channelId, "enabled"),
           valueJson: JSON.stringify(params.enabled),
           del: false,
         })
@@ -114,7 +114,7 @@ export function BotIntegrations(props: {
 
       if (params.allowFrom !== undefined) {
         ops.push({
-          path: buildGatewayConfigPath(props.botId, "channels", params.channelId, "allowFrom"),
+          path: buildGatewayConfigPath(props.host, props.botId, "channels", params.channelId, "allowFrom"),
           valueJson: JSON.stringify(params.allowFrom),
           del: false,
         })
@@ -171,14 +171,14 @@ export function BotIntegrations(props: {
 
       const ops: Array<{ path: string; value?: string; valueJson?: string; del: boolean }> = [
         {
-          path: buildGatewayConfigPath(props.botId, "skills", "entries", parsedSkill.data, "apiKeySecret"),
+          path: buildGatewayConfigPath(props.host, props.botId, "skills", "entries", parsedSkill.data, "apiKeySecret"),
           value: secret,
           del: false,
         },
       ]
       if (params.clearInline) {
         ops.push({
-          path: buildGatewayConfigPath(props.botId, "skills", "entries", parsedSkill.data, "apiKey"),
+          path: buildGatewayConfigPath(props.host, props.botId, "skills", "entries", parsedSkill.data, "apiKey"),
           del: true,
         })
       }
@@ -206,6 +206,7 @@ export function BotIntegrations(props: {
 
       <ChannelsConfigCard
         key={channelsKey}
+        host={props.host}
         botId={props.botId}
         channels={props.channels}
         channelModels={channelModels}
@@ -217,6 +218,7 @@ export function BotIntegrations(props: {
 
       <HooksConfigCard
         key={hooksKey}
+        host={props.host}
         botId={props.botId}
         hooks={props.hooks}
         canEdit={props.canEdit}
@@ -225,7 +227,7 @@ export function BotIntegrations(props: {
         initialGmailPushTokenSecret={hooksGmailPushTokenSecret}
         onToggleEnabled={(enabled) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "hooks", "enabled"),
+            path: buildGatewayConfigPath(props.host, props.botId, "hooks", "enabled"),
             valueJson: JSON.stringify(enabled),
             del: false,
             successMessage: "Hooks updated",
@@ -234,7 +236,7 @@ export function BotIntegrations(props: {
         onSaveTokenSecret={(raw) => {
           const value = raw.trim()
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "hooks", "tokenSecret"),
+            path: buildGatewayConfigPath(props.host, props.botId, "hooks", "tokenSecret"),
             value: value || undefined,
             del: !value,
             successMessage: "Hooks updated",
@@ -243,7 +245,7 @@ export function BotIntegrations(props: {
         onSaveGmailPushTokenSecret={(raw) => {
           const value = raw.trim()
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "hooks", "gmailPushTokenSecret"),
+            path: buildGatewayConfigPath(props.host, props.botId, "hooks", "gmailPushTokenSecret"),
             value: value || undefined,
             del: !value,
             successMessage: "Hooks updated",
@@ -252,6 +254,7 @@ export function BotIntegrations(props: {
       />
 
       <SkillsConfigCard
+        host={props.host}
         botId={props.botId}
         skills={props.skills}
         canEdit={props.canEdit}
@@ -261,7 +264,7 @@ export function BotIntegrations(props: {
         initialExtraDirsText={extraDirsDefault}
         onSaveAllowBundled={(allowBundled) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "skills", "allowBundled"),
+            path: buildGatewayConfigPath(props.host, props.botId, "skills", "allowBundled"),
             valueJson: JSON.stringify(allowBundled),
             del: false,
             successMessage: "Skills updated",
@@ -269,7 +272,7 @@ export function BotIntegrations(props: {
         }
         onSaveExtraDirs={(extraDirs) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "skills", "load", "extraDirs"),
+            path: buildGatewayConfigPath(props.host, props.botId, "skills", "load", "extraDirs"),
             valueJson: JSON.stringify(extraDirs),
             del: false,
             successMessage: "Skills updated",
@@ -283,7 +286,7 @@ export function BotIntegrations(props: {
             return
           }
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "skills", "entries", parsed.data),
+            path: buildGatewayConfigPath(props.host, props.botId, "skills", "entries", parsed.data),
             del: true,
             successMessage: "Skill entry removed",
           })
@@ -292,6 +295,7 @@ export function BotIntegrations(props: {
 
       <PluginsConfigCard
         key={pluginsKey}
+        host={props.host}
         botId={props.botId}
         plugins={props.plugins}
         canEdit={props.canEdit}
@@ -301,7 +305,7 @@ export function BotIntegrations(props: {
         initialPathsText={pluginsPathsDefault}
         onToggleEnabled={(enabled) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "plugins", "enabled"),
+            path: buildGatewayConfigPath(props.host, props.botId, "plugins", "enabled"),
             valueJson: JSON.stringify(enabled),
             del: false,
             successMessage: "Plugins updated",
@@ -309,7 +313,7 @@ export function BotIntegrations(props: {
         }
         onSaveAllow={(allow) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "plugins", "allow"),
+            path: buildGatewayConfigPath(props.host, props.botId, "plugins", "allow"),
             valueJson: JSON.stringify(allow),
             del: false,
             successMessage: "Plugins updated",
@@ -317,7 +321,7 @@ export function BotIntegrations(props: {
         }
         onSaveDeny={(deny) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "plugins", "deny"),
+            path: buildGatewayConfigPath(props.host, props.botId, "plugins", "deny"),
             valueJson: JSON.stringify(deny),
             del: false,
             successMessage: "Plugins updated",
@@ -325,7 +329,7 @@ export function BotIntegrations(props: {
         }
         onSavePaths={(paths) =>
           writeConfig.mutate({
-            path: buildGatewayConfigPath(props.botId, "plugins", "load", "paths"),
+            path: buildGatewayConfigPath(props.host, props.botId, "plugins", "load", "paths"),
             valueJson: JSON.stringify(paths),
             del: false,
             successMessage: "Plugins updated",
@@ -346,6 +350,7 @@ export function BotIntegrations(props: {
       <SecretWiringDetails
         projectId={props.projectId}
         botId={props.botId}
+        host={props.host}
         canEdit={props.canEdit}
         envVars={envRefs.vars}
         fleetSecretEnv={props.fleetSecretEnv}

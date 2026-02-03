@@ -40,7 +40,7 @@ function BotSettings() {
   })
 
   const config = cfg.data?.config
-  const botCfg = config?.fleet?.gateways?.[botId] as any
+  const botCfg = (config as any)?.hosts?.[host]?.bots?.[botId] as any
   const openclawCfg = botCfg?.openclaw ?? {}
   const channelsCfg = botCfg?.channels ?? {}
   const agentsCfg = botCfg?.agents ?? {}
@@ -83,7 +83,7 @@ function BotSettings() {
         canEdit={canEdit}
       />
 
-      <GatewayPersonas projectId={projectId} botId={botId} agents={agentsCfg} canEdit={canEdit} />
+      <GatewayPersonas projectId={projectId} host={host} botId={botId} agents={agentsCfg} canEdit={canEdit} />
 
       <BotWorkspaceDocs projectId={projectId} botId={botId} canEdit={canEdit} />
 

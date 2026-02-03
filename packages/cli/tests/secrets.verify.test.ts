@@ -79,8 +79,7 @@ describe("secrets verify", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
-      fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -114,8 +113,7 @@ describe("secrets verify", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" } },
-      fleetOverrides: { gatewayOrder: ["maren"], gateways: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });

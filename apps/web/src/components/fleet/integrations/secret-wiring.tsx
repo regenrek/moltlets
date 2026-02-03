@@ -30,6 +30,7 @@ function isShareableEnvVar(envVar: string): boolean {
 export function SecretWiringDetails(props: {
   projectId: string
   botId: string
+  host: string
   canEdit: boolean
   envVars: string[]
   fleetSecretEnv: unknown
@@ -50,7 +51,7 @@ export function SecretWiringDetails(props: {
 
       const path =
         params.scope === "gateway"
-          ? `fleet.gateways.${props.botId}.profile.secretEnv.${envVar}`
+          ? `hosts.${props.host}.bots.${props.botId}.profile.secretEnv.${envVar}`
           : `fleet.secretEnv.${envVar}`
 
       const res = await configDotSet({
@@ -93,7 +94,7 @@ export function SecretWiringDetails(props: {
       const botKey =
         props.botSecretEnv && typeof props.botSecretEnv === "object" ? (props.botSecretEnv as any)[envVar] : undefined
       if (typeof botKey === "string") {
-        ops.push({ path: `fleet.gateways.${props.botId}.profile.secretEnv.${envVar}`, del: true })
+        ops.push({ path: `hosts.${props.host}.bots.${props.botId}.profile.secretEnv.${envVar}`, del: true })
       }
 
       const res = await configDotBatch({ data: { projectId: props.projectId as Id<"projects">, ops } })

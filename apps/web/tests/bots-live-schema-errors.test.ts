@@ -39,7 +39,7 @@ async function loadBots(options: {
       },
       loadClawletsConfigRaw: () => ({
         configPath: "/tmp/fleet/clawlets.json",
-        config: { fleet: { gateways: { bot1: { openclaw: {} } } } },
+        config: { hosts: { h1: { botsOrder: ["bot1"], bots: { bot1: { openclaw: {} } } } } },
       }),
       writeClawletsConfig: async () => {},
     }
@@ -102,7 +102,7 @@ describe("setBotOpenclawConfig schema error mapping", () => {
     })
     const res = await runWithStartContext(context, async () =>
       mod.setBotOpenclawConfig({
-        data: { projectId: "p1" as any, botId: "bot1", host: "", schemaMode: "pinned", openclaw: {} },
+        data: { projectId: "p1" as any, botId: "bot1", host: "h1", schemaMode: "pinned", openclaw: {} },
       }),
     )
     expect(res.ok).toBe(false)
@@ -122,7 +122,7 @@ describe("setBotOpenclawConfig schema error mapping", () => {
         data: {
           projectId: "p1" as any,
           botId: "bot1",
-          host: "",
+          host: "h1",
           schemaMode: "pinned",
           openclaw: { gateway: { auth: { token: "not-an-env-ref" } } },
         },

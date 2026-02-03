@@ -183,15 +183,16 @@ export function parseProjectHostBotInput(data: unknown): { projectId: Id<"projec
   const d = requireObject(data)
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
-    host: parseOptionalHostName(d["host"]),
+    host: parseHostNameRequired(d["host"]),
     botId: parseGatewayIdRequired(d["botId"]),
   }
 }
 
-export function parseProjectBotInput(data: unknown): { projectId: Id<"projects">; botId: string } {
+export function parseProjectBotInput(data: unknown): { projectId: Id<"projects">; host: string; botId: string } {
   const d = requireObject(data)
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
+    host: parseHostNameRequired(d["host"]),
     botId: parseGatewayIdRequired(d["botId"]),
   }
 }
@@ -215,7 +216,7 @@ export function parseBotCapabilityPresetInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     botId: parseGatewayIdRequired(d["botId"]),
-    host: parseOptionalHostName(d["host"]),
+    host: parseHostNameRequired(d["host"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
     schemaMode,
@@ -225,6 +226,7 @@ export function parseBotCapabilityPresetInput(data: unknown): {
 export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   projectId: Id<"projects">
   botId: string
+  host: string
   kind: CapabilityPresetKind
   presetId: string
 } {
@@ -234,6 +236,7 @@ export function parseBotCapabilityPresetPreviewInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     botId: parseGatewayIdRequired(d["botId"]),
+    host: parseHostNameRequired(d["host"]),
     kind: parseCapabilityPresetKind(d["kind"]),
     presetId,
   }
@@ -258,7 +261,7 @@ export function parseBotOpenclawConfigInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     botId: parseGatewayIdRequired(d["botId"]),
-    host: parseOptionalHostName(d["host"]),
+    host: parseHostNameRequired(d["host"]),
     schemaMode,
     openclaw: d["openclaw"],
   }

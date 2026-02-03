@@ -1,27 +1,31 @@
-{ lib, project }:
+{ lib, project, hostName }:
 let
   cfg = project.config;
   fleetCfg = (cfg.fleet or { });
+  hostCfg =
+    if hostName == null || hostName == ""
+    then builtins.throw "hostName is required for fleet-config.nix"
+    else (cfg.hosts.${hostName} or (builtins.throw "unknown host in config.hosts"));
 
   _ =
     if builtins.hasAttr "guildId" fleetCfg
-    then builtins.throw "fleet.guildId was removed; configure Discord in fleet.gateways.<gateway>.channels.discord instead"
+    then builtins.throw "fleet.guildId was removed; configure Discord in hosts.<host>.bots.<botId>.channels.discord instead"
     else if builtins.hasAttr "modelSecrets" fleetCfg
     then builtins.throw "fleet.modelSecrets was removed; use fleet.secretEnv (ENV_VAR -> sops secret name)"
     else null;
 
-  gatewaysById = fleetCfg.gateways or { };
+  gatewaysById = hostCfg.bots or { };
 
   # Single source of truth for gateway instances (deterministic order).
   gateways =
     let
-      order = fleetCfg.gatewayOrder or [ ];
+      order = hostCfg.botsOrder or [ ];
       derived =
         if builtins.isList order && order != [] then order
         else if builtins.isAttrs gatewaysById then builtins.attrNames gatewaysById
         else [ ];
     in
-      if derived == [] then builtins.throw "fleet.gateways must define at least one gateway id"
+      if derived == [] then builtins.throw "hosts.<host>.bots must define at least one bot id"
       else derived;
 
   baseGateway = {
@@ -44,9 +48,9 @@ let
       profile = gatewayCfg.profile or { };
       _ =
         if builtins.hasAttr "discordTokenSecret" profile
-        then builtins.throw "fleet.gateways.<gateway>.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN"
+        then builtins.throw "hosts.<host>.bots.<botId>.profile.discordTokenSecret was removed; use profile.secretEnv.DISCORD_BOT_TOKEN"
         else if builtins.hasAttr "modelSecrets" profile
-        then builtins.throw "fleet.gateways.<gateway>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
+        then builtins.throw "hosts.<host>.bots.<botId>.profile.modelSecrets was removed; use profile.secretEnv (OPENAI_API_KEY/etc)"
         else null;
       openclaw = gatewayCfg.openclaw or { };
       channels = gatewayCfg.channels or { };
@@ -85,7 +89,7 @@ in {
 
   codex = {
     enable = (fleetCfg.codex or { }).enable or false;
-    gateways = (fleetCfg.codex or { }).gateways or [ ];
+    bots = lib.filter (b: lib.elem b gateways) ((fleetCfg.codex or { }).bots or [ ]);
   };
 
   gatewayProfiles = lib.genAttrs gateways mkGatewayProfile;

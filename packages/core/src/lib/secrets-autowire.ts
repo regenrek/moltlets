@@ -97,8 +97,12 @@ export function planSecretsAutowire(params: {
 export function applySecretsAutowire(params: {
   config: ClawletsConfig;
   plan: SecretsAutowirePlan;
+  hostName: string;
 }): ClawletsConfig {
   const next = structuredClone(params.config) as ClawletsConfig;
+  const hostName = params.hostName.trim();
+  const hostCfg = (next.hosts as any)?.[hostName];
+  if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
 
   for (const entry of params.plan.updates) {
     if (entry.scope === "fleet") {
@@ -109,13 +113,13 @@ export function applySecretsAutowire(params: {
       next.fleet.secretEnv[entry.envVar] = entry.secretName;
       continue;
     }
-    const gateway = next.fleet.gateways[entry.gatewayId];
-    if (!gateway) throw new Error(`unknown gateway: ${entry.gatewayId}`);
-    const profile = gateway.profile;
+    const bot = (hostCfg.bots as any)?.[entry.gatewayId];
+    if (!bot) throw new Error(`unknown bot for host=${hostName}: ${entry.gatewayId}`);
+    const profile = bot.profile;
     if (!profile.secretEnv) profile.secretEnv = {};
     const existing = profile.secretEnv[entry.envVar];
     if (existing && existing !== entry.secretName) {
-      throw new Error(`conflict for ${entry.envVar} on gateway ${entry.gatewayId}: profile.secretEnv already set to ${existing}`);
+      throw new Error(`conflict for ${entry.envVar} on bot ${entry.gatewayId}: profile.secretEnv already set to ${existing}`);
     }
     profile.secretEnv[entry.envVar] = entry.secretName;
   }

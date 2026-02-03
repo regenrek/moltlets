@@ -50,7 +50,7 @@ function pickFixLink(
     return match?.[1]?.trim() || ""
   }
   const botFromDetail = () => {
-    const match = detail.match(/fleet\.gateways\.([a-z0-9_-]+)/i)
+    const match = detail.match(/hosts\.[a-z0-9_-]+\.bots\.([a-z0-9_-]+)/i)
     return match?.[1]?.trim() || ""
   }
   const botId = botFromLabel() || botFromDetail()
@@ -62,7 +62,7 @@ function pickFixLink(
   if (label.includes("hcloud_token") || label.includes("github_token") || label.includes("sops_age_key_file")) return toProjectSecrets()
   if (label.includes("sops") || label.includes("secrets")) return toHostSecrets()
   if (botId && label.includes("clawdbot security")) return toBotSettings(botId)
-  if (botId && detail.includes("fleet.gateways.")) return toBotSettings(botId)
+  if (botId && detail.includes("hosts.") && detail.includes(".bots.")) return toBotSettings(botId)
   if (scope === "updates") return toUpdates()
   if (label.includes("tailscale")) return toAudit()
   return null

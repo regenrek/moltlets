@@ -9,7 +9,8 @@ const DEFAULT_STATE_DIR_BASE = invariantSpec.defaults.stateDirBase;
 const DEFAULT_COMMANDS = { native: "auto", nativeSkills: "auto" };
 
 export type OpenClawInvariantWarning = {
-  gateway: string;
+  host: string;
+  botId: string;
   path: string;
   message: string;
   expected?: unknown;
@@ -90,17 +91,19 @@ function deepMerge(base: Record<string, unknown>, override: Record<string, unkno
   return out;
 }
 
-function resolveGatewayIndex(config: ClawletsConfig, gatewayId: string): number {
-  const gateways = Array.isArray(config.fleet.gatewayOrder) ? config.fleet.gatewayOrder : [];
-  const index = gateways.indexOf(gatewayId);
-  if (index === -1) throw new Error(`gateway not found in fleet.gatewayOrder: ${gatewayId}`);
+function resolveGatewayIndex(config: ClawletsConfig, hostName: string, gatewayId: string): number {
+  const hostCfg = (config.hosts as Record<string, unknown> | undefined)?.[hostName];
+  if (!isPlainObject(hostCfg)) throw new Error(`missing host in config.hosts: ${hostName}`);
+  const botsOrder = Array.isArray((hostCfg as any).botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
+  const index = botsOrder.indexOf(gatewayId);
+  if (index === -1) throw new Error(`bot not found in hosts.${hostName}.botsOrder: ${gatewayId}`);
   return index;
 }
 
-function resolveGatewayPort(params: { config: ClawletsConfig; gatewayId: string; profile: Record<string, unknown> }): number {
+function resolveGatewayPort(params: { config: ClawletsConfig; hostName: string; gatewayId: string; profile: Record<string, unknown> }): number {
   const override = toCleanNumber(params.profile["gatewayPort"]);
   if (override != null) return Math.floor(override);
-  const index = resolveGatewayIndex(params.config, params.gatewayId);
+  const index = resolveGatewayIndex(params.config, params.hostName, params.gatewayId);
   return DEFAULT_GATEWAY_PORT_BASE + index * DEFAULT_GATEWAY_PORT_STRIDE;
 }
 
@@ -120,7 +123,8 @@ function resolveSkipBootstrap(params: { profile: Record<string, unknown> }): boo
 }
 
 function warnOverrides(params: {
-  gateway: string;
+  host: string;
+  botId: string;
   base: Record<string, unknown>;
   path: string[];
   expected: unknown;
@@ -130,7 +134,8 @@ function warnOverrides(params: {
   const pathLabel = params.path.join(".");
   const message = `openclaw.${pathLabel} is managed by clawlets invariants and will be overwritten`;
   return {
-    gateway: params.gateway,
+    host: params.host,
+    botId: params.botId,
     path: pathLabel,
     message,
     expected: params.expected,
@@ -140,15 +145,21 @@ function warnOverrides(params: {
 
 export function buildOpenClawGatewayConfig(params: {
   config: ClawletsConfig;
-  gatewayId: string;
+  hostName: string;
+  botId: string;
 }): {
-  gatewayId: string;
+  hostName: string;
+  botId: string;
   base: Record<string, unknown>;
   merged: Record<string, unknown>;
   invariants: Record<string, unknown>;
   warnings: OpenClawInvariantWarning[];
 } {
-  const gatewayCfg = (params.config.fleet.gateways as Record<string, unknown> | undefined)?.[params.gatewayId];
+  const hostCfg = (params.config.hosts as Record<string, unknown> | undefined)?.[params.hostName];
+  if (!isPlainObject(hostCfg)) throw new Error(`missing host in config.hosts: ${params.hostName}`);
+  const bots = isPlainObject((hostCfg as any).bots) ? ((hostCfg as any).bots as Record<string, unknown>) : {};
+  const gatewayCfg = bots[params.botId];
+  if (!isPlainObject(gatewayCfg)) throw new Error(`missing bot config for hosts.${params.hostName}.bots.${params.botId}`);
   const gatewayCfgObj = isPlainObject(gatewayCfg) ? gatewayCfg : {};
   const profile = isPlainObject(gatewayCfgObj["profile"]) ? (gatewayCfgObj["profile"] as Record<string, unknown>) : {};
   const base = isPlainObject(gatewayCfgObj["openclaw"]) ? (gatewayCfgObj["openclaw"] as Record<string, unknown>) : {};
@@ -164,8 +175,8 @@ export function buildOpenClawGatewayConfig(params: {
     { channels: typedChannels, agents: typedAgents, hooks: typedHooks, skills: typedSkills, plugins: typedPlugins },
   );
 
-  const gatewayPort = resolveGatewayPort({ config: params.config, gatewayId: params.gatewayId, profile });
-  const workspaceDir = resolveWorkspaceDir({ gatewayId: params.gatewayId, profile });
+  const gatewayPort = resolveGatewayPort({ config: params.config, hostName: params.hostName, gatewayId: params.botId, profile });
+  const workspaceDir = resolveWorkspaceDir({ gatewayId: params.botId, profile });
   const skipBootstrap = resolveSkipBootstrap({ profile });
 
   const gatewayDefaults = invariantSpec.gateway;
@@ -189,7 +200,7 @@ export function buildOpenClawGatewayConfig(params: {
 
   const warnings: OpenClawInvariantWarning[] = [];
   const warn = (path: string[], expected: unknown) => {
-    const w = warnOverrides({ gateway: params.gatewayId, base, path, expected });
+    const w = warnOverrides({ host: params.hostName, botId: params.botId, base, path, expected });
     if (w) warnings.push(w);
   };
 
@@ -201,7 +212,8 @@ export function buildOpenClawGatewayConfig(params: {
   warn(["agents", "defaults", "skipBootstrap"], skipBootstrap);
 
   return {
-    gatewayId: params.gatewayId,
+    hostName: params.hostName,
+    botId: params.botId,
     base,
     merged: deepMerge(baseWithDefaults, invariants),
     invariants,

@@ -10,21 +10,24 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        gateways: {
-          maren: {
-            openclaw: {
-              commands: { native: "auto", nativeSkills: "auto" },
-              gateway: { port: 12345 },
-            },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              openclaw: {
+                commands: { native: "auto", nativeSkills: "auto" },
+                gateway: { port: 12345 },
+              },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
@@ -45,18 +48,21 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        gateways: {
-          maren: {
-            channels: { discord: { groupPolicy: "allowlist" } },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              channels: { discord: { groupPolicy: "allowlist" } },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
@@ -73,22 +79,25 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        gateways: {
-          maren: {
-            profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
-            channels: { discord: { groupPolicy: "allowlist", token: "inline-token" } },
-            openclaw: {
-              commands: { native: "auto", nativeSkills: "auto" },
-            },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
+              channels: { discord: { groupPolicy: "allowlist", token: "inline-token" } },
+              openclaw: {
+                commands: { native: "auto", nativeSkills: "auto" },
+              },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
@@ -105,25 +114,28 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: {},
-        gateways: {
-          maren: {
-            profile: {
-              secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" },
-              secretEnvAllowlist: ["SLACK_BOT_TOKEN"],
-            },
-            channels: { discord: { groupPolicy: "allowlist", token: "${DISCORD_BOT_TOKEN}" } },
-            openclaw: {
-              commands: { native: "auto", nativeSkills: "auto" },
-            },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              profile: {
+                secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" },
+                secretEnvAllowlist: ["SLACK_BOT_TOKEN"],
+              },
+              channels: { discord: { groupPolicy: "allowlist", token: "${DISCORD_BOT_TOKEN}" } },
+              openclaw: {
+                commands: { native: "auto", nativeSkills: "auto" },
+              },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
@@ -145,19 +157,22 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: {},
-        gateways: {
-          maren: {
-            profile: { secretEnv: { OPENCLAW_HOOKS_TOKEN: "hooks_token_override" } },
-            hooks: { tokenSecret: "hooks_token" },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              profile: { secretEnv: { OPENCLAW_HOOKS_TOKEN: "hooks_token_override" } },
+              hooks: { tokenSecret: "hooks_token" },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 

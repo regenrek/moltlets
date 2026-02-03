@@ -6,21 +6,24 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["alpha", "beta"],
         secretEnv: {},
-        gateways: {
-          alpha: {
-            channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
-          },
-          beta: {
-            channels: { telegram: { enabled: true, allowFrom: [], botToken: "${TELEGRAM_BOT_TOKEN}" } },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["alpha", "beta"],
+          bots: {
+            alpha: {
+              channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
+            },
+            beta: {
+              channels: { telegram: { enabled: true, allowFrom: [], botToken: "${TELEGRAM_BOT_TOKEN}" } },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 
@@ -38,19 +41,22 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 16,
+      schemaVersion: 17,
       fleet: {
-        gatewayOrder: ["maren"],
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
-        gateways: {
-          maren: {
-            profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
-            channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
-          },
-        },
       },
       hosts: {
-        "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "openai/gpt-4o" },
+        "openclaw-fleet-host": {
+          botsOrder: ["maren"],
+          bots: {
+            maren: {
+              profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
+              channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
+            },
+          },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "openai/gpt-4o",
+        },
       },
     });
 

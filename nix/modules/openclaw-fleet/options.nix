@@ -37,10 +37,10 @@ in {
         default = false;
         description = "Install the Codex CLI on the host (headless usage).";
       };
-      gateways = lib.mkOption {
+      bots = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        description = "Gateways expected to use Codex CLI (for documentation + onboarding).";
+        description = "Bots expected to use Codex CLI (for documentation + onboarding).";
       };
     };
 

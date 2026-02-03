@@ -13,21 +13,27 @@ function stableStringify(value: unknown): string {
   return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`).join(",")}}`
 }
 
-function getGateways(value: unknown): Record<string, unknown> {
+function getBotsByHost(value: unknown): Record<string, Record<string, unknown>> {
   if (!isPlainRecord(value)) return {}
-  const fleet = value["fleet"]
-  if (!isPlainRecord(fleet)) return {}
-  const gateways = fleet["gateways"]
-  return isPlainRecord(gateways) ? gateways : {}
+  const hosts = value["hosts"]
+  if (!isPlainRecord(hosts)) return {}
+  const out: Record<string, Record<string, unknown>> = {}
+  for (const [host, hostCfg] of Object.entries(hosts)) {
+    if (!isPlainRecord(hostCfg)) continue
+    const bots = hostCfg["bots"]
+    if (isPlainRecord(bots)) out[host] = bots
+  }
+  return out
 }
 
 export function isGatewayOpenclawPath(parts: Array<string | number>): boolean {
   return (
-    parts.length >= 4 &&
-    parts[0] === "fleet" &&
-    parts[1] === "gateways" &&
-    typeof parts[2] === "string" &&
-    parts[3] === "openclaw"
+    parts.length >= 5 &&
+    parts[0] === "hosts" &&
+    typeof parts[1] === "string" &&
+    parts[2] === "bots" &&
+    typeof parts[3] === "string" &&
+    parts[4] === "openclaw"
   )
 }
 
@@ -35,17 +41,22 @@ export function findGatewayOpenclawChanges(
   current: unknown,
   next: unknown,
 ): { path: Array<string | number>; message: string } | null {
-  const currentGateways = getGateways(current)
-  const nextGateways = getGateways(next)
-  const allIds = new Set([...Object.keys(currentGateways), ...Object.keys(nextGateways)])
-  for (const gatewayId of allIds) {
-    const currentGateway = currentGateways[gatewayId]
-    const nextGateway = nextGateways[gatewayId]
-    const currentOpenclaw = isPlainRecord(currentGateway) ? currentGateway["openclaw"] : undefined
-    const nextOpenclaw = isPlainRecord(nextGateway) ? nextGateway["openclaw"] : undefined
-    if (currentOpenclaw === undefined && nextOpenclaw === undefined) continue
-    if (stableStringify(currentOpenclaw) !== stableStringify(nextOpenclaw)) {
-      return { path: ["fleet", "gateways", gatewayId, "openclaw"], message: GATEWAY_OPENCLAW_POLICY_MESSAGE }
+  const currentBotsByHost = getBotsByHost(current)
+  const nextBotsByHost = getBotsByHost(next)
+  const allHosts = new Set([...Object.keys(currentBotsByHost), ...Object.keys(nextBotsByHost)])
+  for (const host of allHosts) {
+    const currentBots = currentBotsByHost[host] || {}
+    const nextBots = nextBotsByHost[host] || {}
+    const allIds = new Set([...Object.keys(currentBots), ...Object.keys(nextBots)])
+    for (const botId of allIds) {
+      const currentBot = currentBots[botId]
+      const nextBot = nextBots[botId]
+      const currentOpenclaw = isPlainRecord(currentBot) ? currentBot["openclaw"] : undefined
+      const nextOpenclaw = isPlainRecord(nextBot) ? nextBot["openclaw"] : undefined
+      if (currentOpenclaw === undefined && nextOpenclaw === undefined) continue
+      if (stableStringify(currentOpenclaw) !== stableStringify(nextOpenclaw)) {
+        return { path: ["hosts", host, "bots", botId, "openclaw"], message: GATEWAY_OPENCLAW_POLICY_MESSAGE }
+      }
     }
   }
   return null

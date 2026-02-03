@@ -149,11 +149,11 @@ Strict mode turns warnings into failures so CI can gate on configuration quality
 
 Schema versions change as the configuration model evolves.
 
-- v17: bots are host-scoped:
+- v17: bots are host-scoped (manual update; no auto-migration):
   - remove `fleet.gatewayOrder` / `fleet.gateways`
   - add `hosts.<host>.botsOrder` / `hosts.<host>.bots`
   - bot ids are only unique within a host; address bots as `(host, botId)`
-  - `fleet.codex.gateways` becomes `fleet.codex.bots` (if used)
+  - replace `fleet.codex.gateways` with `fleet.codex.bots` (if used)
 - v15: config key renamed to `openclaw` (use `hosts.<host>.bots.<botId>.openclaw`, not `clawdbot`)
 - v12: self‑updates use `hosts.<host>.selfUpdate.baseUrls` (mirror list).
 - v11: cache settings are `hosts.<host>.cache.{substituters,trustedPublicKeys,netrc}`.

@@ -84,6 +84,8 @@ vi.mock("@clawlets/core/lib/clawlets-config", async () => {
 const hostName = "openclaw-beta-3";
 const baseHost = {
   enable: false,
+  botsOrder: [],
+  bots: {},
   diskDevice: "/dev/sda",
   flakeHost: "",
   hetzner: { serverType: "cx43" },
@@ -106,7 +108,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 16,
+      schemaVersion: 17,
       defaultHost: hostName,
       baseFlake: "",
       fleet: {
@@ -114,9 +116,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
         secretFiles: {},
         sshAuthorizedKeys: [],
         sshKnownHosts: [],
-        gatewayOrder: [],
-        gateways: {},
-        codex: { enable: false, gateways: [] },
+        codex: { enable: false, bots: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
       cattle: {
