@@ -85,7 +85,6 @@ export const addBot = createServerFn({ method: "POST" })
     const architecture = data.architecture.trim()
     const parsedBot = GatewayIdSchema.safeParse(botId)
     if (!parsedBot.success) throw new Error("invalid bot id")
-
     let changed = false
     if (architecture) {
       const parsedArchitecture = GatewayArchitectureSchema.safeParse(architecture)
