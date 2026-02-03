@@ -7,7 +7,7 @@ This page shows practical examples for the most common channel integrations.
 
 All channel config lives in `fleet/clawlets.json` under:
 
-- `fleet.gateways.<gatewayId>.channels.<channelId>`
+- `hosts.<host>.bots.<botId>.channels.<channelId>`
 
 Clawlets renders this into the final OpenClaw config during deploy. In other words:
 **these values become `channels.*` in OpenClaw**.
@@ -30,19 +30,21 @@ Example:
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "profile": {
-          "secretEnv": {
-            "DISCORD_BOT_TOKEN": "discord_token_maren"
-          }
-        },
-        "channels": {
-          "discord": {
-            "enabled": true,
-            "groupPolicy": "allowlist",
-            "token": "${DISCORD_BOT_TOKEN}"
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "profile": {
+            "secretEnv": {
+              "DISCORD_BOT_TOKEN": "discord_token_maren"
+            }
+          },
+          "channels": {
+            "discord": {
+              "enabled": true,
+              "groupPolicy": "allowlist",
+              "token": "${DISCORD_BOT_TOKEN}"
+            }
           }
         }
       }
@@ -64,23 +66,25 @@ Example:
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "profile": {
-          "secretEnv": {
-            "TELEGRAM_BOT_TOKEN": "telegram_bot_token_maren"
-          }
-        },
-        "channels": {
-          "telegram": {
-            "enabled": true,
-            "botToken": "${TELEGRAM_BOT_TOKEN}",
-            "groupPolicy": "allowlist",
-            "allowFrom": [
-              123456789,
-              "987654321"
-            ]
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "profile": {
+            "secretEnv": {
+              "TELEGRAM_BOT_TOKEN": "telegram_bot_token_maren"
+            }
+          },
+          "channels": {
+            "telegram": {
+              "enabled": true,
+              "botToken": "${TELEGRAM_BOT_TOKEN}",
+              "groupPolicy": "allowlist",
+              "allowFrom": [
+                123456789,
+                "987654321"
+              ]
+            }
           }
         }
       }
@@ -107,14 +111,16 @@ Example (single-user allowlist):
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "channels": {
-          "whatsapp": {
-            "dmPolicy": "allowlist",
-            "allowFrom": ["+15551234567"],
-            "groupPolicy": "allowlist"
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "channels": {
+            "whatsapp": {
+              "dmPolicy": "allowlist",
+              "allowFrom": ["+15551234567"],
+              "groupPolicy": "allowlist"
+            }
           }
         }
       }

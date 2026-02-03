@@ -15,15 +15,15 @@ All bot config lives in `fleet/clawlets.json`.
 
 Preferred (typed surfaces):
 
-- `fleet.gateways.<bot>.channels`
-- `fleet.gateways.<bot>.agents`
-- `fleet.gateways.<bot>.hooks`
-- `fleet.gateways.<bot>.skills`
-- `fleet.gateways.<bot>.plugins`
+- `hosts.<host>.bots.<botId>.channels`
+- `hosts.<host>.bots.<botId>.agents`
+- `hosts.<host>.bots.<botId>.hooks`
+- `hosts.<host>.bots.<botId>.skills`
+- `hosts.<host>.bots.<botId>.plugins`
 
 Advanced (OpenClaw passthrough):
 
-- `fleet.gateways.<bot>.openclaw` (raw OpenClaw config object)
+- `hosts.<host>.bots.<botId>.openclaw` (raw OpenClaw config object)
 
 <Callout type="warning" title="Avoid openclaw.* for typed surfaces">
   Do not set <code>openclaw.channels</code>/<code>openclaw.agents</code>/<code>openclaw.hooks</code>/<code>openclaw.skills</code>/<code>openclaw.plugins</code>.
@@ -92,7 +92,7 @@ into the Nix store during deploy, so treat them as public.
 Use env var references in OpenClaw config and wire them to sops secret names in
 `fleet/clawlets.json` instead:
 
-- Discord: set `fleet.gateways.<bot>.channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `fleet.gateways.<bot>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
+- Discord: set `hosts.<host>.bots.<botId>.channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `hosts.<host>.bots.<botId>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
 - Model providers: wire `fleet.secretEnv.<ENV_VAR> = "<secretName>"` (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`)
 
 Notes:
@@ -104,12 +104,14 @@ Example (Discord token):
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
-        "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } },
-        "openclaw": { "logging": { "level": "info" } }
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
+          "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } },
+          "openclaw": { "logging": { "level": "info" } }
+        }
       }
     }
   }

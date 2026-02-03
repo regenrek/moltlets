@@ -1,6 +1,6 @@
 ---
 title: Passthrough
-description: Advanced OpenClaw keys via fleet.gateways.<gatewayId>.openclaw.
+description: Advanced OpenClaw keys via hosts.<host>.bots.<botId>.openclaw.
 ---
 
 Use passthrough when you need an OpenClaw key that is not exposed as a first-class
@@ -8,7 +8,7 @@ Clawlets surface.
 
 Where it lives:
 
-- `fleet.gateways.<gatewayId>.openclaw` (raw object merged into the OpenClaw root config)
+- `hosts.<host>.bots.<botId>.openclaw` (raw object merged into the OpenClaw root config)
 
 <Callout type="warning" title="Do not put typed surfaces under openclaw.*">
   Do not set <code>openclaw.channels</code>/<code>openclaw.agents</code>/<code>openclaw.hooks</code>/<code>openclaw.skills</code>/<code>openclaw.plugins</code>.
@@ -19,13 +19,15 @@ Where it lives:
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "openclaw": {
-          "logging": {
-            "level": "info",
-            "redactSensitive": "tools"
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "openclaw": {
+            "logging": {
+              "level": "info",
+              "redactSensitive": "tools"
+            }
           }
         }
       }
@@ -38,12 +40,14 @@ Where it lives:
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "openclaw": {
-          "messages": {
-            "responsePrefix": ""
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "openclaw": {
+            "messages": {
+              "responsePrefix": ""
+            }
           }
         }
       }

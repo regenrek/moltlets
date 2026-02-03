@@ -18,7 +18,7 @@ Related:
 A typical flow looks like this:
 
 1) scaffold a repo
-2) configure hosts + bots (gateways)
+2) configure hosts + bots (host-scoped gateways)
 3) wire secrets
 4) bootstrap
 5) apply updates
@@ -30,7 +30,7 @@ Example command sequence:
 - add host settings:
   - `clawlets host set --host <host> --admin-cidr <cidr> --ssh-pubkey-file ~/.ssh/id_ed25519.pub`
   - optional: `clawlets host set --host <host> --server-type cx43 --hetzner-location nbg1`
-- add bots (gateway instances): `clawlets gateway add --gateway <id>`
+- add bots (gateway instances): `clawlets gateway add --host <host> --gateway <botId>`
 - wire secrets:
   - map env vars in `fleet.secretEnv` / per‑bot overrides
   - or autowire: `clawlets config wire-secrets --write`

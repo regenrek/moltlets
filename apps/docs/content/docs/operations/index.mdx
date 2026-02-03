@@ -11,10 +11,9 @@ adding bots, and checking host health.
 Clawlets does not own routing. Update routing via OpenClaw config and channels via
 first-class channel config, then publish and apply an update so the host picks up the
 new desired state:
-then publish and apply an update so the host picks up the new desired state:
 
-- edit `fleet/clawlets.json` → `fleet.gateways.<bot>.openclaw` (routing/tools/etc)
-- edit `fleet/clawlets.json` → `fleet.gateways.<bot>.channels` (typed channels)
+- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.openclaw` (routing/tools/etc)
+- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.channels` (typed channels)
 
 Then publish + apply updates (pinned):
 
@@ -49,13 +48,13 @@ dashboard can do most of this for you; the CLI steps are here for repeatability.
 1) Add bot id:
 
 ```bash
-clawlets gateway add --gateway <id>
+clawlets gateway add --host <host> --gateway <botId>
 ```
 
 2) Add secret + config:
 
-- `fleet.gateways.<id>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<id>"`
-- channel config: `fleet.gateways.<id>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
+- `hosts.<host>.bots.<botId>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<botId>"`
+- channel config: `hosts.<host>.bots.<botId>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
 
 Then:
 
@@ -73,9 +72,9 @@ the secret and allowlist, deploy the updated config.
 2) Allow per‑bot (example):
 
 ```bash
-clawlets config set --path fleet.gateways.maren.skills.allowBundled --value-json '["github","brave-search"]'
+clawlets config set --path hosts.<host>.bots.maren.skills.allowBundled --value-json '["github","brave-search"]'
 ```
-3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `fleet.gateways.<bot>.skills.entries."<skill>".apiKeySecret`
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `hosts.<host>.bots.<botId>.skills.entries."<skill>".apiKeySecret`
 4) Sync + deploy:
 
 ```bash

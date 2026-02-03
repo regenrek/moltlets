@@ -28,14 +28,12 @@ isolation per persona.
 ## Steps
 
 <Steps>
-  <Step>Define gateway ids in <code>fleet.gatewayOrder</code> and <code>fleet.gateways</code>.</Step>
-  <Step>Override a base port per gateway if needed via <code>fleet.gateways.&lt;id&gt;.profile.gatewayPort</code>.</Step>
+  <Step>Define bot ids in <code>hosts.&lt;host&gt;.botsOrder</code> and <code>hosts.&lt;host&gt;.bots</code>.</Step>
+  <Step>Override a base port per bot if needed via <code>hosts.&lt;host&gt;.bots.&lt;botId&gt;.profile.gatewayPort</code>.</Step>
   <Step>Validate the config: <code>clawlets config validate --host &lt;host&gt;</code>.</Step>
 </Steps>
 
 ## Gateway architecture
-
-Clawlets stores the preferred architecture at `fleet.gatewayArchitecture`:
 
 ### Option A — multiple gateways (`multi`)
 
@@ -43,41 +41,41 @@ Each bot is its own gateway instance.
 
 ```jsonc
 {
-  "fleet": {
-    "gatewayArchitecture": "multi",
-    "gatewayOrder": ["main", "rescue"],
-    "gateways": {
-      "main": {},
-      "rescue": {}
-    }
-  }
-}
-```
-
-### Option B — one gateway, multiple agents (`single`)
-
-One gateway process, multiple agents via `agents.list[]`.
-
-```jsonc
-{
-  "fleet": {
-    "gatewayArchitecture": "single",
-    "gatewayOrder": ["main"],
-    "gateways": {
-      "main": {
-        "agents": {
-          "list": [
-            { "id": "primary", "default": true, "name": "Primary" },
-            { "id": "support", "name": "Support" }
-          ]
-        }
+  "hosts": {
+    "business": {
+      "botsOrder": ["main", "rescue"],
+      "bots": {
+        "main": {},
+        "rescue": {}
       }
     }
   }
 }
 ```
 
-`fleet.gatewayArchitecture` is a Clawlets UI preference. It does not get forwarded into OpenClaw.
+### Option B — one gateway, multiple agents
+
+One gateway process, multiple agents via `agents.list[]`.
+
+```jsonc
+{
+  "hosts": {
+    "business": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "list": [
+              { "id": "primary", "default": true, "name": "Primary" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## Isolation checklist (per gateway)
 
@@ -100,7 +98,7 @@ Reason: openclaw uses derived ports (bridge/browser/canvas). Spacing avoids coll
 Override per gateway:
 
 ```bash
-clawlets config set --path fleet.gateways.maren.profile.gatewayPort --value 18809
+clawlets config set --path hosts.<host>.bots.maren.profile.gatewayPort --value 18809
 ```
 
 ## Gateway auth token
@@ -129,7 +127,7 @@ Generated automatically by:
 
 ## Troubleshooting
 
-- **Port collisions**: ensure `fleet.gatewayOrder` is stable and `gatewayPort` overrides do not overlap.
+- **Port collisions**: ensure `hosts.<host>.botsOrder` is stable and `gatewayPort` overrides do not overlap.
 - **Missing auth token**: verify the gateway credential service ran and the `gateway.env` file exists.
 
 ## Links

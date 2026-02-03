@@ -15,20 +15,22 @@ If you are new to the split, start with [Typed config surfaces](/configuration/t
 
 ## Where the OpenClaw config lives
 
-In `fleet/clawlets.json`, OpenClaw config is composed per bot:
+In `fleet/clawlets.json`, OpenClaw config is composed per bot *inside a host*:
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "<bot>": {
-        "channels": {},
-        "agents": {},
-        "hooks": {},
-        "skills": {},
-        "plugins": {},
-        "openclaw": {
-          "...": "raw OpenClaw config"
+  "hosts": {
+    "<host>": {
+      "bots": {
+        "<botId>": {
+          "channels": {},
+          "agents": {},
+          "hooks": {},
+          "skills": {},
+          "plugins": {},
+          "openclaw": {
+            "...": "raw OpenClaw config"
+          }
         }
       }
     }
@@ -38,7 +40,7 @@ In `fleet/clawlets.json`, OpenClaw config is composed per bot:
 
 At deploy time, Nix renders the final, merged OpenClaw config to:
 
-- `/run/secrets/rendered/openclaw-BOT_ID.json`
+- `/run/secrets/rendered/openclaw-<botId>.json`
 
 ## Invariants Clawlets enforces
 

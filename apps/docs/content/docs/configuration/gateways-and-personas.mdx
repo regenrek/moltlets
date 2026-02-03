@@ -19,10 +19,7 @@ In the dashboard UI we call a **gateway instance** a **Bot** (because "gateway" 
 
 <Steps>
   <Step>Choose the architecture (Option A or Option B below).</Step>
-  <Step>Update `fleet.gatewayOrder` and `fleet.gateways` to match the chosen shape.</Step>
-  <Step>
-    (Optional) Set `fleet.gatewayArchitecture` to `multi` or `single` to match the dashboard preference.
-  </Step>
+  <Step>Update `hosts.&lt;host&gt;.botsOrder` and `hosts.&lt;host&gt;.bots` to match the chosen shape.</Step>
   <Step>Validate the config: <code>clawlets config validate --host &lt;host&gt;</code>.</Step>
 </Steps>
 
@@ -34,17 +31,19 @@ Use this when you want isolation (separate state dirs, ports, credentials) or a 
 
 ```json
 {
-  "fleet": {
-    "gatewayOrder": ["main", "rescue"],
-    "gateways": {
-      "main": {},
-      "rescue": {}
+  "hosts": {
+    "business": {
+      "botsOrder": ["main", "rescue"],
+      "bots": {
+        "main": {},
+        "rescue": {}
+      }
     }
   }
 }
 ```
 
-Each gateway gets a deterministic port block based on its position in `fleet.gatewayOrder`.
+Each gateway gets a deterministic port block based on its position in `hosts.<host>.botsOrder`.
 
 ### Option B: one gateway, multiple personas (agents.list[])
 
@@ -52,15 +51,17 @@ Use this when you want multiple personas without running multiple gateway proces
 
 ```json
 {
-  "fleet": {
-    "gatewayOrder": ["main"],
-    "gateways": {
-      "main": {
-        "agents": {
-          "list": [
-            { "id": "ops", "default": true, "name": "Ops" },
-            { "id": "support", "name": "Support" }
-          ]
+  "hosts": {
+    "business": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "list": [
+              { "id": "ops", "default": true, "name": "Ops" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
         }
       }
     }
@@ -75,15 +76,6 @@ Clawlets validates:
 
 Advanced per-persona settings are passed through to OpenClaw via the entry object (workspace, model overrides, tools, sandbox, etc.).
 
-## Dashboard preference: gatewayArchitecture
-
-The dashboard may store a UI preference at `fleet.gatewayArchitecture`:
-
-- `multi`: treat new additions as new gateways (bots)
-- `single`: prefer adding personas under one gateway via `agents.list[]`
-
-This is **UI metadata** only; it does not change how OpenClaw interprets the config.
-
 ## Workspaces (docs + skills)
 
 Workspace docs are layered:
@@ -96,7 +88,7 @@ At runtime, the gateway workspace is seeded from common + the gateway overlay (i
 ## Verify
 
 - `clawlets config validate --host <host>` returns `ok`.
-- The expected gateway ids appear in `fleet.gatewayOrder`.
+- The expected bot ids appear in `hosts.<host>.botsOrder`.
 - For Option B, `agents.list[]` contains at most one `default: true`.
 
 ## Troubleshooting

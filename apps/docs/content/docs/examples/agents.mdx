@@ -5,24 +5,26 @@ description: Model defaults, fallbacks, and concurrency.
 
 This page shows common agent defaults and the optional multi-persona layout. These live under:
 
-- `fleet.gateways.<gatewayId>.agents.defaults`
-- `fleet.gateways.<gatewayId>.agents.list[]` (optional)
+- `hosts.<host>.bots.<botId>.agents.defaults`
+- `hosts.<host>.bots.<botId>.agents.list[]` (optional)
 
 ## Model default (per gateway)
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "agents": {
-          "defaults": {
-            "model": {
-              "primary": "zai/glm-4.7",
-              "fallbacks": ["anthropic/claude-opus-4-5"]
-            },
-            "thinkingDefault": "low",
-            "maxConcurrent": 4
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "agents": {
+            "defaults": {
+              "model": {
+                "primary": "zai/glm-4.7",
+                "fallbacks": ["anthropic/claude-opus-4-5"]
+              },
+              "thinkingDefault": "low",
+              "maxConcurrent": 4
+            }
           }
         }
       }
@@ -48,20 +50,22 @@ Example:
 
 ```json
 {
-  "fleet": {
-    "gatewayOrder": ["main"],
-    "gateways": {
-      "main": {
-        "agents": {
-          "defaults": {
-            "model": { "primary": "zai/glm-4.7" },
-            "thinkingDefault": "low",
-            "maxConcurrent": 4
-          },
-          "list": [
-            { "id": "ops", "default": true, "name": "Ops" },
-            { "id": "support", "name": "Support" }
-          ]
+  "hosts": {
+    "openclaw-fleet-host": {
+      "botsOrder": ["main"],
+      "bots": {
+        "main": {
+          "agents": {
+            "defaults": {
+              "model": { "primary": "zai/glm-4.7" },
+              "thinkingDefault": "low",
+              "maxConcurrent": 4
+            },
+            "list": [
+              { "id": "ops", "default": true, "name": "Ops" },
+              { "id": "support", "name": "Support" }
+            ]
+          }
         }
       }
     }

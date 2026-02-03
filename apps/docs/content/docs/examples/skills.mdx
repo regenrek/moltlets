@@ -5,8 +5,8 @@ description: Allowlist and per-skill secrets.
 
 Skills are controlled per bot via:
 
-- `fleet.gateways.<gatewayId>.skills.allowBundled`
-- `fleet.gateways.<gatewayId>.skills.entries`
+- `hosts.<host>.bots.<botId>.skills.allowBundled`
+- `hosts.<host>.bots.<botId>.skills.entries`
 
 Clawlets expects an explicit allowlist on servers. This is both a UX constraint (you
 know what is enabled) and a Nix constraint (it can assert that only known bundled
@@ -16,11 +16,13 @@ skills are allowed).
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "skills": {
-          "allowBundled": ["github"]
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "skills": {
+            "allowBundled": ["github"]
+          }
         }
       }
     }
@@ -35,15 +37,17 @@ skill at deploy time.
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "skills": {
-          "allowBundled": ["brave-search"],
-          "entries": {
-            "brave-search": {
-              "enabled": true,
-              "apiKeySecret": "brave_api_key"
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "skills": {
+            "allowBundled": ["brave-search"],
+            "entries": {
+              "brave-search": {
+                "enabled": true,
+                "apiKeySecret": "brave_api_key"
+              }
             }
           }
         }
@@ -60,12 +64,14 @@ to the OpenClaw skill loader.
 
 ```json
 {
-  "fleet": {
-    "gateways": {
-      "maren": {
-        "skills": {
-          "load": {
-            "extraDirs": ["/srv/openclaw/maren/workspace/skills-extra"]
+  "hosts": {
+    "openclaw-fleet-host": {
+      "bots": {
+        "maren": {
+          "skills": {
+            "load": {
+              "extraDirs": ["/srv/openclaw/maren/workspace/skills-extra"]
+            }
           }
         }
       }
