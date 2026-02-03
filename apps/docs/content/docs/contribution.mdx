@@ -40,6 +40,28 @@ description: Short summary
 ---
 ```
 
+## OpenClaw schema snapshot (when bumping pins)
+
+Clawlets validates the effective OpenClaw config against a **pinned schema snapshot**
+committed in the repo. If you change the OpenClaw pin (or anything that affects the
+schema), regenerate the snapshot in the same PR.
+
+Checklist:
+
+1) Update flake inputs (and keep `nix-openclaw` + `openclaw-src` aligned).
+2) Regenerate schema assets:
+
+```bash
+pnpm clawlets:openclaw-assets -- --src /path/to/openclaw
+```
+
+3) Commit changes to:
+
+- `packages/core/src/assets/clawdbot-config.schema.json`
+- `packages/core/src/assets/llm-providers.json`
+
+4) Run `pnpm -C packages/core test` (and `pnpm docs:build` if docs changed).
+
 ## Releases
 
 Follow the existing release scripts and workflows in the repo. If you add

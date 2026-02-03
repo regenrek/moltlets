@@ -39,6 +39,21 @@ OpenClaw passthrough (advanced):
   Clawlets rejects that layout to avoid ambiguity. Put those keys at the top level under the bot.
 </Callout>
 
+## OpenClaw schema validation (pinned)
+
+Clawlets validates the **effective** OpenClaw config for each bot against a **pinned
+OpenClaw schema snapshot**.
+
+This is the guardrail that keeps typed surfaces and passthrough aligned with upstream:
+
+- if a key is unknown (or the type is wrong), validation fails fast
+- validation is offline (no live gateway required)
+
+Schema snapshot (for contributors):
+
+- `packages/core/src/assets/clawdbot-config.schema.json` (generated; name kept for compatibility)
+- regen: `pnpm clawlets:openclaw-assets -- --src /path/to/openclaw`
+
 ## The bot profile (runtime surface)
 
 `hosts.<host>.bots.<botId>.profile` configures runtime behavior that is enforced by the Nix layer:
@@ -64,7 +79,8 @@ disk so the service consumes one validated JSON file.
 ```mermaid
 flowchart LR
   A["fleet/clawlets.json"] --> B["CLI/Dashboard validation"]
-  B --> C["nix eval: fleet-config.nix"]
+  B --> S["Pinned OpenClaw schema snapshot"]
+  S --> C["nix eval: fleet-config.nix"]
   C --> D["services.openclawFleet (Nix module)"]
   D --> E["/run/secrets/rendered/openclaw-BOT_ID.json"]
   E --> F["openclaw-BOT_ID.service"]

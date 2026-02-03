@@ -57,21 +57,47 @@ The rest of the OpenClaw config is preserved as-is.
 
 ## Schema source (pinned vs live)
 
-Clawlets ships a pinned OpenClaw schema for validation and editor tooling.
-The schema is generated from a pinned OpenClaw source revision so validation stays
-stable across installs and deploys.
+Clawlets ships a **pinned** OpenClaw schema snapshot for validation and editor tooling.
+It is generated from the pinned `openclaw-src` revision so validation stays stable
+across installs and deploys.
 
 Source of truth:
 - `packages/core/src/assets/clawdbot-config.schema.json` (generated; name kept for compatibility)
 - generator: `scripts/generate-openclaw-assets.ts` (reads the pinned `openclaw-src` rev from `flake.lock`)
 
-- CLI: `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>` to fetch live schema
-- UI: "Use live schema" toggles to a gateway-fetched schema
+This snapshot is used to **validate the effective OpenClaw config** for each bot:
+
+- CLI: `clawlets config validate --host <host>`
+- Dashboard: Advanced OpenClaw editor (schema diagnostics + save-time validation)
+
+<Callout type="info" title="Offline by default">
+Validation uses the committed schema snapshot. It does not fetch anything from the
+network during normal config validation or deploy.
+</Callout>
+
+Live schema (optional):
+
+- CLI: `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>` (fetches via gateway RPC over SSH)
+- Dashboard: "Use live schema" (fetches from a running bot)
 
 The UI surfaces drift between:
 
 - Pinned schema vs the project's pinned `nix-openclaw` rev
 - Pinned schema vs upstream `nix-openclaw` main
+
+## Updating the pinned schema snapshot (contributors)
+
+If you bump the OpenClaw pin, regenerate the schema snapshot and commit it.
+
+1) Ensure `nix-openclaw` and `openclaw-src` are aligned (see `nix flake check` → `openclaw-pin-align`).
+2) Regenerate the snapshot:
+
+```bash
+pnpm clawlets:openclaw-assets -- --src /path/to/openclaw
+```
+
+The generator fails fast if the `--src` revision does not match the pinned rev from
+`flake.lock`.
 
 ## Upgrade guidance
 

@@ -67,10 +67,17 @@ Notes:
 
 ## Schema sources (pinned vs live)
 
-Clawlets ships with a pinned schema that the CLI uses for validation and that the UI
-uses by default. If you want to validate against a live gateway, the web editor can
-fetch the schema from a running bot, which requires `hosts.<host>.targetHost` and an
-active gateway. The same fetch is available via the CLI:
+Clawlets validates your **effective** OpenClaw config (typed surfaces + passthrough +
+invariants) against a **pinned schema snapshot** by default.
+
+This means:
+
+- config writes fail fast if you introduce invalid keys/types
+- CI/local validation does not depend on a running gateway or network access
+
+If you want to validate against a live gateway schema (debugging drift), the web
+editor can fetch the schema from a running bot. This requires `hosts.<host>.targetHost`
+and an active gateway. The same fetch is available via the CLI:
 
 - `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>`
 
@@ -83,6 +90,15 @@ The editor uses Monaco with JSON schema diagnostics so unknown keys and type err
 are highlighted inline. Security audit findings are presented alongside the editor,
 and save-time validation runs against the pinned or live schema and blocks writes
 when issues are present.
+
+## Troubleshooting schema errors
+
+When schema validation fails, the error path usually points to the effective config
+that will run on the host. Common causes:
+
+- A key moved upstream (pin drift): update pins and regenerate the pinned schema snapshot.
+- A typed surface drifted: prefer fixing the typed surface / config, not working around it.
+- You put a typed surface under `openclaw.*`: move it to `channels|agents|hooks|skills|plugins` on the bot.
 
 ## Secrets
 
