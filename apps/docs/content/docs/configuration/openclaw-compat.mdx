@@ -58,16 +58,29 @@ The rest of the OpenClaw config is preserved as-is.
 
 ## Schema source (pinned vs live)
 
-Clawlets ships a pinned OpenClaw schema for validation and editor tooling.
-The schema is generated from a pinned OpenClaw source revision so validation stays
+Clawlets ships a **pinned OpenClaw schema snapshot** for validation and editor tooling.
+The snapshot is generated from the pinned `openclaw-src` revision so validation stays
 stable across installs and deploys.
 
 Source of truth:
-- `packages/core/src/assets/clawdbot-config.schema.json` (generated; name kept for compatibility)
-- generator: `scripts/generate-openclaw-assets.ts` (reads the pinned `openclaw-src` rev from `flake.lock`)
+- `packages/core/src/generated/openclaw-config.schema.json` (generated)
+- `packages/core/src/generated/openclaw-config.types.ts` (generated TS types)
+- generator: `packages/core/scripts/sync-openclaw-schema.ts`
 
-- CLI: `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>` to fetch live schema
-- UI: "Use live schema" toggles to a gateway-fetched schema
+Recommended update flow (contributors):
+
+```bash
+nix run .#update-openclaw-schema
+```
+
+CI gate:
+
+- `nix flake check` includes `openclaw-schema-up-to-date` (fails if the snapshot is stale)
+
+Live schema (optional, for drift debugging):
+
+- CLI: `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>` (fetch via gateway RPC over SSH)
+- Dashboard: "Use live schema" (fetch from a running bot)
 
 The UI surfaces drift between:
 

@@ -39,6 +39,22 @@ OpenClaw passthrough (advanced):
   Clawlets rejects that layout to avoid ambiguity. Put those keys at the top level under the gateway.
 </Callout>
 
+## OpenClaw schema validation (pinned)
+
+Clawlets validates the **effective** OpenClaw config for each gateway against a **pinned
+schema snapshot** committed in the repo:
+
+- `packages/core/src/generated/openclaw-config.schema.json`
+- `packages/core/src/generated/openclaw-config.types.ts`
+
+This keeps typed surfaces and passthrough aligned with upstream.
+
+Update the snapshot (contributors):
+
+```bash
+nix run .#update-openclaw-schema
+```
+
 ## The gateway profile (runtime surface)
 
 `hosts.<host>.gateways.<gatewayId>.profile` configures runtime behavior that is enforced by the Nix layer:
@@ -64,7 +80,8 @@ disk so the service consumes one validated JSON file.
 ```mermaid
 flowchart LR
   A["fleet/clawlets.json"] --> B["CLI/Dashboard validation"]
-  B --> C["nix eval: fleet-config.nix"]
+  B --> S["Pinned OpenClaw schema snapshot"]
+  S --> C["nix eval: fleet-config.nix"]
   C --> D["services.openclawFleet (Nix module)"]
   D --> E["/run/secrets/rendered/openclaw-GATEWAY_ID.json"]
   E --> F["openclaw-GATEWAY_ID.service"]

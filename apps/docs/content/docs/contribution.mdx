@@ -52,13 +52,13 @@ Checklist:
 2) Regenerate schema assets:
 
 ```bash
-pnpm clawlets:openclaw-assets -- --src /path/to/openclaw
+nix run .#update-openclaw-schema
 ```
 
 3) Commit changes to:
 
-- `packages/core/src/assets/clawdbot-config.schema.json`
-- `packages/core/src/assets/llm-providers.json`
+- `packages/core/src/generated/openclaw-config.schema.json`
+- `packages/core/src/generated/openclaw-config.types.ts`
 
 4) Run `pnpm -C packages/core test` (and `pnpm docs:build` if docs changed).
 
