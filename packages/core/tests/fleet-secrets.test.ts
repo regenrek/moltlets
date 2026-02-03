@@ -439,7 +439,11 @@ describe("fleet secrets plan", () => {
               openclaw: {
                 models: {
                   providers: {
-                    moonshot: { apiKey: "${MOONSHOT_API_KEY}" },
+                    moonshot: {
+                      apiKey: "${MOONSHOT_API_KEY}",
+                      baseUrl: "https://api.moonshot.example",
+                      models: [{ id: "moonshot-v1", name: "moonshot-v1" }],
+                    },
                   },
                 },
               },

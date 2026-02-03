@@ -17,5 +17,5 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts", "src/assets/**/*.json"]
+  "include": ["src/**/*.ts", "src/assets/**/*.json", "src/generated/**/*.json"]
 }

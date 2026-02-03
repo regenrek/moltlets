@@ -5,6 +5,7 @@ import { diffConfig, type ConfigDiffEntry } from "@clawlets/core/lib/config-diff
 import { validateClawdbotConfig } from "@clawlets/core/lib/clawdbot-schema-validate"
 import { diffChannelSchemasFromArtifacts } from "@clawlets/core/lib/clawdbot-schema-diff"
 import { getPinnedClawdbotSchema } from "@clawlets/core/lib/clawdbot-schema"
+import { OPENCLAW_DEFAULT_COMMANDS } from "@clawlets/core/lib/openclaw-defaults"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/fleet-secrets-plan-helpers"
 import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw-security-lint"
 import {
@@ -39,9 +40,22 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function withDefaultCommands(openclaw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = structuredClone(openclaw)
+  const commands = out.commands
+  if (commands === undefined) {
+    out.commands = OPENCLAW_DEFAULT_COMMANDS
+    return out
+  }
+  if (isPlainObject(commands)) {
+    out.commands = { ...OPENCLAW_DEFAULT_COMMANDS, ...commands }
+  }
+  return out
+}
+
 function buildEffectiveOpenclawConfig(bot: Record<string, unknown>): Record<string, unknown> {
   const openclaw = isPlainObject(bot["openclaw"]) ? (bot["openclaw"] as Record<string, unknown>) : {}
-  const out: Record<string, unknown> = { ...openclaw }
+  const out: Record<string, unknown> = withDefaultCommands(openclaw)
   const channels = bot["channels"]
   const agents = bot["agents"]
   const hooks = bot["hooks"]
@@ -137,7 +151,7 @@ export const setBotOpenclawConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const schemaValidation = validateClawdbotConfig(existingBot.openclaw, schema)
+    const schemaValidation = validateClawdbotConfig(withDefaultCommands(existingBot.openclaw as Record<string, unknown>), schema)
     if (!schemaValidation.ok) {
       return {
         ok: false as const,
@@ -345,16 +359,16 @@ export const verifyBotOpenclawSchema = createServerFn({ method: "POST" })
     let liveSchema: Record<string, unknown> | null = null
     try {
       const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-        const live = await fetchOpenclawSchemaLive({
-          projectId: data.projectId,
-          host: hostName,
-          botId,
-        })
+      const live = await fetchOpenclawSchemaLive({
+        projectId: data.projectId,
+        host: hostName,
+        botId,
+      })
       if (!live.ok) {
         return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
       }
       liveSchema = live.schema.schema as Record<string, unknown>
-      const liveValidation = validateClawdbotConfig((existingBot as any).openclaw, liveSchema)
+      const liveValidation = validateClawdbotConfig(withDefaultCommands((existingBot as any).openclaw), liveSchema)
       return {
         ok: true as const,
         issues: liveValidation.ok ? [] : mapSchemaIssues(liveValidation.issues),

@@ -7,11 +7,13 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 ### Added
 - First-class typed gateway config surfaces (`channels`, `agents`, `hooks`, `skills`, `plugins`) across core/CLI/web/Nix.
 - OpenClaw invariants/specs shared via JSON assets for Nix + core validation.
+- Pinned upstream OpenClaw JSON Schema snapshot + deterministic TS type generation (Nix/CI guarded).
 
 ### Changed
 - Bots are now host-scoped: `hosts.<host>.botsOrder` / `hosts.<host>.bots` replace `fleet.gatewayOrder` / `fleet.gateways` (schema bumped to v17; manual update required, no auto-migration).
 - `fleet.codex.gateways` replaced by `fleet.codex.bots` (if used).
 - Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
+- Validate `hosts.<host>.bots.<bot>.openclaw` passthrough against pinned upstream schema (fail fast, full-path errors).
 
 ### Fixed
 - Config batch validation now rejects ambiguous ops early; migration now moves legacy `openclaw.*` typed surfaces.

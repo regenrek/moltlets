@@ -23,6 +23,14 @@ export function shouldDisableSave(params: {
   return !params.canEdit || params.saving || !params.parsedOk || params.hasSchemaErrors
 }
 
+export function relaxOpenclawSchemaForPassthrough(schema: Record<string, unknown>): Record<string, unknown> {
+  const required = (schema as any).required
+  if (!Array.isArray(required)) return schema
+  const next = required.filter((entry) => entry !== "commands")
+  if (next.length === required.length) return schema
+  return { ...schema, required: next }
+}
+
 export function BotOpenclawEditor(props: {
   projectId: string
   botId: string
@@ -236,6 +244,7 @@ export function BotOpenclawEditor(props: {
   const pinnedVsUpstreamMismatch = Boolean(upstreamOpenclawRev && pinnedSchemaRev && upstreamOpenclawRev !== pinnedSchemaRev)
   const inlineSecretFindings = securityReport?.findings?.filter((f) => f.id.startsWith("inlineSecret.")) ?? []
   const hasInlineSecrets = inlineSecretFindings.length > 0
+  const editorSchema = useMemo(() => relaxOpenclawSchemaForPassthrough(activeSchema.schema), [activeSchema.schema])
 
   return (
     <div className="space-y-3">
@@ -372,8 +381,8 @@ export function BotOpenclawEditor(props: {
           <MonacoJsonEditor
             value={text}
             onChange={setText}
-            schema={activeSchema.schema}
-            schemaId={`${schemaMode}-${activeSchema.version}-${activeSchema.clawdbotRev}`}
+            schema={editorSchema}
+            schemaId={`${schemaMode}-passthrough-${activeSchema.version}-${activeSchema.clawdbotRev}`}
             readOnly={!props.canEdit}
             onDiagnostics={setSchemaIssues}
           />

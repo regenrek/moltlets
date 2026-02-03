@@ -26,7 +26,9 @@
   outputs = { self, nixpkgs, nix-openclaw, openclaw-src, ... }:
     let
       systemLinux = "x86_64-linux";
+      systemDarwin = "aarch64-darwin";
       pkgsLinux = import nixpkgs { system = systemLinux; };
+      pkgsDarwin = import nixpkgs { system = systemDarwin; };
       dev = import ./devenv.nix { pkgs = pkgsLinux; };
       openclawSourceInfo = import "${nix-openclaw}/nix/sources/openclaw-source.nix";
 
@@ -54,7 +56,86 @@
             fetcherVersion = 3;
             pnpmWorkspaces = pnpmWorkspacesCli;
             # Update this when pnpm-lock.yaml changes
-            hash = "sha256-A3izetIxONv5hwMCrqqaE4WcJE9RkkSKrSLSGjYyZ9Q=";
+            hash = "sha256-COCa0vwB173TYDBJYMDNY707W2rkRbGPSrKe/wh3ro8=";
+          };
+
+          pnpmWorkspacesOpenclaw = [ "openclaw" ];
+          pnpmDepsOpenclaw = pkgs.fetchPnpmDeps {
+            pname = "openclaw-src";
+            version = openclaw-src.rev or "unknown";
+            src = openclaw-src;
+            inherit pnpm;
+            fetcherVersion = 3;
+            pnpmWorkspaces = pnpmWorkspacesOpenclaw;
+            # Update this when the OpenClaw pnpm-lock.yaml changes
+            hash = "sha256-5r44dpkWymFcEqPuxx2QlGXctXIucYTff3rxXY1Jjkw=";
+          };
+
+          openclawSrcWithDeps = pkgs.buildNpmPackage {
+            pname = "openclaw-src-with-deps";
+            version = openclaw-src.rev or "unknown";
+            src = openclaw-src;
+
+            inherit nodejs;
+
+            npmDeps = null;
+            pnpmDeps = pnpmDepsOpenclaw;
+            nativeBuildInputs = [ pnpm ];
+            npmConfigHook = pkgs.pnpmConfigHook;
+            pnpmWorkspaces = pnpmWorkspacesOpenclaw;
+
+            dontNpmBuild = true;
+            dontNpmInstall = true;
+            dontNpmPrune = true;
+
+            npm_config_ignore_scripts = "true";
+
+            buildPhase = ''
+              runHook preBuild
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+
+              mkdir -p $out
+              cp -r src extensions package.json pnpm-lock.yaml pnpm-workspace.yaml $out/
+              cp -r node_modules $out/node_modules
+
+              runHook postInstall
+            '';
+          };
+
+          openclawSchemaArtifacts = pkgs.buildNpmPackage {
+            pname = "openclaw-schema-artifacts";
+            version = "0.0.0";
+            src = rootSrc;
+
+            inherit nodejs;
+
+            npmDeps = null;
+            inherit pnpmDepsCli;
+            pnpmDeps = pnpmDepsCli;
+            nativeBuildInputs = [ pnpm ];
+            npmConfigHook = pkgs.pnpmConfigHook;
+            inherit pnpmWorkspacesCli;
+            pnpmWorkspaces = pnpmWorkspacesCli;
+
+            dontNpmBuild = true;
+            dontNpmInstall = true;
+            dontNpmPrune = true;
+
+            installPhase = ''
+              runHook preInstall
+
+              mkdir -p $out
+              pnpm --filter=@clawlets/core exec tsx scripts/sync-openclaw-schema.ts \
+                --mode generate \
+                --src ${openclawSrcWithDeps} \
+                --out-dir $out
+
+              runHook postInstall
+            '';
           };
 
           clawletsCli = pkgs.buildNpmPackage {
@@ -112,6 +193,7 @@
         in
           {
             clawlets = clawletsCli;
+            "openclaw-schema-artifacts" = openclawSchemaArtifacts;
             default = clawletsCli;
           }
       );
@@ -121,7 +203,7 @@
       };
 
       packages.${systemLinux} = mkCliPackages systemLinux;
-      packages.aarch64-darwin = mkCliPackages "aarch64-darwin";
+      packages.${systemDarwin} = mkCliPackages systemDarwin;
 
       checks.${systemLinux} = {
         openclaw-pin-align = pkgsLinux.runCommand "openclaw-pin-align" {} ''
@@ -141,6 +223,112 @@
 
           touch "$out"
         '';
+
+        openclaw-schema-up-to-date = pkgsLinux.runCommand "openclaw-schema-up-to-date" {
+          buildInputs = [ pkgsLinux.diffutils ];
+        } ''
+          set -euo pipefail
+          generated="${self.packages.${systemLinux}."openclaw-schema-artifacts"}"
+
+          diff -u ${./packages/core/src/generated/openclaw-config.schema.json} "$generated/openclaw-config.schema.json"
+          diff -u ${./packages/core/src/generated/openclaw-config.types.ts} "$generated/openclaw-config.types.ts"
+
+          touch "$out"
+        '';
+      };
+
+      checks.${systemDarwin} = {
+        openclaw-pin-align = pkgsDarwin.runCommand "openclaw-pin-align" {} ''
+          set -euo pipefail
+          pinned_rev="${openclawSourceInfo.rev or ""}"
+          src_rev="${openclaw-src.rev or ""}"
+
+          if [ -z "$pinned_rev" ] || [ -z "$src_rev" ]; then
+            echo "error: missing openclaw rev (nix-openclaw pinned=$pinned_rev openclaw-src=$src_rev)" >&2
+            exit 1
+          fi
+
+          if [ "$pinned_rev" != "$src_rev" ]; then
+            echo "error: openclaw-src rev mismatch (nix-openclaw=$pinned_rev openclaw-src=$src_rev)" >&2
+            exit 1
+          fi
+
+          touch "$out"
+        '';
+
+        openclaw-schema-up-to-date = pkgsDarwin.runCommand "openclaw-schema-up-to-date" {
+          buildInputs = [ pkgsDarwin.diffutils ];
+        } ''
+          set -euo pipefail
+          generated="${self.packages.${systemDarwin}."openclaw-schema-artifacts"}"
+
+          diff -u ${./packages/core/src/generated/openclaw-config.schema.json} "$generated/openclaw-config.schema.json"
+          diff -u ${./packages/core/src/generated/openclaw-config.types.ts} "$generated/openclaw-config.types.ts"
+
+          touch "$out"
+        '';
+      };
+
+      apps.${systemLinux}.update-openclaw-schema = {
+        type = "app";
+        program = "${pkgsLinux.writeShellScript "update-openclaw-schema" ''
+          set -euo pipefail
+
+          root="$PWD"
+          while [ "$root" != "/" ] && [ ! -f "$root/flake.nix" ]; do
+            root="$(dirname "$root")"
+          done
+          if [ ! -f "$root/flake.nix" ]; then
+            echo "error: run from within the clawlets repo" >&2
+            exit 1
+          fi
+
+          out="$(nix build --print-out-paths "$root#openclaw-schema-artifacts" | tail -n 1)"
+          if [ -z "$out" ]; then
+            echo "error: nix build returned empty output path" >&2
+            exit 1
+          fi
+
+          target="$root/packages/core/src/generated"
+          mkdir -p "$target"
+
+          cp "$out/openclaw-config.schema.json" "$target/openclaw-config.schema.json"
+          cp "$out/openclaw-config.types.ts" "$target/openclaw-config.types.ts"
+          chmod 644 "$target/openclaw-config.schema.json" "$target/openclaw-config.types.ts"
+
+          echo "ok: updated $target"
+        ''}";
+      };
+
+      apps.${systemDarwin}.update-openclaw-schema = {
+        type = "app";
+        program = "${pkgsDarwin.writeShellScript "update-openclaw-schema" ''
+          set -euo pipefail
+
+          root="$PWD"
+          while [ "$root" != "/" ] && [ ! -f "$root/flake.nix" ]; do
+            root="$(dirname "$root")"
+          done
+          if [ ! -f "$root/flake.nix" ]; then
+            echo "error: run from within the clawlets repo" >&2
+            exit 1
+          fi
+
+          out="$(nix build --print-out-paths "$root#openclaw-schema-artifacts" | tail -n 1)"
+          if [ -z "$out" ]; then
+            echo "error: nix build returned empty output path" >&2
+            exit 1
+          fi
+
+          target="$root/packages/core/src/generated"
+          mkdir -p "$target"
+
+          cp "$out/openclaw-config.schema.json" "$target/openclaw-config.schema.json"
+          cp "$out/openclaw-config.types.ts" "$target/openclaw-config.types.ts"
+          chmod 644 "$target/openclaw-config.schema.json" "$target/openclaw-config.types.ts"
+
+          echo "ok: updated $target"
+        ''}";
       };
 
       nixosModules = {

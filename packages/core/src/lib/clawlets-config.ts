@@ -4,13 +4,17 @@ import { z } from "zod";
 import { writeFileAtomic } from "./fs-safe.js";
 import type { RepoLayout } from "../repo-layout.js";
 import { getRepoLayout } from "../repo-layout.js";
+import type { OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../generated/openclaw-config.types.js";
 import { GatewayIdSchema, HostNameSchema, PersonaNameSchema, SecretNameSchema, SkillIdSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawlets-config-legacy.js";
+import { validateClawdbotConfig } from "./clawdbot-schema-validate.js";
 import { SecretEnvSchema, SecretFilesSchema } from "./secret-wiring.js";
 import { isValidTargetHost } from "./ssh-remote.js";
 import { TtlStringSchema } from "@clawlets/cattle-core/lib/ttl";
 import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawlets/cattle-core/lib/hcloud-labels";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "./nix-cache.js";
+import { getPinnedOpenclawSchema } from "./openclaw-schema.js";
+import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
 
 export const SSH_EXPOSURE_MODES = ["tailnet", "bootstrap", "public"] as const;
 export const SshExposureModeSchema = z.enum(SSH_EXPOSURE_MODES);
@@ -26,6 +30,52 @@ export const GatewayArchitectureSchema = z.enum(GATEWAY_ARCHITECTURES);
 export type GatewayArchitecture = z.infer<typeof GatewayArchitectureSchema>;
 
 const JsonObjectSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.any());
+
+type UpstreamChannels = NonNullable<OpenclawChannels>;
+type FleetGatewayChannels = Record<string, any> & Pick<UpstreamChannels, "discord" | "telegram">;
+
+type UpstreamAgentsDefaults = NonNullable<NonNullable<OpenclawAgents>["defaults"]>;
+type FleetGatewayAgentsDefaults = Record<string, any> & UpstreamAgentsDefaults;
+
+type UpstreamHooks = NonNullable<OpenclawHooks>;
+type FleetGatewayHooks = Record<string, any> &
+  UpstreamHooks & {
+    tokenSecret?: string;
+    gmailPushTokenSecret?: string;
+  };
+
+type UpstreamSkills = NonNullable<OpenclawSkills>;
+type UpstreamSkillEntry = UpstreamSkills extends { entries?: Record<string, infer Entry> } ? Entry : never;
+type FleetGatewaySkillEntry = Record<string, any> & UpstreamSkillEntry & { apiKeySecret?: string };
+type FleetGatewaySkills = Record<string, any> &
+  Omit<UpstreamSkills, "entries"> & {
+    entries?: Record<string, FleetGatewaySkillEntry>;
+  };
+
+type UpstreamPlugins = NonNullable<OpenclawPlugins>;
+type FleetGatewayPlugins = Record<string, any> & UpstreamPlugins;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatPathLabel(segments: Array<string | number>): string {
+  let out = "";
+  for (const seg of segments) {
+    if (typeof seg === "number") {
+      out += `[${seg}]`;
+      continue;
+    }
+    out = out ? `${out}.${seg}` : seg;
+  }
+  return out || "(root)";
+}
+
+function stripPathPrefix(message: string): string {
+  const idx = message.indexOf(":");
+  if (idx === -1) return message.trim();
+  return message.slice(idx + 1).trim() || message.trim();
+}
 
 function parseCidr(value: string): { ip: string; prefix: number; family: 4 | 6 } | null {
   const trimmed = value.trim();
@@ -53,7 +103,7 @@ const FleetGatewayProfileSchema = z
   .passthrough()
   .default(() => ({ secretEnv: {}, secretFiles: {} }));
 
-const FleetGatewayChannelsSchema = z
+const FleetGatewayChannelsSchema: z.ZodType<FleetGatewayChannels> = z
   .object({
     discord: z
       .object({
@@ -67,6 +117,9 @@ const FleetGatewayChannelsSchema = z
       .object({
         enabled: z.boolean().default(true),
         allowFrom: z.array(z.union([z.string().trim().min(1), z.number()])).default(() => []),
+        dmPolicy: z.enum(["pairing", "allowlist", "open", "disabled"]).default("allowlist"),
+        groupPolicy: z.enum(["open", "disabled", "allowlist"]).default("allowlist"),
+        streamMode: z.enum(["off", "partial", "block"]).default("block"),
         groups: JsonObjectSchema.default(() => ({})),
       })
       .passthrough()
@@ -77,7 +130,7 @@ const FleetGatewayChannelsSchema = z
 
 const ThinkingDefaultSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
 
-const FleetGatewayAgentsDefaultsSchema = z
+const FleetGatewayAgentsDefaultsSchema: z.ZodType<FleetGatewayAgentsDefaults> = z
   .object({
     model: z
       .object({
@@ -97,7 +150,7 @@ const FleetGatewayAgentEntrySchema = z
     id: PersonaNameSchema,
     default: z.boolean().optional(),
     name: z.string().trim().min(1).optional(),
-    workspace: z.union([z.string().trim().min(1), JsonObjectSchema]).optional(),
+    workspace: z.string().trim().min(1).optional(),
     agentDir: z.string().trim().min(1).optional(),
     model: JsonObjectSchema.optional(),
     sandbox: JsonObjectSchema.optional(),
@@ -138,7 +191,7 @@ const FleetGatewayAgentsSchema = z
   .passthrough()
   .default(() => ({ defaults: {}, list: [] }));
 
-const FleetGatewayHooksSchema = z
+const FleetGatewayHooksSchema: z.ZodType<FleetGatewayHooks> = z
   .object({
     enabled: z.boolean().optional(),
     token: z.string().trim().min(1).optional(),
@@ -149,7 +202,7 @@ const FleetGatewayHooksSchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetGatewaySkillEntrySchema = z
+const FleetGatewaySkillEntrySchema: z.ZodType<FleetGatewaySkillEntry> = z
   .object({
     enabled: z.boolean().optional(),
     apiKey: z.string().trim().min(1).optional(),
@@ -160,7 +213,7 @@ const FleetGatewaySkillEntrySchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetGatewaySkillsSchema = z
+const FleetGatewaySkillsSchema: z.ZodType<FleetGatewaySkills> = z
   .object({
     allowBundled: z.array(SkillIdSchema).optional(),
     load: z
@@ -174,7 +227,7 @@ const FleetGatewaySkillsSchema = z
   .passthrough()
   .default(() => ({}));
 
-const FleetGatewayPluginsSchema = z
+const FleetGatewayPluginsSchema: z.ZodType<FleetGatewayPlugins> = z
   .object({
     enabled: z.boolean().optional(),
     allow: z.array(z.string().trim().min(1)).optional(),
@@ -618,6 +671,38 @@ export const ClawletsConfigSchema = z.object({
       path: ["cattle", "hetzner", "image"],
       message: "cattle.hetzner.image must be set when cattle.enabled is true",
     });
+  }
+
+  const schema = getPinnedOpenclawSchema().schema as Record<string, unknown>;
+  for (const [hostName, hostCfg] of Object.entries(cfg.hosts || {})) {
+    const bots = (hostCfg as any)?.bots;
+    const botsOrder = Array.isArray((hostCfg as any)?.botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
+    const ids = botsOrder.length > 0 ? botsOrder : Object.keys(bots || {});
+    for (const botId of ids) {
+      const botCfg = (bots as any)?.[botId];
+      const openclaw = (botCfg as any)?.openclaw;
+      if (!isPlainObject(openclaw)) continue;
+
+      // Legacy typed surfaces are rejected earlier; avoid spamming schema errors.
+      const legacyKeys = ["channels", "agents", "hooks", "skills", "plugins"] as const;
+      if (legacyKeys.some((k) => (openclaw as any)?.[k] !== undefined)) continue;
+
+      const openclawForValidation = structuredClone(openclaw) as Record<string, unknown>;
+      const commands = openclawForValidation["commands"];
+      if (commands === undefined) {
+        openclawForValidation["commands"] = OPENCLAW_DEFAULT_COMMANDS;
+      } else if (isPlainObject(commands)) {
+        openclawForValidation["commands"] = { ...OPENCLAW_DEFAULT_COMMANDS, ...commands };
+      }
+
+      const validation = validateClawdbotConfig(openclawForValidation, schema);
+      if (validation.ok) continue;
+      for (const issue of validation.issues) {
+        const path = ["hosts", hostName, "bots", botId, "openclaw", ...issue.path];
+        const message = `${formatPathLabel(path)}: ${stripPathPrefix(issue.message)}`;
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+      }
+    }
   }
 });
 

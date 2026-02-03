@@ -1,12 +1,35 @@
 import type { ClawletsConfig } from "./clawlets-config.js";
+import { z } from "zod";
 import { getAtPath } from "./object-path.js";
 import { skillApiKeyEnvVar } from "./fleet-secrets-plan-helpers.js";
 import invariantSpec from "../assets/openclaw-invariants.json" with { type: "json" };
+import type { OpenClawConfig, OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../generated/openclaw-config.types.js";
+import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
 
-const DEFAULT_GATEWAY_PORT_BASE = invariantSpec.defaults.gatewayPortBase;
-const DEFAULT_GATEWAY_PORT_STRIDE = invariantSpec.defaults.gatewayPortStride;
-const DEFAULT_STATE_DIR_BASE = invariantSpec.defaults.stateDirBase;
-const DEFAULT_COMMANDS = { native: "auto", nativeSkills: "auto" };
+type OpenClawConfigObject = OpenClawConfig & Record<string, unknown>;
+type PartialOpenClawConfigObject = Partial<OpenClawConfig> & Record<string, unknown>;
+
+const InvariantSpecSchema = z.object({
+  defaults: z.object({
+    gatewayPortBase: z.number().int().positive(),
+    gatewayPortStride: z.number().int().positive(),
+    stateDirBase: z.string().trim().min(1),
+  }),
+  gateway: z.object({
+    mode: z.enum(["local", "remote"]),
+    bind: z.enum(["custom", "auto", "lan", "loopback", "tailnet"]),
+    auth: z.object({
+      mode: z.enum(["token", "password"]),
+      token: z.string().trim().min(1),
+    }),
+  }),
+});
+
+const invariant = InvariantSpecSchema.parse(invariantSpec);
+
+const DEFAULT_GATEWAY_PORT_BASE = invariant.defaults.gatewayPortBase;
+const DEFAULT_GATEWAY_PORT_STRIDE = invariant.defaults.gatewayPortStride;
+const DEFAULT_STATE_DIR_BASE = invariant.defaults.stateDirBase;
 
 export type OpenClawInvariantWarning = {
   host: string;
@@ -150,9 +173,9 @@ export function buildOpenClawGatewayConfig(params: {
 }): {
   hostName: string;
   botId: string;
-  base: Record<string, unknown>;
-  merged: Record<string, unknown>;
-  invariants: Record<string, unknown>;
+  base: Partial<OpenClawConfig>;
+  merged: OpenClawConfig;
+  invariants: Partial<OpenClawConfig>;
   warnings: OpenClawInvariantWarning[];
 } {
   const hostCfg = (params.config.hosts as Record<string, unknown> | undefined)?.[params.hostName];
@@ -163,24 +186,36 @@ export function buildOpenClawGatewayConfig(params: {
   const gatewayCfgObj = isPlainObject(gatewayCfg) ? gatewayCfg : {};
   const profile = isPlainObject(gatewayCfgObj["profile"]) ? (gatewayCfgObj["profile"] as Record<string, unknown>) : {};
   const base = isPlainObject(gatewayCfgObj["openclaw"]) ? (gatewayCfgObj["openclaw"] as Record<string, unknown>) : {};
-  const typedChannels = isPlainObject(gatewayCfgObj["channels"]) ? (gatewayCfgObj["channels"] as Record<string, unknown>) : {};
-  const typedAgents = isPlainObject(gatewayCfgObj["agents"]) ? (gatewayCfgObj["agents"] as Record<string, unknown>) : {};
+  const typedChannels = isPlainObject(gatewayCfgObj["channels"])
+    ? (gatewayCfgObj["channels"] as unknown as NonNullable<OpenclawChannels>)
+    : ({} as NonNullable<OpenclawChannels>);
+  const typedAgents = isPlainObject(gatewayCfgObj["agents"])
+    ? (gatewayCfgObj["agents"] as unknown as NonNullable<OpenclawAgents>)
+    : ({} as NonNullable<OpenclawAgents>);
   const typedHooksRaw = isPlainObject(gatewayCfgObj["hooks"]) ? (gatewayCfgObj["hooks"] as Record<string, unknown>) : {};
   const typedSkillsRaw = isPlainObject(gatewayCfgObj["skills"]) ? (gatewayCfgObj["skills"] as Record<string, unknown>) : {};
-  const typedPlugins = isPlainObject(gatewayCfgObj["plugins"]) ? (gatewayCfgObj["plugins"] as Record<string, unknown>) : {};
-  const typedHooks = normalizeHooks(typedHooksRaw);
-  const typedSkills = normalizeSkills(typedSkillsRaw);
+  const typedPlugins = isPlainObject(gatewayCfgObj["plugins"])
+    ? (gatewayCfgObj["plugins"] as unknown as NonNullable<OpenclawPlugins>)
+    : ({} as NonNullable<OpenclawPlugins>);
+  const typedHooks = normalizeHooks(typedHooksRaw) as NonNullable<OpenclawHooks>;
+  const typedSkills = normalizeSkills(typedSkillsRaw) as NonNullable<OpenclawSkills>;
   const baseWithDefaults = deepMerge(
-    deepMerge({ commands: DEFAULT_COMMANDS }, base),
-    { channels: typedChannels, agents: typedAgents, hooks: typedHooks, skills: typedSkills, plugins: typedPlugins },
-  );
+    deepMerge({ commands: OPENCLAW_DEFAULT_COMMANDS }, base),
+    {
+      channels: typedChannels,
+      agents: typedAgents,
+      hooks: typedHooks,
+      skills: typedSkills,
+      plugins: typedPlugins,
+    },
+  ) as unknown as OpenClawConfigObject;
 
   const gatewayPort = resolveGatewayPort({ config: params.config, hostName: params.hostName, gatewayId: params.botId, profile });
   const workspaceDir = resolveWorkspaceDir({ gatewayId: params.botId, profile });
   const skipBootstrap = resolveSkipBootstrap({ profile });
 
-  const gatewayDefaults = invariantSpec.gateway;
-  const invariants: Record<string, unknown> = {
+  const gatewayDefaults = invariant.gateway;
+  const invariants: PartialOpenClawConfigObject = {
     gateway: {
       mode: gatewayDefaults.mode,
       bind: gatewayDefaults.bind,
@@ -214,8 +249,8 @@ export function buildOpenClawGatewayConfig(params: {
   return {
     hostName: params.hostName,
     botId: params.botId,
-    base,
-    merged: deepMerge(baseWithDefaults, invariants),
+    base: base as unknown as Partial<OpenClawConfig>,
+    merged: deepMerge(baseWithDefaults, invariants) as unknown as OpenClawConfig,
     invariants,
     warnings,
   };

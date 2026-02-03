@@ -10,7 +10,7 @@ const flakeLockPath = path.join(repoRoot, "flake.lock");
 function readPinnedRev(): string {
   if (!fs.existsSync(flakeLockPath)) return "";
   const lock = JSON.parse(fs.readFileSync(flakeLockPath, "utf8"));
-  return String(lock?.nodes?.["clawdbot-src"]?.locked?.rev || "").trim();
+  return String(lock?.nodes?.["openclaw-src"]?.locked?.rev || "").trim();
 }
 
 describe("clawdbot schema artifact", () => {
@@ -23,9 +23,9 @@ describe("clawdbot schema artifact", () => {
     expect(typeof schema.version).toBe("string");
     expect(schema.version.length).toBeGreaterThan(0);
     expect(typeof schema.generatedAt).toBe("string");
-    expect(schema.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(typeof schema.clawdbotRev).toBe("string");
     expect(schema.clawdbotRev?.match(/^[0-9a-f]{7,}$/)).toBeTruthy();
+    expect(schema.generatedAt).toBe(schema.clawdbotRev);
     const pinnedRev = readPinnedRev();
     if (pinnedRev) expect(schema.clawdbotRev).toBe(pinnedRev);
   });

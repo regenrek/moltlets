@@ -1,5 +1,5 @@
-import schemaArtifact from "../assets/clawdbot-config.schema.json" with { type: "json" };
 import { z } from "zod";
+import { getPinnedOpenclawSchema } from "./openclaw-schema.js";
 
 export type ClawdbotSchemaArtifact = {
   schema: Record<string, any>;
@@ -31,8 +31,13 @@ let cachedPinnedSchema: ClawdbotSchemaArtifact | null = null;
 
 export function getPinnedClawdbotSchema(): ClawdbotSchemaArtifact {
   if (cachedPinnedSchema) return cachedPinnedSchema;
-  const parsed = parseClawdbotSchemaArtifact(schemaArtifact);
-  if (!parsed.ok) throw new Error(`invalid pinned clawdbot schema: ${parsed.error}`);
-  cachedPinnedSchema = parsed.value;
+  const pinned = getPinnedOpenclawSchema();
+  cachedPinnedSchema = {
+    schema: pinned.schema,
+    uiHints: pinned.uiHints,
+    version: pinned.version,
+    generatedAt: pinned.openclawRev,
+    clawdbotRev: pinned.openclawRev,
+  };
   return cachedPinnedSchema;
 }
