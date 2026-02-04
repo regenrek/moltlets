@@ -14,6 +14,7 @@ import {
   type ClawletsHostConfig,
 } from "@clawlets/core/lib/clawlets-config";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "@clawlets/core/lib/nix-cache";
+import { HOST_THEME_DEFAULT_COLOR, HOST_THEME_DEFAULT_EMOJI } from "@clawlets/core/lib/host-theme";
 
 function parseBoolOrUndefined(v: unknown): boolean | undefined {
   if (v === undefined || v === null) return undefined;
@@ -50,6 +51,7 @@ const add = defineCommand({
       diskDevice: "/dev/sda",
       flakeHost: "",
       targetHost: undefined,
+      theme: { emoji: HOST_THEME_DEFAULT_EMOJI, color: HOST_THEME_DEFAULT_COLOR },
       hetzner: { serverType: "cx43", image: "", location: "nbg1" },
       provisioning: { adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "" },
       sshExposure: { mode: "bootstrap" },
