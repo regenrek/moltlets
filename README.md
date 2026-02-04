@@ -8,7 +8,7 @@
 
 # Clawlets
 
-Clawlets is an unofficial infrastructure wrapper for running Clawdbot fleets on NixOS (Hetzner-focused). It provides
+Clawlets is an unofficial infrastructure wrapper for running OpenClaw gateway fleets on NixOS (Hetzner-focused). It provides
 a local-first dashboard and a CLI to bootstrap, deploy, and operate fleets over time.
 
 ## Official Templates
@@ -25,7 +25,7 @@ a local-first dashboard and a CLI to bootstrap, deploy, and operate fleets over 
 
 ## Features
 
-- **Discord bot fleet** - deploy multiple bots from one repo.
+- **Discord gateway fleet** - deploy multiple gateways from one repo.
 - **Dashboard + CLI** - local UI for setup/ops, CLI for automation and recovery.
 - **Hetzner + NixOS** - reproducible builds and declarative host config.
 - **Secrets** - SOPS/age (sops-nix) and runtime boundaries.

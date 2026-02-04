@@ -50,17 +50,17 @@ matches, otherwise the updater will refuse to install.
 
 ## Orchestrator access errors
 
-If bots cannot connect to the control plane, check the Unix socket permissions:
+If gateways cannot connect to the control plane, check the Unix socket permissions:
 
 - socket path: `/run/clf/orchestrator.sock`
 - expected group: `clf-gateways`
 
-Confirm the bot service user is in the right group and that the socket is `0660`.
+Confirm the gateway service user is in the right group and that the socket is `0660`.
 
 ## Egress surprises
 
 If outbound SMTP suddenly stops working, remember the default egress policy blocks
-common SMTP ports. If you need stricter egress for bots, `proxy-allowlist` enforces a
+common SMTP ports. If you need stricter egress for gateways, `proxy-allowlist` enforces a
 domain allowlist via a local proxy (but requires explicit configuration).
 
 ## Hetzner bootstrap risk

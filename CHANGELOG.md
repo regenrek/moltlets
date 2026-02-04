@@ -10,16 +10,16 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Pinned upstream OpenClaw JSON Schema snapshot + deterministic TS type generation (Nix/CI guarded).
 
 ### Changed
-- Bots are now host-scoped: `hosts.<host>.botsOrder` / `hosts.<host>.bots` replace `fleet.gatewayOrder` / `fleet.gateways` (schema bumped to v17; migrate supported when target host is unambiguous).
-- `fleet.codex.gateways` replaced by `fleet.codex.bots` (if used).
+- Gateways are host-scoped: `hosts.<host>.gatewaysOrder` / `hosts.<host>.gateways` are the canonical roster (schema bumped to v18; legacy `bots*` keys are hard rejected).
+- `fleet.codex.bots` removed; use `fleet.codex.gateways`.
 - Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
-- Validate `hosts.<host>.bots.<bot>.openclaw` passthrough against pinned upstream schema (fail fast, full-path errors).
+- Validate `hosts.<host>.gateways.<gateway>.openclaw` passthrough against pinned upstream schema (fail fast, full-path errors).
 - Template/Nix: add `flakeInfo.clawletsInput` (clawlets input revision) alongside `flakeInfo.clawlets` (project revision).
 
 ### Fixed
 - Config batch validation now rejects ambiguous ops early; migration now moves legacy `openclaw.*` typed surfaces.
-- Prevent bots/gateways from fan-out across all enabled hosts by enforcing host-scoped bot lists.
-- Web add-bot flow now reconciles `hosts.<host>.botsOrder` and `hosts.<host>.bots` instead of silently leaving partial state.
+- Prevent gateways from fan-out across all enabled hosts by enforcing host-scoped gateway lists.
+- Web add-gateway flow now reconciles `hosts.<host>.gatewaysOrder` and `hosts.<host>.gateways` instead of silently leaving partial state.
 - Fix `clawlets project init` by updating the pinned default template ref; add CI gate to validate the pin stays compatible.
 
 ## [0.4.4] - 2026-02-01

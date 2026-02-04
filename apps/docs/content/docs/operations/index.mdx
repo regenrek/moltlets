@@ -4,7 +4,7 @@ description: Day‑2 operations and maintenance.
 ---
 
 This page collects the most common day‑2 workflows: updating config, rotating secrets,
-adding bots, and checking host health.
+adding gateways, and checking host health.
 
 ## Update OpenClaw config (routing/channels)
 
@@ -12,8 +12,8 @@ Clawlets does not own routing. Update routing via OpenClaw config and channels v
 first-class channel config, then publish and apply an update so the host picks up the
 new desired state:
 
-- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.openclaw` (routing/tools/etc)
-- edit `fleet/clawlets.json` → `hosts.<host>.bots.<botId>.channels` (typed channels)
+- edit `fleet/clawlets.json` → `hosts.<host>.gateways.<gatewayId>.openclaw` (routing/tools/etc)
+- edit `fleet/clawlets.json` → `hosts.<host>.gateways.<gatewayId>.channels` (typed channels)
 
 Then publish + apply updates (pinned):
 
@@ -40,21 +40,21 @@ the host, verify, then apply an update.
 clawlets server update apply --host <host>
 ```
 
-## Add a bot
+## Add a gateway
 
-Adding a bot means adding its ID, wiring secrets, and pushing a new deploy. The
+Adding a gateway means adding its ID, wiring secrets, and pushing a new deploy. The
 dashboard can do most of this for you; the CLI steps are here for repeatability.
 
-1) Add bot id:
+1) Add gateway id:
 
 ```bash
-clawlets gateway add --host <host> --gateway <botId>
+clawlets gateway add --host <host> --gateway <gatewayId>
 ```
 
 2) Add secret + config:
 
-- `hosts.<host>.bots.<botId>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<botId>"`
-- channel config: `hosts.<host>.bots.<botId>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
+- `hosts.<host>.gateways.<gatewayId>.profile.secretEnv.DISCORD_BOT_TOKEN = "discord_token_<gatewayId>"`
+- channel config: `hosts.<host>.gateways.<gatewayId>.channels.discord = { enabled: true, token: "${DISCORD_BOT_TOKEN}" }`
 
 Then:
 
@@ -65,16 +65,16 @@ clawlets server update apply --host <host>
 
 ## Add/enable a skill
 
-Skills are controlled by an allowlist and may require per-bot secrets. Once you wire
+Skills are controlled by an allowlist and may require per-gateway secrets. Once you wire
 the secret and allowlist, deploy the updated config.
 
 1) If bundled: add id to `fleet/bundled-skills.json`
-2) Allow per‑bot (example):
+2) Allow per‑gateway (example):
 
 ```bash
-clawlets config set --path hosts.<host>.bots.maren.skills.allowBundled --value-json '["github","brave-search"]'
+clawlets config set --path hosts.<host>.gateways.maren.skills.allowBundled --value-json '["github","brave-search"]'
 ```
-3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `hosts.<host>.bots.<botId>.skills.entries."<skill>".apiKeySecret`
+3) If it needs secrets: add `secrets/hosts/<host>/<secret>.yaml` and reference in `hosts.<host>.gateways.<gatewayId>.skills.entries."<skill>".apiKeySecret`
 4) Sync + deploy:
 
 ```bash
@@ -147,11 +147,11 @@ systemctl status openclaw-gh-token-maren.timer
 
 ## GitHub inventory sync (optional)
 
-If enabled, the host periodically writes GitHub issues and PRs into the bot workspace.
-If enabled (`services.openclawFleet.githubSync.enable = true`), each bot writes:
+If enabled, the host periodically writes GitHub issues and PRs into the gateway workspace.
+If enabled (`services.openclawFleet.githubSync.enable = true`), each gateway writes:
 
-- `/srv/openclaw/<bot>/workspace/memory/github/prs.md`
-- `/srv/openclaw/<bot>/workspace/memory/github/issues.md`
+- `/srv/openclaw/<gatewayId>/workspace/memory/github/prs.md`
+- `/srv/openclaw/<gatewayId>/workspace/memory/github/issues.md`
 
 Ops helpers:
 

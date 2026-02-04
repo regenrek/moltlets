@@ -3,29 +3,29 @@ title: Orchestrator
 description: clf job queue and cattle spawner.
 ---
 
-The orchestrator is the bot-facing control plane. Bots request work through `clf jobs`
+The orchestrator is the gateway-facing control plane. Gateways request work through `clf jobs`
 without ever holding Hetzner credentials or long-lived provider keys.
 
 Clawlets keeps privileges clear by splitting responsibilities:
 
 - `clawlets`: operator/admin CLI (bootstrap, deploy, lockdown, server ops)
-- `clf`: bot-facing control plane (jobs queue)
+- `clf`: gateway-facing control plane (jobs queue)
 
 ## Components
 
-The orchestrator is composed of a queue, a daemon, and a bot-facing CLI:
+The orchestrator is composed of a queue, a daemon, and a gateway-facing CLI:
 
 - `packages/clf/queue`: SQLite queue + schemas (idempotency, leases, retry).
 - `packages/clf/orchestrator`: daemon + worker loop + handlers.
-- `packages/clf/cli`: `clf` CLI (bots call this).
+- `packages/clf/cli`: `clf` CLI (gateways call this).
 
 ## Transport + auth (default)
 
-Bots and cattle talk to the orchestrator over different transports with different
-constraints. Bots use a Unix socket protected by filesystem permissions, and cattle
+Gateways and cattle talk to the orchestrator over different transports with different
+constraints. Gateways use a Unix socket protected by filesystem permissions, and cattle
 fetch their runtime environment over tailnet-only HTTP.
 
-- Bot → orchestrator: Unix socket HTTP
+- Gateway → orchestrator: Unix socket HTTP
   - socket: `/run/clf/orchestrator.sock`
   - auth: filesystem perms (systemd socket `0660`, group `clf-gateways`)
 - Cattle → orchestrator: tailnet-only HTTP (secrets env fetch)
@@ -59,9 +59,9 @@ systemctl status clf-orchestrator
 ls -la /run/clf/orchestrator.sock
 ```
 
-## CLI (bot-facing)
+## CLI (gateway-facing)
 
-Bots enqueue jobs via the `clf` CLI. The queue enforces idempotency so a single
+Gateways enqueue jobs via the `clf` CLI. The queue enforces idempotency so a single
 message or event cannot spawn duplicates if it retries.
 
 Enqueue a cattle spawn:
@@ -85,7 +85,7 @@ clf jobs cancel --job-id <jobId> --json
 ```
 
 Notes
-- Bots use `clf`. Do not grant bots access to the `clawlets` admin CLI.
+- Gateways use `clf`. Do not grant gateways access to the `clawlets` admin CLI.
 - `withGithubToken` is operator-only today (via `clawlets cattle spawn --with-github-token`).
 
 ## Runtime state

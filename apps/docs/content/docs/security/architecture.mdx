@@ -65,7 +65,7 @@ Servers contain the actual decrypted runtime state and the local control-plane s
 - `/var/lib/sops-nix/key.txt`: host age key
 - `/var/lib/clawlets/secrets/hosts/<host>/`: encrypted secrets files (SOPS)
 - `/run/secrets/**`: decrypted materialized secrets at runtime (owned by service users)
-- `/run/clf/orchestrator.sock`: bot-facing control-plane socket (group `clf-gateways`)
+- `/run/clf/orchestrator.sock`: gateway-facing control-plane socket (group `clf-gateways`)
 - `/var/lib/clf/orchestrator/state.sqlite`: orchestrator DB (job payloads/results + token hashes)
 
 ## Day 0 vs Day N
@@ -151,7 +151,7 @@ Clawlets expects a “bootstrap window” followed by a more restrictive steady 
 
 ### Egress policy
 
-Egress controls are about reducing accidental exposure and limiting what bots can reach.
+Egress controls are about reducing accidental exposure and limiting what gateways can reach.
 
 - Default mode blocks outbound SMTP ports (anti-spam only).
-- Optional mode forces bot services through a local HTTP proxy with a domain allowlist.
+- Optional mode forces gateway services through a local HTTP proxy with a domain allowlist.

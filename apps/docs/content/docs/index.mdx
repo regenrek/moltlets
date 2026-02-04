@@ -64,7 +64,7 @@ cases.
 
 ## Why it exists
 
-Most bot fleets drift because configuration is scattered across scripts, host edits,
+Most fleets drift because configuration is scattered across scripts, host edits,
 and half-kept docs. Clawlets pulls those decisions into one repo so the desired state
 is explicit, reviewable, and repeatable. The NixOS layer renders from that same source
 of truth, so you can rebuild or reinstall a host without re-discovering what changed.
@@ -84,7 +84,7 @@ https://github.com/regenrek/clawlets/issues
 
 Clawlets centers the local dashboard for setup and day-2 operations, then backs that
 with a single configuration file and a secrets workflow that stays out of the Nix
-store. It renders per-bot services, workspaces, and gateways via NixOS modules, and
+store. It renders per-gateway services, workspaces, and gateways via NixOS modules, and
 it can also spin up short-lived cattle instances when you need additional workers.
 
 ## Lifecycle you will follow
@@ -97,8 +97,8 @@ rotate secrets, inspect logs, audit the host, and ship upgrades.
 ## How it fits with OpenClaw
 
 Clawlets does not replace OpenClaw; it extends it. You still author raw OpenClaw
-config under `hosts.<host>.bots.<botId>.openclaw`, and Clawlets applies a small set of
-invariants around gateways, workspace layout, and bot environment wiring. The Nix
+config under `hosts.<host>.gateways.<gatewayId>.openclaw`, and Clawlets applies a small set of
+invariants around gateways, workspace layout, and gateway environment wiring. The Nix
 layer is pinned via `nix-openclaw` so runtime behavior stays predictable across
 installs.
 
@@ -111,7 +111,7 @@ installs.
 ## Where things live
 
 The project repo is the canonical source of truth and is intended to be committed:
-`fleet/clawlets.json` for config, `fleet/workspaces/**` for bot docs, `secrets/**`
+`fleet/clawlets.json` for config, `fleet/workspaces/**` for gateway docs, `secrets/**`
 for sops-encrypted secrets, and `cattle/personas/**` for cattle definitions. The
 runtime directory `.clawlets/` is local-only and gitignored; it stores operator
 keys, extra-files payloads, provisioning state, and image build artifacts.

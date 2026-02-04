@@ -37,7 +37,7 @@ Enable cattle in `fleet/clawlets.json` and set the Hetzner image and defaults:
 
 ```json
 {
-  "schemaVersion": 17,
+  "schemaVersion": 18,
   "cattle": {
     "enabled": true,
     "hetzner": {
@@ -117,7 +117,7 @@ clawlets cattle reap --dry-run
 
 Notes
 - `clawlets cattle spawn` enqueues a `cattle.spawn` job into `clf-orchestrator` (it does not talk to Hetzner directly).
-- Bots should use `clf jobs ...` directly; see [Orchestrator](/concepts/orchestrator).
+- Gateways should use `clf jobs ...` directly; see [Orchestrator](/concepts/orchestrator).
 
 ## Task format
 
@@ -178,7 +178,7 @@ reference before diving into logs.
 
 Common errors
 - `cloud-init user_data too large`: reduce persona/task payload (cloud-init user_data is size-limited).
-- `missing secretEnv mapping for <ENV_VAR>`: set `fleet.secretEnv.<ENV_VAR>` or per-bot override.
+- `missing secretEnv mapping for <ENV_VAR>`: set `fleet.secretEnv.<ENV_VAR>` or per-gateway override.
 - `tailscale ip returned empty output`: the VM didn’t join tailnet (check `tailscale_auth_key`).
 
 Debug commands

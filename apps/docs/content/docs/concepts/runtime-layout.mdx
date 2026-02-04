@@ -3,19 +3,19 @@ title: Runtime layout
 description: On-host paths and state.
 ---
 
-This page summarizes the on-host directory layout for bots, orchestrator, and cattle.
+This page summarizes the on-host directory layout for gateways, orchestrator, and cattle.
 Use it when debugging file permissions, tracing secrets, or verifying where state is
 written.
 
-## Pet host (fleet bots)
+## Pet host (fleet gateways)
 
-- `/srv/openclaw/<bot>/` (default; see `services.openclawFleet.stateDirBase`)
+- `/srv/openclaw/<gatewayId>/` (default; see `services.openclawFleet.stateDirBase`)
 
-Per-bot:
+Per-gateway:
 
-- `/srv/openclaw/<bot>/workspace/`: agent workspace (seeded once if `documentsDir`/`workspace.seedDir` set)
-- `/srv/openclaw/<bot>/credentials/`: generated runtime creds (e.g. GitHub App token env, git-credentials)
-- `/srv/openclaw/<bot>/.codex/`: Codex CLI OAuth state (if Codex is enabled and you run device auth)
+- `/srv/openclaw/<gatewayId>/workspace/`: agent workspace (seeded once if `documentsDir`/`workspace.seedDir` set)
+- `/srv/openclaw/<gatewayId>/credentials/`: generated runtime creds (e.g. GitHub App token env, git-credentials)
+- `/srv/openclaw/<gatewayId>/.codex/`: Codex CLI OAuth state (if Codex is enabled and you run device auth)
 
 Host-wide secrets/tools:
 
@@ -51,4 +51,4 @@ lived runtime files live on tmpfs.
   - `/var/lib/clawlets/cattle/workspace/` (gateway log, agent log, state)
   - result: `/var/lib/clawlets/cattle/result.json`
 
-Invariant: bot processes should not write outside their `/srv/openclaw/<bot>/` state dir (except Nix-managed paths like `/run/secrets/**`).
+Invariant: gateway processes should not write outside their `/srv/openclaw/<gatewayId>/` state dir (except Nix-managed paths like `/run/secrets/**`).

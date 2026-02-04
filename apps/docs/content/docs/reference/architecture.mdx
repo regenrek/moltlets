@@ -44,7 +44,7 @@ The typical lifecycle flows from project creation to bootstrap, update, and lock
 The dashboard mirrors this flow, while the CLI provides automation.
 
 1) `clawlets project init` → new project repo.
-2) Edit `fleet/clawlets.json`, add bots + hosts + secret wiring.
+2) Edit `fleet/clawlets.json`, add gateways + hosts + secret wiring.
 3) `clawlets env init` → set `HCLOUD_TOKEN`.
 4) `clawlets secrets init` → generate sops rules + encrypted secrets.
 5) `clawlets doctor --scope bootstrap` → preflight.

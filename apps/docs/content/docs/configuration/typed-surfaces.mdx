@@ -7,16 +7,16 @@ Clawlets ultimately runs **OpenClaw** on servers. The goal of the "typed surface
 make the *common* parts of OpenClaw configuration easy to set, validate, and edit in the
 dashboard/CLI, while still keeping an escape hatch for advanced keys.
 
-In practice, each bot has two layers.
+In practice, each gateway has two layers.
 
-Bots are host-scoped in `fleet/clawlets.json`:
+Gateways are host-scoped in `fleet/clawlets.json`:
 
-- `hosts.<host>.bots.<botId>`
+- `hosts.<host>.gateways.<gatewayId>`
 
 - **Typed surfaces** (first-class keys in `fleet/clawlets.json`)
-- **OpenClaw passthrough** (`hosts.<host>.bots.<botId>.openclaw`) for advanced/edge cases
+- **OpenClaw passthrough** (`hosts.<host>.gateways.<gatewayId>.openclaw`) for advanced/edge cases
 
-In addition, each bot has a **profile** (`hosts.<host>.bots.<botId>.profile`) that controls the
+In addition, each gateway has a **profile** (`hosts.<host>.gateways.<gatewayId>.profile`) that controls the
 *Nix/runtime* side (secret injection, workspace seeding, resources). The profile is not
 "OpenClaw config" itself, but it affects how the service runs.
 
@@ -24,24 +24,24 @@ In addition, each bot has a **profile** (`hosts.<host>.bots.<botId>.profile`) th
 
 Typed surfaces (preferred):
 
-- `hosts.<host>.bots.<botId>.channels`
-- `hosts.<host>.bots.<botId>.agents`
-- `hosts.<host>.bots.<botId>.hooks`
-- `hosts.<host>.bots.<botId>.skills`
-- `hosts.<host>.bots.<botId>.plugins`
+- `hosts.<host>.gateways.<gatewayId>.channels`
+- `hosts.<host>.gateways.<gatewayId>.agents`
+- `hosts.<host>.gateways.<gatewayId>.hooks`
+- `hosts.<host>.gateways.<gatewayId>.skills`
+- `hosts.<host>.gateways.<gatewayId>.plugins`
 
 OpenClaw passthrough (advanced):
 
-- `hosts.<host>.bots.<botId>.openclaw` (raw JSON object merged into the OpenClaw root config)
+- `hosts.<host>.gateways.<gatewayId>.openclaw` (raw JSON object merged into the OpenClaw root config)
 
 <Callout type="warning" title="Do not nest typed surfaces under openclaw.*">
-  Do not set <code>hosts.&lt;host&gt;.bots.&lt;botId&gt;.openclaw.channels</code> (or agents/hooks/skills/plugins).
-  Clawlets rejects that layout to avoid ambiguity. Put those keys at the top level under the bot.
+  Do not set <code>hosts.&lt;host&gt;.gateways.&lt;gatewayId&gt;.openclaw.channels</code> (or agents/hooks/skills/plugins).
+  Clawlets rejects that layout to avoid ambiguity. Put those keys at the top level under the gateway.
 </Callout>
 
-## The bot profile (runtime surface)
+## The gateway profile (runtime surface)
 
-`hosts.<host>.bots.<botId>.profile` configures runtime behavior that is enforced by the Nix layer:
+`hosts.<host>.gateways.<gatewayId>.profile` configures runtime behavior that is enforced by the Nix layer:
 
 - secret injection inputs: `profile.secretEnv`, `profile.secretFiles`
 - least-privilege env injection: `profile.secretEnvAllowlist`
@@ -56,9 +56,9 @@ These keys are validated twice:
 ## How Nix consumes this (high-level)
 
 At deploy time, Clawlets evaluates a small Nix expression that converts `fleet/clawlets.json`
-into typed Nix module inputs (bot profiles, secret wiring, deterministic bot order).
+into typed Nix module inputs (gateway profiles, secret wiring, deterministic gateway order).
 
-Then the `openclawFleet` module composes each bot's final OpenClaw config and renders it to
+Then the `openclawFleet` module composes each gateway's final OpenClaw config and renders it to
 disk so the service consumes one validated JSON file.
 
 ```mermaid
@@ -66,13 +66,13 @@ flowchart LR
   A["fleet/clawlets.json"] --> B["CLI/Dashboard validation"]
   B --> C["nix eval: fleet-config.nix"]
   C --> D["services.openclawFleet (Nix module)"]
-  D --> E["/run/secrets/rendered/openclaw-BOT_ID.json"]
-  E --> F["openclaw-BOT_ID.service"]
+  D --> E["/run/secrets/rendered/openclaw-GATEWAY_ID.json"]
+  E --> F["openclaw-GATEWAY_ID.service"]
 ```
 
 ## Merge order (what wins)
 
-For each bot, the OpenClaw root config is built in Nix:
+For each gateway, the OpenClaw root config is built in Nix:
 
 1. **Clawlets base config** (managed defaults + secret injection helpers)
 2. **User config** (OpenClaw passthrough + typed surfaces mapped into OpenClaw)
@@ -86,7 +86,8 @@ This keeps operations deterministic while still letting you configure most of Op
 {
   "hosts": {
     "openclaw-fleet-host": {
-      "bots": {
+      "gatewaysOrder": ["maren"],
+      "gateways": {
         "maren": {
           "channels": {
             "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" }
@@ -117,5 +118,5 @@ In this example:
 If you're changing the config model, these files are the main touch points:
 
 - `nix/lib/fleet-config.nix` (maps JSON config → Nix module inputs)
-- `nix/modules/openclaw-fleet/impl/bot-config.nix` (builds final OpenClaw config per bot)
+- `nix/modules/openclaw-fleet/impl/gateway-config.nix` (builds final OpenClaw config per gateway)
 - `packages/core/src/lib/clawlets-config.ts` (runtime schema + legacy layout rejection)

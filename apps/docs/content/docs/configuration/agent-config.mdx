@@ -1,9 +1,9 @@
 ---
 title: Agent config
-description: Workspaces, skills, and per‑bot profiles.
+description: Workspaces, skills, and per‑gateway profiles.
 ---
 
-This page explains the per‑bot configuration surface (gateway instances; bots in the UI):
+This page explains the per‑gateway configuration surface (gateway instances):
 workspaces, skills, and how profiles map into the Nix layer.
 
 There are three sources of truth you will touch most often when you configure agents:
@@ -12,24 +12,24 @@ There are three sources of truth you will touch most often when you configure ag
 - `fleet/bundled-skills.json` (canonical allowlist for Nix assertions + doctor)
 - `fleet/workspaces/**` (prompt/policy docs + skills)
 
-At deploy time, the Nix layer renders a per‑bot OpenClaw config file so services
+At deploy time, the Nix layer renders a per‑gateway OpenClaw config file so services
 consume a single, validated JSON file:
 
 - Nix generates `/run/secrets/rendered/openclaw-<id>.json`
 
-## Canonical bot config (typed surfaces + OpenClaw schema)
+## Canonical gateway config (typed surfaces + OpenClaw schema)
 
 For the full picture (merge order + how Nix renders), see
 [Typed config surfaces](/configuration/typed-surfaces).
 
-Each bot has a single input object with typed surfaces plus a raw OpenClaw passthrough:
+Each gateway has a single input object with typed surfaces plus a raw OpenClaw passthrough:
 
-- `hosts.<host>.bots.<botId>.channels`
-- `hosts.<host>.bots.<botId>.agents`
-- `hosts.<host>.bots.<botId>.hooks`
-- `hosts.<host>.bots.<botId>.skills`
-- `hosts.<host>.bots.<botId>.plugins`
-- `hosts.<host>.bots.<botId>.openclaw` (JSON passthrough for advanced config)
+- `hosts.<host>.gateways.<gatewayId>.channels`
+- `hosts.<host>.gateways.<gatewayId>.agents`
+- `hosts.<host>.gateways.<gatewayId>.hooks`
+- `hosts.<host>.gateways.<gatewayId>.skills`
+- `hosts.<host>.gateways.<gatewayId>.plugins`
+- `hosts.<host>.gateways.<gatewayId>.openclaw` (JSON passthrough for advanced config)
 
 Clawlets invariants override (gateway mode/bind/port/auth; workspace + skipBootstrap).
 
@@ -39,7 +39,8 @@ Clawlets invariants override (gateway mode/bind/port/auth; workspace + skipBoots
 {
   "hosts": {
     "openclaw-fleet-host": {
-      "bots": {
+      "gatewaysOrder": ["maren"],
+      "gateways": {
         "maren": {
           "profile": {
             "secretEnv": {
@@ -80,24 +81,24 @@ Ports:
 ## Secrets
 
 Secrets are wired with a provider-agnostic mapping. Global defaults live at the fleet
-level and can be overridden per bot:
+level and can be overridden per gateway:
 
 - global defaults: `fleet.secretEnv.<ENV_VAR> = "<secretName>"`
-- per‑bot overrides: `hosts.<host>.bots.<botId>.profile.secretEnv.<ENV_VAR> = "<secretName>"`
+- per‑gateway overrides: `hosts.<host>.gateways.<gatewayId>.profile.secretEnv.<ENV_VAR> = "<secretName>"`
 
 Examples:
 
-- Discord: `DISCORD_BOT_TOKEN → discord_token_<bot>`
-- Telegram: `TELEGRAM_BOT_TOKEN → telegram_bot_token_<bot>`
-- Slack: `SLACK_BOT_TOKEN → slack_bot_token_<bot>`, `SLACK_APP_TOKEN → slack_app_token_<bot>`
+- Discord: `DISCORD_BOT_TOKEN → discord_token_<gatewayId>`
+- Telegram: `TELEGRAM_BOT_TOKEN → telegram_bot_token_<gatewayId>`
+- Slack: `SLACK_BOT_TOKEN → slack_bot_token_<gatewayId>`, `SLACK_APP_TOKEN → slack_app_token_<gatewayId>`
 - Models: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`
 
 ## Documents (AGENTS / SOUL / TOOLS / IDENTITY)
 
-Workspace docs (prompt and policy) are split into shared and per-bot overlays:
+Workspace docs (prompt and policy) are split into shared and per-gateway overlays:
 
 - `fleet/workspaces/common/` (shared)
-- `fleet/workspaces/gateways/<bot>/` (overrides; overlay on top of common)
+- `fleet/workspaces/gateways/<gatewayId>/` (overrides; overlay on top of common)
 
 Fleet config points Nix at the workspace seed root:
 
@@ -108,47 +109,47 @@ documentsDir = ./fleet/workspaces;
 Anything under `documentsDir` is copied into the Nix store. Treat it as public and do
 not place secrets in `fleet/workspaces/**`.
 
-On every bot service start:
+On every gateway service start:
 
-- if workspace empty: seed common then bot overlay
+- if workspace empty: seed common then gateway overlay
 - always: sync a managed allowlist (AGENTS/SOUL/IDENTITY/TOOLS/USER/HEARTBEAT)
 - always: sync `skills/` into the workspace (custom/local skills)
 
 ### Custom/local skills
 
-Put skill definitions under shared or per-bot workspaces so they are discoverable by
+Put skill definitions under shared or per-gateway workspaces so they are discoverable by
 the runtime without extra config:
 
 - shared: `fleet/workspaces/common/skills/<skill>/SKILL.md`
-- per‑bot: `fleet/workspaces/gateways/<bot>/skills/<skill>/SKILL.md`
+- per‑gateway: `fleet/workspaces/gateways/<gatewayId>/skills/<skill>/SKILL.md`
 
-The bot config always includes `skills.load.extraDirs = ["<workspace>/skills"]`, so
-skills in that folder are discoverable without extra per‑bot config.
+The gateway config always includes `skills.load.extraDirs = ["<workspace>/skills"]`, so
+skills in that folder are discoverable without extra per‑gateway config.
 
 ## Gateway ports
 
-Gateway ports are auto-assigned from `hosts.<host>.botsOrder`, which keeps port allocation
+Gateway ports are auto-assigned from `hosts.<host>.gatewaysOrder`, which keeps port allocation
 deterministic across deploys.
 
-Per‑bot override (example):
+Per‑gateway override (example):
 
 ```bash
-clawlets config set --path hosts.<host>.bots.melinda.profile.gatewayPort --value 18819
+clawlets config set --path hosts.<host>.gateways.melinda.profile.gatewayPort --value 18819
 ```
 
 ## Model defaults (provider/model)
 
-Set a default model for the host, then override per bot if needed:
+Set a default model for the host, then override per gateway if needed:
 
 ```bash
 clawlets host set --agent-model-primary zai/glm-4.7
 ```
 
-Per‑bot override:
+Per‑gateway override:
 
 ```bash
-clawlets config set --path hosts.<host>.bots.melinda.agents.defaults.model.primary --value zai/glm-4.7
-clawlets config set --path hosts.<host>.bots.melinda.agents.defaults.model.fallbacks --value-json '["anthropic/claude-opus-4-5"]'
+clawlets config set --path hosts.<host>.gateways.melinda.agents.defaults.model.primary --value zai/glm-4.7
+clawlets config set --path hosts.<host>.gateways.melinda.agents.defaults.model.fallbacks --value-json '["anthropic/claude-opus-4-5"]'
 ```
 
 Provider API keys are wired via sops secret names:
@@ -159,22 +160,22 @@ clawlets config set --path fleet.secretEnv.ANTHROPIC_API_KEY --value anthropic_a
 clawlets config set --path fleet.secretEnv.OPENAI_API_KEY --value openai_api_key
 ```
 
-These are injected into per‑bot `EnvironmentFile=` entries via sops‑nix templates.
+These are injected into per‑gateway `EnvironmentFile=` entries via sops‑nix templates.
 
 ## Codex CLI (server)
 
-If you need the Codex CLI to run on a host, enable it per bot and allow the bundled
+If you need the Codex CLI to run on a host, enable it per gateway and allow the bundled
 skill that provides the integration:
 
 ```bash
 clawlets fleet set --codex-enable true
 ```
 
-Then allow bundled `coding-agent` for those bots:
+Then allow bundled `coding-agent` for those gateways:
 
 ```bash
-clawlets config set --path hosts.<host>.bots.gunnar.skills.allowBundled --value-json '["github","coding-agent"]'
-clawlets config set --path hosts.<host>.bots.maren.skills.allowBundled --value-json '["github","brave-search","coding-agent"]'
+clawlets config set --path hosts.<host>.gateways.gunnar.skills.allowBundled --value-json '["github","coding-agent"]'
+clawlets config set --path hosts.<host>.gateways.maren.skills.allowBundled --value-json '["github","brave-search","coding-agent"]'
 ```
 
 One‑time login (headless):
@@ -198,18 +199,18 @@ Run GitHub inventory sync on-demand:
 
 ```bash
 clawlets server github-sync status --target-host admin@<host>
-clawlets server github-sync run --target-host admin@<host> --gateway <bot>
+clawlets server github-sync run --target-host admin@<host> --gateway <gatewayId>
 ```
 
-Requires at least one bot with GitHub App config (`hosts.<host>.bots.<botId>.profile.github.*`).
+Requires at least one gateway with GitHub App config (`hosts.<host>.gateways.<gatewayId>.profile.github.*`).
 
 ## Ops snapshots (optional)
 
 Host ops snapshots (no secrets) are opt‑in (`services.openclawFleet.opsSnapshot.enable = true`).
 
-## Per‑bot profiles (canonical config)
+## Per‑gateway profiles (canonical config)
 
-Each bot can have different profile settings, including:
+Each gateway can have different profile settings, including:
 
 - bundled skill allowlist
 - per‑skill env + secrets

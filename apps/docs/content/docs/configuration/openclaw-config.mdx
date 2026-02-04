@@ -11,23 +11,23 @@ common OpenClaw keys, use the passthrough object.
 
 ## Where to put config
 
-All bot config lives in `fleet/clawlets.json`.
+All gateway config lives in `fleet/clawlets.json`.
 
 Preferred (typed surfaces):
 
-- `hosts.<host>.bots.<botId>.channels`
-- `hosts.<host>.bots.<botId>.agents`
-- `hosts.<host>.bots.<botId>.hooks`
-- `hosts.<host>.bots.<botId>.skills`
-- `hosts.<host>.bots.<botId>.plugins`
+- `hosts.<host>.gateways.<gatewayId>.channels`
+- `hosts.<host>.gateways.<gatewayId>.agents`
+- `hosts.<host>.gateways.<gatewayId>.hooks`
+- `hosts.<host>.gateways.<gatewayId>.skills`
+- `hosts.<host>.gateways.<gatewayId>.plugins`
 
 Advanced (OpenClaw passthrough):
 
-- `hosts.<host>.bots.<botId>.openclaw` (raw OpenClaw config object)
+- `hosts.<host>.gateways.<gatewayId>.openclaw` (raw OpenClaw config object)
 
 <Callout type="warning" title="Avoid openclaw.* for typed surfaces">
   Do not set <code>openclaw.channels</code>/<code>openclaw.agents</code>/<code>openclaw.hooks</code>/<code>openclaw.skills</code>/<code>openclaw.plugins</code>.
-  Use the first-class keys on the bot instead.
+  Use the first-class keys on the gateway instead.
 </Callout>
 
 ## Invariants Clawlets enforces
@@ -69,7 +69,7 @@ Notes:
 
 Clawlets ships with a pinned schema that the CLI uses for validation and that the UI
 uses by default. If you want to validate against a live gateway, the web editor can
-fetch the schema from a running bot, which requires `hosts.<host>.targetHost` and an
+fetch the schema from a running gateway, which requires `hosts.<host>.targetHost` and an
 active gateway. The same fetch is available via the CLI:
 
 - `clawlets openclaw schema fetch --host <host> --gateway <gatewayId>`
@@ -92,7 +92,7 @@ into the Nix store during deploy, so treat them as public.
 Use env var references in OpenClaw config and wire them to sops secret names in
 `fleet/clawlets.json` instead:
 
-- Discord: set `hosts.<host>.bots.<botId>.channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `hosts.<host>.bots.<botId>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
+- Discord: set `hosts.<host>.gateways.<gatewayId>.channels.discord.token="${DISCORD_BOT_TOKEN}"` and wire `hosts.<host>.gateways.<gatewayId>.profile.secretEnv.DISCORD_BOT_TOKEN = "<secretName>"`
 - Model providers: wire `fleet.secretEnv.<ENV_VAR> = "<secretName>"` (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`)
 
 Notes:
@@ -106,7 +106,8 @@ Example (Discord token):
 {
   "hosts": {
     "openclaw-fleet-host": {
-      "bots": {
+      "gatewaysOrder": ["maren"],
+      "gateways": {
         "maren": {
           "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" } },
           "channels": { "discord": { "enabled": true, "token": "${DISCORD_BOT_TOKEN}" } },

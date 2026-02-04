@@ -29,12 +29,12 @@ state; the local runtime dir holds generated artifacts and operator keys.
 
 The top-level keys split global fleet settings, cattle, and per-host settings:
 
-- `schemaVersion`: currently `17`
+- `schemaVersion`: currently `18`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
 - `fleet.*`: global secrets + policy (shared across hosts)
 - `cattle.*`: ephemeral agent instances (Hetzner)
-- `hosts.<host>`: host entries keyed by host name (includes the bots that run on that host)
+- `hosts.<host>`: host entries keyed by host name (includes the gateways that run on that host)
 
 Fleet (`fleet.*`):
 
@@ -50,22 +50,22 @@ Fleet settings define secret wiring and global policy shared across hosts.
 Host entry (`hosts.<host>`):
 
 Host settings control provisioning, SSH exposure, caches, and update behavior. They
-also define which bots run on this host.
+also define which gateways run on this host.
 
-- `botsOrder`: ordered bot ids for this host (deterministic ports/services)
-- `bots.<botId>`: per-bot config object (bots are **host-scoped**)
+- `gatewaysOrder`: ordered gateway ids for this host (deterministic ports/services)
+- `gateways.<gatewayId>`: per-gateway config object (gateways are **host-scoped**)
   - `profile`: clawlets/template infra knobs (systemd/env/secrets/limits)
-    - `profile.secretEnv`: per‑bot env var → sops secret name overrides
-    - `profile.secretEnvAllowlist`: optional allowlist of env vars written into the bot env file
-    - `profile.secretFiles`: bot‑scoped secret files
-    - other keys are forwarded into Nix `services.openclawFleet.gatewayProfiles.<botId>`
+    - `profile.secretEnv`: per‑gateway env var → sops secret name overrides
+    - `profile.secretEnvAllowlist`: optional allowlist of env vars written into the gateway env file
+    - `profile.secretFiles`: gateway‑scoped secret files
+    - other keys are forwarded into Nix `services.openclawFleet.gatewayProfiles.<gatewayId>`
   - `channels`: typed channel config (discord/telegram/etc)
   - `agents`: typed agent defaults + optional `list[]` (personas)
   - `hooks`: typed hooks config (token + Gmail push wiring)
   - `skills`: typed skills config (allowBundled/load/entries)
   - `plugins`: typed plugin config (allow/deny/load/entries)
   - `openclaw`: raw OpenClaw config passthrough (advanced/edge cases)
-  - `clf`: clawlets/clf policy (bot access to orchestrator/queue)
+  - `clf`: clawlets/clf policy (gateway access to orchestrator/queue)
 
 - `enable`: whether fleet services should run
 - `diskDevice`: passed into the disko module (required for install)
@@ -98,7 +98,7 @@ special tasks.
 
 Secret mappings are declared in config and resolved into sops files under `secrets/`.
 OpenClaw config should use `${ENV_VAR}` (uppercase/underscores). Clawlets scans the
-effective bot config (typed fields + `hosts.<host>.bots.<botId>.openclaw` passthrough) for
+effective gateway config (typed fields + `hosts.<host>.gateways.<gatewayId>.openclaw` passthrough) for
 `${ENV_VAR}` refs plus channel tokens, hooks tokens, skill `apiKey` fields, and provider
 `apiKey` fields to build the secrets plan.
 
@@ -111,7 +111,7 @@ Hooks + skills env wiring:
 - `hooks.gmail.pushToken` → `${OPENCLAW_HOOKS_GMAIL_PUSH_TOKEN}`
 - `skills.entries.<skill>.apiKey` → `${OPENCLAW_SKILL_<SKILL>_API_KEY}`
 
-If you set `hosts.<host>.bots.<botId>.hooks.*Secret` or `hosts.<host>.bots.<botId>.skills.entries.*.apiKeySecret`,
+If you set `hosts.<host>.gateways.<gatewayId>.hooks.*Secret` or `hosts.<host>.gateways.<gatewayId>.skills.entries.*.apiKeySecret`,
 Clawlets derives the env mapping automatically.
 
 ## Autowire missing secretEnv
@@ -128,14 +128,14 @@ CLI:
 UI:
 
 - Host secrets panel: Missing secret wiring → Wire all
-- Bot integrations panel: Secret wiring (advanced)
+- Gateway integrations panel: Secret wiring (advanced)
 
 ## Least‑privilege env injection (optional)
 
-You can restrict which env vars are injected into each bot to reduce blast radius if
+You can restrict which env vars are injected into each gateway to reduce blast radius if
 an env file is exposed.
 
-- Set `profile.secretEnvAllowlist` to restrict which env vars are written into each bot env file.
+- Set `profile.secretEnvAllowlist` to restrict which env vars are written into each gateway env file.
 - Generate from current config: `clawlets config derive-allowlist --write`.
 - `clawlets config validate --strict` fails if the allowlist doesn’t match derived requirements.
 
@@ -146,25 +146,20 @@ Strict mode turns warnings into failures so CI can gate on configuration quality
 - `clawlets config validate --strict`: treat inline secrets + invariant overrides + allowlist mismatches as errors.
 - `clawlets doctor --scope updates --strict`: updates gate; fails on warn.
 
-## Migration notes
+## Schema versioning
 
-Schema versions change as the configuration model evolves.
+The schema evolves. `schemaVersion` is currently `18`.
 
-- v17: bots are host-scoped (manual update; no auto-migration):
-  - remove `fleet.gatewayOrder` / `fleet.gateways`
-  - add `hosts.<host>.botsOrder` / `hosts.<host>.bots`
-  - bot ids are only unique within a host; address bots as `(host, botId)`
-  - replace `fleet.codex.gateways` with `fleet.codex.bots` (if used)
-- v15: config key renamed to `openclaw` (use `hosts.<host>.bots.<botId>.openclaw`, not `clawdbot`)
-- v12: self‑updates use `hosts.<host>.selfUpdate.baseUrls` (mirror list).
-- v11: cache settings are `hosts.<host>.cache.{substituters,trustedPublicKeys,netrc}`.
-- v10: SSH keys are project-scoped under `fleet.sshAuthorizedKeys`/`fleet.sshKnownHosts` (no longer per-host).
-- v9: inline secrets are deprecated; move tokens/api keys to `${ENV_VAR}` wiring and secretEnv mappings (hooks/skills included).
+Clawlets intentionally does not accept multiple schemas at runtime. To upgrade an existing
+repo, run:
+
+- `clawlets config migrate --write`
+- `clawlets config validate --host <host>`
 ## Example
 
 ```json
 {
-  "schemaVersion": 17,
+  "schemaVersion": 18,
   "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -172,7 +167,7 @@ Schema versions change as the configuration model evolves.
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "codex": { "enable": false, "bots": [] },
+    "codex": { "enable": false, "gateways": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
   "cattle": {
@@ -190,8 +185,8 @@ Schema versions change as the configuration model evolves.
   "hosts": {
     "openclaw-fleet-host": {
       "enable": false,
-      "botsOrder": ["maren"],
-      "bots": {
+      "gatewaysOrder": ["maren"],
+      "gateways": {
         "maren": {
           "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" }, "secretFiles": {} },
           "channels": {

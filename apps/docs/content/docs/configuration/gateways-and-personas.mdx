@@ -5,13 +5,11 @@ description: One gateway process, optional multiple OpenClaw personas.
 
 Clawlets has **two** levels of "agents" that are easy to mix up:
 
-1. **Gateway instance** (Clawlets config + CLI term): one OpenClaw gateway process with its own ports, state, Unix user, and workspace.
+1. **Gateway instance** (Clawlets config + dashboard + CLI term): one OpenClaw gateway process with its own ports, state, Unix user, and workspace.
 2. **Persona / agent** (OpenClaw term): an entry in `agents.list[]` inside a single gateway.
 
-In the dashboard UI we call a **gateway instance** a **Bot** (because "gateway" is accurate but not very approachable).
-
 <Callout type="info" title="Dashboard preference (optional)">
-The dashboard may store your choice in `fleet.gatewayArchitecture` (`multi|single`). This is a UI preference and does not auto-migrate existing bots or personas.
+The dashboard may store your choice in `fleet.gatewayArchitecture` (`multi|single`). This is a UI preference and does not auto-migrate existing gateways or personas.
 </Callout>
 
 ## Prereqs
@@ -23,22 +21,22 @@ The dashboard may store your choice in `fleet.gatewayArchitecture` (`multi|singl
 
 <Steps>
   <Step>Choose the architecture (Option A or Option B below).</Step>
-  <Step>Update `hosts.&lt;host&gt;.botsOrder` and `hosts.&lt;host&gt;.bots` to match the chosen shape.</Step>
+  <Step>Update `hosts.&lt;host&gt;.gatewaysOrder` and `hosts.&lt;host&gt;.gateways` to match the chosen shape.</Step>
   <Step>Validate the config: <code>clawlets config validate --host &lt;host&gt;</code>.</Step>
 </Steps>
 
 ## Two common setups
 
-### Option A: multiple gateways (multiple bots)
+### Option A: multiple gateways
 
-Use this when you want isolation (separate state dirs, ports, credentials) or a dedicated rescue bot.
+Use this when you want isolation (separate state dirs, ports, credentials) or a dedicated rescue gateway.
 
 ```json
 {
   "hosts": {
     "business": {
-      "botsOrder": ["main", "rescue"],
-      "bots": {
+      "gatewaysOrder": ["main", "rescue"],
+      "gateways": {
         "main": {},
         "rescue": {}
       }
@@ -47,7 +45,7 @@ Use this when you want isolation (separate state dirs, ports, credentials) or a 
 }
 ```
 
-Each gateway gets a deterministic port block based on its position in `hosts.<host>.botsOrder`.
+Each gateway gets a deterministic port block based on its position in `hosts.<host>.gatewaysOrder`.
 
 ### Option B: one gateway, multiple personas (agents.list[])
 
@@ -57,8 +55,8 @@ Use this when you want multiple personas without running multiple gateway proces
 {
   "hosts": {
     "business": {
-      "botsOrder": ["main"],
-      "bots": {
+      "gatewaysOrder": ["main"],
+      "gateways": {
         "main": {
           "agents": {
             "list": [
@@ -92,7 +90,7 @@ At runtime, the gateway workspace is seeded from common + the gateway overlay (i
 ## Verify
 
 - `clawlets config validate --host <host>` returns `ok`.
-- The expected bot ids appear in `hosts.<host>.botsOrder`.
+- The expected gateway ids appear in `hosts.<host>.gatewaysOrder`.
 - For Option B, `agents.list[]` contains at most one `default: true`.
 
 ## Troubleshooting

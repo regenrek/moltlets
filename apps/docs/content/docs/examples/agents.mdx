@@ -5,8 +5,8 @@ description: Model defaults, fallbacks, and concurrency.
 
 This page shows common agent defaults and the optional multi-persona layout. These live under:
 
-- `hosts.<host>.bots.<botId>.agents.defaults`
-- `hosts.<host>.bots.<botId>.agents.list[]` (optional)
+- `hosts.<host>.gateways.<gatewayId>.agents.defaults`
+- `hosts.<host>.gateways.<gatewayId>.agents.list[]` (optional)
 
 ## Model default (per gateway)
 
@@ -14,7 +14,8 @@ This page shows common agent defaults and the optional multi-persona layout. The
 {
   "hosts": {
     "openclaw-fleet-host": {
-      "bots": {
+      "gatewaysOrder": ["maren"],
+      "gateways": {
         "maren": {
           "agents": {
             "defaults": {
@@ -52,8 +53,8 @@ Example:
 {
   "hosts": {
     "openclaw-fleet-host": {
-      "botsOrder": ["main"],
-      "bots": {
+      "gatewaysOrder": ["main"],
+      "gateways": {
         "main": {
           "agents": {
             "defaults": {
@@ -77,9 +78,9 @@ You can also pass through advanced per-persona keys (workspace, model overrides,
 
 See also: [Gateways and personas](/configuration/gateways-and-personas).
 
-## Host default (applies to all bots unless overridden)
+## Host default (applies to all gateways unless overridden)
 
-You can set a host-level default model and then override per bot if needed:
+You can set a host-level default model and then override per gateway if needed:
 
 ```json
 {
