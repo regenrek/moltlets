@@ -49,7 +49,7 @@ schema), regenerate the snapshot in the same PR.
 Checklist:
 
 1) Update flake inputs (and keep `nix-openclaw` + `openclaw-src` aligned).
-2) Regenerate schema assets:
+2) Update the pinned schema snapshot:
 
 ```bash
 nix run .#update-openclaw-schema
@@ -60,7 +60,18 @@ nix run .#update-openclaw-schema
 - `packages/core/src/generated/openclaw-config.schema.json`
 - `packages/core/src/generated/openclaw-config.types.ts`
 
-4) Run `pnpm -C packages/core test` (and `pnpm docs:build` if docs changed).
+4) If CI reports `schema assets out of date`, regenerate the additional OpenClaw assets used by the CLI:
+
+```bash
+pnpm clawlets:openclaw-assets -- --src /path/to/openclaw
+```
+
+Commit changes to:
+
+- `packages/core/src/assets/clawdbot-config.schema.json`
+- `packages/core/src/assets/llm-providers.json`
+
+5) Run `pnpm -C packages/core test` (and `pnpm docs:build` if docs changed).
 
 ## Releases
 
