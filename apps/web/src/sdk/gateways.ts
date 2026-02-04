@@ -185,6 +185,7 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `gateway ${hostName}/${gatewayId} openclaw config`,
+      host: hostName,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -276,6 +277,7 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `gateway ${hostName}/${gatewayId} preset ${preset.id}`,
+      host: hostName,
     })
 
     await client.mutation(api.auditLogs.append, {
@@ -418,6 +420,7 @@ export const hardenGatewayOpenclawConfig = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `gateway ${hostName}/${gatewayId} openclaw harden`,
+      host: hostName,
     })
 
     await client.mutation(api.auditLogs.append, {

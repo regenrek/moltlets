@@ -116,6 +116,7 @@ export const addGateway = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `gateway add ${hostName}/${gatewayId}`,
+      host: hostName,
     })
     return await runWithEventsAndStatus({
       client,
@@ -187,6 +188,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `agent add ${hostName}/${gatewayId}/${agentId}`,
+      host: hostName,
     })
     return await runWithEventsAndStatus({
       client,
@@ -242,6 +244,7 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `agent rm ${hostName}/${gatewayId}/${agentId}`,
+      host: hostName,
     })
     return await runWithEventsAndStatus({
       client,
@@ -298,6 +301,7 @@ export const removeGateway = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `gateway rm ${hostName}/${gatewayId}`,
+      host: hostName,
     })
     return await runWithEventsAndStatus({
       client,
@@ -351,4 +355,3 @@ export const setGatewayArchitecture = createServerFn({ method: "POST" })
       onSuccess: () => ({ ok: true as const, runId }),
     })
   })
-

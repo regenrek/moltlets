@@ -13,6 +13,7 @@ import { isValidTargetHost } from "./ssh-remote.js";
 import { TtlStringSchema } from "@clawlets/cattle-core/lib/ttl";
 import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawlets/cattle-core/lib/hcloud-labels";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "./nix-cache.js";
+import { HOST_THEME_COLORS, HOST_THEME_DEFAULT_COLOR, HOST_THEME_DEFAULT_EMOJI } from "./host-theme.js";
 import { getPinnedOpenclawSchema } from "./openclaw-schema.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
 import { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
@@ -25,6 +26,9 @@ export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
 export { CLAWLETS_CONFIG_SCHEMA_VERSION };
+export { HOST_THEME_COLORS };
+export const HostThemeColorSchema = z.enum(HOST_THEME_COLORS);
+export type HostThemeColor = z.infer<typeof HostThemeColorSchema>;
 
 export const GATEWAY_ARCHITECTURES = ["multi", "single"] as const;
 export const GatewayArchitectureSchema = z.enum(GATEWAY_ARCHITECTURES);
@@ -378,6 +382,12 @@ const HostSchema = z
       .refine((v) => (v ? isValidTargetHost(v) : true), {
         message: "invalid targetHost (expected ssh alias or user@host)",
       }),
+    theme: z
+      .object({
+        emoji: z.string().trim().min(1).default(HOST_THEME_DEFAULT_EMOJI),
+        color: HostThemeColorSchema.default(HOST_THEME_DEFAULT_COLOR),
+      })
+      .default(() => ({ emoji: HOST_THEME_DEFAULT_EMOJI, color: HOST_THEME_DEFAULT_COLOR })),
     hetzner: z
       .object({
         serverType: z.string().trim().min(1).default("cx43"),

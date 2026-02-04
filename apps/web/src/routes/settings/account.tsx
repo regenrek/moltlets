@@ -10,6 +10,7 @@ import { Card } from "~/components/ui/card"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { Separator } from "~/components/ui/separator"
+import { ModeToggle } from "~/components/mode-toggle"
 
 export const Route = createFileRoute("/settings/account")({
   component: AccountSettings,
@@ -147,6 +148,16 @@ function AccountSettings() {
         </div>
         {error ? <div className="text-sm text-destructive">{error}</div> : null}
         {success ? <div className="text-sm text-emerald-600">{success}</div> : null}
+        <Separator />
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Theme</div>
+            <div className="text-xs text-muted-foreground">
+              Toggle light and dark mode.
+            </div>
+          </div>
+          <ModeToggle />
+        </div>
         <Separator />
         <form onSubmit={onUpdateName} className="space-y-3">
           <div className="text-sm font-medium">Display name</div>

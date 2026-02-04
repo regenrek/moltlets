@@ -38,4 +38,24 @@ describe("project init", () => {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it("writes host theme when provided", async () => {
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "clawlets-project-init-"));
+    try {
+      const destDir = path.join(tempRoot, "my-project");
+      const templateDir = path.join(__dirname, ".template");
+      await initProject({
+        destDir,
+        host: "my-host",
+        templateSpec: `file:${templateDir}`,
+        gitInit: false,
+        theme: { emoji: "🚀", color: "emerald" },
+      });
+
+      const cfg = JSON.parse(await readFile(path.join(destDir, "fleet", "clawlets.json"), "utf8")) as any;
+      expect(cfg.hosts?.["my-host"]?.theme).toEqual({ emoji: "🚀", color: "emerald" });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

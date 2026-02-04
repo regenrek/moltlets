@@ -29,7 +29,7 @@ state; the local runtime dir holds generated artifacts and operator keys.
 
 The top-level keys split global fleet settings, cattle, and per-host settings:
 
-- `schemaVersion`: currently `18`
+- `schemaVersion`: currently `1`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
 - `fleet.*`: global secrets + policy (shared across hosts)
@@ -148,7 +148,7 @@ Strict mode turns warnings into failures so CI can gate on configuration quality
 
 ## Schema versioning
 
-The schema evolves. `schemaVersion` is currently `18`.
+The schema evolves. `schemaVersion` is currently `1`.
 
 Clawlets intentionally does not accept multiple schemas at runtime. To upgrade an existing
 repo, run:

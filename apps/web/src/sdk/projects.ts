@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { planProjectInit, initProject } from "@clawlets/core/lib/project-init";
+import { HOST_THEME_COLORS, type HostTheme, type HostThemeColor } from "@clawlets/core/lib/host-theme";
 import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { createConvexClient } from "~/server/convex";
@@ -15,6 +16,22 @@ function getHost(input?: unknown): string {
   return raw || "clawdbot-fleet-host";
 }
 
+const HOST_THEME_COLOR_SET = new Set<string>(HOST_THEME_COLORS)
+
+function getHostTheme(input?: unknown):
+  | Partial<HostTheme>
+  | undefined {
+  if (!input || typeof input !== "object") return undefined
+  const data = input as Record<string, unknown>
+  const emoji = typeof data["emoji"] === "string" ? data["emoji"] : undefined
+  const colorRaw = typeof data["color"] === "string" ? data["color"] : undefined
+  const color = colorRaw && HOST_THEME_COLOR_SET.has(colorRaw)
+    ? (colorRaw as HostThemeColor)
+    : undefined
+  if (!emoji && !color) return undefined
+  return { emoji, color }
+}
+
 export const projectInitPlan = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     if (!data || typeof data !== "object") throw new Error("invalid input");
@@ -23,6 +40,7 @@ export const projectInitPlan = createServerFn({ method: "POST" })
       localPath: String(d["localPath"] || ""),
       host: getHost(d["host"]),
       templateSpec: resolveTemplateSpec(d["templateSpec"]),
+      theme: getHostTheme(d["theme"]),
     };
   })
   .handler(async ({ data }) => {
@@ -43,6 +61,7 @@ export const projectCreateStart = createServerFn({ method: "POST" })
       localPath: String(d["localPath"] || ""),
       host: getHost(d["host"]),
       templateSpec: resolveTemplateSpec(d["templateSpec"]),
+      theme: getHostTheme(d["theme"]),
       gitInit: d["gitInit"] === undefined ? true : Boolean(d["gitInit"]),
     };
   })
@@ -70,6 +89,7 @@ export const projectCreateStart = createServerFn({ method: "POST" })
       runId: runId as Id<"runs">,
       host: data.host,
       templateSpec: data.templateSpec,
+      theme: data.theme,
       gitInit: data.gitInit,
     };
   });
@@ -86,6 +106,7 @@ export const projectCreateExecute = createServerFn({ method: "POST" })
       runId: runIdRaw.trim() as Id<"runs">,
       host: getHost(d["host"]),
       templateSpec: resolveTemplateSpec(d["templateSpec"]),
+      theme: getHostTheme(d["theme"]),
       gitInit: d["gitInit"] === undefined ? true : Boolean(d["gitInit"]),
     };
   })
@@ -108,6 +129,7 @@ export const projectCreateExecute = createServerFn({ method: "POST" })
             destDir: repoRoot,
             host: data.host,
             templateSpec: data.templateSpec,
+            theme: data.theme,
             gitInit: data.gitInit,
           });
           await emit({ level: "info", message: `Wrote ${result.plannedFiles.length} files.` });

@@ -46,12 +46,55 @@ export function buildProjectBasePath(projectSlug: string): string {
   return `/${projectSlug}`
 }
 
+export function buildProjectGlobalBase(projectSlug: string): string {
+  return `${buildProjectBasePath(projectSlug)}/~`
+}
+
+export function buildProjectGlobalPath(projectSlug: string, slug: string): string {
+  return `${buildProjectGlobalBase(projectSlug)}/${slug}`
+}
+
 export function buildHostsPath(projectSlug: string): string {
   return `${buildProjectBasePath(projectSlug)}/hosts`
 }
 
 export function buildHostPath(projectSlug: string, host: string): string {
   return `${buildHostsPath(projectSlug)}/${encodeURIComponent(host)}`
+}
+
+const HOST_SWITCH_GLOBAL_MAP = {
+  bootstrap: "bootstrap",
+  updates: "updates",
+  logs: "logs",
+  "server-logs": "logs",
+  audit: "audit",
+  restart: "restart",
+  secrets: "secrets",
+  gateways: "gateways",
+  runs: "runs",
+} as const
+
+export function buildHostSwitchPath(params: {
+  projectSlug: string
+  host: string
+  pathname: string
+}): string {
+  const base = buildHostPath(params.projectSlug, params.host)
+  const parts = params.pathname.split("/").filter(Boolean)
+  if (parts[0] !== params.projectSlug) return base
+  if (parts[1] === "hosts" && parts[2]) {
+    const suffix = parts.slice(3).join("/")
+    return suffix ? `${base}/${suffix}` : base
+  }
+  if (parts[1] === "~") {
+    const globalSlug = parts[2] || ""
+    const mapped = HOST_SWITCH_GLOBAL_MAP[globalSlug as keyof typeof HOST_SWITCH_GLOBAL_MAP]
+    if (mapped) {
+      const rest = parts.slice(3).join("/")
+      return rest ? `${base}/${mapped}/${rest}` : `${base}/${mapped}`
+    }
+  }
+  return base
 }
 
 export function pickLastActiveProject<T extends ProjectLike>(projects: T[]): T | null {

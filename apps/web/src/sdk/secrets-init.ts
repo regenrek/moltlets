@@ -65,6 +65,7 @@ export const secretsInitStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "secrets_init",
       title: `Secrets init (${host})`,
+      host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

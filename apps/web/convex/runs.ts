@@ -30,6 +30,27 @@ export const listByProjectPage = query({
   },
 });
 
+export const listByProjectHostPage = query({
+  args: {
+    projectId: v.id("projects"),
+    host: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(RunDoc),
+  handler: async (ctx, { projectId, host, paginationOpts }) => {
+    await requireProjectAccessQuery(ctx, projectId);
+    const numItems = Math.max(1, Math.min(200, paginationOpts.numItems));
+    const normalizedHost = host.trim();
+    return await ctx.db
+      .query("runs")
+      .withIndex("by_project_host_startedAt", (q) =>
+        q.eq("projectId", projectId).eq("host", normalizedHost),
+      )
+      .order("desc")
+      .paginate({ ...paginationOpts, numItems });
+  },
+});
+
 export const get = query({
   args: { runId: v.id("runs") },
   returns: v.object({ run: RunDoc, role: Role, project: ProjectDoc }),
@@ -42,9 +63,14 @@ export const get = query({
 });
 
 export const create = mutation({
-  args: { projectId: v.id("projects"), kind: RunKind, title: v.optional(v.string()) },
+  args: {
+    projectId: v.id("projects"),
+    kind: RunKind,
+    title: v.optional(v.string()),
+    host: v.optional(v.string()),
+  },
   returns: v.object({ runId: v.id("runs") }),
-  handler: async (ctx, { projectId, kind, title }) => {
+  handler: async (ctx, { projectId, kind, title, host }) => {
     const access = await requireProjectAccessMutation(ctx, projectId);
     requireAdmin(access.role);
 
@@ -56,6 +82,7 @@ export const create = mutation({
       kind,
       status: "running",
       title: title?.trim() || undefined,
+      host: host?.trim() || undefined,
       initiatedByUserId: access.authed.user._id,
       createdAt: now,
       startedAt: now,

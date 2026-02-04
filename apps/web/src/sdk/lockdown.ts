@@ -32,6 +32,7 @@ export const lockdownStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "lockdown",
       title: `Lockdown (${data.host})`,
+      host: data.host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

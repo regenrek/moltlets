@@ -70,6 +70,7 @@ const schema = defineSchema({
     kind: RunKind,
     status: RunStatus,
     title: v.optional(v.string()),
+    host: v.optional(v.string()),
     initiatedByUserId: v.id("users"),
     createdAt: v.number(),
     startedAt: v.number(),
@@ -77,6 +78,7 @@ const schema = defineSchema({
     errorMessage: v.optional(v.string()),
   })
     .index("by_project_startedAt", ["projectId", "startedAt"])
+    .index("by_project_host_startedAt", ["projectId", "host", "startedAt"])
     .index("by_project_status", ["projectId", "status"]),
 
   runEvents: defineTable({

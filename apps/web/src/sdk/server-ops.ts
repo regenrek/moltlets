@@ -60,6 +60,7 @@ export const serverUpdateApplyStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_update_apply",
       title: `Updater apply (${data.host})`,
+      host: data.host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
@@ -124,6 +125,7 @@ export const serverStatusStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_status",
       title: `Server status (${data.host})`,
+      host: data.host,
     })
     return { runId }
   })
@@ -178,6 +180,7 @@ export const serverAuditStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_audit",
       title: `Server audit (${data.host})`,
+      host: data.host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
@@ -271,6 +274,7 @@ export const serverLogsStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_logs",
       title: `Logs (${data.host} · ${unit})`,
+      host: data.host,
     })
     return { runId }
   })
@@ -334,6 +338,7 @@ export const serverUpdateStatusStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_update_status",
       title: `Updater status (${data.host})`,
+      host: data.host,
     })
     return { runId }
   })
@@ -417,6 +422,7 @@ export const serverUpdateLogsStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_update_logs",
       title: `Updater logs (${data.host})`,
+      host: data.host,
     })
     return { runId }
   })
@@ -479,6 +485,7 @@ export const serverRestartStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_restart",
       title: `Restart (${data.host} · ${unit})`,
+      host: data.host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

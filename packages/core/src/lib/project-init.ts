@@ -6,6 +6,7 @@ import { downloadTemplate } from "giget";
 import { ensureDir, writeFileAtomic } from "./fs-safe.js";
 import { capture, run } from "./run.js";
 import { assertSafeHostName } from "@clawlets/shared/lib/identifiers";
+import { normalizeHostTheme, type HostTheme } from "./host-theme.js";
 
 type DownloadedTemplate = { dir: string };
 
@@ -185,6 +186,22 @@ async function disableCacheNetrc(destDir: string, host: string): Promise<void> {
   await writeFileAtomic(configPath, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
+async function applyHostTheme(
+  destDir: string,
+  host: string,
+  theme?: Partial<HostTheme> | null,
+): Promise<void> {
+  if (!theme) return;
+  const configPath = path.join(destDir, "fleet", "clawlets.json");
+  if (!fs.existsSync(configPath)) return;
+  const raw = await fs.promises.readFile(configPath, "utf8");
+  const parsed = JSON.parse(raw) as any;
+  const hostCfg = parsed?.hosts?.[host];
+  if (!hostCfg || typeof hostCfg !== "object") return;
+  hostCfg.theme = normalizeHostTheme(theme);
+  await writeFileAtomic(configPath, `${JSON.stringify(parsed, null, 2)}\n`);
+}
+
 export type ProjectInitPlan = {
   destDir: string;
   host: string;
@@ -238,6 +255,7 @@ export async function initProject(params: {
   destDir: string;
   host: string;
   templateSpec: string;
+  theme?: Partial<HostTheme> | null;
   gitInit?: boolean;
 }): Promise<ProjectInitResult> {
   const destDir = path.resolve(process.cwd(), params.destDir);
@@ -267,6 +285,7 @@ export async function initProject(params: {
     await ensureDir(destDir);
     await copyTree({ srcDir: templateDir, destDir, subs });
     await disableCacheNetrc(destDir, host);
+    await applyHostTheme(destDir, host, params.theme);
     return planned;
   });
 
