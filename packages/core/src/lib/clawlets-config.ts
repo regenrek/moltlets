@@ -15,6 +15,7 @@ import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawlets/cattle
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "./nix-cache.js";
 import { getPinnedOpenclawSchema } from "./openclaw-schema.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
+import { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 
 export const SSH_EXPOSURE_MODES = ["tailnet", "bootstrap", "public"] as const;
 export const SshExposureModeSchema = z.enum(SSH_EXPOSURE_MODES);
@@ -23,7 +24,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWLETS_CONFIG_SCHEMA_VERSION = 1 as const;
+export { CLAWLETS_CONFIG_SCHEMA_VERSION };
 
 export const GATEWAY_ARCHITECTURES = ["multi", "single"] as const;
 export const GatewayArchitectureSchema = z.enum(GATEWAY_ARCHITECTURES);
