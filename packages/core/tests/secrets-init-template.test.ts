@@ -7,14 +7,14 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["alpha"],
-          bots: { alpha: {} },
+          gatewaysOrder: ["alpha"],
+          gateways: { alpha: {} },
           tailnet: { mode: "tailscale" },
           cache: { netrc: { enable: true, secretName: "garnix_netrc" } },
           agentModelPrimary: "openai/gpt-4o",
@@ -42,14 +42,14 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["alpha"],
-          bots: { alpha: {} },
+          gatewaysOrder: ["alpha"],
+          gateways: { alpha: {} },
           tailnet: { mode: "none" },
           agentModelPrimary: "openai/gpt-4o",
         },

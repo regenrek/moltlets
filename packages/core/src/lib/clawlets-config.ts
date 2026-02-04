@@ -23,7 +23,7 @@ export type SshExposureMode = z.infer<typeof SshExposureModeSchema>;
 export const TAILNET_MODES = ["none", "tailscale"] as const;
 export const TailnetModeSchema = z.enum(TAILNET_MODES);
 export type TailnetMode = z.infer<typeof TailnetModeSchema>;
-export const CLAWLETS_CONFIG_SCHEMA_VERSION = 17 as const;
+export const CLAWLETS_CONFIG_SCHEMA_VERSION = 18 as const;
 
 export const GATEWAY_ARCHITECTURES = ["multi", "single"] as const;
 export const GatewayArchitectureSchema = z.enum(GATEWAY_ARCHITECTURES);
@@ -261,18 +261,18 @@ const FleetGatewaySchema = z
         code: z.ZodIssueCode.custom,
         path: ["clawdbot"],
         message:
-          "The 'clawdbot' key has been renamed to 'openclaw'. Please update hosts.<host>.bots.<botId>.clawdbot to hosts.<host>.bots.<botId>.openclaw.",
+          "The 'clawdbot' key has been renamed to 'openclaw'. Please update hosts.<host>.gateways.<gatewayId>.clawdbot to hosts.<host>.gateways.<gatewayId>.openclaw.",
       });
     }
 
-    // No backwards-compat: typed surfaces must not be set under hosts.<host>.bots.<botId>.openclaw.*.
+    // No backwards-compat: typed surfaces must not be set under hosts.<host>.gateways.<gatewayId>.openclaw.*.
     const legacy = gateway.openclaw as any;
     const rejectLegacy = (key: string) => {
       if (legacy?.[key] === undefined) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["openclaw", key],
-        message: `Do not set hosts.<host>.bots.<botId>.openclaw.${key}; use hosts.<host>.bots.<botId>.${key} instead.`,
+        message: `Do not set hosts.<host>.gateways.<gatewayId>.openclaw.${key}; use hosts.<host>.gateways.<gatewayId>.${key} instead.`,
       });
     };
     rejectLegacy("channels");
@@ -286,14 +286,14 @@ const FleetGatewaySchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "hooks"],
-        message: "Do not set hosts.<host>.bots.<botId>.profile.hooks; use hosts.<host>.bots.<botId>.hooks instead.",
+        message: "Do not set hosts.<host>.gateways.<gatewayId>.profile.hooks; use hosts.<host>.gateways.<gatewayId>.hooks instead.",
       });
     }
     if (profile?.skills !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["profile", "skills"],
-        message: "Do not set hosts.<host>.bots.<botId>.profile.skills; use hosts.<host>.bots.<botId>.skills instead.",
+        message: "Do not set hosts.<host>.gateways.<gatewayId>.profile.skills; use hosts.<host>.gateways.<gatewayId>.skills instead.",
       });
     }
   })
@@ -319,15 +319,15 @@ const FleetSchema = z
     codex: z
       .object({
         enable: z.boolean().default(false),
-        bots: z.array(GatewayIdSchema).default(() => []),
+        gateways: z.array(GatewayIdSchema).default(() => []),
       })
-      .default(() => ({ enable: false, bots: [] }))
+      .default(() => ({ enable: false, gateways: [] }))
       .superRefine((codex, ctx) => {
-        if ((codex as any).gateways !== undefined) {
+        if ((codex as any).bots !== undefined) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["gateways"],
-            message: "fleet.codex.gateways was removed; use fleet.codex.bots",
+            path: ["bots"],
+            message: "fleet.codex.bots was removed; use fleet.codex.gateways",
           });
         }
       }),
@@ -348,7 +348,7 @@ const FleetSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: [],
-        message: "fleet.gateways and fleet.gatewayOrder were removed; use hosts.<host>.bots and hosts.<host>.botsOrder",
+        message: "fleet.gateways and fleet.gatewayOrder were removed; use hosts.<host>.gateways and hosts.<host>.gatewaysOrder",
       });
       return;
     }
@@ -356,7 +356,7 @@ const FleetSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: [],
-        message: "fleet.bots and fleet.botOrder were removed; use hosts.<host>.bots and hosts.<host>.botsOrder",
+        message: "fleet.bots and fleet.botOrder were removed; use hosts.<host>.gateways and hosts.<host>.gatewaysOrder",
       });
       return;
     }
@@ -365,8 +365,8 @@ const FleetSchema = z
 const HostSchema = z
   .object({
     enable: z.boolean().default(false),
-    botsOrder: z.array(GatewayIdSchema).default(() => []),
-    bots: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
+    gatewaysOrder: z.array(GatewayIdSchema).default(() => []),
+    gateways: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
     diskDevice: z.string().trim().default("/dev/sda"),
     flakeHost: z.string().trim().default(""),
     targetHost: z
@@ -558,36 +558,44 @@ const HostSchema = z
     agentModelPrimary: z.string().trim().default("anthropic/claude-opus-4-5"),
   })
   .superRefine((host, ctx) => {
-    const botIds = Object.keys(host.bots || {});
-    const botsOrder = host.botsOrder || [];
+    const gatewayIds = Object.keys(host.gateways || {});
+    const gatewaysOrder = host.gatewaysOrder || [];
     const seen = new Set<string>();
-    for (let i = 0; i < botsOrder.length; i++) {
-      const id = botsOrder[i]!;
+    for (let i = 0; i < gatewaysOrder.length; i++) {
+      const id = gatewaysOrder[i]!;
       if (seen.has(id)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botsOrder", i], message: `duplicate bot id: ${id}` });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["gatewaysOrder", i],
+          message: `duplicate gateway id: ${id}`,
+        });
         continue;
       }
       seen.add(id);
-      if (!host.bots[id]) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["botsOrder", i], message: `unknown bot id: ${id}` });
+      if (!host.gateways[id]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["gatewaysOrder", i],
+          message: `unknown gateway id: ${id}`,
+        });
       }
     }
 
-    if (botIds.length > 0 && botsOrder.length === 0) {
+    if (gatewayIds.length > 0 && gatewaysOrder.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["botsOrder"],
-        message: "botsOrder must be set (deterministic order for ports/services)",
+        path: ["gatewaysOrder"],
+        message: "gatewaysOrder must be set (deterministic order for ports/services)",
       });
       return;
     }
 
-    const missing = botIds.filter((id) => !seen.has(id));
+    const missing = gatewayIds.filter((id) => !seen.has(id));
     if (missing.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["botsOrder"],
-        message: `botsOrder missing bots: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? ` (+${missing.length - 6})` : ""}`,
+        path: ["gatewaysOrder"],
+        message: `gatewaysOrder missing gateways: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? ` (+${missing.length - 6})` : ""}`,
       });
     }
   });
@@ -641,7 +649,7 @@ export const ClawletsConfigSchema = z.object({
     secretFiles: {},
     sshAuthorizedKeys: [],
     sshKnownHosts: [],
-    codex: { enable: false, bots: [] },
+    codex: { enable: false, gateways: [] },
     backups: { restic: { enable: false, repository: "" } },
   })),
   cattle: CattleSchema,
@@ -675,12 +683,12 @@ export const ClawletsConfigSchema = z.object({
 
   const schema = getPinnedOpenclawSchema().schema as Record<string, unknown>;
   for (const [hostName, hostCfg] of Object.entries(cfg.hosts || {})) {
-    const bots = (hostCfg as any)?.bots;
-    const botsOrder = Array.isArray((hostCfg as any)?.botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
-    const ids = botsOrder.length > 0 ? botsOrder : Object.keys(bots || {});
-    for (const botId of ids) {
-      const botCfg = (bots as any)?.[botId];
-      const openclaw = (botCfg as any)?.openclaw;
+    const gateways = (hostCfg as any)?.gateways;
+    const gatewaysOrder = Array.isArray((hostCfg as any)?.gatewaysOrder) ? ((hostCfg as any).gatewaysOrder as string[]) : [];
+    const ids = gatewaysOrder.length > 0 ? gatewaysOrder : Object.keys(gateways || {});
+    for (const gatewayId of ids) {
+      const gatewayCfg = (gateways as any)?.[gatewayId];
+      const openclaw = (gatewayCfg as any)?.openclaw;
       if (!isPlainObject(openclaw)) continue;
 
       // Legacy typed surfaces are rejected earlier; avoid spamming schema errors.
@@ -698,7 +706,7 @@ export const ClawletsConfigSchema = z.object({
       const validation = validateClawdbotConfig(openclawForValidation, schema);
       if (validation.ok) continue;
       for (const issue of validation.issues) {
-        const path = ["hosts", hostName, "bots", botId, "openclaw", ...issue.path];
+        const path = ["hosts", hostName, "gateways", gatewayId, "openclaw", ...issue.path];
         const message = `${formatPathLabel(path)}: ${stripPathPrefix(issue.message)}`;
         ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
       }
@@ -728,10 +736,10 @@ export function getTailnetMode(hostCfg: ClawletsHostConfig | null | undefined): 
   return "none";
 }
 
-export function createDefaultClawletsConfig(params: { host: string; bots?: string[] }): ClawletsConfig {
+export function createDefaultClawletsConfig(params: { host: string; gateways?: string[] }): ClawletsConfig {
   const host = params.host.trim() || "openclaw-fleet-host";
-  const bots = (params.bots || ["maren", "sonja", "gunnar", "melinda"]).map((id) => id.trim()).filter(Boolean);
-  const botsRecord = Object.fromEntries(bots.map((id) => [id, {}]));
+  const gateways = (params.gateways || ["maren", "sonja", "gunnar", "melinda"]).map((id) => id.trim()).filter(Boolean);
+  const gatewaysRecord = Object.fromEntries(gateways.map((id) => [id, {}]));
   return ClawletsConfigSchema.parse({
     schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
     defaultHost: host,
@@ -741,7 +749,7 @@ export function createDefaultClawletsConfig(params: { host: string; bots?: strin
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      codex: { enable: false, bots: [] },
+      codex: { enable: false, gateways: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {
@@ -759,8 +767,8 @@ export function createDefaultClawletsConfig(params: { host: string; bots?: strin
     hosts: {
       [host]: {
         enable: false,
-        botsOrder: bots,
-        bots: botsRecord,
+        gatewaysOrder: gateways,
+        gateways: gatewaysRecord,
         diskDevice: "/dev/sda",
         flakeHost: "",
         hetzner: { serverType: "cx43", image: "", location: "nbg1" },

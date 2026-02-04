@@ -33,7 +33,7 @@ const DEFAULT_STATE_DIR_BASE = invariant.defaults.stateDirBase;
 
 export type OpenClawInvariantWarning = {
   host: string;
-  botId: string;
+  gatewayId: string;
   path: string;
   message: string;
   expected?: unknown;
@@ -117,9 +117,9 @@ function deepMerge(base: Record<string, unknown>, override: Record<string, unkno
 function resolveGatewayIndex(config: ClawletsConfig, hostName: string, gatewayId: string): number {
   const hostCfg = (config.hosts as Record<string, unknown> | undefined)?.[hostName];
   if (!isPlainObject(hostCfg)) throw new Error(`missing host in config.hosts: ${hostName}`);
-  const botsOrder = Array.isArray((hostCfg as any).botsOrder) ? ((hostCfg as any).botsOrder as string[]) : [];
-  const index = botsOrder.indexOf(gatewayId);
-  if (index === -1) throw new Error(`bot not found in hosts.${hostName}.botsOrder: ${gatewayId}`);
+  const gatewaysOrder = Array.isArray((hostCfg as any).gatewaysOrder) ? ((hostCfg as any).gatewaysOrder as string[]) : [];
+  const index = gatewaysOrder.indexOf(gatewayId);
+  if (index === -1) throw new Error(`gateway not found in hosts.${hostName}.gatewaysOrder: ${gatewayId}`);
   return index;
 }
 
@@ -147,7 +147,7 @@ function resolveSkipBootstrap(params: { profile: Record<string, unknown> }): boo
 
 function warnOverrides(params: {
   host: string;
-  botId: string;
+  gatewayId: string;
   base: Record<string, unknown>;
   path: string[];
   expected: unknown;
@@ -158,7 +158,7 @@ function warnOverrides(params: {
   const message = `openclaw.${pathLabel} is managed by clawlets invariants and will be overwritten`;
   return {
     host: params.host,
-    botId: params.botId,
+    gatewayId: params.gatewayId,
     path: pathLabel,
     message,
     expected: params.expected,
@@ -169,10 +169,10 @@ function warnOverrides(params: {
 export function buildOpenClawGatewayConfig(params: {
   config: ClawletsConfig;
   hostName: string;
-  botId: string;
+  gatewayId: string;
 }): {
   hostName: string;
-  botId: string;
+  gatewayId: string;
   base: Partial<OpenClawConfig>;
   merged: OpenClawConfig;
   invariants: Partial<OpenClawConfig>;
@@ -180,9 +180,9 @@ export function buildOpenClawGatewayConfig(params: {
 } {
   const hostCfg = (params.config.hosts as Record<string, unknown> | undefined)?.[params.hostName];
   if (!isPlainObject(hostCfg)) throw new Error(`missing host in config.hosts: ${params.hostName}`);
-  const bots = isPlainObject((hostCfg as any).bots) ? ((hostCfg as any).bots as Record<string, unknown>) : {};
-  const gatewayCfg = bots[params.botId];
-  if (!isPlainObject(gatewayCfg)) throw new Error(`missing bot config for hosts.${params.hostName}.bots.${params.botId}`);
+  const gateways = isPlainObject((hostCfg as any).gateways) ? ((hostCfg as any).gateways as Record<string, unknown>) : {};
+  const gatewayCfg = gateways[params.gatewayId];
+  if (!isPlainObject(gatewayCfg)) throw new Error(`missing gateway config for hosts.${params.hostName}.gateways.${params.gatewayId}`);
   const gatewayCfgObj = isPlainObject(gatewayCfg) ? gatewayCfg : {};
   const profile = isPlainObject(gatewayCfgObj["profile"]) ? (gatewayCfgObj["profile"] as Record<string, unknown>) : {};
   const base = isPlainObject(gatewayCfgObj["openclaw"]) ? (gatewayCfgObj["openclaw"] as Record<string, unknown>) : {};
@@ -210,8 +210,8 @@ export function buildOpenClawGatewayConfig(params: {
     },
   ) as unknown as OpenClawConfigObject;
 
-  const gatewayPort = resolveGatewayPort({ config: params.config, hostName: params.hostName, gatewayId: params.botId, profile });
-  const workspaceDir = resolveWorkspaceDir({ gatewayId: params.botId, profile });
+  const gatewayPort = resolveGatewayPort({ config: params.config, hostName: params.hostName, gatewayId: params.gatewayId, profile });
+  const workspaceDir = resolveWorkspaceDir({ gatewayId: params.gatewayId, profile });
   const skipBootstrap = resolveSkipBootstrap({ profile });
 
   const gatewayDefaults = invariant.gateway;
@@ -235,7 +235,7 @@ export function buildOpenClawGatewayConfig(params: {
 
   const warnings: OpenClawInvariantWarning[] = [];
   const warn = (path: string[], expected: unknown) => {
-    const w = warnOverrides({ host: params.hostName, botId: params.botId, base, path, expected });
+    const w = warnOverrides({ host: params.hostName, gatewayId: params.gatewayId, base, path, expected });
     if (w) warnings.push(w);
   };
 
@@ -248,7 +248,7 @@ export function buildOpenClawGatewayConfig(params: {
 
   return {
     hostName: params.hostName,
-    botId: params.botId,
+    gatewayId: params.gatewayId,
     base: base as unknown as Partial<OpenClawConfig>,
     merged: deepMerge(baseWithDefaults, invariants) as unknown as OpenClawConfig,
     invariants,

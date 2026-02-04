@@ -6,14 +6,14 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["alpha", "beta"],
-          bots: {
+          gatewaysOrder: ["alpha", "beta"],
+          gateways: {
             alpha: {
               channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
             },
@@ -41,14 +41,14 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
               channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },

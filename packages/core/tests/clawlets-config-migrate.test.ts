@@ -239,7 +239,7 @@ describe("clawlets config migrate", () => {
     expect(migrated.fleet.bots.bot1.plugins).toEqual({ enabled: true, allow: ["@clawlets/plugin-cattle"] });
   });
 
-  it("migrates v16 -> v17 to latest", async () => {
+  it("migrates v16 -> v18 to latest", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
 
@@ -261,18 +261,18 @@ describe("clawlets config migrate", () => {
     expect(res.changed).toBe(true);
 
     const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(17);
+    expect(migrated.schemaVersion).toBe(18);
     expect(migrated.fleet?.gateways).toBeUndefined();
     expect(migrated.fleet?.gatewayOrder).toBeUndefined();
-    expect(migrated.fleet?.codex?.gateways).toBeUndefined();
-    expect(migrated.fleet?.codex?.bots).toEqual(["bot1"]);
-    expect(migrated.hosts?.alpha?.botsOrder).toEqual(["bot1"]);
-    expect(migrated.hosts?.alpha?.bots?.bot1).toBeTruthy();
+    expect(migrated.fleet?.codex?.bots).toBeUndefined();
+    expect(migrated.fleet?.codex?.gateways).toEqual(["bot1"]);
+    expect(migrated.hosts?.alpha?.gatewaysOrder).toEqual(["bot1"]);
+    expect(migrated.hosts?.alpha?.gateways?.bot1).toBeTruthy();
 
     expect(() => ClawletsConfigSchema.parse(migrated)).not.toThrow();
   });
 
-  it("migrates v12 -> v17 to latest (chained)", async () => {
+  it("migrates v12 -> v18 to latest (chained)", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
 
@@ -308,14 +308,14 @@ describe("clawlets config migrate", () => {
     expect(res.changed).toBe(true);
 
     const migrated = res.migrated as any;
-    expect(migrated.schemaVersion).toBe(17);
+    expect(migrated.schemaVersion).toBe(18);
     expect(migrated.fleet?.bots).toBeUndefined();
     expect(migrated.fleet?.botOrder).toBeUndefined();
     expect(migrated.fleet?.gateways).toBeUndefined();
     expect(migrated.fleet?.gatewayOrder).toBeUndefined();
 
-    expect(migrated.hosts?.alpha?.botsOrder).toEqual(["bot1"]);
-    expect(migrated.hosts?.alpha?.bots?.bot1).toBeTruthy();
+    expect(migrated.hosts?.alpha?.gatewaysOrder).toEqual(["bot1"]);
+    expect(migrated.hosts?.alpha?.gateways?.bot1).toBeTruthy();
 
     expect(() => ClawletsConfigSchema.parse(migrated)).not.toThrow();
   });

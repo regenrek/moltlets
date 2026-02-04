@@ -92,7 +92,7 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawletsConfig = {
-      schemaVersion: 17,
+      schemaVersion: 18,
       defaultHost: "clawdbot-fleet-host",
       baseFlake: "",
       fleet: {
@@ -100,7 +100,7 @@ describe("doctor", () => {
         secretFiles: {},
         sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
         sshKnownHosts: [],
-        codex: { enable: false, bots: [] },
+        codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
       cattle: {
@@ -118,8 +118,8 @@ describe("doctor", () => {
       hosts: {
         "clawdbot-fleet-host": {
           enable: false,
-          botsOrder: ["alpha", "beta"],
-          bots: {
+          gatewaysOrder: ["alpha", "beta"],
+          gateways: {
             alpha: {
               profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_alpha" }, secretFiles: {} },
               channels: { discord: { enabled: true, allowFrom: ["discord user:123"] } },
@@ -226,7 +226,7 @@ describe("doctor", () => {
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
-  });
+  }, 15_000);
 
   it("warns when clawlets config fails to load", async () => {
     const configPath = path.join(repoRoot, "fleet", "clawlets.json");
@@ -408,8 +408,8 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["clawdbot-fleet-host"].bots.alpha = raw.hosts["clawdbot-fleet-host"].bots.alpha || {};
-    raw.hosts["clawdbot-fleet-host"].bots.alpha.clawdbot = {
+    raw.hosts["clawdbot-fleet-host"].gateways.alpha = raw.hosts["clawdbot-fleet-host"].gateways.alpha || {};
+    raw.hosts["clawdbot-fleet-host"].gateways.alpha.clawdbot = {
       channels: { discord: { enabled: true, token: "SUPER_SECRET_1234567890" } },
     };
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");

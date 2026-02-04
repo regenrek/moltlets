@@ -163,6 +163,13 @@ export type MigrateToV17Result = {
   migrated: unknown;
 };
 
+export type MigrateToV18Result = {
+  ok: true;
+  changed: boolean;
+  warnings: string[];
+  migrated: unknown;
+};
+
 export function migrateClawletsConfigToV9(raw: unknown): MigrateToV9Result {
   if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
 
@@ -821,6 +828,102 @@ export function migrateClawletsConfigToV17(raw: unknown): MigrateToV17Result {
   return { ok: true, changed, warnings, migrated: next };
 }
 
+export function migrateClawletsConfigToV18(raw: unknown): MigrateToV18Result {
+  if (!isPlainObject(raw)) throw new Error("invalid config (expected JSON object)");
+
+  const next = structuredClone(raw) as Record<string, unknown>;
+  const warnings: string[] = [];
+
+  const schemaVersion = Number(next["schemaVersion"] ?? 0);
+  if (schemaVersion === 18) return { ok: true, changed: false, warnings, migrated: next };
+  if (schemaVersion !== 17) throw new Error(`unsupported schemaVersion: ${schemaVersion} (expected 17)`);
+
+  let changed = false;
+  next["schemaVersion"] = 18;
+  changed = true;
+
+  const fleet = isPlainObject(next["fleet"]) ? (next["fleet"] as Record<string, unknown>) : null;
+  if (fleet) {
+    const codex = fleet["codex"];
+    if (isPlainObject(codex)) {
+      const codexBots = toStringArray(codex["bots"]);
+      const codexGateways = toStringArray(codex["gateways"]);
+      if (codexGateways.length === 0 && codexBots.length > 0) {
+        codex["gateways"] = codexBots;
+        changed = true;
+        warnings.push("migrated fleet.codex.bots -> fleet.codex.gateways");
+      }
+      if ("bots" in codex) {
+        delete (codex as any).bots;
+        changed = true;
+      }
+    }
+  }
+
+  const hosts = next["hosts"];
+  if (!isPlainObject(hosts) || Object.keys(hosts).length === 0) {
+    throw new Error("invalid v17 config: missing hosts (expected non-empty object)");
+  }
+
+  for (const [hostName, hostCfgRaw] of Object.entries(hosts)) {
+    if (!isPlainObject(hostCfgRaw)) continue;
+    const hostCfg = hostCfgRaw as Record<string, unknown>;
+
+    const existingGatewaysOrder = toStringArray(hostCfg["gatewaysOrder"]);
+    const legacyBotsOrder = toStringArray(hostCfg["botsOrder"]);
+    if (existingGatewaysOrder.length === 0 && legacyBotsOrder.length > 0) {
+      hostCfg["gatewaysOrder"] = legacyBotsOrder;
+      changed = true;
+      warnings.push(`host ${hostName}: migrated hosts.${hostName}.botsOrder -> gatewaysOrder`);
+    }
+    if ("botsOrder" in hostCfg) {
+      delete (hostCfg as any).botsOrder;
+      changed = true;
+    }
+
+    const existingGateways = hostCfg["gateways"];
+    const legacyBots = hostCfg["bots"];
+
+    if (isPlainObject(existingGateways)) {
+      if (isPlainObject(legacyBots)) {
+        const merged = mergeLegacyIntoExisting({
+          existing: existingGateways,
+          legacy: legacyBots,
+          context: `migrate hosts.${hostName}.bots -> hosts.${hostName}.gateways`,
+        });
+        if (merged) {
+          changed = true;
+          warnings.push(`host ${hostName}: merged legacy bots into gateways`);
+        }
+      }
+    } else if (isPlainObject(legacyBots)) {
+      hostCfg["gateways"] = structuredClone(legacyBots);
+      changed = true;
+      warnings.push(`host ${hostName}: migrated hosts.${hostName}.bots -> gateways`);
+    } else if (existingGateways !== undefined) {
+      warnings.push(`host ${hostName}: gateways present but invalid; fix hosts.${hostName}.gateways`);
+    }
+
+    if ("bots" in hostCfg) {
+      delete (hostCfg as any).bots;
+      changed = true;
+    }
+
+    const gatewaysOrder = toStringArray(hostCfg["gatewaysOrder"]);
+    const gateways = isPlainObject(hostCfg["gateways"]) ? (hostCfg["gateways"] as Record<string, unknown>) : null;
+    if (gateways && gatewaysOrder.length > 0) {
+      for (const gatewayId of gatewaysOrder) {
+        if (gateways[gatewayId] !== undefined) continue;
+        gateways[gatewayId] = createNullProtoRecord<unknown>();
+        changed = true;
+        warnings.push(`host ${hostName}: created missing hosts.${hostName}.gateways.${gatewayId} from gatewaysOrder`);
+      }
+    }
+  }
+
+  return { ok: true, changed, warnings, migrated: next };
+}
+
 export type MigrateToLatestResult = {
   ok: true;
   changed: boolean;
@@ -841,7 +944,7 @@ export function migrateClawletsConfigToLatest(raw: unknown): MigrateToLatestResu
   };
 
   const schemaVersion = Number(next["schemaVersion"] ?? 0);
-  if (schemaVersion === 17) return { ok: true, changed: false, warnings, migrated: next };
+  if (schemaVersion === 18) return { ok: true, changed: false, warnings, migrated: next };
 
   if (schemaVersion === 8 || schemaVersion === 9 || schemaVersion === 10 || schemaVersion === 11) {
     apply(migrateClawletsConfigToV12(next));
@@ -852,11 +955,12 @@ export function migrateClawletsConfigToLatest(raw: unknown): MigrateToLatestResu
   if (Number(next["schemaVersion"] ?? 0) === 14) apply(migrateClawletsConfigToV15(next));
   if (Number(next["schemaVersion"] ?? 0) === 15) apply(migrateClawletsConfigToV16(next));
   if (Number(next["schemaVersion"] ?? 0) === 16) apply(migrateClawletsConfigToV17(next));
+  if (Number(next["schemaVersion"] ?? 0) === 17) apply(migrateClawletsConfigToV18(next));
 
-  if (Number(next["schemaVersion"] ?? 0) !== 17) {
+  if (Number(next["schemaVersion"] ?? 0) !== 18) {
     const finalVersion = Number(next["schemaVersion"] ?? 0);
     throw new Error(
-      `unsupported schemaVersion: ${finalVersion} (expected 17). Update your config to host-scoped bots (hosts.<host>.bots + hosts.<host>.botsOrder).`,
+      `unsupported schemaVersion: ${finalVersion} (expected 18). Update your config to host-scoped gateways (hosts.<host>.gateways + hosts.<host>.gatewaysOrder).`,
     );
   }
 

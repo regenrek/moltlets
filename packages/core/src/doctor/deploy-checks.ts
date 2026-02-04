@@ -275,8 +275,8 @@ export async function addDeployChecks(params: {
       for (const m of secretsPlan.missingSecretConfig.slice(0, 10)) {
         const detail =
           m.kind === "envVar"
-            ? `missing mapping bot=${m.gateway} envVar=${m.envVar} (set fleet.secretEnv.${m.envVar} or hosts.${host}.bots.${m.gateway}.profile.secretEnv.${m.envVar})`
-            : `invalid secret file scope=${m.scope}${m.gateway ? ` bot=${m.gateway}` : ""} id=${m.fileId} targetPath=${m.targetPath} (${m.message})`;
+            ? `missing mapping gateway=${m.gateway} envVar=${m.envVar} (set fleet.secretEnv.${m.envVar} or hosts.${host}.gateways.${m.gateway}.profile.secretEnv.${m.envVar})`
+            : `invalid secret file scope=${m.scope}${m.gateway ? ` gateway=${m.gateway}` : ""} id=${m.fileId} targetPath=${m.targetPath} (${m.message})`;
         push({
           status: "missing",
           label: "fleet secrets",
@@ -310,7 +310,7 @@ export async function addDeployChecks(params: {
         });
       }
     } else {
-      push({ status: "warn", label: "required secrets", detail: "(host bots list missing; cannot validate per-bot secrets)" });
+      push({ status: "warn", label: "required secrets", detail: "(host gateways list missing; cannot validate per-gateway secrets)" });
     }
 
     const requiredForValues = Array.from(new Set([

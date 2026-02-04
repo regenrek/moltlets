@@ -1,37 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 describe("openclaw passthrough validation", () => {
-  it("rejects additional properties under hosts.<host>.bots.<bot>.openclaw", async () => {
+  it("rejects additional properties under hosts.<host>.gateways.<gateway>.openclaw", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const res = ClawletsConfigSchema.safeParse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       hosts: {
         "openclaw-fleet-host": {
           enable: false,
-          botsOrder: ["maren"],
-          bots: { maren: { openclaw: { extra: 1 } } },
-          diskDevice: "/dev/sda",
-          sshExposure: { mode: "tailnet" },
-          tailnet: { mode: "none" },
-          agentModelPrimary: "zai/glm-4.7",
-        },
-      },
-    });
-    expect(res.success).toBe(false);
-    if (res.success) return;
-    const issue = res.error.issues.find((i) => i.path.join(".") === "hosts.openclaw-fleet-host.bots.maren.openclaw.extra");
-    expect(issue?.message).toMatch(/^hosts\.openclaw-fleet-host\.bots\.maren\.openclaw\.extra:/);
-  });
-
-  it("points exact path for type errors", async () => {
-    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const res = ClawletsConfigSchema.safeParse({
-      schemaVersion: 17,
-      hosts: {
-        "openclaw-fleet-host": {
-          enable: false,
-          botsOrder: ["maren"],
-          bots: { maren: { openclaw: { commands: { native: 123 } } } },
+          gatewaysOrder: ["maren"],
+          gateways: { maren: { openclaw: { extra: 1 } } },
           diskDevice: "/dev/sda",
           sshExposure: { mode: "tailnet" },
           tailnet: { mode: "none" },
@@ -42,9 +20,33 @@ describe("openclaw passthrough validation", () => {
     expect(res.success).toBe(false);
     if (res.success) return;
     const issue = res.error.issues.find(
-      (i) => i.path.join(".") === "hosts.openclaw-fleet-host.bots.maren.openclaw.commands.native",
+      (i) => i.path.join(".") === "hosts.openclaw-fleet-host.gateways.maren.openclaw.extra",
     );
-    expect(issue?.message).toMatch(/^hosts\.openclaw-fleet-host\.bots\.maren\.openclaw\.commands\.native:/);
+    expect(issue?.message).toMatch(/^hosts\.openclaw-fleet-host\.gateways\.maren\.openclaw\.extra:/);
+  });
+
+  it("points exact path for type errors", async () => {
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
+    const res = ClawletsConfigSchema.safeParse({
+      schemaVersion: 18,
+      hosts: {
+        "openclaw-fleet-host": {
+          enable: false,
+          gatewaysOrder: ["maren"],
+          gateways: { maren: { openclaw: { commands: { native: 123 } } } },
+          diskDevice: "/dev/sda",
+          sshExposure: { mode: "tailnet" },
+          tailnet: { mode: "none" },
+          agentModelPrimary: "zai/glm-4.7",
+        },
+      },
+    });
+    expect(res.success).toBe(false);
+    if (res.success) return;
+    const issue = res.error.issues.find(
+      (i) => i.path.join(".") === "hosts.openclaw-fleet-host.gateways.maren.openclaw.commands.native",
+    );
+    expect(issue?.message).toMatch(/^hosts\.openclaw-fleet-host\.gateways\.maren\.openclaw\.commands\.native:/);
   });
 });
 

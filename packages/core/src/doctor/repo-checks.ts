@@ -344,22 +344,24 @@ export async function addRepoChecks(params: {
     const targetHost = params.host.trim() || clawletsConfig.defaultHost || hostNames[0] || "";
     if (targetHost) {
       const hostCfg = (clawletsConfig.hosts as any)?.[targetHost] || {};
-      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
-      const botsKeys = Object.keys(hostCfg.bots || {});
-      fleetGateways = (botsOrder.length > 0 ? botsOrder : botsKeys).map((id: unknown) => String(id || "").trim()).filter(Boolean);
+      const gatewaysOrder = Array.isArray(hostCfg.gatewaysOrder) ? hostCfg.gatewaysOrder : [];
+      const gatewaysKeys = Object.keys(hostCfg.gateways || {});
+      fleetGateways = (gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys)
+        .map((id: unknown) => String(id || "").trim())
+        .filter(Boolean);
     }
 
     for (const hostName of hostNames) {
       const hostCfg = (clawletsConfig.hosts as any)?.[hostName] || {};
-      const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
-      const botsKeys = Object.keys(hostCfg.bots || {});
-      const bots = botsOrder.length > 0 ? botsOrder : botsKeys;
-      for (const botRaw of bots) {
-        const botId = String(botRaw || "").trim();
-        if (!botId) continue;
+      const gatewaysOrder = Array.isArray(hostCfg.gatewaysOrder) ? hostCfg.gatewaysOrder : [];
+      const gatewaysKeys = Object.keys(hostCfg.gateways || {});
+      const gateways = gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys;
+      for (const gatewayRaw of gateways) {
+        const gatewayId = String(gatewayRaw || "").trim();
+        if (!gatewayId) continue;
         try {
-          const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, hostName, botId }).merged;
-          const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId: botId });
+          const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, hostName, gatewayId }).merged;
+          const report = lintOpenclawSecurityConfig({ openclaw: merged, gatewayId });
           const status = report.summary.critical > 0 ? "missing" : report.summary.warn > 0 ? "warn" : "ok";
           const top = report.findings
             .filter((f) => f.severity === "critical" || f.severity === "warn")
@@ -370,14 +372,14 @@ export async function addRepoChecks(params: {
           params.push({
             scope: "repo",
             status,
-            label: `openclaw security (${hostName}/${botId})`,
+            label: `openclaw security (${hostName}/${gatewayId})`,
             detail: `critical=${report.summary.critical} warn=${report.summary.warn} info=${report.summary.info}${hint}`,
           });
         } catch (e) {
           params.push({
             scope: "repo",
             status: "warn",
-            label: `openclaw security (${hostName}/${botId})`,
+            label: `openclaw security (${hostName}/${gatewayId})`,
             detail: `unable to lint: ${String((e as Error)?.message || e)}`,
           });
         }
@@ -397,13 +399,13 @@ export async function addRepoChecks(params: {
         scope: "repo",
         status: hostFleet.gateways.length > 0 ? "ok" : "missing",
         label: `fleet config eval (${hostName})`,
-        detail: `(bots: ${hostFleet.gateways.length})`,
+        detail: `(gateways: ${hostFleet.gateways.length})`,
       });
 
       params.push({
         scope: "repo",
         status: hostFleet.gateways.length > 0 ? "ok" : "warn",
-        label: `host bots list (${hostName})`,
+        label: `host gateways list (${hostName})`,
         detail: hostFleet.gateways.length > 0 ? hostFleet.gateways.join(", ") : "(empty)",
       });
 
@@ -428,7 +430,7 @@ export async function addRepoChecks(params: {
           scope: "repo",
           status: tplFleet.gateways.length > 0 ? "ok" : "warn",
           label: `template fleet config eval (${hostName})`,
-          detail: `(bots: ${tplFleet.gateways.length})`,
+          detail: `(gateways: ${tplFleet.gateways.length})`,
         });
 
         const r = validateFleetPolicy({ filePath: path.join(templateRoot, "fleet", "clawlets.json"), fleet: tplFleet, knownBundledSkills: bundledSkills.skills });

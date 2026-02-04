@@ -10,14 +10,14 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               openclaw: {
                 commands: { native: "auto", nativeSkills: "auto" },
@@ -48,14 +48,14 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               channels: { discord: { groupPolicy: "allowlist" } },
             },
@@ -79,14 +79,14 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
               channels: { discord: { groupPolicy: "allowlist", token: "inline-token" } },
@@ -114,14 +114,14 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: {
                 secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" },
@@ -157,14 +157,14 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "openclaw-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: { secretEnv: { OPENCLAW_HOOKS_TOKEN: "hooks_token_override" } },
               hooks: { tokenSecret: "hooks_token" },

@@ -113,13 +113,13 @@ export function applySecretsAutowire(params: {
       next.fleet.secretEnv[entry.envVar] = entry.secretName;
       continue;
     }
-    const bot = (hostCfg.bots as any)?.[entry.gatewayId];
-    if (!bot) throw new Error(`unknown bot for host=${hostName}: ${entry.gatewayId}`);
-    const profile = bot.profile;
+    const gateway = (hostCfg.gateways as any)?.[entry.gatewayId];
+    if (!gateway) throw new Error(`unknown gateway for host=${hostName}: ${entry.gatewayId}`);
+    const profile = gateway.profile;
     if (!profile.secretEnv) profile.secretEnv = {};
     const existing = profile.secretEnv[entry.envVar];
     if (existing && existing !== entry.secretName) {
-      throw new Error(`conflict for ${entry.envVar} on bot ${entry.gatewayId}: profile.secretEnv already set to ${existing}`);
+      throw new Error(`conflict for ${entry.envVar} on gateway ${entry.gatewayId}: profile.secretEnv already set to ${existing}`);
     }
     profile.secretEnv[entry.envVar] = entry.secretName;
   }

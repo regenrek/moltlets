@@ -53,20 +53,20 @@ describe("cattle command", () => {
   const hostName = "clawdbot-fleet-host";
 
   const hostCfg = {
-    botsOrder: [],
-    bots: {},
+    gatewaysOrder: ["agent"],
+    gateways: { agent: {} },
     agentModelPrimary: "zai/glm-4.7",
   } as any;
 
   const config = {
-    schemaVersion: 17,
+    schemaVersion: 18,
     defaultHost: hostName,
     fleet: {
       secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       secretFiles: {},
       sshAuthorizedKeys: [],
       sshKnownHosts: [],
-      codex: { enable: false, bots: [] },
+      codex: { enable: false, gateways: [] },
       backups: { restic: { enable: false, repository: "" } },
     },
     cattle: {

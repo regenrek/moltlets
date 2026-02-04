@@ -19,21 +19,21 @@ export type ClawletsConfigValidation = {
 
 function formatMissing(missing: MissingSecretConfig, hostName: string): string {
   if (missing.kind === "envVar") {
-    return `missing secretEnv mapping host=${hostName} bot=${missing.gateway} envVar=${missing.envVar}`;
+    return `missing secretEnv mapping host=${hostName} gateway=${missing.gateway} envVar=${missing.envVar}`;
   }
   return `invalid secret file config host=${hostName} scope=${missing.scope} id=${missing.fileId} targetPath=${missing.targetPath}`;
 }
 
 function formatInvariantWarning(w: OpenClawInvariantWarning): string {
-  return `host=${w.host} bot=${w.botId} ${w.message} (${w.path})`;
+  return `host=${w.host} gateway=${w.gatewayId} ${w.message} (${w.path})`;
 }
 
-function formatSchemaError(hostName: string, botId: string, message: string): string {
-  return `host=${hostName} bot=${botId} schema: ${message}`;
+function formatSchemaError(hostName: string, gatewayId: string, message: string): string {
+  return `host=${hostName} gateway=${gatewayId} schema: ${message}`;
 }
 
 function formatPlanWarning(w: SecretsPlanWarning, hostName: string): string {
-  const gateway = w.gateway ? `bot=${w.gateway} ` : "";
+  const gateway = w.gateway ? `gateway=${w.gateway} ` : "";
   const path = w.path ? ` path=${w.path}` : "";
   return `host=${hostName} ${gateway}${w.message}${path}`.trim();
 }
@@ -62,14 +62,14 @@ export function validateClawletsConfig(params: {
     };
   }
 
-  const botsOrder = Array.isArray(hostCfg.botsOrder) ? hostCfg.botsOrder : [];
-  for (const botId of botsOrder) {
-    const res = buildOpenClawGatewayConfig({ config: params.config, hostName, botId });
+  const gatewaysOrder = Array.isArray(hostCfg.gatewaysOrder) ? hostCfg.gatewaysOrder : [];
+  for (const gatewayId of gatewaysOrder) {
+    const res = buildOpenClawGatewayConfig({ config: params.config, hostName, gatewayId });
     if (res.warnings.length > 0) invariantWarnings.push(...res.warnings);
     const validation = validateClawdbotConfig(res.merged);
     if (!validation.ok) {
-      schemaErrors[botId] = validation.errors;
-      for (const err of validation.errors) errors.push(formatSchemaError(hostName, botId, err));
+      schemaErrors[gatewayId] = validation.errors;
+      for (const err of validation.errors) errors.push(formatSchemaError(hostName, gatewayId, err));
     }
   }
 
@@ -78,28 +78,30 @@ export function validateClawletsConfig(params: {
   for (const m of missing) errors.push(formatMissing(m, hostName));
 
   const envVarAliasMap = buildEnvVarAliasMap();
-  for (const botId of botsOrder) {
-    const botCfg = (hostCfg.bots as any)?.[botId] || {};
-    const profile = (botCfg as any)?.profile || {};
+  for (const gatewayId of gatewaysOrder) {
+    const gatewayCfg = (hostCfg.gateways as any)?.[gatewayId] || {};
+    const profile = (gatewayCfg as any)?.profile || {};
     const baseSecretEnv = buildBaseSecretEnv({
       globalEnv: (params.config.fleet as any)?.secretEnv,
       gatewayEnv: profile?.secretEnv,
       aliasMap: envVarAliasMap,
       warnings: [],
-      gateway: botId,
+      gateway: gatewayId,
     });
-    const derivedSecretEnv = buildDerivedSecretEnv(botCfg);
+    const derivedSecretEnv = buildDerivedSecretEnv(gatewayCfg);
     const derivedDupes = Object.keys(derivedSecretEnv).filter((envVar) =>
       Object.prototype.hasOwnProperty.call(baseSecretEnv, envVar),
     );
     if (derivedDupes.length > 0) {
-      errors.push(`host=${hostName} bot=${botId} secretEnv conflicts with derived hooks/skill env vars: ${derivedDupes.join(",")}`);
+      errors.push(
+        `host=${hostName} gateway=${gatewayId} secretEnv conflicts with derived hooks/skill env vars: ${derivedDupes.join(",")}`,
+      );
     }
 
     const allowlistRaw = (profile as any)?.secretEnvAllowlist;
     if (allowlistRaw !== null && allowlistRaw !== undefined) {
       if (!Array.isArray(allowlistRaw)) {
-        errors.push(`host=${hostName} bot=${botId} secretEnvAllowlist must be a list of env var names`);
+        errors.push(`host=${hostName} gateway=${gatewayId} secretEnvAllowlist must be a list of env var names`);
         continue;
       }
       const allowlist = new Set<string>();
@@ -124,21 +126,23 @@ export function validateClawletsConfig(params: {
         allowlist.add(canonical);
       }
       if (invalid.length > 0) {
-        errors.push(`host=${hostName} bot=${botId} secretEnvAllowlist contains invalid env var(s): ${invalid.slice(0, 6).join(",")}`);
+        errors.push(
+          `host=${hostName} gateway=${gatewayId} secretEnvAllowlist contains invalid env var(s): ${invalid.slice(0, 6).join(",")}`,
+        );
         continue;
       }
 
-      const expected = secretsPlan.byGateway?.[botId]?.envVarsRequired || [];
+      const expected = secretsPlan.byGateway?.[gatewayId]?.envVarsRequired || [];
       const expectedSet = new Set(expected);
       const missingRequired = expected.filter((envVar) => !allowlist.has(envVar));
       const unused = Array.from(allowlist).filter((envVar) => !expectedSet.has(envVar));
       if (missingRequired.length > 0) {
-        const msg = `host=${hostName} bot=${botId} secretEnvAllowlist missing required env vars: ${missingRequired.join(",")}`;
+        const msg = `host=${hostName} gateway=${gatewayId} secretEnvAllowlist missing required env vars: ${missingRequired.join(",")}`;
         warnings.push(msg);
         if (params.strict) errors.push(msg);
       }
       if (unused.length > 0) {
-        const msg = `host=${hostName} bot=${botId} secretEnvAllowlist contains unused env vars: ${unused.join(",")}`;
+        const msg = `host=${hostName} gateway=${gatewayId} secretEnvAllowlist contains unused env vars: ${unused.join(",")}`;
         warnings.push(msg);
         if (params.strict) errors.push(msg);
       }

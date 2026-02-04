@@ -6,14 +6,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: { maren: {} },
+          gatewaysOrder: ["maren"],
+          gateways: { maren: {} },
           tailnet: { mode: "none" },
           agentModelPrimary: "zai/glm-4.7",
         },
@@ -34,14 +34,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: { maren: {} },
+          gatewaysOrder: ["maren"],
+          gateways: { maren: {} },
           tailnet: { mode: "none" },
           agentModelPrimary: "openai/gpt-4o",
         },
@@ -57,14 +57,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { Z_AI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: { maren: {} },
+          gatewaysOrder: ["maren"],
+          gateways: { maren: {} },
           tailnet: { mode: "none" },
           agentModelPrimary: "zai/glm-4.7",
         },
@@ -81,14 +81,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: { maren: {} },
+          gatewaysOrder: ["maren"],
+          gateways: { maren: {} },
           tailnet: { mode: "none" },
           agentModelPrimary: "openai-codex/gpt-5",
         },
@@ -105,14 +105,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               channels: { discord: { enabled: true, allowFrom: [], token: "inline-token" } },
             },
@@ -129,19 +129,19 @@ describe("fleet secrets plan", () => {
     expect(warning?.suggestion).toMatch(/DISCORD_BOT_TOKEN/);
   });
 
-  it("includes hook + skill secret mappings from bot config", async () => {
+  it("includes hook + skill secret mappings from gateway config", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               hooks: { tokenSecret: "hooks_token" },
               skills: { entries: { "brave-search": { apiKeySecret: "brave_api_key" } } },
@@ -166,14 +166,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               hooks: { token: "inline-hook-token" },
               skills: { entries: { "brave-search": { apiKey: "inline-skill-key" } } },
@@ -190,19 +190,19 @@ describe("fleet secrets plan", () => {
     expect(plan.warnings.some((w) => w.kind === "inlineApiKey" && w.path === "skills.entries.brave-search.apiKey")).toBe(true);
   });
 
-  it("includes per-bot secretEnv overrides for mixed providers", async () => {
+  it("includes per-gateway secretEnv overrides for mixed providers", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["alpha", "beta"],
-          bots: {
+          gatewaysOrder: ["alpha", "beta"],
+          gateways: {
             alpha: {
               profile: {
                 secretEnv: { ANTHROPIC_API_KEY: "anthropic_api_key" },
@@ -227,14 +227,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: { secretEnv: { DISCORD_BOT_TOKEN: "discord_token_maren" } },
               channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
@@ -255,14 +255,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               channels: { discord: { enabled: true, allowFrom: [], token: "${DISCORD_BOT_TOKEN}" } },
             },
@@ -282,7 +282,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 17,
+        schemaVersion: 18,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
           secretFiles: {
@@ -291,8 +291,8 @@ describe("fleet secrets plan", () => {
         },
         hosts: {
           "clawdbot-fleet-host": {
-            botsOrder: ["maren"],
-            bots: { maren: {} },
+            gatewaysOrder: ["maren"],
+            gateways: { maren: {} },
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
           },
@@ -306,7 +306,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 17,
+        schemaVersion: 18,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
           secretFiles: {
@@ -315,8 +315,8 @@ describe("fleet secrets plan", () => {
         },
         hosts: {
           "clawdbot-fleet-host": {
-            botsOrder: ["maren"],
-            bots: { maren: {} },
+            gatewaysOrder: ["maren"],
+            gateways: { maren: {} },
             tailnet: { mode: "none" },
             agentModelPrimary: "zai/glm-4.7",
           },
@@ -325,19 +325,19 @@ describe("fleet secrets plan", () => {
     ).toThrow(/must not contain/i);
   });
 
-  it("flags invalid per-bot secretFiles targetPath", async () => {
+  it("flags invalid per-gateway secretFiles targetPath", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               profile: {
                 secretEnv: {},
@@ -361,19 +361,19 @@ describe("fleet secrets plan", () => {
     expect(plan.missing.some((m) => m.kind === "secretFile" && m.scope === "gateway" && m.gateway === "maren" && m.fileId === "creds")).toBe(true);
   });
 
-  it("flags per-bot secretFiles targetPath traversal", async () => {
+  it("flags per-gateway secretFiles targetPath traversal", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 17,
+        schemaVersion: 18,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
         },
         hosts: {
           "clawdbot-fleet-host": {
-            botsOrder: ["maren"],
-            bots: {
+            gatewaysOrder: ["maren"],
+            gateways: {
               maren: {
                 profile: {
                   secretEnv: {},
@@ -400,14 +400,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               channels: { whatsapp: { enabled: false } },
             },
@@ -427,14 +427,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               openclaw: {
                 models: {
@@ -464,14 +464,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               agents: { defaults: { model: { primary: "openai/gpt-4o", fallbacks: ["anthropic/claude-3-5-sonnet"] } } },
             },
@@ -493,14 +493,14 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 17,
+      schemaVersion: 18,
       fleet: {
         secretEnv: {},
       },
       hosts: {
         "clawdbot-fleet-host": {
-          botsOrder: ["maren"],
-          bots: {
+          gatewaysOrder: ["maren"],
+          gateways: {
             maren: {
               channels: { discord: { enabled: true, allowFrom: [], token: "inline-token" } },
             },
