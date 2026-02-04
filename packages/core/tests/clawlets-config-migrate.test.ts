@@ -14,21 +14,9 @@ describe("clawlets config migrate", () => {
     expect(res.migrated.schemaVersion).toBe(1);
   });
 
-  it("normalizes schemaVersion 18 -> 1", async () => {
-    const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
-
-    const raw = { schemaVersion: 18, hosts: {} };
-    const res = migrateClawletsConfigToLatest(raw);
-
-    expect(res.ok).toBe(true);
-    expect(res.changed).toBe(true);
-    expect(res.warnings.some((w) => w.includes("18 -> 1"))).toBe(true);
-    expect(res.migrated.schemaVersion).toBe(1);
-  });
-
   it("rejects unsupported schema versions", async () => {
     const { migrateClawletsConfigToLatest } = await import("../src/lib/clawlets-config-migrate");
     expect(() => migrateClawletsConfigToLatest({ schemaVersion: 2 })).toThrow(/unsupported schemaVersion/i);
+    expect(() => migrateClawletsConfigToLatest({ schemaVersion: 18 })).toThrow(/unsupported schemaVersion/i);
   });
 });
-
