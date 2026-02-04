@@ -101,8 +101,10 @@ export const secretsInit = defineCommand({
 
     const localSecretsDir = getHostSecretsDir(layout, hostName);
 
-    const gateways = hostCfg.botsOrder || [];
-    if (gateways.length === 0) throw new Error(`hosts.${hostName}.botsOrder is empty (set bots in fleet/clawlets.json)`);
+    const gateways = hostCfg.gatewaysOrder || [];
+    if (gateways.length === 0) {
+      throw new Error(`hosts.${hostName}.gatewaysOrder is empty (set gateways in fleet/clawlets.json)`);
+    }
 
     const cacheNetrc = hostCfg.cache?.netrc;
     const cacheNetrcEnabled = Boolean(cacheNetrc?.enable);
@@ -116,7 +118,7 @@ export const secretsInit = defineCommand({
           const first = secretsPlan.missingSecretConfig[0]!;
           throw new Error(
             first.kind === "envVar"
-              ? `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.gateway}); run: clawlets config wire-secrets --write`
+              ? `missing secretEnv mapping for envVar=${first.envVar} (gateway=${first.gateway}); run: clawlets config wire-secrets --write`
               : `invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`,
           );
         }
@@ -128,7 +130,7 @@ export const secretsInit = defineCommand({
         const first = secretsPlan.missingSecretConfig[0]!;
         if (first.kind === "envVar") {
           throw new Error(
-            `missing secretEnv mapping for envVar=${first.envVar} (bot=${first.gateway}); set fleet.secretEnv.${first.envVar} or hosts.${hostName}.bots.${first.gateway}.profile.secretEnv.${first.envVar} (or run: clawlets config wire-secrets --write)`,
+            `missing secretEnv mapping for envVar=${first.envVar} (gateway=${first.gateway}); set fleet.secretEnv.${first.envVar} or hosts.${hostName}.gateways.${first.gateway}.profile.secretEnv.${first.envVar} (or run: clawlets config wire-secrets --write)`,
           );
         }
         throw new Error(`invalid secret file config: scope=${first.scope} id=${first.fileId} targetPath=${first.targetPath} (${first.message})`);

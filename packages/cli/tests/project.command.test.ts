@@ -38,12 +38,17 @@ describe("project init", () => {
       path.join(dir, "fleet", "clawlets.json"),
       JSON.stringify(
         {
-          schemaVersion: 17,
-          fleet: { secretEnv: {}, secretFiles: {}, codex: { enable: false, bots: [] }, backups: { restic: { enable: false, repository: "" } } },
+          schemaVersion: 18,
+          fleet: {
+            secretEnv: {},
+            secretFiles: {},
+            codex: { enable: false, gateways: [] },
+            backups: { restic: { enable: false, repository: "" } },
+          },
           hosts: {
             "clawdbot-fleet-host": {
-              botsOrder: [],
-              bots: {},
+              gatewaysOrder: [],
+              gateways: {},
               cache: { netrc: { enable: true } },
             },
           },

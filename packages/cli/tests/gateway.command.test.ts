@@ -40,7 +40,9 @@ describe("gateway command", () => {
   });
 
   it("lists gateways", async () => {
-    const config = makeConfig({ hostOverrides: { botsOrder: ["maren", "gunnar"], bots: { maren: {}, gunnar: {} } } });
+    const config = makeConfig({
+      hostOverrides: { gatewaysOrder: ["maren", "gunnar"], gateways: { maren: {}, gunnar: {} } },
+    });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { gateway } = await import("../src/commands/gateway.js");
     await gateway.subCommands?.list?.run?.({ args: {} } as any);
@@ -48,16 +50,16 @@ describe("gateway command", () => {
   });
 
   it("adds gateway and writes config", async () => {
-    const config = makeConfig({ hostOverrides: { botsOrder: ["maren"], bots: { maren: {} } } });
+    const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { gateway } = await import("../src/commands/gateway.js");
     await gateway.subCommands?.add?.run?.({ args: { gateway: "gunnar", interactive: false } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledWith("ok: added bot gunnar (host=alpha)");
+    expect(logSpy).toHaveBeenCalledWith("ok: added gateway gunnar (host=alpha)");
   });
 
   it("skips add when already present", async () => {
-    const config = makeConfig({ hostOverrides: { botsOrder: ["maren"], bots: { maren: {} } } });
+    const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { gateway } = await import("../src/commands/gateway.js");
     await gateway.subCommands?.add?.run?.({ args: { gateway: "maren", interactive: false } } as any);
@@ -66,16 +68,16 @@ describe("gateway command", () => {
   });
 
   it("removes gateway", async () => {
-    const config = makeConfig({ hostOverrides: { botsOrder: ["maren"], bots: { maren: {} } } });
+    const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { gateway } = await import("../src/commands/gateway.js");
     await gateway.subCommands?.rm?.run?.({ args: { gateway: "maren" } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledWith("ok: removed bot maren (host=alpha)");
+    expect(logSpy).toHaveBeenCalledWith("ok: removed gateway maren (host=alpha)");
   });
 
   it("errors on interactive without TTY", async () => {
-    const config = makeConfig({ hostOverrides: { botsOrder: [], bots: {} } });
+    const config = makeConfig({ hostOverrides: { gatewaysOrder: [], gateways: {} } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });

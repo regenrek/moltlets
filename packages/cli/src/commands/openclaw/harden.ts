@@ -31,8 +31,10 @@ export const openclawHarden = defineCommand({
     if (!hostCfg) throw new Error(`missing host in config.hosts: ${resolved.host}`);
 
     const gatewayArg = String(args.gateway || "").trim();
-    const gateways = gatewayArg ? [gatewayArg] : hostCfg.botsOrder || [];
-    if (gateways.length === 0) throw new Error(`hosts.${resolved.host}.botsOrder is empty (set bots in fleet/clawlets.json)`);
+    const gateways = gatewayArg ? [gatewayArg] : hostCfg.gatewaysOrder || [];
+    if (gateways.length === 0) {
+      throw new Error(`hosts.${resolved.host}.gatewaysOrder is empty (set gateways in fleet/clawlets.json)`);
+    }
 
     const next = structuredClone(validated) as any;
 
@@ -45,7 +47,7 @@ export const openclawHarden = defineCommand({
     for (const gatewayIdRaw of gateways) {
       const gatewayId = String(gatewayIdRaw || "").trim();
       if (!gatewayId) continue;
-      const existing = next?.hosts?.[resolved.host]?.bots?.[gatewayId];
+      const existing = next?.hosts?.[resolved.host]?.gateways?.[gatewayId];
       if (!existing || typeof existing !== "object") throw new Error(`unknown gateway id: ${gatewayId}`);
 
       const patched = applySecurityDefaults({ openclaw: (existing as any).openclaw, channels: (existing as any).channels });
@@ -70,7 +72,7 @@ export const openclawHarden = defineCommand({
     }
 
     for (const u of updates) {
-      for (const w of u.warnings) console.error(`warn: host=${resolved.host} bot=${u.gatewayId} ${w}`);
+      for (const w of u.warnings) console.error(`warn: host=${resolved.host} gateway=${u.gatewayId} ${w}`);
     }
 
     if (!args.write) {
@@ -80,7 +82,7 @@ export const openclawHarden = defineCommand({
       }
       console.log(`planned: update ${path.relative(repoRoot, configPath)}`);
       for (const u of updates) {
-        for (const c of u.changes) console.log(`- hosts.${resolved.host}.bots.${u.gatewayId}.${c.scope}.${c.path}`);
+        for (const c of u.changes) console.log(`- hosts.${resolved.host}.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
       }
       console.log("run with --write to apply changes");
       return;
@@ -96,7 +98,7 @@ export const openclawHarden = defineCommand({
 
     console.log(`ok: updated ${path.relative(repoRoot, configPath)}`);
     for (const u of updates) {
-      for (const c of u.changes) console.log(`- hosts.${resolved.host}.bots.${u.gatewayId}.${c.scope}.${c.path}`);
+      for (const c of u.changes) console.log(`- hosts.${resolved.host}.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
     }
   },
 });

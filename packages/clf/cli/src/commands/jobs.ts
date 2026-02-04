@@ -75,7 +75,7 @@ const jobsEnqueue = defineCommand({
   args: {
     socket: { type: "string", description: "Unix socket path (default: /run/clf/orchestrator.sock)." },
     kind: { type: "string", description: "Job kind (or pass as positional)." },
-    requester: { type: "string", description: "Requester id (bot/user).", required: true },
+    requester: { type: "string", description: "Requester id (gateway/user).", required: true },
     idempotencyKey: { type: "string", description: "Idempotency key (e.g. Discord message id)." },
     runAt: { type: "string", description: "Run at (ISO time).", default: "" },
     priority: { type: "string", description: "Priority int (higher runs first).", default: "0" },
@@ -258,7 +258,7 @@ const jobsCancel = defineCommand({
 });
 
 export const jobs = defineCommand({
-  meta: { name: "jobs", description: "Queue + job operations (bot-facing)." },
+  meta: { name: "jobs", description: "Queue + job operations (gateway-facing)." },
   subCommands: {
     enqueue: jobsEnqueue,
     list: jobsList,
