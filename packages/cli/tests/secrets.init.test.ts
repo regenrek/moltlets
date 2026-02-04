@@ -130,7 +130,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
 
@@ -174,17 +174,17 @@ describe("secrets init", () => {
     expect(fs.existsSync(extraSecret)).toBe(true);
   });
 
-  it("fails when hosts.<host>.botsOrder is empty", async () => {
+  it("fails when hosts.<host>.gatewaysOrder is empty", async () => {
     const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-"));
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: [], bots: {} },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: [], gateways: {} },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
     const { secretsInit } = await import("../src/commands/secrets/init.js");
-    await expect(secretsInit.run({ args: { host: "alpha" } } as any)).rejects.toThrow(/botsOrder is empty/i);
+    await expect(secretsInit.run({ args: { host: "alpha" } } as any)).rejects.toThrow(/gatewaysOrder is empty/i);
   });
 
   it("fails when cache.netrc lacks secretName", async () => {
@@ -195,8 +195,8 @@ describe("secrets init", () => {
       hostOverrides: {
         ...baseHost,
         tailnet: { mode: "none" },
-        botsOrder: ["maren"],
-        bots: { maren: {} },
+        gatewaysOrder: ["maren"],
+        gateways: { maren: {} },
       },
     });
     const hostCfg = config.hosts.alpha;
@@ -218,7 +218,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -237,7 +237,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -273,10 +273,10 @@ describe("secrets init", () => {
       skipped: [],
     });
     const nextConfig = structuredClone(config) as typeof config;
-    nextConfig.hosts.alpha.bots.maren.profile = {
-      ...(nextConfig.hosts.alpha.bots.maren.profile || {}),
+    nextConfig.hosts.alpha.gateways.maren.profile = {
+      ...(nextConfig.hosts.alpha.gateways.maren.profile || {}),
       secretEnv: {
-        ...(nextConfig.hosts.alpha.bots.maren.profile?.secretEnv || {}),
+        ...(nextConfig.hosts.alpha.gateways.maren.profile?.secretEnv || {}),
         DISCORD_BOT_TOKEN: "discord_token_maren",
       },
     };
@@ -314,7 +314,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -338,7 +338,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -359,7 +359,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -391,7 +391,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -434,8 +434,8 @@ describe("secrets init", () => {
         ...baseHost,
         tailnet: { mode: "tailscale" },
         cache: { netrc: { enable: true, secretName: "garnix_netrc", path: "/etc/nix/netrc", narinfoCachePositiveTtl: 3600 } },
-        botsOrder: ["maren"],
-        bots: { maren: {} },
+        gatewaysOrder: ["maren"],
+        gateways: { maren: {} },
       },
     });
     const hostCfg = config.hosts.alpha;
@@ -486,7 +486,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
@@ -542,7 +542,7 @@ describe("secrets init", () => {
     const layout = getRepoLayout(repoRoot);
     const config = makeConfig({
       hostName: "alpha",
-      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, botsOrder: ["maren"], bots: { maren: {} } },
+      hostOverrides: { ...baseHost, tailnet: { mode: "none" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
     });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });

@@ -50,7 +50,7 @@ const schemaFetch = defineCommand({
     const { hostName, hostCfg, config } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
     const gatewayId = requireGatewayId(String(args.gateway || ""));
-    const gatewayConfig = buildOpenClawGatewayConfig({ config, hostName, botId: gatewayId });
+    const gatewayConfig = buildOpenClawGatewayConfig({ config, hostName, gatewayId });
     const gateway = (gatewayConfig.invariants as any)?.gateway || {};
     const port = typeof gateway.port === "number" ? gateway.port : Number(gateway.port || 0);
     if (!Number.isFinite(port) || port <= 0) {

@@ -64,8 +64,8 @@ vi.mock("../src/lib/deploy-gate.js", () => ({
 const hostName = "clawdbot-beta-4";
 const baseHost = {
   enable: true,
-  botsOrder: ["maren"],
-  bots: { maren: {} },
+  gatewaysOrder: ["maren"],
+  gateways: { maren: {} },
   diskDevice: "/dev/sda",
   flakeHost: "",
   targetHost: "admin@100.64.0.10",
@@ -82,14 +82,14 @@ function setConfig() {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 17,
+      schemaVersion: 18,
       defaultHost: hostName,
       fleet: {
         secretEnv: {},
         secretFiles: {},
         sshAuthorizedKeys: [],
         sshKnownHosts: [],
-        codex: { enable: false, bots: [] },
+        codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
       hosts: {
@@ -117,14 +117,14 @@ describe("lockdown command", () => {
       layout: getRepoLayout("/repo"),
       configPath: "/repo/fleet/clawlets.json",
       config: {
-        schemaVersion: 17,
+        schemaVersion: 18,
         defaultHost: hostName,
         fleet: {
           secretEnv: {},
           secretFiles: {},
           sshAuthorizedKeys: [],
           sshKnownHosts: [],
-          codex: { enable: false, bots: [] },
+          codex: { enable: false, gateways: [] },
           backups: { restic: { enable: false, repository: "" } },
         },
         hosts: {

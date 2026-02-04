@@ -73,7 +73,7 @@ const serverAudit = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
-    const gateways = hostCfg.botsOrder ?? [];
+    const gateways = hostCfg.gatewaysOrder ?? [];
 
     const checks: AuditCheck[] = [];
     const add = (c: AuditCheck) => checks.push(c);
@@ -117,9 +117,9 @@ const serverAudit = defineCommand({
     }
 
     if (Array.isArray(gateways) && gateways.length > 0) {
-      add({ status: "ok", label: `host bots list (${hostName})`, detail: gateways.join(", ") });
+      add({ status: "ok", label: `host gateways list (${hostName})`, detail: gateways.join(", ") });
     } else {
-      add({ status: "warn", label: `host bots list (${hostName})`, detail: "(empty)" });
+      add({ status: "warn", label: `host gateways list (${hostName})`, detail: "(empty)" });
     }
 
     const gatewayChecks = await mapWithConcurrency({

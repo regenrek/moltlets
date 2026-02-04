@@ -13,7 +13,7 @@ function validateGatewayId(value: string | undefined): string | undefined {
 }
 
 const list = defineCommand({
-  meta: { name: "list", description: "List bots for a host (from fleet/clawlets.json)." },
+  meta: { name: "list", description: "List gateways for a host (from fleet/clawlets.json)." },
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
   },
@@ -26,12 +26,12 @@ const list = defineCommand({
       throw new Error(`${resolved.message}${tips}`);
     }
     const hostCfg = (config.hosts as any)?.[resolved.host];
-    console.log((hostCfg?.botsOrder || []).join("\n"));
+    console.log((hostCfg?.gatewaysOrder || []).join("\n"));
   },
 });
 
 const add = defineCommand({
-  meta: { name: "add", description: "Add a bot id to a host in fleet/clawlets.json." },
+  meta: { name: "add", description: "Add a gateway id to a host in fleet/clawlets.json." },
   args: {
     gateway: { type: "string", description: "Gateway id (e.g. main)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
@@ -65,19 +65,19 @@ const add = defineCommand({
     const err = validateGatewayId(gatewayId);
     if (err) throw new Error(err);
 
-    const existingBots: string[] = Array.isArray(hostCfg.botsOrder)
-      ? hostCfg.botsOrder.map((value: unknown) => String(value))
+    const existingGateways: string[] = Array.isArray((hostCfg as any).gatewaysOrder)
+      ? (hostCfg as any).gatewaysOrder.map((value: unknown) => String(value))
       : [];
-    const botsById = (hostCfg.bots as any) || {};
-    if (existingBots.includes(gatewayId) || botsById[gatewayId]) {
+    const gatewaysById = ((hostCfg as any).gateways as any) || {};
+    if (existingGateways.includes(gatewayId) || gatewaysById[gatewayId]) {
       console.log(`ok: already present: ${gatewayId} (host=${resolved.host})`);
       return;
     }
 
     const nextHost = {
       ...hostCfg,
-      botsOrder: [...existingBots, gatewayId],
-      bots: { ...botsById, [gatewayId]: {} },
+      gatewaysOrder: [...existingGateways, gatewayId],
+      gateways: { ...gatewaysById, [gatewayId]: {} },
     };
     const next = {
       ...config,
@@ -85,12 +85,12 @@ const add = defineCommand({
     };
     const validated = ClawletsConfigSchema.parse(next);
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: added bot ${gatewayId} (host=${resolved.host})`);
+    console.log(`ok: added gateway ${gatewayId} (host=${resolved.host})`);
   },
 });
 
 const rm = defineCommand({
-  meta: { name: "rm", description: "Remove a bot id from a host in fleet/clawlets.json." },
+  meta: { name: "rm", description: "Remove a gateway id from a host in fleet/clawlets.json." },
   args: {
     gateway: { type: "string", description: "Gateway id to remove." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
@@ -107,21 +107,21 @@ const rm = defineCommand({
     if (!hostCfg) throw new Error(`missing host in config.hosts: ${resolved.host}`);
     const gatewayId = String(args.gateway || "").trim();
     if (!gatewayId) throw new Error("missing --gateway");
-    const existingBots: string[] = Array.isArray(hostCfg.botsOrder)
-      ? hostCfg.botsOrder.map((value: unknown) => String(value))
+    const existingGateways: string[] = Array.isArray((hostCfg as any).gatewaysOrder)
+      ? (hostCfg as any).gatewaysOrder.map((value: unknown) => String(value))
       : [];
-    const botsById = (hostCfg.bots as any) || {};
-    if (!existingBots.includes(gatewayId) && !botsById[gatewayId]) {
-      throw new Error(`bot not found on host=${resolved.host}: ${gatewayId}`);
+    const gatewaysById = ((hostCfg as any).gateways as any) || {};
+    if (!existingGateways.includes(gatewayId) && !gatewaysById[gatewayId]) {
+      throw new Error(`gateway not found on host=${resolved.host}: ${gatewayId}`);
     }
-    const nextBotsOrder = existingBots.filter((id) => id !== gatewayId);
-    const nextBots = { ...botsById };
-    delete (nextBots as any)[gatewayId];
-    const nextHost = { ...hostCfg, botsOrder: nextBotsOrder, bots: nextBots };
+    const nextGatewaysOrder = existingGateways.filter((id) => id !== gatewayId);
+    const nextGateways = { ...gatewaysById };
+    delete (nextGateways as any)[gatewayId];
+    const nextHost = { ...hostCfg, gatewaysOrder: nextGatewaysOrder, gateways: nextGateways };
     const next = { ...config, hosts: { ...config.hosts, [resolved.host]: nextHost } };
     const validated = ClawletsConfigSchema.parse(next);
     await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: removed bot ${gatewayId} (host=${resolved.host})`);
+    console.log(`ok: removed gateway ${gatewayId} (host=${resolved.host})`);
   },
 });
 
