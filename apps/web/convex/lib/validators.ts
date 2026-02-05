@@ -53,6 +53,7 @@ export const RunDoc = v.object({
   kind: RunKind,
   status: RunStatus,
   title: v.optional(v.string()),
+  host: v.optional(v.string()),
   initiatedByUserId: v.id("users"),
   createdAt: v.number(),
   startedAt: v.number(),
@@ -101,4 +102,3 @@ export const RateLimitDoc = v.object({
   windowStart: v.number(),
   count: v.number(),
 });
-

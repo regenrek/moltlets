@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { RunLogTail } from "~/components/run-log-tail"
+import { HostThemeBadge, HostThemeColorDropdown, HostThemeEmojiPicker, normalizeHostTheme, type HostThemeColor } from "~/components/hosts/host-theme"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
@@ -25,6 +26,9 @@ function NewProject() {
   const [baseDir, setBaseDir] = useState("")
   const [host, setHost] = useState("")
   const [templateSpec, setTemplateSpec] = useState("")
+  const defaultTheme = normalizeHostTheme()
+  const [hostThemeEmoji, setHostThemeEmoji] = useState(defaultTheme.emoji)
+  const [hostThemeColor, setHostThemeColor] = useState<HostThemeColor>(defaultTheme.color)
   const [runId, setRunId] = useState<Id<"runs"> | null>(null)
   const [projectId, setProjectId] = useState<Id<"projects"> | null>(null)
 
@@ -37,6 +41,7 @@ function NewProject() {
     ? normalizedBaseDir
     : `${normalizedBaseDir}/${nameSlug}`
   const effectiveHost = host.trim() || defaultHost
+  const themeInput = normalizeHostTheme({ emoji: hostThemeEmoji, color: hostThemeColor })
 
   useEffect(() => {
     const input = directoryInputRef.current
@@ -46,12 +51,13 @@ function NewProject() {
   }, [])
 
   const plan = useMutation({
-    mutationFn: async () =>
+        mutationFn: async () =>
       await projectInitPlan({
         data: {
           localPath: effectiveLocalPath,
           host: effectiveHost,
           templateSpec,
+          theme: themeInput,
         },
       }),
     onError: (err) => {
@@ -60,13 +66,14 @@ function NewProject() {
   })
 
   const start = useMutation({
-    mutationFn: async () =>
+        mutationFn: async () =>
       await projectCreateStart({
         data: {
           name,
           localPath: effectiveLocalPath,
           host: effectiveHost,
           templateSpec,
+          theme: themeInput,
           gitInit: true,
         },
       }),
@@ -185,6 +192,26 @@ function NewProject() {
                     value={host}
                     onChange={(e) => setHost(e.target.value)}
                   />
+                </StackedField>
+                <StackedField
+                  id="theme"
+                  label="Host theme"
+                  description="Badge shown for the default host."
+                >
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <HostThemeEmojiPicker
+                      value={hostThemeEmoji}
+                      onValueChange={setHostThemeEmoji}
+                    />
+                    <HostThemeColorDropdown
+                      value={hostThemeColor}
+                      onValueChange={setHostThemeColor}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+                    <HostThemeBadge theme={themeInput} size="sm" />
+                    <div className="text-xs text-muted-foreground">Preview badge</div>
+                  </div>
                 </StackedField>
 
                 <StackedField

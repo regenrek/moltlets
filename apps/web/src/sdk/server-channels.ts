@@ -29,6 +29,7 @@ export const serverChannelsStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "server_channels",
       title: `Channels ${data.op} (${gatewayId}@${host})`,
+      host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

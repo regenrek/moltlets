@@ -24,6 +24,7 @@ export const secretsVerifyStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "secrets_verify",
       title: `Secrets verify (${host})`,
+      host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

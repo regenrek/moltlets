@@ -43,6 +43,7 @@ export const runDoctor = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "doctor",
       title: `Doctor (${data.scope})`,
+      host: data.host,
     })
 
     const checks = await collectDoctorChecks({
@@ -92,6 +93,7 @@ export const bootstrapStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "bootstrap",
       title: `Bootstrap (${data.host})`,
+      host: data.host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

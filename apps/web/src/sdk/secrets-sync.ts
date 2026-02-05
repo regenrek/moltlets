@@ -28,6 +28,7 @@ export const secretsSyncStart = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "secrets_sync",
       title: `Secrets sync (${host})`,
+      host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,

@@ -42,6 +42,7 @@ export const addHost = createServerFn({ method: "POST" })
       projectId: data.projectId,
       kind: "config_write",
       title: `host add ${host}`,
+      host,
     })
     return await runWithEventsAndStatus({
       client,

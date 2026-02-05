@@ -1,12 +1,15 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
 import {
   ArrowPathIcon,
   BoltIcon,
+  ChatBubbleLeftRightIcon,
   CheckIcon,
   ChevronUpDownIcon,
   CircleStackIcon,
   Cog6ToothIcon,
+  CommandLineIcon,
   DocumentTextIcon,
   KeyIcon,
   MagnifyingGlassIcon,
@@ -27,23 +30,27 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarGroupLabel,
   SidebarSeparator,
 } from "~/components/ui/sidebar"
 import { Button } from "~/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { Label } from "~/components/ui/label"
+import { HostThemeBadge } from "~/components/hosts/host-theme"
 import { NavUser } from "~/components/layout/nav-user"
 import { useProjectBySlug, useProjectsList } from "~/lib/project-data"
 import {
   buildHostPath,
   buildHostsPath,
   buildProjectBasePath,
+  buildProjectGlobalBase,
   getInstanceHostFromWindow,
   parseHostName,
   parseProjectSlug,
   slugifyProjectName,
   storeLastProjectSlug,
 } from "~/lib/project-routing"
+import { clawletsConfigQueryOptions } from "~/lib/query-options"
 import { cn } from "~/lib/utils"
 
 function NavLink({
@@ -53,6 +60,8 @@ function NavLink({
   item: NavItem
   isActive: boolean
 }) {
+  const iconNode =
+    item.iconNode ?? (item.icon ? <item.icon aria-hidden="true" /> : null)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -82,7 +91,7 @@ function NavLink({
           />
         }
       >
-        {item.icon ? <item.icon aria-hidden="true" /> : null}
+        {iconNode ? <span className="shrink-0">{iconNode}</span> : null}
         <span className="truncate">{item.label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -93,7 +102,9 @@ type NavItem = {
   to: string
   label: string
   icon?: React.ComponentType<React.ComponentProps<"svg">>
+  iconNode?: React.ReactNode
   tooltip?: string
+  aliases?: string[]
 }
 
 function AppSidebar() {
@@ -112,6 +123,12 @@ function AppSidebar() {
     [projectSlug, projects],
   )
   const { projectId } = useProjectBySlug(projectSlug)
+  const configQuery = useQuery({
+    ...clawletsConfigQueryOptions(projectId),
+    enabled: Boolean(projectId),
+  })
+  const config = configQuery.data?.config as any
+  const activeHostTheme = activeHost ? (config?.hosts as any)?.[activeHost]?.theme : null
   const [navQuery, setNavQuery] = React.useState("")
 
   if (!projectSlug) {
@@ -124,78 +141,87 @@ function AppSidebar() {
   }
 
   const projectBase = buildProjectBasePath(projectSlug)
+  const projectGlobalBase = buildProjectGlobalBase(projectSlug)
   const hostsBase = buildHostsPath(projectSlug)
-  const hostBase = activeHost
-    ? buildHostPath(projectSlug, activeHost)
-    : null
+  const hostBase = activeHost ? buildHostPath(projectSlug, activeHost) : null
+  const hostAwarePath = React.useCallback(
+    (hostSuffix: string, globalSlug: string) =>
+      hostBase ? `${hostBase}/${hostSuffix}` : `${projectGlobalBase}/${globalSlug}`,
+    [hostBase, projectGlobalBase],
+  )
+  const overviewIcon = activeHost ? (
+    <HostThemeBadge theme={activeHostTheme} size="xs" />
+  ) : null
 
-  const primaryNav: NavItem[] = [
+  const infraNav: NavItem[] = [
     {
-      to: hostBase || hostsBase,
+      to: hostBase ?? hostsBase,
       label: hostBase ? "Overview" : "Hosts",
-      icon: ServerStackIcon,
+      icon: hostBase ? undefined : ServerStackIcon,
+      iconNode: hostBase ? overviewIcon : undefined,
       tooltip: hostBase ? "Single host overview." : "Fleet host overview.",
     },
-    ...(hostBase
-      ? [
-          {
-            to: `${hostBase}/gateways`,
-            label: "Gateways",
-            icon: UserGroupIcon,
-          },
-          {
-            to: `${hostBase}/bootstrap`,
-            label: "Bootstrap",
-            icon: BoltIcon,
-          },
-          {
-            to: `${hostBase}/updates`,
-            label: "Updates",
-            icon: ArrowPathIcon,
-          },
-          {
-            to: `${hostBase}/secrets`,
-            label: "Secrets",
-            icon: KeyIcon,
-          },
-        ]
-      : []),
     {
-      to: hostBase ? `${hostBase}/logs` : `${projectBase}/runs`,
-      label: "Logs",
+      to: hostAwarePath("bootstrap", "bootstrap"),
+      label: "Bootstrap",
+      icon: BoltIcon,
+    },
+    {
+      to: hostAwarePath("updates", "updates"),
+      label: "Updates",
+      icon: ArrowPathIcon,
+    },
+    {
+      to: hostAwarePath("runs", "runs"),
+      label: "Runs",
       icon: DocumentTextIcon,
     },
     {
-      to: `${projectBase}/setup/fleet`,
-      label: "Skills",
-      icon: SparklesIcon,
+      to: hostAwarePath("logs", "logs"),
+      label: "Server Logs",
+      icon: CommandLineIcon,
+    },
+    {
+      to: hostAwarePath("audit", "audit"),
+      label: "Audit",
+      icon: ShieldCheckIcon,
+    },
+    {
+      to: hostAwarePath("restart", "restart"),
+      label: "Restart",
+      icon: ArrowPathIcon,
+    },
+    {
+      to: hostAwarePath("settings", "settings"),
+      label: "Settings",
+      icon: Cog6ToothIcon,
+      tooltip: "Host-level infra settings.",
     },
   ]
 
-  const opsNav: NavItem[] = hostBase
-    ? [
-        {
-          to: `${hostBase}/audit`,
-          label: "Audit",
-          icon: ShieldCheckIcon,
-        },
-        {
-          to: `${hostBase}/restart`,
-          label: "Restart",
-          icon: ArrowPathIcon,
-        },
-      ]
-    : []
-
-  const settingsNav: NavItem[] = hostBase
-    ? [
-        {
-          to: `${hostBase}/settings`,
-          label: "Settings",
-          icon: Cog6ToothIcon,
-        },
-      ]
-    : []
+  const openclawNav: NavItem[] = [
+    {
+      to: hostAwarePath("gateways", "gateways"),
+      label: "Gateways",
+      icon: UserGroupIcon,
+    },
+    {
+      to: `${projectGlobalBase}/channels`,
+      label: "Channels",
+      icon: ChatBubbleLeftRightIcon,
+    },
+    {
+      to: hostAwarePath("secrets", "secrets"),
+      label: "Secrets",
+      icon: KeyIcon,
+    },
+    {
+      to: `${projectGlobalBase}/skills`,
+      label: "Skills",
+      icon: SparklesIcon,
+      aliases: [`${projectBase}/setup/fleet`],
+    },
+  ]
 
   const projectNav: NavItem[] = projectId
     ? [
@@ -217,18 +243,16 @@ function AppSidebar() {
   const normalizedQuery = navQuery.trim().toLowerCase()
   const matches = (item: NavItem) =>
     !normalizedQuery || item.label.toLowerCase().includes(normalizedQuery)
-  const filteredPrimary = primaryNav.filter(matches)
-  const filteredOps = opsNav.filter(matches)
-  const filteredSettings = settingsNav.filter(matches)
+  const filteredInfra = infraNav.filter(matches)
+  const filteredOpenclaw = openclawNav.filter(matches)
   const filteredProject = projectNav.filter(matches)
   const hasMatches =
-    filteredPrimary.length || filteredOps.length || filteredSettings.length || filteredProject.length
+    filteredInfra.length || filteredOpenclaw.length || filteredProject.length
 
-  const isActivePath = React.useCallback(
-    (target: string) =>
-      pathname === target || pathname.startsWith(`${target}/`),
-    [pathname],
-  )
+  const isActiveItem = React.useCallback((item: NavItem) => {
+    const targets = [item.to, ...(item.aliases ?? [])]
+    return targets.some((target) => pathname === target || pathname.startsWith(`${target}/`))
+  }, [pathname])
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -328,43 +352,31 @@ function AppSidebar() {
             No matches.
           </div>
         ) : null}
-        <SidebarGroup>
-          <SidebarMenu>
-            {filteredPrimary.map((item) => (
-              <NavLink
-                key={item.to}
-                item={item}
-                isActive={isActivePath(item.to)}
-              />
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-        {filteredOps.length ? (
-          <>
-            <SidebarSeparator />
-            <SidebarGroup>
-              <SidebarMenu>
-                {filteredOps.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    item={item}
-                    isActive={isActivePath(item.to)}
-                  />
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          </>
+        {filteredInfra.length ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Infra</SidebarGroupLabel>
+            <SidebarMenu>
+              {filteredInfra.map((item) => (
+                <NavLink
+                  key={item.to}
+                  item={item}
+                  isActive={isActiveItem(item)}
+                />
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
         ) : null}
-        {filteredSettings.length ? (
+        {filteredOpenclaw.length ? (
           <>
-            <SidebarSeparator />
+            {filteredInfra.length ? <SidebarSeparator /> : null}
             <SidebarGroup>
+              <SidebarGroupLabel>OpenClaw</SidebarGroupLabel>
               <SidebarMenu>
-                {filteredSettings.map((item) => (
+                {filteredOpenclaw.map((item) => (
                   <NavLink
                     key={item.to}
                     item={item}
-                    isActive={isActivePath(item.to)}
+                    isActive={isActiveItem(item)}
                   />
                 ))}
               </SidebarMenu>
@@ -382,7 +394,7 @@ function AppSidebar() {
                   <NavLink
                     key={item.to}
                     item={item}
-                    isActive={isActivePath(item.to)}
+                    isActive={isActiveItem(item)}
                   />
                 ))}
               </SidebarMenu>
