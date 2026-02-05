@@ -1,9 +1,9 @@
 import { Button } from "~/components/ui/button"
+import { SshPubkeyFileField } from "~/components/hosts/ssh-pubkey-file-field"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { SshPubkeyFileField } from "~/components/hosts/ssh-pubkey-file-field"
 
 type HostSshSectionProps = {
   sshExposure: "tailnet" | "bootstrap" | "public"

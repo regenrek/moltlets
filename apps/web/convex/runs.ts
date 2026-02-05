@@ -74,7 +74,6 @@ export const latestByProjectHostKind = query({
     return runs[0] ?? null;
   },
 });
-
 export const get = query({
   args: { runId: v.id("runs") },
   returns: v.object({ run: RunDoc, role: Role, project: ProjectDoc }),

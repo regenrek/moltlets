@@ -10,10 +10,16 @@ import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Switch } from "~/components/ui/switch"
-import { HostThemeBadge, HostThemeColorDropdown, HostThemeEmojiPicker, normalizeHostTheme, type HostThemeColor } from "~/components/hosts/host-theme"
+import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
+import {
+  HostThemeBadge,
+  HostThemeColorDropdown,
+  HostThemeEmojiPicker,
+  normalizeHostTheme,
+  type HostThemeColor,
+} from "~/components/hosts/host-theme"
 import { HostSshSection } from "~/components/hosts/host-ssh-section"
 import { HostUpdatesSection } from "~/components/hosts/host-updates-section"
-import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
 import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
