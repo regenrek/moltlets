@@ -11,7 +11,7 @@ import {
 } from "../repo-layout.js";
 import { getHostAgeKeySopsCreationRulePathRegex, getHostAgeKeySopsCreationRulePathSuffix, getHostSecretsSopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathSuffix } from "../lib/sops-rules.js";
 import { validateHostSecretsYamlFiles } from "../lib/secrets-policy.js";
-import { buildFleetSecretsPlan } from "../lib/fleet-secrets-plan.js";
+import { buildFleetSecretsPlan } from "../lib/secrets/plan.js";
 import { capture } from "../lib/run.js";
 import { looksLikeSshKeyContents, normalizeSshPublicKey } from "../lib/ssh.js";
 import type { DoctorCheck } from "./types.js";

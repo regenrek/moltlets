@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 describe("secrets init template sets", () => {
   it("marks garnix netrc secret as netrc placeholder", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
@@ -39,7 +39,7 @@ describe("secrets init template sets", () => {
 
   it("omits garnix netrc placeholder when private cache disabled", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
@@ -68,7 +68,7 @@ describe("secrets init template sets", () => {
 
   it("supports openclaw scope without host bootstrap secrets", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({

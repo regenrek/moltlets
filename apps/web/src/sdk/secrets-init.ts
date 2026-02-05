@@ -2,7 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 
 import { createServerFn } from "@tanstack/react-start"
-import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan"
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan"
 import {
   buildSecretsInitTemplate,
   isPlaceholderSecretValue,

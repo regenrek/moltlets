@@ -18,7 +18,7 @@ import {
 } from "@clawlets/core/lib/clawlets-config";
 import { migrateClawletsConfigToLatest } from "@clawlets/core/lib/clawlets-config-migrate";
 import { validateClawletsConfig } from "@clawlets/core/lib/clawlets-config-validate";
-import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } from "@clawlets/core/lib/secrets-autowire";
 
 const init = defineCommand({

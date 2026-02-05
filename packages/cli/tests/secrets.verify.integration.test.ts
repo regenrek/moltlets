@@ -21,7 +21,7 @@ vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
 }));
 
-vi.mock("@clawlets/core/lib/fleet-secrets-plan", () => ({
+vi.mock("@clawlets/core/lib/secrets/plan", () => ({
   buildFleetSecretsPlan: buildFleetSecretsPlanMock,
 }));
 

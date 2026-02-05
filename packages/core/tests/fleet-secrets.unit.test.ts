@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 describe("fleet secrets plan", () => {
   it("collects required secrets for zai/* models", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -31,7 +31,7 @@ describe("fleet secrets plan", () => {
 
   it("flags missing secretEnv mapping for openai/* models", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -54,7 +54,7 @@ describe("fleet secrets plan", () => {
 
   it("accepts legacy Z_AI_API_KEY mappings for zai/*", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -78,7 +78,7 @@ describe("fleet secrets plan", () => {
 
   it("does not require secretEnv mapping for OAuth providers", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -102,7 +102,7 @@ describe("fleet secrets plan", () => {
 
   it("warns on inline channel tokens with suggested env wiring", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -131,7 +131,7 @@ describe("fleet secrets plan", () => {
 
   it("includes hook + skill secret mappings from gateway config", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -163,7 +163,7 @@ describe("fleet secrets plan", () => {
 
   it("warns on inline hooks + skill apiKey values", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -192,7 +192,7 @@ describe("fleet secrets plan", () => {
 
   it("includes per-gateway secretEnv overrides for mixed providers", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -224,7 +224,7 @@ describe("fleet secrets plan", () => {
 
   it("requires DISCORD_BOT_TOKEN mapping when referenced", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -252,7 +252,7 @@ describe("fleet secrets plan", () => {
 
   it("flags missing DISCORD_BOT_TOKEN mapping when referenced", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -327,7 +327,7 @@ describe("fleet secrets plan", () => {
 
   it("flags invalid per-gateway secretFiles targetPath", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -397,7 +397,7 @@ describe("fleet secrets plan", () => {
 
   it("does not mark whatsapp as stateful when explicitly disabled", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -424,7 +424,7 @@ describe("fleet secrets plan", () => {
 
   it("includes env vars from models.providers", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -461,7 +461,7 @@ describe("fleet secrets plan", () => {
 
   it("includes fallback model provider keys", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -490,7 +490,7 @@ describe("fleet secrets plan", () => {
 
   it("warns on inline discord token", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,
@@ -519,7 +519,7 @@ describe("fleet secrets plan", () => {
 
   it("separates bootstrap and openclaw scopes", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
-    const { buildFleetSecretsPlan } = await import("../src/lib/fleet-secrets-plan");
+    const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan");
 
     const cfg = ClawletsConfigSchema.parse({
       schemaVersion: 1,

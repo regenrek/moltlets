@@ -11,7 +11,7 @@ import { upsertSopsCreationRule } from "@clawlets/core/lib/sops-config";
 import { sopsDecryptYamlFile, sopsEncryptYamlToFile } from "@clawlets/core/lib/sops";
 import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawlets/core/lib/sops-rules";
 import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
-import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { applySecretsAutowire, planSecretsAutowire } from "@clawlets/core/lib/secrets-autowire";
 import {
   buildSecretsInitTemplate,

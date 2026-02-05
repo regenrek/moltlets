@@ -8,7 +8,7 @@ import { sshCapture } from "@clawlets/core/lib/ssh-remote";
 import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawlets/core/lib/github";
 import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
 import { findRepoRoot } from "@clawlets/core/lib/repo";
-import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { withFlakesEnv } from "@clawlets/core/lib/nix-flakes";
 import { ClawletsConfigSchema, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { resolveBaseFlake } from "@clawlets/core/lib/base-flake";

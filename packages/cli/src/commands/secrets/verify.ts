@@ -6,7 +6,7 @@ import YAML from "yaml";
 import { agePublicKeyFromIdentityFile } from "@clawlets/core/lib/age-keygen";
 import { sopsDecryptYamlFile } from "@clawlets/core/lib/sops";
 import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
-import { buildFleetSecretsPlan } from "@clawlets/core/lib/fleet-secrets-plan";
+import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { resolveSecretsPlanScope } from "@clawlets/core/lib/secrets-plan-scopes";
 import { isPlaceholderSecretValue } from "@clawlets/core/lib/secrets-init";
 import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";

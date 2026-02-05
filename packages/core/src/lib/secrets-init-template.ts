@@ -1,5 +1,5 @@
 import type { ClawletsConfig } from "./clawlets-config.js";
-import type { FleetSecretsPlan } from "./fleet-secrets-plan.js";
+import type { FleetSecretsPlan } from "./secrets/plan.js";
 import type { SecretsPlanScope } from "./secrets-plan.js";
 import { resolveSecretsPlanScope } from "./secrets-plan-scopes.js";
 

@@ -1,4 +1,4 @@
-import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
+import { buildFleetSecretsPlan } from "./secrets/plan.js";
 import { suggestSecretNameForEnvVar } from "./fleet-secrets-plan-helpers.js";
 import type { ClawletsConfig } from "./clawlets-config.js";
 import type { MissingSecretConfig, SecretSource } from "./secrets-plan.js";

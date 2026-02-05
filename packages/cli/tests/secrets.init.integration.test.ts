@@ -53,7 +53,7 @@ vi.mock("@clawlets/core/lib/sops-config", async () => {
   };
 });
 
-vi.mock("@clawlets/core/lib/fleet-secrets-plan", () => ({
+vi.mock("@clawlets/core/lib/secrets/plan", () => ({
   buildFleetSecretsPlan: buildFleetSecretsPlanMock,
 }));
 
