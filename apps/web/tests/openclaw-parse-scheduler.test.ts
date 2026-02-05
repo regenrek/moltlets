@@ -17,7 +17,7 @@ describe("openclaw parse scheduler", () => {
       summary: { critical: 1, warn: 0, info: 0 },
       findings: [{ id: "inlineSecret.gateway.auth.token", severity: "critical", title: "inline", detail: "inline", remediation: "" }],
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-security-lint", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/security-lint", () => ({
       lintOpenclawSecurityConfig: lintSpy,
     }))
     const mod = await import("~/lib/openclaw-parse")

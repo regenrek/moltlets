@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { getPinnedChannelUiModel, listPinnedChannelUiModels } from "../src/lib/channel-ui-metadata"
+import { getPinnedChannelUiModel, listPinnedChannelUiModels } from "../src/lib/openclaw/channel-ui-metadata"
 
 describe("channel ui metadata", () => {
   it("exposes allowFrom for telegram + whatsapp", () => {

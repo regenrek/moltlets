@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { ChannelUiModel } from "@clawlets/core/lib/channel-ui-metadata"
+import type { ChannelUiModel } from "@clawlets/core/lib/openclaw/channel-ui-metadata"
 import { Switch } from "~/components/ui/switch"
 import { ConfigCard } from "../shared/config-card"
 import { buildGatewayConfigPath } from "../shared/config-path"

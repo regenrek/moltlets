@@ -1,4 +1,4 @@
-import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw-security-lint"
+import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw/security-lint"
 import { createDebouncedIdleRunner, type IdleDebounceHandle } from "~/lib/idle-debounce"
 
 export type ParsedOpenclawConfig =

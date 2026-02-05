@@ -1,5 +1,5 @@
 import { applySecurityDefaults } from "./config-patch.js";
-import { getPinnedChannelUiModel } from "./channel-ui-metadata.js";
+import { getPinnedChannelUiModel } from "./openclaw/channel-ui-metadata.js";
 
 export type CapabilityPresetKind = "channel" | "model" | "security" | "plugin";
 

@@ -1,4 +1,4 @@
-import { getPinnedOpenclawSchemaArtifact } from "./openclaw/schema/artifact.js";
+import { getPinnedOpenclawSchemaArtifact } from "./schema/artifact.js";
 
 export type ChannelInfo = {
   id: string;
@@ -51,15 +51,13 @@ export function listPinnedChannels(): ChannelInfo[] {
       const hint = readHint(hints, `channels.${id}`);
       const schemaEntry = channelSchemas[id];
       const name =
-        String(hint?.label || "")
-          .trim() ||
+        String(hint?.label || "").trim() ||
         (isPlainObject(schemaEntry) && typeof (schemaEntry as any).title === "string"
           ? String((schemaEntry as any).title).trim()
           : "") ||
         titleCase(id);
       const summary = String(hint?.help || "").trim() || undefined;
-      const category =
-        hint?.category === "core" || hint?.category === "plugin" ? hint.category : undefined;
+      const category = hint?.category === "core" || hint?.category === "plugin" ? hint.category : undefined;
       const docsUrl = typeof hint?.docsUrl === "string" ? hint.docsUrl.trim() || undefined : undefined;
       return {
         id,

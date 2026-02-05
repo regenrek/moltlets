@@ -27,7 +27,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
@@ -84,7 +84,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
@@ -133,7 +133,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
@@ -182,7 +182,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
@@ -249,7 +249,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),
@@ -289,7 +289,7 @@ describe("openclaw live schema cache", () => {
         },
       }),
     }))
-    vi.doMock("@clawlets/core/lib/openclaw-config-invariants", () => ({
+    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
       buildOpenClawGatewayConfig: () => ({
         invariants: { gateway: { port: 18789 } },
       }),

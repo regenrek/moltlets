@@ -7,7 +7,7 @@ import { diffOpenclawChannelSchemasFromArtifacts } from "@clawlets/core/lib/open
 import { getPinnedOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { OPENCLAW_DEFAULT_COMMANDS } from "@clawlets/core/lib/openclaw-defaults"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/fleet-secrets-plan-helpers"
-import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw-security-lint"
+import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw/security-lint"
 import {
   ClawletsConfigSchema,
   loadClawletsConfigRaw,

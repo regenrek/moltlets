@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import { ClawletsConfigSchema } from "../src/lib/clawlets-config";
-import { buildOpenClawGatewayConfig } from "../src/lib/openclaw-config-invariants";
+import { buildOpenClawGatewayConfig } from "../src/lib/openclaw/config-invariants";
 import { skillApiKeyEnvVar } from "../src/lib/fleet-secrets-plan-helpers";
 
 const baseHost = {

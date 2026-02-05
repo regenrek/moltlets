@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("openclaw security lint", () => {
   it("flags open Telegram DMs without wildcard allowFrom", async () => {
-    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw-security-lint");
+    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw/security-lint");
 
     const res = lintOpenclawSecurityConfig({
       botId: "agent",
@@ -21,7 +21,7 @@ describe("openclaw security lint", () => {
   });
 
   it("flags open group policy and wildcard groupAllowFrom", async () => {
-    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw-security-lint");
+    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw/security-lint");
 
     const res = lintOpenclawSecurityConfig({
       openclaw: {
@@ -39,7 +39,7 @@ describe("openclaw security lint", () => {
   });
 
   it("warns when multi-user DM shares main session", async () => {
-    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw-security-lint");
+    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw/security-lint");
 
     const res = lintOpenclawSecurityConfig({
       openclaw: {
@@ -57,7 +57,7 @@ describe("openclaw security lint", () => {
   });
 
   it("flags inline secrets in known token fields", async () => {
-    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw-security-lint");
+    const { lintOpenclawSecurityConfig } = await import("../src/lib/openclaw/security-lint");
 
     const res = lintOpenclawSecurityConfig({
       botId: "agent",

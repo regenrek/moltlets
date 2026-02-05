@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "~/components/ui/avatar"
 import { buttonVariants } from "~/components/ui/button"
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "~/components/ui/item"
 import { cn } from "~/lib/utils"
-import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw-config-invariants"
+import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw/config-invariants"
 
 export function getGatewayChannels(params: { config: unknown; host: string; gatewayId: string }): string[] {
   const hostCfg = (params.config as any)?.hosts?.[params.host]

@@ -1,4 +1,4 @@
-import { listPinnedChannels } from "./channel-registry.js";
+import { listPinnedChannels } from "./openclaw/channel-registry.js";
 
 export type BotSecurityDefaultsChange = {
   scope: "openclaw" | "channels";

@@ -1,5 +1,5 @@
 import type { ClawletsConfig } from "./clawlets-config.js";
-import { buildOpenClawGatewayConfig, type OpenClawInvariantWarning } from "./openclaw-config-invariants.js";
+import { buildOpenClawGatewayConfig, type OpenClawInvariantWarning } from "./openclaw/config-invariants.js";
 import { validateOpenclawConfig } from "./openclaw/schema/validate.js";
 import { buildFleetSecretsPlan } from "./secrets/plan.js";
 import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./fleet-secrets-plan-helpers.js";

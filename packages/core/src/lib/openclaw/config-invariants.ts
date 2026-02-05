@@ -1,10 +1,10 @@
-import type { ClawletsConfig } from "./clawlets-config.js";
+import type { ClawletsConfig } from "../clawlets-config.js";
 import { z } from "zod";
-import { getAtPath } from "./object-path.js";
-import { skillApiKeyEnvVar } from "./fleet-secrets-plan-helpers.js";
-import invariantSpec from "../assets/openclaw-invariants.json" with { type: "json" };
-import type { OpenClawConfig, OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../generated/openclaw-config.types.js";
-import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
+import { getAtPath } from "../object-path.js";
+import { skillApiKeyEnvVar } from "../secrets/env-vars.js";
+import invariantSpec from "../../assets/openclaw-invariants.json" with { type: "json" };
+import type { OpenClawConfig, OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../../generated/openclaw-config.types.js";
+import { OPENCLAW_DEFAULT_COMMANDS } from "../openclaw-defaults.js";
 
 type OpenClawConfigObject = OpenClawConfig & Record<string, unknown>;
 type PartialOpenClawConfigObject = Partial<OpenClawConfig> & Record<string, unknown>;
