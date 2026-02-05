@@ -17,6 +17,8 @@
     "build": "tsdown && node ../../scripts/copy-cli-config.mjs && node ../../scripts/copy-cli-assets.mjs",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "test:unit": "vitest run .unit.test.ts",
+    "test:integration": "vitest run .integration.test.ts",
     "coverage": "vitest run --coverage",
     "help": "node dist/main.mjs --help",
     "bootstrap": "node dist/main.mjs bootstrap",
