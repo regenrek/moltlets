@@ -54,7 +54,7 @@ describe("project create execute guard", () => {
             data: {
               projectId: "p1" as any,
               runId: "run1" as any,
-              host: "clawdbot-fleet-host",
+              host: "openclaw-fleet-host",
               templateSpec: { name: "default" } as any,
               gitInit: true,
             },
@@ -75,7 +75,7 @@ describe("project create execute guard", () => {
           data: {
             projectId: "p1" as any,
             runId: "run1" as any,
-            host: "clawdbot-fleet-host",
+            host: "openclaw-fleet-host",
             templateSpec: { name: "default" } as any,
             gitInit: true,
           },
@@ -101,7 +101,7 @@ describe("project create execute guard", () => {
             data: {
               projectId: "p1" as any,
               runId: "run1" as any,
-              host: "clawdbot-fleet-host",
+              host: "openclaw-fleet-host",
               templateSpec: { name: "default" } as any,
               gitInit: true,
             },

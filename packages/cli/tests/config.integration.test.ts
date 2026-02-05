@@ -83,7 +83,7 @@ describe("config set", () => {
   });
 
   it("can fix an invalid config by applying a valid update", async () => {
-    const baseConfig = createDefaultClawletsConfig({ host: "clawdbot-fleet-host", gateways: ["maren"] });
+    const baseConfig = createDefaultClawletsConfig({ host: "openclaw-fleet-host", gateways: ["maren"] });
     baseConfig.cattle.enabled = true;
     baseConfig.cattle.hetzner.image = "";
     loadClawletsConfigRawMock.mockReturnValue({

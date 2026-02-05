@@ -42,7 +42,7 @@ describe("clawlets config validate", () => {
   );
 
   it(
-    "defaults required clawdbot commands",
+    "defaults required openclaw commands",
     async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");

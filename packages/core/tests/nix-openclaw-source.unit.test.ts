@@ -4,10 +4,10 @@ import { parseNixOpenclawSource, fetchNixOpenclawSourceInfo } from "../src/lib/n
 describe("parseNixOpenclawSource", () => {
   it("parses double-quoted attrs with comments", () => {
     const raw = `
-      # pinned clawdbot
+      # pinned openclaw
       {
-        owner = "clawdbot";
-        repo = "clawdbot";
+        owner = "openclaw";
+        repo = "openclaw";
         rev = "abc123";
         hash = "sha256-xyz";
         pnpmDepsHash = "sha256-abc";

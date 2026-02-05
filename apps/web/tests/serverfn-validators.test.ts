@@ -249,10 +249,10 @@ describe("serverfn validators", () => {
   })
 
   it("parses server restart inputs", () => {
-    expect(parseServerRestartStartInput({ projectId: "p1", host: "alpha", unit: "clawdbot-*.service" })).toEqual({
+    expect(parseServerRestartStartInput({ projectId: "p1", host: "alpha", unit: "openclaw-*.service" })).toEqual({
       projectId: "p1",
       host: "alpha",
-      unit: "clawdbot-*.service",
+      unit: "openclaw-*.service",
     })
 
     expect(
@@ -260,11 +260,11 @@ describe("serverfn validators", () => {
         projectId: "p1",
         runId: "r1",
         host: "alpha",
-        unit: "clawdbot-agent.service",
+        unit: "openclaw-agent.service",
         targetHost: "",
-        confirm: "restart clawdbot-agent.service",
+        confirm: "restart openclaw-agent.service",
       }),
-    ).toMatchObject({ unit: "clawdbot-agent.service", confirm: "restart clawdbot-agent.service" })
+    ).toMatchObject({ unit: "openclaw-agent.service", confirm: "restart openclaw-agent.service" })
   })
 
   it("parses server update status/logs inputs", () => {

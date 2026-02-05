@@ -30,10 +30,10 @@ function RestartOperate() {
   const hostCfg = (config as any)?.hosts?.[host]
   const gateways = useMemo(() => (hostCfg?.gatewaysOrder || []) as string[], [hostCfg])
 
-  const [unit, setUnit] = useState("clawdbot-*.service")
+  const [unit, setUnit] = useState("openclaw-*.service")
   const [targetHost, setTargetHost] = useState("")
 
-  const expectedConfirm = `restart ${unit.trim() || "clawdbot-*.service"}`.trim()
+  const expectedConfirm = `restart ${unit.trim() || "openclaw-*.service"}`.trim()
   const [confirm, setConfirm] = useState("")
 
   const [runId, setRunId] = useState<Id<"runs"> | null>(null)
@@ -83,10 +83,10 @@ function RestartOperate() {
               <div className="space-y-2">
                 <Label>Unit</Label>
                 <NativeSelect value={unit} onChange={(e) => setUnit(e.target.value)}>
-                  <NativeSelectOption value="clawdbot-*.service">clawdbot-*.service</NativeSelectOption>
+                  <NativeSelectOption value="openclaw-*.service">openclaw-*.service</NativeSelectOption>
                   {gateways.map((gatewayId) => (
-                    <NativeSelectOption key={gatewayId} value={`clawdbot-${gatewayId}.service`}>
-                      clawdbot-{gatewayId}.service
+                    <NativeSelectOption key={gatewayId} value={`openclaw-.service`}>
+                      openclaw-{gatewayId}.service
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>

@@ -34,7 +34,7 @@ describe("sudo policy (host)", () => {
       const clawletsRef = JSON.stringify(`path:${clawletsRepo}`);
       const cfgPath = path.join(repoRoot, "fleet", "clawlets.json");
       const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) as any;
-      const host = Object.keys((cfg && typeof cfg === "object" ? (cfg as any).hosts : null) || {})[0] || "clawdbot-fleet-host";
+      const host = Object.keys((cfg && typeof cfg === "object" ? (cfg as any).hosts : null) || {})[0] || "openclaw-fleet-host";
 
       const expr = `
 let

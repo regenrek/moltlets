@@ -11,7 +11,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: { maren: {} },
           tailnet: { mode: "none" },
@@ -20,7 +20,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing).toEqual([]);
     expect(plan.secretNamesAll).toEqual(["z_ai_api_key"]);
     expect(plan.secretNamesRequired).toEqual(["z_ai_api_key"]);
@@ -39,7 +39,7 @@ describe("fleet secrets plan", () => {
         secretEnv: {},
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: { maren: {} },
           tailnet: { mode: "none" },
@@ -48,7 +48,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "OPENAI_API_KEY")).toBe(true);
   });
 
@@ -62,7 +62,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { Z_AI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: { maren: {} },
           tailnet: { mode: "none" },
@@ -71,7 +71,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing).toEqual([]);
     expect(plan.secretNamesRequired).toContain("z_ai_api_key");
   });
@@ -86,7 +86,7 @@ describe("fleet secrets plan", () => {
         secretEnv: {},
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: { maren: {} },
           tailnet: { mode: "none" },
@@ -95,7 +95,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "OPENAI_API_KEY")).toBe(false);
     expect(plan.warnings.some((w) => w.kind === "auth" && w.provider === "openai-codex")).toBe(true);
   });
@@ -110,7 +110,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -123,7 +123,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     const warning = plan.warnings.find((w) => w.kind === "inlineToken");
     expect(warning?.message).toMatch(/Inline discord token/i);
     expect(warning?.suggestion).toMatch(/DISCORD_BOT_TOKEN/);
@@ -139,7 +139,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -153,7 +153,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing).toEqual([]);
     expect(plan.secretNamesRequired).toEqual(expect.arrayContaining(["hooks_token", "brave_api_key"]));
     expect(plan.byGateway.maren.envVarsRequired).toEqual(
@@ -171,7 +171,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -185,7 +185,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.warnings.some((w) => w.kind === "inlineToken" && w.path === "hooks.token")).toBe(true);
     expect(plan.warnings.some((w) => w.kind === "inlineApiKey" && w.path === "skills.entries.brave-search.apiKey")).toBe(true);
   });
@@ -200,7 +200,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["alpha", "beta"],
           gateways: {
             alpha: {
@@ -217,7 +217,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing).toEqual([]);
     expect(plan.secretNamesRequired).toEqual(["anthropic_api_key", "z_ai_api_key"]);
   });
@@ -232,7 +232,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -246,7 +246,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.secretNamesRequired).toContain("discord_token_maren");
   });
 
@@ -260,7 +260,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -273,7 +273,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.gateway === "maren" && m.envVar === "DISCORD_BOT_TOKEN")).toBe(true);
   });
 
@@ -286,11 +286,11 @@ describe("fleet secrets plan", () => {
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
           secretFiles: {
-            netrc: { secretName: "garnix_netrc", targetPath: "/srv/clawdbot/maren/credentials/netrc", mode: "0400" },
+            netrc: { secretName: "garnix_netrc", targetPath: "/srv/openclaw/maren/credentials/netrc", mode: "0400" },
           },
         },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             gatewaysOrder: ["maren"],
             gateways: { maren: {} },
             tailnet: { mode: "none" },
@@ -314,7 +314,7 @@ describe("fleet secrets plan", () => {
           },
         },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             gatewaysOrder: ["maren"],
             gateways: { maren: {} },
             tailnet: { mode: "none" },
@@ -335,7 +335,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -357,7 +357,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "secretFile" && m.scope === "gateway" && m.gateway === "maren" && m.fileId === "creds")).toBe(true);
   });
 
@@ -371,7 +371,7 @@ describe("fleet secrets plan", () => {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
         },
         hosts: {
-          "clawdbot-fleet-host": {
+          "openclaw-fleet-host": {
             gatewaysOrder: ["maren"],
             gateways: {
               maren: {
@@ -405,7 +405,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -418,7 +418,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.byGateway.maren.statefulChannels).toEqual([]);
   });
 
@@ -432,7 +432,7 @@ describe("fleet secrets plan", () => {
         secretEnv: {},
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -455,7 +455,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "MOONSHOT_API_KEY")).toBe(true);
   });
 
@@ -469,7 +469,7 @@ describe("fleet secrets plan", () => {
         secretEnv: {},
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -482,7 +482,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "OPENAI_API_KEY")).toBe(true);
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "ANTHROPIC_API_KEY")).toBe(false);
     expect(plan.warnings.some((w) => w.kind === "auth" && w.provider === "anthropic")).toBe(true);
@@ -498,7 +498,7 @@ describe("fleet secrets plan", () => {
         secretEnv: {},
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: {
             maren: {
@@ -511,7 +511,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     expect(plan.missing.some((m) => m.kind === "envVar" && m.envVar === "DISCORD_BOT_TOKEN")).toBe(true);
     expect(plan.warnings.some((w) => w.kind === "inlineToken" && w.path === "channels.discord.token")).toBe(true);
     expect(plan.warnings.some((w) => w.kind === "inlineToken" && w.suggestion?.includes("${DISCORD_BOT_TOKEN}"))).toBe(true);
@@ -527,7 +527,7 @@ describe("fleet secrets plan", () => {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           gatewaysOrder: ["maren"],
           gateways: { maren: {} },
           tailnet: { mode: "none" },
@@ -536,7 +536,7 @@ describe("fleet secrets plan", () => {
       },
     });
 
-    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "clawdbot-fleet-host" });
+    const plan = buildFleetSecretsPlan({ config: cfg, hostName: "openclaw-fleet-host" });
     const bootstrapNames = plan.scopes.bootstrapRequired.map((spec) => spec.name);
     const openclawNames = plan.scopes.openclawRequired.map((spec) => spec.name);
 
@@ -563,7 +563,7 @@ describe("fleet secrets plan", () => {
 
     runSecretRequirementCollectors({
       gatewayId: "maren",
-      hostName: "clawdbot-fleet-host",
+      hostName: "openclaw-fleet-host",
       openclaw: null,
       warnings,
       addRequiredEnv: (envVar, source, path) => {

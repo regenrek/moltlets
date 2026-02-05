@@ -19,19 +19,19 @@ describe("repo-layout path safety", () => {
   it("rejects unsafe secret names in getHostSecretFile", async () => {
     const { getRepoLayout, getHostSecretFile } = await import("../src/repo-layout.js");
     const layout = getRepoLayout("/repo", "/repo/.clawlets");
-    expect(() => getHostSecretFile(layout, "clawdbot-fleet-host", "../pwn")).toThrow(/invalid secret name/i);
+    expect(() => getHostSecretFile(layout, "openclaw-fleet-host", "../pwn")).toThrow(/invalid secret name/i);
   });
 
   it("builds expected paths for valid inputs", async () => {
     const { getRepoLayout, getGatewayWorkspaceDir, getHostSecretsDir, getHostSecretFile, getHostExtraFilesKeyPath } = await import("../src/repo-layout.js");
     const layout = getRepoLayout("/repo", "/repo/.clawlets");
 
-    expect(getHostSecretsDir(layout, "clawdbot-fleet-host")).toBe(path.join("/repo", "secrets", "hosts", "clawdbot-fleet-host"));
-    expect(getHostSecretFile(layout, "clawdbot-fleet-host", "admin_password_hash")).toBe(
-      path.join("/repo", "secrets", "hosts", "clawdbot-fleet-host", "admin_password_hash.yaml"),
+    expect(getHostSecretsDir(layout, "openclaw-fleet-host")).toBe(path.join("/repo", "secrets", "hosts", "openclaw-fleet-host"));
+    expect(getHostSecretFile(layout, "openclaw-fleet-host", "admin_password_hash")).toBe(
+      path.join("/repo", "secrets", "hosts", "openclaw-fleet-host", "admin_password_hash.yaml"),
     );
-    expect(getHostExtraFilesKeyPath(layout, "clawdbot-fleet-host")).toBe(
-      path.join("/repo", ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
+    expect(getHostExtraFilesKeyPath(layout, "openclaw-fleet-host")).toBe(
+      path.join("/repo", ".clawlets", "extra-files", "openclaw-fleet-host", "var", "lib", "sops-nix", "key.txt"),
     );
     expect(getGatewayWorkspaceDir(layout, "maren")).toBe(path.join("/repo", "fleet", "workspaces", "gateways", "maren"));
   });

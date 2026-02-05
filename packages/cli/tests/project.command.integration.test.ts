@@ -46,7 +46,7 @@ describe("project init", () => {
             backups: { restic: { enable: false, repository: "" } },
           },
           hosts: {
-            "clawdbot-fleet-host": {
+            "openclaw-fleet-host": {
               gatewaysOrder: [],
               gateways: {},
               cache: { netrc: { enable: true } },
@@ -85,7 +85,7 @@ describe("project init", () => {
     const readme = fs.readFileSync(path.join(target, "README.md"), "utf8");
     expect(readme).toMatch(/my-fleet/);
     const cfg = JSON.parse(fs.readFileSync(path.join(target, "fleet", "clawlets.json"), "utf8"));
-    expect(cfg.hosts["clawdbot-fleet-host"].cache.netrc.enable).toBe(false);
+    expect(cfg.hosts["openclaw-fleet-host"].cache.netrc.enable).toBe(false);
   });
 
   it("rejects missing --dir", async () => {

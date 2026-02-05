@@ -73,7 +73,7 @@ vi.mock("../src/lib/deploy-gate.js", () => ({
   requireDeployGate: requireDeployGateMock,
 }));
 
-const hostName = "clawdbot-beta-4";
+const hostName = "openclaw-beta-4";
 const baseHost = {
   enable: true,
   gatewaysOrder: ["maren"],

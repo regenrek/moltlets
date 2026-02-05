@@ -8,7 +8,7 @@ describe("identifiers", () => {
 
   it("assertSafeHostName accepts safe host", async () => {
     const { assertSafeHostName } = await import("@clawlets/shared/lib/identifiers");
-    expect(() => assertSafeHostName("clawdbot-fleet-host")).not.toThrow();
+    expect(() => assertSafeHostName("openclaw-fleet-host")).not.toThrow();
   });
 
   it("assertSafeSecretName rejects traversal", async () => {

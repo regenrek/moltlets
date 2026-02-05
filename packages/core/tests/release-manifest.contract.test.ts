@@ -6,14 +6,14 @@ describe("release manifest", () => {
 
     const parsed = ReleaseManifestV1Schema.parse({
       schemaVersion: 1,
-      host: "clawdbot-fleet-host",
+      host: "openclaw-fleet-host",
       system: "x86_64-linux",
       channel: "staging",
       releaseId: 123,
       issuedAt: "2026-01-31T00:00:00Z",
       requiredFeatures: ["apply-manifest-v1"],
       rev: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-clawdbot-fleet-host-25.11",
+      toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-openclaw-fleet-host-25.11",
       secrets: { digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
       cache: {
         substituters: ["https://cache.nixos.org", "https://cache.garnix.io"],
@@ -25,7 +25,7 @@ describe("release manifest", () => {
       },
     });
 
-    expect(parsed.host).toBe("clawdbot-fleet-host");
+    expect(parsed.host).toBe("openclaw-fleet-host");
     expect(parsed.releaseId).toBe(123);
     expect(parsed.cache?.substituters.length).toBe(2);
   });
@@ -36,7 +36,7 @@ describe("release manifest", () => {
     expect(() =>
       ReleaseManifestV1Schema.parse({
         schemaVersion: 1,
-        host: "clawdbot-fleet-host",
+        host: "openclaw-fleet-host",
         system: "x86_64-linux",
         channel: "prod",
         releaseId: 1,
@@ -54,13 +54,13 @@ describe("release manifest", () => {
     expect(() =>
       ReleaseManifestV1Schema.parse({
         schemaVersion: 1,
-        host: "clawdbot-fleet-host",
+        host: "openclaw-fleet-host",
         system: "x86_64-linux",
         channel: "prod",
         releaseId: 1,
         issuedAt: "2026-01-31T00:00:00Z",
         rev: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-clawdbot-fleet-host-25.11",
+        toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-openclaw-fleet-host-25.11",
         secrets: {
           digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           url: "https://example.com/secrets.tgz",
@@ -74,14 +74,14 @@ describe("release manifest", () => {
 
     const manifest = {
       schemaVersion: 1,
-      host: "clawdbot-fleet-host",
+      host: "openclaw-fleet-host",
       system: "x86_64-linux",
       channel: "staging",
       releaseId: 42,
       issuedAt: "2026-01-31T00:00:00Z",
       minUpdaterVersion: "0.4.3",
       rev: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-clawdbot-fleet-host-25.11",
+      toplevel: "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-openclaw-fleet-host-25.11",
       secrets: {
         digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         format: "sops-tar",

@@ -40,7 +40,7 @@ export async function collectDoctorChecks(params: {
   const GITHUB_TOKEN = deployCreds.values.GITHUB_TOKEN;
   const SOPS_AGE_KEY_FILE = deployCreds.values.SOPS_AGE_KEY_FILE;
 
-  const host = params.host.trim() || "clawdbot-fleet-host";
+  const host = params.host.trim() || "openclaw-fleet-host";
 
   const repoResult = await addRepoChecks({
     repoRoot,

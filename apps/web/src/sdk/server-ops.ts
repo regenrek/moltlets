@@ -269,7 +269,7 @@ export const serverLogsStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerLogsStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const unit = data.unit.trim() || "clawdbot-*.service"
+    const unit = data.unit.trim() || "openclaw-*.service"
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "server_logs",
@@ -293,7 +293,7 @@ export const serverLogsExecute = createServerFn({ method: "POST" })
     const cliEntry = resolveClawletsCliEntry()
     const cliEnv = getClawletsCliEnv()
 
-    const unit = data.unit.trim() || "clawdbot-*.service"
+    const unit = data.unit.trim() || "openclaw-*.service"
     const lines = data.lines.trim() || "200"
 
     try {
@@ -480,7 +480,7 @@ export const serverRestartStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerRestartStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const unit = data.unit.trim() || "clawdbot-*.service"
+    const unit = data.unit.trim() || "openclaw-*.service"
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "server_restart",
@@ -499,7 +499,7 @@ export const serverRestartStart = createServerFn({ method: "POST" })
 export const serverRestartExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerRestartExecuteInput)
   .handler(async ({ data }) => {
-    const unit = data.unit.trim() || "clawdbot-*.service"
+    const unit = data.unit.trim() || "openclaw-*.service"
     const expected = `restart ${unit}`.trim()
     requireTypedConfirmation({ expected, received: data.confirm })
 

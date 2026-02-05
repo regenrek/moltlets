@@ -46,9 +46,9 @@ function readPath(root: unknown, path: string): unknown {
   return current
 }
 
-export function readInlineSecretWarnings(clawdbot: unknown): string[] {
+export function readInlineSecretWarnings(openclaw: unknown): string[] {
   const warnings: string[] = []
-  const cfg = isPlainObject(clawdbot) ? (clawdbot as Record<string, unknown>) : {}
+  const cfg = isPlainObject(openclaw) ? (openclaw as Record<string, unknown>) : {}
 
   for (const channel of listPinnedChannelUiModels()) {
     for (const tokenField of channel.tokenFields) {
@@ -91,8 +91,8 @@ export function readInlineSecretWarnings(clawdbot: unknown): string[] {
   return warnings
 }
 
-export function listEnabledChannels(clawdbot: unknown): string[] {
-  const cfg = isPlainObject(clawdbot) ? (clawdbot as Record<string, unknown>) : {}
+export function listEnabledChannels(openclaw: unknown): string[] {
+  const cfg = isPlainObject(openclaw) ? (openclaw as Record<string, unknown>) : {}
   const channels = cfg["channels"]
   if (!isPlainObject(channels)) return []
   return Object.keys(channels)

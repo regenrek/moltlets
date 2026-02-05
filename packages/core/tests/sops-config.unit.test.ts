@@ -12,10 +12,10 @@ creation_rules:
 `;
     const out = upsertSopsCreationRule({
       existingYaml: existing,
-      pathRegex: "^clawdbot-fleet-host\\.yaml$",
+      pathRegex: "^openclaw-fleet-host\\.yaml$",
       ageRecipients: ["age1a", "age1b", "age1a"],
     });
-    expect(out).toContain("path_regex: ^clawdbot-fleet-host\\.yaml$");
+    expect(out).toContain("path_regex: ^openclaw-fleet-host\\.yaml$");
     expect(out).toContain("key_groups:");
     expect(out).toContain("- age:");
     expect(out).toContain("- age1a");
@@ -26,14 +26,14 @@ creation_rules:
   it("updates an existing rule", () => {
     const existing = `
 creation_rules:
-  - path_regex: ^clawdbot-fleet-host\\.yaml$
+  - path_regex: ^openclaw-fleet-host\\.yaml$
     key_groups:
       - age:
           - age1old
 `;
     const out = upsertSopsCreationRule({
       existingYaml: existing,
-      pathRegex: "^clawdbot-fleet-host\\.yaml$",
+      pathRegex: "^openclaw-fleet-host\\.yaml$",
       ageRecipients: ["age1new"],
     });
     expect(out).toContain("- age1new");
@@ -43,12 +43,12 @@ creation_rules:
   it("upgrades legacy 'age' rules to key_groups", () => {
     const existing = `
 creation_rules:
-  - path_regex: ^clawdbot-fleet-host\\.yaml$
+  - path_regex: ^openclaw-fleet-host\\.yaml$
     age: age1old, age1other
 `;
     const out = upsertSopsCreationRule({
       existingYaml: existing,
-      pathRegex: "^clawdbot-fleet-host\\.yaml$",
+      pathRegex: "^openclaw-fleet-host\\.yaml$",
       ageRecipients: ["age1new"],
     });
     expect(out).toContain("key_groups:");
@@ -62,7 +62,7 @@ creation_rules:
     expect(() =>
       upsertSopsCreationRule({
         existingYaml: "",
-        pathRegex: "^clawdbot-fleet-host\\.yaml$",
+        pathRegex: "^openclaw-fleet-host\\.yaml$",
         ageRecipients: [],
       }),
     ).toThrow(/no age recipients/);
@@ -71,7 +71,7 @@ creation_rules:
   it("removes a creation rule by exact path_regex", () => {
     const existing = `
 creation_rules:
-  - path_regex: ^clawdbot-fleet-host\\.yaml$
+  - path_regex: ^openclaw-fleet-host\\.yaml$
     key_groups:
       - age:
           - age1old
@@ -80,8 +80,8 @@ creation_rules:
       - age:
           - age1other
 `;
-    const out = removeSopsCreationRule({ existingYaml: existing, pathRegex: "^clawdbot-fleet-host\\.yaml$" });
-    expect(out).not.toContain("path_regex: ^clawdbot-fleet-host\\.yaml$");
+    const out = removeSopsCreationRule({ existingYaml: existing, pathRegex: "^openclaw-fleet-host\\.yaml$" });
+    expect(out).not.toContain("path_regex: ^openclaw-fleet-host\\.yaml$");
     expect(out).toContain("path_regex: ^other\\.yaml$");
   });
 

@@ -13,6 +13,8 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Gateways are host-scoped: `hosts.<host>.gatewaysOrder` / `hosts.<host>.gateways` are the canonical roster (schema is v1; legacy `bots*` keys are hard rejected).
 - `fleet.codex.bots` removed; use `fleet.codex.gateways`.
 - Rename `clawdbot` → `openclaw` across config, CLI, docs, and Nix; schema bumped to v15 with migration path.
+- Core lib re-architecture: moved flat `packages/core/src/lib/*.ts` modules into strict domain folders (`config`, `host`, `infra`, `nix`, `openclaw`, `project`, `runtime`, `secrets`, `security`, `storage`, `vcs`) with canonical import paths.
+- Canonical runtime naming now defaults to `openclaw` service/unit and host placeholders (`openclaw-*.service`, `openclaw-fleet-host`) across core/CLI/web flows.
 - Validate `hosts.<host>.gateways.<gateway>.openclaw` passthrough against pinned upstream schema (fail fast, full-path errors).
 - Template/Nix: add `flakeInfo.clawletsInput` (clawlets input revision) alongside `flakeInfo.clawlets` (project revision).
 

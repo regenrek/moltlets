@@ -22,7 +22,7 @@ const projectInit = defineCommand({
   meta: { name: "init", description: "Scaffold a new clawlets infra repo (from clawlets-template)." },
   args: {
     dir: { type: "string", description: "Target directory (created if missing)." },
-    host: { type: "string", description: "Host name placeholder (default: clawdbot-fleet-host).", default: "clawdbot-fleet-host" },
+    host: { type: "string", description: "Host name placeholder (default: openclaw-fleet-host).", default: "openclaw-fleet-host" },
     gitInit: { type: "boolean", description: "Run `git init` in the new directory.", default: true },
     interactive: { type: "boolean", description: "Prompt for confirmation (requires TTY).", default: false },
     dryRun: { type: "boolean", description: "Print planned files without writing.", default: false },
@@ -37,7 +37,7 @@ const projectInit = defineCommand({
     const dirRaw = String(args.dir || "").trim();
     if (!dirRaw) throw new Error("missing --dir");
     const destDir = path.resolve(process.cwd(), dirRaw);
-    const host = String(args.host || "clawdbot-fleet-host").trim() || "clawdbot-fleet-host";
+    const host = String(args.host || "openclaw-fleet-host").trim() || "openclaw-fleet-host";
     assertSafeHostName(host);
 
     if (interactive) {

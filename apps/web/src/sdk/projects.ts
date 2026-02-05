@@ -13,7 +13,7 @@ import { parseProjectIdInput } from "~/sdk/serverfn-validators";
 
 function getHost(input?: unknown): string {
   const raw = typeof input === "string" ? input.trim() : "";
-  return raw || "clawdbot-fleet-host";
+  return raw || "openclaw-fleet-host";
 }
 
 const HOST_THEME_COLOR_SET = new Set<string>(HOST_THEME_COLORS)

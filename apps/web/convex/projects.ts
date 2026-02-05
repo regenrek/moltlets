@@ -159,7 +159,7 @@ export const guardLiveSchemaFetch = mutation({
       ts: Date.now(),
       userId: access.authed.user._id,
       projectId: args.projectId,
-      action: "clawdbot.schema.live.fetch",
+      action: "openclaw.schema.live.fetch",
       target: { host, gatewayId },
     });
     return null;

@@ -31,7 +31,7 @@ function LogsOperate() {
   const hostCfg = (config as any)?.hosts?.[host]
   const gateways = useMemo(() => (hostCfg?.gatewaysOrder || []) as string[], [hostCfg])
 
-  const [unit, setUnit] = useState("clawdbot-*.service")
+  const [unit, setUnit] = useState("openclaw-*.service")
   const [lines, setLines] = useState("200")
   const [since, setSince] = useState("")
   const [follow, setFollow] = useState(false)
@@ -91,10 +91,10 @@ function LogsOperate() {
               <div className="space-y-2">
                 <Label>Unit</Label>
                 <NativeSelect value={unit} onChange={(e) => setUnit(e.target.value)}>
-                  <NativeSelectOption value="clawdbot-*.service">clawdbot-*.service</NativeSelectOption>
+                  <NativeSelectOption value="openclaw-*.service">openclaw-*.service</NativeSelectOption>
                   {gateways.map((gatewayId) => (
-                    <NativeSelectOption key={gatewayId} value={`clawdbot-${gatewayId}.service`}>
-                      clawdbot-{gatewayId}.service
+                    <NativeSelectOption key={gatewayId} value={`openclaw-.service`}>
+                      openclaw-{gatewayId}.service
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>

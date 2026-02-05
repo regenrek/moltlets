@@ -50,7 +50,7 @@ vi.mock("@clawlets/cattle-core/lib/hcloud-cattle", async () => {
 describe("cattle command", () => {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-cli-cattle-"));
   const layout = getRepoLayout(repoRoot);
-  const hostName = "clawdbot-fleet-host";
+  const hostName = "openclaw-fleet-host";
 
   const hostCfg = {
     gatewaysOrder: ["agent"],

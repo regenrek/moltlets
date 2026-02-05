@@ -48,7 +48,7 @@ export async function addDeployChecks(params: {
   skipGithubTokenCheck?: boolean;
   scope: "bootstrap" | "updates";
 }): Promise<void> {
-  const host = params.host.trim() || "clawdbot-fleet-host";
+  const host = params.host.trim() || "openclaw-fleet-host";
   const scope = params.scope;
   const push = (c: Omit<DoctorCheck, "scope">) =>
     params.push({ scope, ...c });
@@ -138,7 +138,7 @@ export async function addDeployChecks(params: {
   } else if (clawletsHostCfg) {
     push({
       status: clawletsHostCfg.enable ? "ok" : "warn",
-      label: "services.clawdbotFleet.enable",
+      label: "services.openclawFleet.enable",
       detail: clawletsHostCfg.enable ? "(true)" : "(false; host will install but fleet services/VPN won't run until enabled)",
     });
 

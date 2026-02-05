@@ -10,7 +10,7 @@ import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/config/clawlet
 import { buildOpenClawGatewayConfig } from "../lib/openclaw/config-invariants.js";
 import { lintOpenclawSecurityConfig } from "../lib/openclaw/security-lint.js";
 import { checkSchemaVsNixOpenclaw } from "./schema-checks.js";
-import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
+import { findOpenclawSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
 import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
 import type { DoctorPush } from "./types.js";
 import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./util.js";
@@ -214,41 +214,41 @@ export async function addRepoChecks(params: {
   }
 
   {
-    const scan = findClawdbotSecretViolations(repoRoot);
+    const scan = findOpenclawSecretViolations(repoRoot);
     if (scan.violations.length > 0) {
       const first = scan.violations[0]!;
       params.push({
         scope: "repo",
         status: "missing",
-        label: "clawdbot config secrets",
+        label: "openclaw config secrets",
         detail: `${path.relative(repoRoot, first.file)} matched ${first.label}`,
       });
     } else {
       params.push({
         scope: "repo",
         status: "ok",
-        label: "clawdbot config secrets",
-        detail: scan.files.length > 0 ? `(scanned ${scan.files.length} clawdbot.json5)` : "(no clawdbot.json5 found)",
+        label: "openclaw config secrets",
+        detail: scan.files.length > 0 ? `(scanned ${scan.files.length} openclaw.json5)` : "(no openclaw.json5 found)",
       });
     }
 
     if (templateRoot) {
-      const scanTemplate = findClawdbotSecretViolations(templateRoot);
+      const scanTemplate = findOpenclawSecretViolations(templateRoot);
       if (scanTemplate.violations.length > 0) {
         const first = scanTemplate.violations[0]!;
         params.push({
           scope: "repo",
           status: "missing",
-          label: "template clawdbot config secrets",
+          label: "template openclaw config secrets",
           detail: `${path.relative(repoRoot, first.file)} matched ${first.label}`,
         });
       } else {
         params.push({
           scope: "repo",
           status: "ok",
-          label: "template clawdbot config secrets",
+          label: "template openclaw config secrets",
           detail:
-            scanTemplate.files.length > 0 ? `(scanned ${scanTemplate.files.length} clawdbot.json5)` : "(no clawdbot.json5 found)",
+            scanTemplate.files.length > 0 ? `(scanned ${scanTemplate.files.length} openclaw.json5)` : "(no openclaw.json5 found)",
         });
       }
     }

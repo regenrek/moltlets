@@ -55,7 +55,7 @@ describe("doctor", () => {
     await mkdir(path.join(templateRoot, "fleet"), { recursive: true });
     await mkdir(path.join(templateRoot, "fleet", "workspaces", "common"), { recursive: true });
     await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-    await mkdir(path.join(repoRoot, ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix"), { recursive: true });
+    await mkdir(path.join(repoRoot, ".clawlets", "extra-files", "openclaw-fleet-host", "var", "lib", "sops-nix"), { recursive: true });
 
     const bundledSkillsText = ["[", '  "github",', '  "brave-search",', '  "coding-agent"', "]", ""].join("\n");
     await writeFile(path.join(repoRoot, "fleet", "bundled-skills.json"), bundledSkillsText, "utf8");
@@ -93,7 +93,7 @@ describe("doctor", () => {
 
     const clawletsConfig = {
       schemaVersion: 1,
-      defaultHost: "clawdbot-fleet-host",
+      defaultHost: "openclaw-fleet-host",
       baseFlake: "",
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
@@ -116,7 +116,7 @@ describe("doctor", () => {
         defaults: { autoShutdown: true, callbackUrl: "" },
       },
       hosts: {
-        "clawdbot-fleet-host": {
+        "openclaw-fleet-host": {
           enable: false,
           gatewaysOrder: ["alpha", "beta"],
           gateways: {
@@ -157,19 +157,19 @@ describe("doctor", () => {
     mockWheelMain = { adminHasWheel: false, breakglassHasWheel: true };
     mockWheelTemplate = structuredClone(mockWheelMain);
 
-    await mkdir(path.join(repoRoot, "secrets", "hosts", "clawdbot-fleet-host"), { recursive: true });
+    await mkdir(path.join(repoRoot, "secrets", "hosts", "openclaw-fleet-host"), { recursive: true });
     await mkdir(path.join(repoRoot, "secrets", "keys", "hosts"), { recursive: true });
 
     await writeFile(
       path.join(repoRoot, "secrets", ".sops.yaml"),
       [
         "creation_rules:",
-        `  - path_regex: ${sopsPathRegexForDirFiles("hosts/clawdbot-fleet-host", "yaml")}`,
+        `  - path_regex: ${sopsPathRegexForDirFiles("hosts/openclaw-fleet-host", "yaml")}`,
         "    key_groups:",
         "      - age:",
         "          - age1a",
         "          - age1b",
-        `  - path_regex: ${sopsPathRegexForPathSuffix("keys/hosts/clawdbot-fleet-host.agekey.yaml")}`,
+        `  - path_regex: ${sopsPathRegexForPathSuffix("keys/hosts/openclaw-fleet-host.agekey.yaml")}`,
         "    key_groups:",
         "      - age:",
         "          - age1a",
@@ -180,12 +180,12 @@ describe("doctor", () => {
     );
 
     await writeFile(
-      path.join(repoRoot, "secrets", "keys", "hosts", "clawdbot-fleet-host.agekey.yaml"),
+      path.join(repoRoot, "secrets", "keys", "hosts", "openclaw-fleet-host.agekey.yaml"),
       "age_public_key: age1a\nage_secret_key: AGE-SECRET-KEY-TEST\nsops: {}\n",
       "utf8",
     );
 
-    const secretsDir = path.join(repoRoot, "secrets", "hosts", "clawdbot-fleet-host");
+    const secretsDir = path.join(repoRoot, "secrets", "hosts", "openclaw-fleet-host");
     const enc = "ENC[AES256_GCM,data:abc,iv:def,tag:ghi,type:str]";
     await writeFile(path.join(secretsDir, "admin_password_hash.yaml"), `admin_password_hash: ${enc}\nsops: {}\n`, "utf8");
     await writeFile(path.join(secretsDir, "discord_token_alpha.yaml"), `discord_token_alpha: ${enc}\nsops: {}\n`, "utf8");
@@ -193,7 +193,7 @@ describe("doctor", () => {
     await writeFile(path.join(secretsDir, "z_ai_api_key.yaml"), `z_ai_api_key: ${enc}\nsops: {}\n`, "utf8");
 
     await writeFile(
-      path.join(repoRoot, ".clawlets", "extra-files", "clawdbot-fleet-host", "var", "lib", "sops-nix", "key.txt"),
+      path.join(repoRoot, ".clawlets", "extra-files", "openclaw-fleet-host", "var", "lib", "sops-nix", "key.txt"),
       "AGE-SECRET-KEY-TEST\n",
       "utf8",
     );
@@ -224,7 +224,7 @@ describe("doctor", () => {
     process.env.HCLOUD_TOKEN = "abc";
     delete process.env.SOPS_AGE_KEY_FILE;
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   }, 15_000);
 
@@ -234,7 +234,7 @@ describe("doctor", () => {
     await writeFile(configPath, "{", "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "updates" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "updates" });
     const check = checks.find((c) => c.label === "clawlets config");
     expect(check?.status).toBe("warn");
 
@@ -262,7 +262,7 @@ describe("doctor", () => {
     }));
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
     const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("ok");
@@ -291,7 +291,7 @@ describe("doctor", () => {
     }));
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
     const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
@@ -321,7 +321,7 @@ describe("doctor", () => {
     }));
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
     const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
@@ -334,17 +334,17 @@ describe("doctor", () => {
     mockFleetTemplate.gatewayProfiles.alpha.skills.allowBundled = null;
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
-    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
-    expect(checks.some((c) => c.label === "template fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
+    expect(checks.some((c) => c.label === "fleet policy (openclaw-fleet-host)" && c.status === "missing")).toBe(true);
+    expect(checks.some((c) => c.label === "template fleet policy (openclaw-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("rejects unknown bundled skills", async () => {
     mockFleetMain.gatewayProfiles.alpha.skills.allowBundled = ["unknown-skill"];
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
+    expect(checks.some((c) => c.label === "fleet policy (openclaw-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("requires GitHub app auth config when bundled github enabled", async () => {
@@ -352,15 +352,15 @@ describe("doctor", () => {
     mockFleetMain.gatewayProfiles.alpha.github = {};
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    expect(checks.some((c) => c.label === "fleet policy (clawdbot-fleet-host)" && c.status === "missing")).toBe(true);
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
+    expect(checks.some((c) => c.label === "fleet policy (openclaw-fleet-host)" && c.status === "missing")).toBe(true);
   });
 
   it("requires breakglass in wheel and forbids admin in wheel", async () => {
     mockWheelMain = { adminHasWheel: true, breakglassHasWheel: false };
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     expect(checks.some((c) => c.label === "admin wheel access" && c.status === "missing")).toBe(true);
     expect(checks.some((c) => c.label === "breakglass wheel access" && c.status === "missing")).toBe(true);
   });
@@ -370,12 +370,12 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["clawdbot-fleet-host"].provisioning.sshPubkeyFile =
+    raw.hosts["openclaw-fleet-host"].provisioning.sshPubkeyFile =
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test";
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     expect(
       checks.some(
         (c) =>
@@ -388,16 +388,16 @@ describe("doctor", () => {
     await writeFile(configPath, original, "utf8");
   });
 
-  it("flags secrets in clawdbot.json5 and includes", async () => {
+  it("flags secrets in openclaw.json5 and includes", async () => {
     const botDir = path.join(repoRoot, "fleet", "workspaces", "gateways", "maren");
     const includeDir = path.join(botDir, "includes");
     await mkdir(includeDir, { recursive: true });
     await writeFile(path.join(includeDir, "extra.json5"), '{ "token": "SUPER_SECRET_1234567890" }\n', "utf8");
-    await writeFile(path.join(botDir, "clawdbot.json5"), '{ "$include": "./includes/extra.json5" }\n', "utf8");
+    await writeFile(path.join(botDir, "openclaw.json5"), '{ "$include": "./includes/extra.json5" }\n', "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const check = checks.find((c) => c.label === "clawdbot config secrets");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
+    const check = checks.find((c) => c.label === "openclaw config secrets");
     expect(check?.status).toBe("missing");
 
     await rm(botDir, { recursive: true, force: true });
@@ -408,14 +408,14 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["clawdbot-fleet-host"].gateways.alpha = raw.hosts["clawdbot-fleet-host"].gateways.alpha || {};
-    raw.hosts["clawdbot-fleet-host"].gateways.alpha.clawdbot = {
+    raw.hosts["openclaw-fleet-host"].gateways.alpha = raw.hosts["openclaw-fleet-host"].gateways.alpha || {};
+    raw.hosts["openclaw-fleet-host"].gateways.alpha.openclaw = {
       channels: { discord: { enabled: true, token: "SUPER_SECRET_1234567890" } },
     };
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
     const check = checks.find((c) => c.label === "fleet config secrets");
     expect(check?.status).toBe("missing");
 
@@ -427,12 +427,12 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["clawdbot-fleet-host"].diskDevice = "/dev/sda-CHANGE_ME";
+    raw.hosts["openclaw-fleet-host"].diskDevice = "/dev/sda-CHANGE_ME";
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     process.env.HCLOUD_TOKEN = "abc";
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     expect(checks.some((c) => c.label === "diskDevice" && c.status === "missing")).toBe(true);
 
     await writeFile(configPath, original, "utf8");
@@ -443,14 +443,14 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["clawdbot-fleet-host"].cache = {
+    raw.hosts["openclaw-fleet-host"].cache = {
       netrc: { enable: true, secretName: "garnix_netrc" },
     };
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     process.env.HCLOUD_TOKEN = "abc";
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     expect(checks.some((c) => c.label === "secret: garnix_netrc" && c.status === "missing")).toBe(true);
 
     await writeFile(configPath, original, "utf8");
@@ -463,7 +463,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "private-or-missing" });
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("missing");
   });
@@ -476,7 +476,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("ok");
   });
@@ -489,7 +489,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -502,7 +502,7 @@ describe("doctor", () => {
     process.env.GITHUB_TOKEN = "token";
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -514,7 +514,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "rate-limited" });
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -526,7 +526,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: false, status: "network", detail: "boom" });
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host" });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("warn");
   });
@@ -538,7 +538,7 @@ describe("doctor", () => {
     vi.mocked(github.checkGithubRepoVisibility).mockResolvedValue({ ok: true, status: "private-or-missing" });
 
     const { collectDoctorChecks } = await import("../src/doctor.js");
-    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", skipGithubTokenCheck: true });
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", skipGithubTokenCheck: true });
     const check = checks.find((c) => c.label === "GITHUB_TOKEN");
     expect(check?.status).toBe("ok");
     expect(String(check?.detail || "")).toContain("skipped");

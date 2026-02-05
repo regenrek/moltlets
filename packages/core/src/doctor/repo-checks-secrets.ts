@@ -3,23 +3,27 @@ import path from "node:path";
 
 import { KNOWN_TOKEN_PATTERNS } from "@clawlets/shared/lib/token-patterns";
 
-const CLAWDBOT_SECRET_PATTERNS: { label: string; regex: RegExp }[] = [
+const OPENCLAW_SECRET_PATTERNS: { label: string; regex: RegExp }[] = [
   ...KNOWN_TOKEN_PATTERNS,
   { label: "literal token assignment", regex: /"token"\s*:\s*"(?!\$\{)(?!CHANGE_ME)(?!REDACTED)[^"]{16,}"/ },
 ];
 
+const GATEWAY_CONFIG_FILENAMES = ["openclaw.json5"] as const;
+
 const INCLUDE_PATTERN = /["']?\$include["']?\s*:\s*(['"])([^'"]+)\1/g;
 const MAX_SCAN_BYTES = 128 * 1024;
 
-function listClawdbotConfigFiles(root: string): string[] {
+function listOpenclawConfigFiles(root: string): string[] {
   const gatewaysDir = path.join(root, "fleet", "workspaces", "gateways");
   if (!fs.existsSync(gatewaysDir)) return [];
   const entries = fs.readdirSync(gatewaysDir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const cfgPath = path.join(gatewaysDir, entry.name, "clawdbot.json5");
-    if (fs.existsSync(cfgPath)) files.push(cfgPath);
+    for (const fileName of GATEWAY_CONFIG_FILENAMES) {
+      const cfgPath = path.join(gatewaysDir, entry.name, fileName);
+      if (fs.existsSync(cfgPath)) files.push(cfgPath);
+    }
   }
   return files;
 }
@@ -77,7 +81,7 @@ function resolveIncludePath(params: {
   return full;
 }
 
-export function findClawdbotSecretViolations(root: string): {
+export function findOpenclawSecretViolations(root: string): {
   files: string[];
   violations: { file: string; label: string }[];
 } {
@@ -91,7 +95,7 @@ export function findClawdbotSecretViolations(root: string): {
     }
   })();
 
-  const initial = listClawdbotConfigFiles(rootAbs);
+  const initial = listOpenclawConfigFiles(rootAbs);
   const files: string[] = [];
   const violations: { file: string; label: string }[] = [];
   const visited = new Set<string>();
@@ -110,7 +114,7 @@ export function findClawdbotSecretViolations(root: string): {
     files.push(fullPath);
 
     const raw = readFilePrefix(fullPath);
-    for (const pattern of CLAWDBOT_SECRET_PATTERNS) {
+    for (const pattern of OPENCLAW_SECRET_PATTERNS) {
       if (pattern.regex.test(raw)) {
         violations.push({ file: fullPath, label: pattern.label });
         return;
@@ -138,7 +142,7 @@ export function findFleetSecretViolations(root: string): {
   const configPath = path.join(root, "fleet", "clawlets.json");
   if (!fs.existsSync(configPath)) return { files: [], violations: [] };
   const raw = readFilePrefix(configPath);
-  for (const pattern of CLAWDBOT_SECRET_PATTERNS) {
+  for (const pattern of OPENCLAW_SECRET_PATTERNS) {
     if (pattern.regex.test(raw)) {
       return { files: [configPath], violations: [{ file: configPath, label: pattern.label }] };
     }

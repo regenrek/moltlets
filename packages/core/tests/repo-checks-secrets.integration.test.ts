@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { findClawdbotSecretViolations } from "../src/doctor/repo-checks-secrets.js";
+import { findOpenclawSecretViolations } from "../src/doctor/repo-checks-secrets.js";
 
 async function setupRepo(): Promise<{ dir: string; botDir: string }> {
   const dir = await mkdtemp(path.join(tmpdir(), "clawlets-repo-checks-secrets-"));
@@ -12,11 +12,11 @@ async function setupRepo(): Promise<{ dir: string; botDir: string }> {
 }
 
 describe("repo-checks-secrets", () => {
-  it("flags obvious secrets in clawdbot.json5", async () => {
+  it("flags obvious secrets in openclaw.json5", async () => {
     const { dir, botDir } = await setupRepo();
     try {
-      await writeFile(path.join(botDir, "clawdbot.json5"), '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");
-      const scan = findClawdbotSecretViolations(dir);
+      await writeFile(path.join(botDir, "openclaw.json5"), '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");
+      const scan = findOpenclawSecretViolations(dir);
       expect(scan.violations.length).toBe(1);
       expect(scan.violations[0]?.label).toBe("openai sk- token");
     } finally {
@@ -28,9 +28,9 @@ describe("repo-checks-secrets", () => {
     const { dir, botDir } = await setupRepo();
     try {
       await writeFile(path.join(botDir, "included.json5"), '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");
-      await writeFile(path.join(botDir, "clawdbot.json5"), '{ $include: "./included.json5" }\n', "utf8");
+      await writeFile(path.join(botDir, "openclaw.json5"), '{ $include: "./included.json5" }\n', "utf8");
 
-      const scan = findClawdbotSecretViolations(dir);
+      const scan = findOpenclawSecretViolations(dir);
       expect(scan.violations.length).toBe(1);
       expect(scan.violations[0]?.file).toBe(path.join(botDir, "included.json5"));
     } finally {
@@ -44,11 +44,11 @@ describe("repo-checks-secrets", () => {
     try {
       const outsideFile = path.join(outsideDir, "outside.json5");
       await writeFile(outsideFile, '{ "token": "sk-1234567890abcdefghijklmnop" }\n', "utf8");
-      await writeFile(path.join(botDir, "clawdbot.json5"), `{ $include: ${JSON.stringify(outsideFile)} }\n`, "utf8");
+      await writeFile(path.join(botDir, "openclaw.json5"), `{ $include: ${JSON.stringify(outsideFile)} }\n`, "utf8");
 
-      const scan = findClawdbotSecretViolations(dir);
+      const scan = findOpenclawSecretViolations(dir);
       expect(scan.violations.length).toBe(0);
-      expect(scan.files).toEqual([path.join(botDir, "clawdbot.json5")]);
+      expect(scan.files).toEqual([path.join(botDir, "openclaw.json5")]);
     } finally {
       await rm(dir, { recursive: true, force: true });
       await rm(outsideDir, { recursive: true, force: true });
@@ -73,11 +73,11 @@ describe("repo-checks-secrets", () => {
         throw e;
       }
 
-      await writeFile(path.join(botDir, "clawdbot.json5"), '{ $include: "./escape.json5" }\n', "utf8");
+      await writeFile(path.join(botDir, "openclaw.json5"), '{ $include: "./escape.json5" }\n', "utf8");
 
-      const scan = findClawdbotSecretViolations(dir);
+      const scan = findOpenclawSecretViolations(dir);
       expect(scan.violations.length).toBe(0);
-      expect(scan.files).toEqual([path.join(botDir, "clawdbot.json5")]);
+      expect(scan.files).toEqual([path.join(botDir, "openclaw.json5")]);
     } finally {
       await rm(dir, { recursive: true, force: true });
       await rm(outsideDir, { recursive: true, force: true });
