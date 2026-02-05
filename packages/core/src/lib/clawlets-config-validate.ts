@@ -1,6 +1,6 @@
 import type { ClawletsConfig } from "./clawlets-config.js";
 import { buildOpenClawGatewayConfig, type OpenClawInvariantWarning } from "./openclaw-config-invariants.js";
-import { validateClawdbotConfig } from "./clawdbot-schema-validate.js";
+import { validateOpenclawConfig } from "./openclaw/schema/validate.js";
 import { buildFleetSecretsPlan } from "./fleet-secrets-plan.js";
 import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./fleet-secrets-plan-helpers.js";
 import { EnvVarNameSchema } from "@clawlets/shared/lib/identifiers";
@@ -66,7 +66,7 @@ export function validateClawletsConfig(params: {
   for (const gatewayId of gatewaysOrder) {
     const res = buildOpenClawGatewayConfig({ config: params.config, hostName, gatewayId });
     if (res.warnings.length > 0) invariantWarnings.push(...res.warnings);
-    const validation = validateClawdbotConfig(res.merged);
+    const validation = validateOpenclawConfig(res.merged);
     if (!validation.ok) {
       schemaErrors[gatewayId] = validation.errors;
       for (const err of validation.errors) errors.push(formatSchemaError(hostName, gatewayId, err));

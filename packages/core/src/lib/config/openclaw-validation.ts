@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getPinnedOpenclawSchema } from "../openclaw-schema.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "../openclaw-defaults.js";
-import { validateClawdbotConfig } from "../clawdbot-schema-validate.js";
+import { validateOpenclawConfig } from "../openclaw/schema/validate.js";
 import { formatPathLabel, isPlainObject, stripPathPrefix } from "./helpers.js";
 
 type ConfigLike = {
@@ -33,7 +33,7 @@ export function addOpenclawSchemaIssues(params: { config: ConfigLike; ctx: z.Ref
         openclawForValidation["commands"] = { ...OPENCLAW_DEFAULT_COMMANDS, ...commands };
       }
 
-      const validation = validateClawdbotConfig(openclawForValidation, schema);
+      const validation = validateOpenclawConfig(openclawForValidation, schema);
       if (validation.ok) continue;
       for (const issue of validation.issues) {
         const path = ["hosts", hostName, "gateways", gatewayId, "openclaw", ...issue.path];

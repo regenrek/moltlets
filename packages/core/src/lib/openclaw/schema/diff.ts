@@ -1,6 +1,6 @@
-import type { ClawdbotSchemaArtifact } from "./clawdbot-schema.js";
+import type { OpenclawSchemaArtifact } from "./artifact.js";
 
-export type SchemaDiff = {
+export type OpenclawSchemaDiff = {
   added: string[];
   removed: string[];
   changed: Array<{ path: string; oldType: string; newType: string }>;
@@ -58,10 +58,10 @@ function collectChannelPaths(schema: Record<string, unknown>): Map<string, strin
   return out;
 }
 
-export function diffChannelSchemas(
+export function diffOpenclawChannelSchemas(
   pinnedSchema: Record<string, unknown>,
   liveSchema: Record<string, unknown>,
-): SchemaDiff {
+): OpenclawSchemaDiff {
   const pinned = collectChannelPaths(pinnedSchema);
   const live = collectChannelPaths(liveSchema);
   const added: string[] = [];
@@ -88,9 +88,9 @@ export function diffChannelSchemas(
   };
 }
 
-export function diffChannelSchemasFromArtifacts(
-  pinned: ClawdbotSchemaArtifact,
-  live: ClawdbotSchemaArtifact,
-): SchemaDiff {
-  return diffChannelSchemas(pinned.schema as Record<string, unknown>, live.schema as Record<string, unknown>);
+export function diffOpenclawChannelSchemasFromArtifacts(
+  pinned: OpenclawSchemaArtifact,
+  live: OpenclawSchemaArtifact,
+): OpenclawSchemaDiff {
+  return diffOpenclawChannelSchemas(pinned.schema as Record<string, unknown>, live.schema as Record<string, unknown>);
 }

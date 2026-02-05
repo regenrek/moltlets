@@ -316,7 +316,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
       } satisfies MonacoEditor.IMarkerData
     })
 
-    monaco.editor.setModelMarkers(model, "clawdbot-schema", markers)
+    monaco.editor.setModelMarkers(model, "openclaw-schema", markers)
 
     const onDiagnostics = onDiagnosticsRef.current
     if (onDiagnostics) {

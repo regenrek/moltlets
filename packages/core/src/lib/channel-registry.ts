@@ -1,4 +1,4 @@
-import { getPinnedClawdbotSchema } from "./clawdbot-schema.js";
+import { getPinnedOpenclawSchemaArtifact } from "./openclaw/schema/artifact.js";
 
 export type ChannelInfo = {
   id: string;
@@ -31,7 +31,7 @@ function readChannelSchemaMap(schema: Record<string, any>): Record<string, unkno
 }
 
 function readUiHints(): UiHints {
-  const schema = getPinnedClawdbotSchema();
+  const schema = getPinnedOpenclawSchemaArtifact();
   return (schema.uiHints ?? {}) as UiHints;
 }
 
@@ -42,7 +42,7 @@ function readHint(hints: UiHints, path: string): UiHints[string] | null {
 }
 
 export function listPinnedChannels(): ChannelInfo[] {
-  const schema = getPinnedClawdbotSchema();
+  const schema = getPinnedOpenclawSchemaArtifact();
   const channelSchemas = readChannelSchemaMap(schema.schema ?? {});
   const hints = readUiHints();
   return Object.keys(channelSchemas)

@@ -2,11 +2,11 @@ import type { ErrorObject } from "ajv";
 import { createHash } from "node:crypto";
 import Ajv2020Module from "ajv/dist/2020.js";
 import draft7Meta from "ajv/dist/refs/json-schema-draft-07.json" with { type: "json" };
-import { getPinnedClawdbotSchema } from "./clawdbot-schema.js";
+import { getPinnedOpenclawSchemaArtifact } from "./artifact.js";
 
 type AjvValidate = import("ajv").ValidateFunction;
 
-export type ClawdbotSchemaValidationIssue = {
+export type OpenclawSchemaValidationIssue = {
   path: Array<string | number>;
   message: string;
   keyword?: string;
@@ -14,13 +14,13 @@ export type ClawdbotSchemaValidationIssue = {
   schemaPath?: string;
 };
 
-export type ClawdbotSchemaValidation = {
+export type OpenclawSchemaValidation = {
   ok: boolean;
   errors: string[];
-  issues: ClawdbotSchemaValidationIssue[];
+  issues: OpenclawSchemaValidationIssue[];
 };
 
-const pinnedSchema = getPinnedClawdbotSchema().schema as Record<string, unknown>;
+const pinnedSchema = getPinnedOpenclawSchemaArtifact().schema as Record<string, unknown>;
 let cachedAjv: import("ajv").default | null = null;
 let validatorCacheBySchema: WeakMap<object, AjvValidate> = new WeakMap();
 let validatorCacheByFingerprint: Map<string, AjvValidate> = new Map();
@@ -49,7 +49,7 @@ function parseInstancePath(path: string): Array<string | number> {
     .map((segment) => (/^\d+$/.test(segment) ? Number(segment) : segment));
 }
 
-function buildIssue(err: ErrorObject): ClawdbotSchemaValidationIssue {
+function buildIssue(err: ErrorObject): OpenclawSchemaValidationIssue {
   const basePath = parseInstancePath(err.instancePath || "");
   let path = basePath;
   if (err.keyword === "required" && typeof (err.params as { missingProperty?: unknown })?.missingProperty === "string") {
@@ -196,7 +196,7 @@ function getValidator(schema: Record<string, unknown>): AjvValidate {
   return compiled;
 }
 
-export function validateClawdbotConfig(value: unknown, schema?: Record<string, unknown>): ClawdbotSchemaValidation {
+export function validateOpenclawConfig(value: unknown, schema?: Record<string, unknown>): OpenclawSchemaValidation {
   const targetSchema = schema ?? pinnedSchema;
   const validate = getValidator(targetSchema);
   const ok = Boolean(validate(value));

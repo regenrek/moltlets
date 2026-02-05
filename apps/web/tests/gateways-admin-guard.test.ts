@@ -26,8 +26,8 @@ async function loadGateways(role: "admin" | "viewer") {
   vi.doMock("~/server/run-manager", () => ({
     runWithEvents,
   }))
-  vi.doMock("@clawlets/core/lib/clawdbot-schema-validate", () => ({
-    validateClawdbotConfig: () => ({ ok: true }),
+  vi.doMock("@clawlets/core/lib/openclaw/schema/validate", () => ({
+    validateOpenclawConfig: () => ({ ok: true }),
   }))
   vi.doMock("@clawlets/core/lib/clawlets-config", async () => {
     const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawlets-config")>(

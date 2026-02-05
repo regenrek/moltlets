@@ -243,13 +243,13 @@ describe("doctor", () => {
 
   it("reports schema vs nix/upstream matches", async () => {
     vi.resetModules();
-    vi.doMock("../src/lib/clawdbot-schema.js", () => ({
-      getPinnedClawdbotSchema: () => ({
+    vi.doMock("../src/lib/openclaw/schema/artifact.js", () => ({
+      getPinnedOpenclawSchemaArtifact: () => ({
         schema: {},
         uiHints: {},
         version: "1.0.0",
         generatedAt: "now",
-        clawdbotRev: "rev1234567890abcd",
+        openclawRev: "rev1234567890abcd",
       }),
     }));
     vi.doMock("../src/lib/nix-clawdbot.js", () => ({
@@ -263,21 +263,21 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "clawdbot schema vs nix-clawdbot");
-    const upstream = checks.find((c) => c.label === "clawdbot schema vs upstream");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("ok");
     expect(upstream?.status).toBe("ok");
   });
 
   it("warns on schema mismatch and upstream fetch failure", async () => {
     vi.resetModules();
-    vi.doMock("../src/lib/clawdbot-schema.js", () => ({
-      getPinnedClawdbotSchema: () => ({
+    vi.doMock("../src/lib/openclaw/schema/artifact.js", () => ({
+      getPinnedOpenclawSchemaArtifact: () => ({
         schema: {},
         uiHints: {},
         version: "1.0.0",
         generatedAt: "now",
-        clawdbotRev: "rev1234567890abcd",
+        openclawRev: "rev1234567890abcd",
       }),
     }));
     vi.doMock("../src/lib/nix-clawdbot.js", () => ({
@@ -292,8 +292,8 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "clawdbot schema vs nix-clawdbot");
-    const upstream = checks.find((c) => c.label === "clawdbot schema vs upstream");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
     expect(upstream?.status).toBe("warn");
     expect(upstream?.detail || "").toContain("unable to fetch");
@@ -301,13 +301,13 @@ describe("doctor", () => {
 
   it("warns when pinned nix-clawdbot fetch fails", async () => {
     vi.resetModules();
-    vi.doMock("../src/lib/clawdbot-schema.js", () => ({
-      getPinnedClawdbotSchema: () => ({
+    vi.doMock("../src/lib/openclaw/schema/artifact.js", () => ({
+      getPinnedOpenclawSchemaArtifact: () => ({
         schema: {},
         uiHints: {},
         version: "1.0.0",
         generatedAt: "now",
-        clawdbotRev: "rev1234567890abcd",
+        openclawRev: "rev1234567890abcd",
       }),
     }));
     vi.doMock("../src/lib/nix-clawdbot.js", () => ({
@@ -322,8 +322,8 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "clawdbot schema vs nix-clawdbot");
-    const upstream = checks.find((c) => c.label === "clawdbot schema vs upstream");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
     expect(pinned?.detail || "").toContain("nope");
     expect(upstream?.status).toBe("ok");

@@ -102,13 +102,13 @@ describe("openclaw schema status cache", () => {
         repoRoot: `/tmp/${projectId}`,
       }),
     }))
-    vi.doMock("@clawlets/core/lib/clawdbot-schema-compare", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawdbot-schema-compare")>(
-        "@clawlets/core/lib/clawdbot-schema-compare",
+    vi.doMock("@clawlets/core/lib/openclaw/schema/compare", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/openclaw/schema/compare")>(
+        "@clawlets/core/lib/openclaw/schema/compare",
       )
       return {
         ...actual,
-        compareClawdbotSchemaToNixClawdbot: compareSpy,
+        compareOpenclawSchemaToNixClawdbot: compareSpy,
       }
     })
 
@@ -122,9 +122,9 @@ describe("openclaw schema status cache", () => {
 
   it("dedupes source fetches across concurrent status calls", async () => {
     vi.resetModules()
-    vi.doMock("@clawlets/core/lib/clawdbot-schema-compare", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/clawdbot-schema-compare")>(
-        "@clawlets/core/lib/clawdbot-schema-compare",
+    vi.doMock("@clawlets/core/lib/openclaw/schema/compare", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/openclaw/schema/compare")>(
+        "@clawlets/core/lib/openclaw/schema/compare",
       )
       return actual
     })

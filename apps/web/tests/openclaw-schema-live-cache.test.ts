@@ -10,7 +10,7 @@ describe("openclaw live schema cache", () => {
     const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) =>
       [
         "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653132__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"clawdbotRev\":\"rev\"}",
+        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653132__",
       ].join("\n"),
     )
@@ -67,7 +67,7 @@ describe("openclaw live schema cache", () => {
       await gate
       return [
         "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653334__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"clawdbotRev\":\"rev\"}",
+        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653334__",
       ].join("\n")
     })
@@ -116,7 +116,7 @@ describe("openclaw live schema cache", () => {
       await new Promise((resolve) => setTimeout(resolve, 5_000))
       return [
         "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653636__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"clawdbotRev\":\"rev\"}",
+        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653636__",
       ].join("\n")
     })
@@ -162,7 +162,7 @@ describe("openclaw live schema cache", () => {
     const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) =>
       [
         "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653535__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"clawdbotRev\":\"rev\"}",
+        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653535__",
       ].join("\n"),
     )

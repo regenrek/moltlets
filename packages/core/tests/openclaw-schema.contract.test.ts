@@ -13,20 +13,20 @@ function readPinnedRev(): string {
   return String(lock?.nodes?.["openclaw-src"]?.locked?.rev || "").trim();
 }
 
-describe("clawdbot schema artifact", () => {
+describe("openclaw schema artifact", () => {
   it("includes schema metadata", async () => {
-    const { getPinnedClawdbotSchema } = await import("../src/lib/clawdbot-schema");
-    const schema = getPinnedClawdbotSchema();
+    const { getPinnedOpenclawSchemaArtifact } = await import("../src/lib/openclaw/schema/artifact");
+    const schema = getPinnedOpenclawSchemaArtifact();
     expect(schema).toBeTruthy();
     expect(schema.schema && typeof schema.schema).toBe("object");
     expect(schema.uiHints && typeof schema.uiHints).toBe("object");
     expect(typeof schema.version).toBe("string");
     expect(schema.version.length).toBeGreaterThan(0);
     expect(typeof schema.generatedAt).toBe("string");
-    expect(typeof schema.clawdbotRev).toBe("string");
-    expect(schema.clawdbotRev?.match(/^[0-9a-f]{7,}$/)).toBeTruthy();
-    expect(schema.generatedAt).toBe(schema.clawdbotRev);
+    expect(typeof schema.openclawRev).toBe("string");
+    expect(schema.openclawRev?.match(/^[0-9a-f]{7,}$/)).toBeTruthy();
+    expect(schema.generatedAt).toBe(schema.openclawRev);
     const pinnedRev = readPinnedRev();
-    if (pinnedRev) expect(schema.clawdbotRev).toBe(pinnedRev);
+    if (pinnedRev) expect(schema.openclawRev).toBe(pinnedRev);
   });
 });

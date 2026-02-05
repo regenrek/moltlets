@@ -11,7 +11,7 @@ describe("checkSchemaVsNixClawdbot", () => {
         uiHints: {},
         version: "1.0.0",
         generatedAt: "now",
-        clawdbotRev: schemaRev,
+        openclawRev: schemaRev,
       }),
       getNixClawdbotRevFromFlakeLock: () => "pin-rev",
       fetchNixClawdbotSourceInfo: async ({ ref }) => {
@@ -25,8 +25,8 @@ describe("checkSchemaVsNixClawdbot", () => {
       },
     });
 
-    const pinned = checks.find((c) => c.label === "clawdbot schema vs nix-clawdbot");
-    const upstream = checks.find((c) => c.label === "clawdbot schema vs upstream");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
 
     expect(pinned?.status).toBe("ok");
     expect(pinned?.detail).toContain(`rev=${schemaRev.slice(0, 12)}`);
@@ -42,7 +42,7 @@ describe("checkSchemaVsNixClawdbot", () => {
         uiHints: {},
         version: "",
         generatedAt: "",
-        clawdbotRev: "",
+        openclawRev: "",
       }),
       fetchNixClawdbotSourceInfo: async () => {
         throw new Error("should not fetch");

@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Id } from "../../../../convex/_generated/dataModel"
-import type { ClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
-import { getPinnedClawdbotSchema } from "@clawlets/core/lib/clawdbot-schema"
+import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
+import { getPinnedOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import type { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw-security-lint"
 import { Button } from "~/components/ui/button"
 import { Switch } from "~/components/ui/switch"
@@ -46,9 +46,9 @@ export function GatewayOpenclawEditor(props: {
   const [serverIssues, setServerIssues] = useState<null | Array<{ path: string; message: string }>>(null)
   const [schemaIssues, setSchemaIssues] = useState<JsonEditorDiagnostic[]>([])
   const [securityReport, setSecurityReport] = useState<ReturnType<typeof lintOpenclawSecurityConfig> | null>(null)
-  const pinnedSchema = useMemo(() => getPinnedClawdbotSchema(), [])
+  const pinnedSchema = useMemo(() => getPinnedOpenclawSchemaArtifact(), [])
   const [schemaMode, setSchemaMode] = useState<"pinned" | "live">("pinned")
-  const [liveSchema, setLiveSchema] = useState<ClawdbotSchemaArtifact | null>(null)
+  const [liveSchema, setLiveSchema] = useState<OpenclawSchemaArtifact | null>(null)
   const [schemaError, setSchemaError] = useState("")
   const [liveIssues, setLiveIssues] = useState<Array<{ path: string; message: string }> | null>(null)
   const [schemaDiff, setSchemaDiff] = useState<null | { added: string[]; removed: string[]; changed: Array<{ path: string; oldType: string; newType: string }> }>(null)
@@ -239,7 +239,7 @@ export function GatewayOpenclawEditor(props: {
   const hasSchemaErrors = schemaDiagnostics.some((issue) => issue.severity === "error")
   const pinnedNixOpenclawRev = schemaStatus.data && schemaStatus.data.ok ? schemaStatus.data.pinned?.openclawRev : null
   const upstreamOpenclawRev = schemaStatus.data && schemaStatus.data.ok ? schemaStatus.data.upstream?.openclawRev : null
-  const pinnedSchemaRev = pinnedSchema?.clawdbotRev || ""
+  const pinnedSchemaRev = pinnedSchema?.openclawRev || ""
   const pinnedVsNixOpenclawMismatch = Boolean(pinnedNixOpenclawRev && pinnedSchemaRev && pinnedNixOpenclawRev !== pinnedSchemaRev)
   const pinnedVsUpstreamMismatch = Boolean(upstreamOpenclawRev && pinnedSchemaRev && upstreamOpenclawRev !== pinnedSchemaRev)
   const inlineSecretFindings = securityReport?.findings?.filter((f) => f.id.startsWith("inlineSecret.")) ?? []
@@ -382,7 +382,7 @@ export function GatewayOpenclawEditor(props: {
             value={text}
             onChange={setText}
             schema={editorSchema}
-            schemaId={`${schemaMode}-passthrough-${activeSchema.version}-${activeSchema.clawdbotRev}`}
+            schemaId={`${schemaMode}-passthrough-${activeSchema.version}-${activeSchema.openclawRev}`}
             readOnly={!props.canEdit}
             onDiagnostics={setSchemaIssues}
           />

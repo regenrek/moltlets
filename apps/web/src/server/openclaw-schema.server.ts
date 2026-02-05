@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
-import type { ClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
-import { parseClawdbotSchemaArtifact } from "@clawlets/core/lib/clawdbot-schema"
+import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
+import { parseOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw-config-invariants"
 import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
-import { compareClawdbotSchemaToNixClawdbot, summarizeClawdbotSchemaComparison } from "@clawlets/core/lib/clawdbot-schema-compare"
+import { compareOpenclawSchemaToNixClawdbot, summarizeOpenclawSchemaComparison } from "@clawlets/core/lib/openclaw/schema/compare"
 import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "@clawlets/core/lib/nix-clawdbot"
 import { shellQuote, sshCapture, validateTargetHost } from "@clawlets/core/lib/ssh-remote"
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
@@ -153,7 +153,7 @@ export function __test_buildGatewaySchemaCommand(params: {
 }
 
 export type OpenclawSchemaLiveResult =
-  | { ok: true; schema: ClawdbotSchemaArtifact }
+  | { ok: true; schema: OpenclawSchemaArtifact }
   | { ok: false; message: string }
 
 export type OpenclawSchemaStatusResult =
@@ -226,7 +226,7 @@ export async function fetchOpenclawSchemaLive(params: {
       })
       const payload = extractJsonBlock(raw || "", nonce)
       const parsed = JSON.parse(payload)
-      const artifact = parseClawdbotSchemaArtifact(parsed)
+      const artifact = parseOpenclawSchemaArtifact(parsed)
       if (!artifact.ok) {
         throw new Error(artifact.error)
       }
@@ -266,7 +266,7 @@ export async function fetchOpenclawSchemaStatus(params: {
     try {
       const client = createConvexClient()
       const { repoRoot } = await getProjectContext(client, params.projectId)
-      const comparison = await compareClawdbotSchemaToNixClawdbot({
+      const comparison = await compareOpenclawSchemaToNixClawdbot({
         repoRoot,
         fetchNixClawdbotSourceInfo: fetchNixClawdbotSourceInfoCached,
         getNixClawdbotRevFromFlakeLock,
@@ -283,12 +283,12 @@ export async function fetchOpenclawSchemaStatus(params: {
         return result
       }
 
-      const summary = summarizeClawdbotSchemaComparison(comparison)
+      const summary = summarizeOpenclawSchemaComparison(comparison)
       const pinned = summary.pinned?.ok
-        ? { nixOpenclawRev: summary.pinned.nixClawdbotRev, openclawRev: summary.pinned.clawdbotRev }
+        ? { nixOpenclawRev: summary.pinned.nixClawdbotRev, openclawRev: summary.pinned.openclawRev }
         : undefined
       const upstream = summary.upstream.ok
-        ? { nixOpenclawRef: summary.upstream.nixClawdbotRef, openclawRev: summary.upstream.clawdbotRev }
+        ? { nixOpenclawRef: summary.upstream.nixClawdbotRef, openclawRev: summary.upstream.openclawRev }
         : undefined
 
       const result = {

@@ -3,13 +3,13 @@ import {
   __test_getCompileCount,
   __test_getValidatorCacheMax,
   __test_resetValidatorCache,
-  validateClawdbotConfig,
-} from "../src/lib/clawdbot-schema-validate.js";
+  validateOpenclawConfig,
+} from "../src/lib/openclaw/schema/validate.js";
 
-describe("clawdbot schema validation issues", () => {
+describe("openclaw schema validation issues", () => {
   it("points required property path", () => {
     const schema = { type: "object", required: ["name"] };
-    const res = validateClawdbotConfig({}, schema);
+    const res = validateOpenclawConfig({}, schema);
     expect(res.ok).toBe(false);
     expect(res.issues[0]?.path).toEqual(["name"]);
   });
@@ -28,7 +28,7 @@ describe("clawdbot schema validation issues", () => {
       required: ["outer"],
       additionalProperties: false,
     };
-    const res = validateClawdbotConfig({ outer: {} }, schema);
+    const res = validateOpenclawConfig({ outer: {} }, schema);
     expect(res.ok).toBe(false);
     expect(res.issues[0]?.path).toEqual(["outer", "inner"]);
   });
@@ -39,7 +39,7 @@ describe("clawdbot schema validation issues", () => {
       properties: { ok: { type: "string" } },
       additionalProperties: false,
     };
-    const res = validateClawdbotConfig({ ok: "x", extra: 1 }, schema);
+    const res = validateOpenclawConfig({ ok: "x", extra: 1 }, schema);
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path.join("."));
     expect(paths).toContain("extra");
@@ -47,7 +47,7 @@ describe("clawdbot schema validation issues", () => {
 
   it("points propertyNames path", () => {
     const schema = { type: "object", propertyNames: { pattern: "^ok" } };
-    const res = validateClawdbotConfig({ bad: 1 }, schema);
+    const res = validateOpenclawConfig({ bad: 1 }, schema);
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path.join("."));
     expect(paths).toContain("bad");
@@ -59,7 +59,7 @@ describe("clawdbot schema validation issues", () => {
       properties: { ok: { type: "string" } },
       unevaluatedProperties: false,
     };
-    const res = validateClawdbotConfig({ ok: "x", extra: 1 }, schema);
+    const res = validateOpenclawConfig({ ok: "x", extra: 1 }, schema);
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path.join("."));
     expect(paths).toContain("extra");
@@ -74,7 +74,7 @@ describe("clawdbot schema validation issues", () => {
       },
       additionalProperties: false,
     };
-    const res = validateClawdbotConfig({ items: ["x"], "a/b": 1 }, schema);
+    const res = validateOpenclawConfig({ items: ["x"], "a/b": 1 }, schema);
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path.join("."));
     expect(paths.some((p) => p === "items.0")).toBe(true);
@@ -89,7 +89,7 @@ describe("clawdbot schema validation issues", () => {
       },
       additionalProperties: false,
     };
-    const res = validateClawdbotConfig({ "a~b": 1 }, schema);
+    const res = validateOpenclawConfig({ "a~b": 1 }, schema);
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path.join("."));
     expect(paths).toContain("a~b");
@@ -102,8 +102,8 @@ describe("clawdbot schema validation issues", () => {
       properties: { ok: { type: "string" } },
       additionalProperties: false,
     };
-    const first = validateClawdbotConfig({ ok: "yes" }, schema);
-    const second = validateClawdbotConfig({ ok: "no" }, schema);
+    const first = validateOpenclawConfig({ ok: "yes" }, schema);
+    const second = validateOpenclawConfig({ ok: "no" }, schema);
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(__test_getCompileCount()).toBe(1);
@@ -117,8 +117,8 @@ describe("clawdbot schema validation issues", () => {
       additionalProperties: false,
     };
     const schemaB = JSON.parse(JSON.stringify(schemaA));
-    const first = validateClawdbotConfig({ ok: "yes" }, schemaA);
-    const second = validateClawdbotConfig({ ok: "no" }, schemaB);
+    const first = validateOpenclawConfig({ ok: "yes" }, schemaA);
+    const second = validateOpenclawConfig({ ok: "no" }, schemaB);
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(__test_getCompileCount()).toBe(1);
@@ -127,19 +127,19 @@ describe("clawdbot schema validation issues", () => {
   it("recompiles when schema content changes despite same $id", () => {
     __test_resetValidatorCache();
     const schemaA = {
-      $id: "clawdbot-test",
+      $id: "openclaw-test",
       type: "object",
       properties: { ok: { type: "string" } },
       additionalProperties: false,
     };
     const schemaB = {
-      $id: "clawdbot-test",
+      $id: "openclaw-test",
       type: "object",
       properties: { ok: { type: "number" } },
       additionalProperties: false,
     };
-    const first = validateClawdbotConfig({ ok: "yes" }, schemaA);
-    const second = validateClawdbotConfig({ ok: 123 }, schemaB);
+    const first = validateOpenclawConfig({ ok: "yes" }, schemaA);
+    const second = validateOpenclawConfig({ ok: 123 }, schemaB);
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(__test_getCompileCount()).toBe(2);
@@ -153,7 +153,7 @@ describe("clawdbot schema validation issues", () => {
       properties: { ok: { type: "string" } },
       additionalProperties: false,
     };
-    expect(validateClawdbotConfig({ ok: "yes" }, baseSchema).ok).toBe(true);
+    expect(validateOpenclawConfig({ ok: "yes" }, baseSchema).ok).toBe(true);
 
     for (let i = 0; i < max; i += 1) {
       const schema = {
@@ -161,14 +161,14 @@ describe("clawdbot schema validation issues", () => {
         properties: { [`k${i}`]: { type: "string" } },
         additionalProperties: false,
       };
-      expect(validateClawdbotConfig({ [`k${i}`]: "yes" }, schema as any).ok).toBe(true);
+      expect(validateOpenclawConfig({ [`k${i}`]: "yes" }, schema as any).ok).toBe(true);
     }
 
     const afterFill = __test_getCompileCount();
     expect(afterFill).toBeGreaterThan(1);
 
     const baseClone = JSON.parse(JSON.stringify(baseSchema));
-    expect(validateClawdbotConfig({ ok: "yes" }, baseClone).ok).toBe(true);
+    expect(validateOpenclawConfig({ ok: "yes" }, baseClone).ok).toBe(true);
     expect(__test_getCompileCount()).toBe(afterFill + 1);
   });
 });
