@@ -78,7 +78,7 @@ describe("clf client", () => {
           protocolVersion: 1,
           requester: "maren",
           kind: "cattle.spawn",
-          payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+          payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         }),
       ).resolves.toEqual({ protocolVersion: 1, jobId: "job-1" });
 
@@ -157,7 +157,7 @@ describe("clf client", () => {
           protocolVersion: 1,
           requester: "maren",
           kind: "cattle.spawn",
-          payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+          payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         }),
       ).rejects.toThrow();
     } finally {

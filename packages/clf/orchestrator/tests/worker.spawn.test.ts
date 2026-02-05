@@ -78,7 +78,7 @@ describe("clf-orchestrator worker spawn errors", () => {
           requester: "maren",
           payload: {
             persona: "rex",
-            task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do", callbackUrl: "" },
+            task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do", callbackUrl: "" },
           },
         })
         .mockReturnValueOnce(null),
@@ -116,7 +116,7 @@ describe("clf-orchestrator worker spawn errors", () => {
           payload: {
             persona: "rex",
             withGithubToken: true,
-            task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do", callbackUrl: "" },
+            task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do", callbackUrl: "" },
           },
         })
         .mockReturnValueOnce(null),
@@ -154,7 +154,7 @@ describe("clf-orchestrator worker spawn errors", () => {
           payload: {
             persona: "rex",
             withGithubToken: true,
-            task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do", callbackUrl: "" },
+            task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do", callbackUrl: "" },
           },
         })
         .mockReturnValueOnce(null),
@@ -197,7 +197,7 @@ describe("clf-orchestrator worker spawn errors", () => {
             image: "img-custom",
             serverType: "cx32",
             location: "fsn1",
-            task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do", callbackUrl: "" },
+            task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do", callbackUrl: "" },
           },
         })
         .mockReturnValueOnce(null),

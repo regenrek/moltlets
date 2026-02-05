@@ -6,7 +6,7 @@ describe("clf jobs", () => {
 
     const payload = parseClfJobPayload("cattle.spawn", {
       persona: "rex",
-      task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
+      task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do it", callbackUrl: "" },
       ttl: "2h",
     });
 

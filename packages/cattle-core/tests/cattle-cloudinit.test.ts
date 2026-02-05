@@ -13,7 +13,7 @@ describe("cattle-cloudinit", () => {
       tailscaleAuthKey: "tskey-auth-123",
       tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
       tailscaleAuthKeyOneTime: true,
-      task: { schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
+      task: { schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do it", callbackUrl: "" },
       publicEnv: { CLAWLETS_CATTLE_AUTO_SHUTDOWN: "0" },
       secretsBootstrap: {
         baseUrl: "http://clawlets-pet:18337",
@@ -46,7 +46,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKey: "tskey-auth-123",
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: true,
-        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        task: { schemaVersion: 1, taskId: "t", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" },
         publicEnv: { ZAI_API_KEY: "secret" } as any,
         secretsBootstrap: {
           baseUrl: "http://clawlets-pet:18337",
@@ -70,7 +70,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKey: "tskey-auth-123",
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: true,
-        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        task: { schemaVersion: 1, taskId: "t", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" },
         publicEnv: { CLAWLETS_RANDOM: "1" } as any,
       }),
     ).toThrow(/cloud-init env not supported/i);
@@ -88,7 +88,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKey: "tskey-auth-123",
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: true,
-        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        task: { schemaVersion: 1, taskId: "t", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" },
         extraWriteFiles: [
           { path: "/x", permissions: "0600", owner: "root:root", content: "x".repeat(40_000) },
         ],
@@ -110,7 +110,7 @@ describe("cattle-cloudinit", () => {
       task: {
         schemaVersion: 1,
         taskId: "issue-42",
-        type: "clawdbot.gateway.agent",
+        type: "openclaw.gateway.agent",
         message: "do it",
         callbackUrl: "https://evil.example/cb",
       },
@@ -133,7 +133,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKey: "tskey-auth-123",
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: false,
-        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        task: { schemaVersion: 1, taskId: "t", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" },
       }),
     ).toThrow(/one-time/i);
 
@@ -144,7 +144,7 @@ describe("cattle-cloudinit", () => {
         tailscaleAuthKey: "tskey-auth-123",
         tailscaleAuthKeyExpiresAt: tailscaleExpiresAt,
         tailscaleAuthKeyOneTime: true,
-        task: { schemaVersion: 1, taskId: "t", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" },
+        task: { schemaVersion: 1, taskId: "t", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" },
         secretsBootstrap: {
           baseUrl: "http://clawlets-pet:18337",
           token: "bootstrap-token",

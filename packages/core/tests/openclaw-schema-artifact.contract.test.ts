@@ -13,16 +13,15 @@ describe("openclaw schema artifact parse", () => {
     expect(res.ok).toBe(true);
   });
 
-  it("accepts legacy clawdbotRev key during migration", () => {
+  it("rejects unknown revision keys", () => {
     const res = parseOpenclawSchemaArtifact({
       schema: { type: "object" },
       uiHints: { title: "ok" },
       version: "1.0.0",
       generatedAt: "now",
-      clawdbotRev: "rev123",
+      legacyRev: "rev123",
     });
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(res.value.openclawRev).toBe("rev123");
+    expect(res.ok).toBe(false);
   });
 
   it("rejects missing required fields", () => {

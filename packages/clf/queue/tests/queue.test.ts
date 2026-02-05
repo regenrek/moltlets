@@ -15,13 +15,13 @@ describe("clf queue", () => {
     try {
       const a = q.enqueue({
         kind: "cattle.spawn",
-        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         requester: "maren",
         idempotencyKey: "msg-1",
       });
       const b = q.enqueue({
         kind: "cattle.spawn",
-        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         requester: "maren",
         idempotencyKey: "msg-1",
       });
@@ -59,7 +59,7 @@ describe("clf queue", () => {
       const now = Date.now();
       const { jobId } = q.enqueue({
         kind: "cattle.spawn",
-        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         requester: "maren",
         runAt: now,
         maxAttempts: 2,
@@ -203,7 +203,7 @@ describe("clf queue", () => {
       const now = 1_700_000_000_000;
       const a = q.enqueue({
         kind: "cattle.spawn",
-        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "m", callbackUrl: "" } },
+        payload: { persona: "rex", task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "m", callbackUrl: "" } },
         requester: "maren",
         runAt: now,
       }).jobId;

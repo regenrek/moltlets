@@ -91,7 +91,7 @@ describe("cattle common helpers", () => {
   it("loadTaskFromFile validates schema", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-task-"));
     const bad = path.join(dir, "bad.json");
-    fs.writeFileSync(bad, JSON.stringify({ schemaVersion: 2, taskId: "t", type: "clawdbot.gateway.agent", message: "hi" }));
+    fs.writeFileSync(bad, JSON.stringify({ schemaVersion: 2, taskId: "t", type: "openclaw.gateway.agent", message: "hi" }));
     expect(() => loadTaskFromFile(bad)).toThrow(/invalid task file/);
   });
 

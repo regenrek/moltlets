@@ -113,7 +113,7 @@ describe("clf-orchestrator worker", () => {
         payload: {
           persona: "rex",
           ttl: "1m",
-          task: { schemaVersion: 1, taskId: "t1", type: "clawdbot.gateway.agent", message: "do it", callbackUrl: "" },
+          task: { schemaVersion: 1, taskId: "t1", type: "openclaw.gateway.agent", message: "do it", callbackUrl: "" },
         },
       });
 

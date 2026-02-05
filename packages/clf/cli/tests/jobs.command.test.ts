@@ -50,7 +50,7 @@ describe("clf jobs command", () => {
       JSON.stringify({
         schemaVersion: CATTLE_TASK_SCHEMA_VERSION,
         taskId: "t1",
-        type: "clawdbot.gateway.agent",
+        type: "openclaw.gateway.agent",
         message: "run",
         callbackUrl: "",
       }),

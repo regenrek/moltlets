@@ -60,7 +60,7 @@ function parseCattleTask(params: {
   return CattleTaskSchema.parse({
     schemaVersion: CATTLE_TASK_SCHEMA_VERSION,
     taskId,
-    type: "clawdbot.gateway.agent",
+    type: "openclaw.gateway.agent",
     message,
     callbackUrl,
   });

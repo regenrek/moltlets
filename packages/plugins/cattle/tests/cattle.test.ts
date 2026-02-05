@@ -116,7 +116,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing", callbackUrl: "" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing", callbackUrl: "" }, null, 2),
       "utf8",
     );
 
@@ -142,7 +142,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing", callbackUrl: "" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing", callbackUrl: "" }, null, 2),
       "utf8",
     );
 
@@ -171,7 +171,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing" }, null, 2),
       "utf8",
     );
 
@@ -230,7 +230,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing" }, null, 2),
       "utf8",
     );
 
@@ -249,7 +249,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing" }, null, 2),
       "utf8",
     );
 
@@ -268,7 +268,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing" }, null, 2),
       "utf8",
     );
 
@@ -282,7 +282,7 @@ describe("cattle command", () => {
     const taskFile = path.join(repoRoot, "task.json");
     fs.writeFileSync(
       taskFile,
-      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "clawdbot.gateway.agent", message: "do the thing" }, null, 2),
+      JSON.stringify({ schemaVersion: 1, taskId: "issue-42", type: "openclaw.gateway.agent", message: "do the thing" }, null, 2),
       "utf8",
     );
 
