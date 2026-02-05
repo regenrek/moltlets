@@ -3,7 +3,7 @@ import { defineCommand } from "citty";
 import { shellQuote, sshRun } from "@clawlets/core/lib/ssh-remote";
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers";
 import { loadHostContextOrExit } from "@clawlets/core/lib/context";
-import { requireTargetHost, needsSudo } from "./common.js";
+import { assertOpenclawEnabled, requireTargetHost, needsSudo } from "./common.js";
 
 function requireGatewayId(value: string): string {
   const gatewayId = value.trim();
@@ -47,6 +47,7 @@ const serverChannelsStatus = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = requireGatewayId(String(args.gateway || ""));
@@ -84,6 +85,7 @@ const serverChannelsCapabilities = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = requireGatewayId(String(args.gateway || ""));
@@ -121,6 +123,7 @@ const serverChannelsLogin = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = requireGatewayId(String(args.gateway || ""));
@@ -155,6 +158,7 @@ const serverChannelsLogout = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = requireGatewayId(String(args.gateway || ""));

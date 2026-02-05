@@ -73,7 +73,9 @@ const serverAudit = defineCommand({
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
-    const gateways = hostCfg.gatewaysOrder ?? [];
+    const openclawEnabled = Boolean(hostCfg.openclaw?.enable);
+    const configuredGateways = hostCfg.gatewaysOrder ?? [];
+    const gateways = openclawEnabled ? configuredGateways : [];
 
     const checks: AuditCheck[] = [];
     const add = (c: AuditCheck) => checks.push(c);
@@ -116,8 +118,16 @@ const serverAudit = defineCommand({
       }
     }
 
-    if (Array.isArray(gateways) && gateways.length > 0) {
-      add({ status: "ok", label: `host gateways list (${hostName})`, detail: gateways.join(", ") });
+    if (!openclawEnabled) {
+      add({
+        status: "warn",
+        label: "openclaw enable",
+        detail: `disabled (set hosts.${hostName}.openclaw.enable=true after secrets verify --scope openclaw)`,
+      });
+    }
+
+    if (Array.isArray(configuredGateways) && configuredGateways.length > 0) {
+      add({ status: "ok", label: `host gateways list (${hostName})`, detail: configuredGateways.join(", ") });
     } else {
       add({ status: "warn", label: `host gateways list (${hostName})`, detail: "(empty)" });
     }

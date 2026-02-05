@@ -1,7 +1,7 @@
 import process from "node:process";
 import { defineCommand } from "citty";
 import { shellQuote, sshRun } from "@clawlets/core/lib/ssh-remote";
-import { needsSudo, requireTargetHost } from "./common.js";
+import { assertOpenclawEnabled, needsSudo, requireTargetHost } from "./common.js";
 import { loadHostContextOrExit } from "@clawlets/core/lib/context";
 
 function normalizeKind(raw: string): "prs" | "issues" {
@@ -26,6 +26,7 @@ const serverGithubSyncStatus = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);
@@ -58,6 +59,7 @@ const serverGithubSyncRun = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = String(args.gateway || "").trim();
@@ -92,6 +94,7 @@ const serverGithubSyncLogs = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = String(args.gateway || "").trim();
@@ -134,6 +137,7 @@ const serverGithubSyncShow = defineCommand({
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
+    assertOpenclawEnabled(hostName, hostCfg);
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const gatewayId = String(args.gateway || "").trim();

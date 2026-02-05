@@ -372,6 +372,11 @@ const HostSchema = z
     enable: z.boolean().default(false),
     gatewaysOrder: z.array(GatewayIdSchema).default(() => []),
     gateways: z.record(GatewayIdSchema, FleetGatewaySchema).default(() => ({})),
+    openclaw: z
+      .object({
+        enable: z.boolean().default(false),
+      })
+      .default(() => ({ enable: false })),
     diskDevice: z.string().trim().default("/dev/sda"),
     flakeHost: z.string().trim().default(""),
     targetHost: z
@@ -609,6 +614,14 @@ const HostSchema = z
         message: `gatewaysOrder missing gateways: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? ` (+${missing.length - 6})` : ""}`,
       });
     }
+
+    if (host.openclaw?.enable && gatewayIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["openclaw", "enable"],
+        message: "openclaw.enable requires at least one gateway",
+      });
+    }
   });
 
 const CattleSchema = z
@@ -780,6 +793,7 @@ export function createDefaultClawletsConfig(params: { host: string; gateways?: s
         enable: false,
         gatewaysOrder: gateways,
         gateways: gatewaysRecord,
+        openclaw: { enable: false },
         diskDevice: "/dev/sda",
         flakeHost: "",
         hetzner: { serverType: "cx43", image: "", location: "nbg1" },

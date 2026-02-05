@@ -48,6 +48,7 @@ const add = defineCommand({
       enable: false,
       gatewaysOrder: [],
       gateways: {},
+      openclaw: { enable: false },
       diskDevice: "/dev/sda",
       flakeHost: "",
       targetHost: undefined,
@@ -120,6 +121,7 @@ const set = defineCommand({
   args: {
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     enable: { type: "string", description: "Enable fleet services (true/false)." },
+    "openclaw-enable": { type: "string", description: "Enable OpenClaw management (true/false)." },
     "ssh-exposure": { type: "string", description: "SSH exposure mode: tailnet|bootstrap|public." },
     "disk-device": { type: "string", description: "Disk device (Hetzner Cloud: /dev/sda).", },
     "agent-model-primary": { type: "string", description: "Primary agent model (e.g. zai/glm-4.7)." },
@@ -178,6 +180,11 @@ const set = defineCommand({
 
     const enable = parseBoolOrUndefined(args.enable);
     if (enable !== undefined) next.enable = enable;
+
+    if ((args as any)["openclaw-enable"] !== undefined) {
+      const v = parseBoolOrUndefined((args as any)["openclaw-enable"]);
+      if (v !== undefined) next.openclaw.enable = v;
+    }
 
     if ((args as any)["ssh-exposure"] !== undefined) {
       const mode = String((args as any)["ssh-exposure"]).trim();

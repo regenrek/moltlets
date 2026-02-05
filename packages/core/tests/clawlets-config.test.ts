@@ -114,6 +114,27 @@ describe("clawlets config schema", () => {
     ).toThrow(/gatewaysOrder missing gateways/i);
   });
 
+  it("rejects openclaw.enable without gateways", async () => {
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
+    expect(() =>
+      ClawletsConfigSchema.parse({
+        schemaVersion: 1,
+        hosts: {
+          "openclaw-fleet-host": {
+            enable: false,
+            openclaw: { enable: true },
+            gatewaysOrder: [],
+            gateways: {},
+            diskDevice: "/dev/sda",
+            sshExposure: { mode: "tailnet" },
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      }),
+    ).toThrow(/openclaw\.enable requires at least one gateway/i);
+  });
+
   it("rejects legacy fleet.bots and fleet.botOrder", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
     expect(() =>
@@ -242,6 +263,7 @@ describe("clawlets config schema", () => {
     expect(cfg.hosts["openclaw-fleet-host"].gateways.maren.profile.secretEnv).toEqual({});
     expect(cfg.cattle.enabled).toBe(false);
     expect(cfg.cattle.hetzner.defaultTtl).toBe("2h");
+    expect(cfg.hosts["openclaw-fleet-host"].openclaw.enable).toBe(false);
     expect(cfg.hosts["openclaw-fleet-host"].sshExposure?.mode).toBe("bootstrap");
     expect(cfg.hosts["openclaw-fleet-host"].cache?.netrc?.enable).toBe(false);
     expect(cfg.hosts["openclaw-fleet-host"].provisioning?.adminCidrAllowWorldOpen).toBe(false);
