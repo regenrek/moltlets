@@ -73,7 +73,7 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Web setup: remove Providers/Models pages; configure channels via bot config + integrations UI.
 - Nix runtime: inject secrets via per-bot env files + secret files (sops-nix templates/secrets); stop injecting secret values into clawdbot config.
 - CLI: `server channels {status|capabilities|login|logout}` for stateful channel auth (e.g. WhatsApp).
-- CLF build moved to Nix subflake (`nix/subflakes/clf`) with its own lock file; avoids hash update churn for non-cattle users.
+- CLF build moved to Nix subflake (`nix/openclaw/subflakes/clf`) with its own lock file; avoids hash update churn for non-cattle users.
 - Bootstrap token TTL now uses single source of truth constant from `cattle-cloudinit` (max 15 min).
 - Tailscale auth key expiry resolved at spawn time (not config load) to prevent stale fallback after 55 min.
 

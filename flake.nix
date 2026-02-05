@@ -235,6 +235,54 @@
 
           touch "$out"
         '';
+
+        nix-module-eval = let
+          projectConfig = {
+            fleet = {
+              secretEnv = { };
+              secretFiles = { };
+              sshAuthorizedKeys = [ ];
+              sshKnownHosts = [ ];
+              codex = { enable = false; gateways = [ ]; };
+              backups = { restic = { enable = false; repository = ""; }; };
+            };
+            cattle = {
+              enabled = false;
+              hetzner = {
+                image = "";
+                serverType = "cx22";
+                location = "nbg1";
+                maxInstances = 10;
+                defaultTtl = "2h";
+                labels = { "managed-by" = "clawlets"; };
+              };
+              defaults = { autoShutdown = true; callbackUrl = ""; };
+            };
+            hosts = {
+              "openclaw-fleet-host" = {
+                enable = false;
+                gatewaysOrder = [ "maren" ];
+                gateways = { maren = { }; };
+                openclaw = { enable = false; };
+                tailnet = { mode = "none"; };
+                agentModelPrimary = "zai/glm-4.7";
+              };
+            };
+          };
+          project = { root = toString ./.; config = projectConfig; };
+          flakeInfo = { project = { rev = "eval"; }; };
+          evalSystem = nixpkgs.lib.nixosSystem {
+            system = systemLinux;
+            specialArgs = { inherit project flakeInfo; };
+            modules = [
+              ./nix/hosts/project-host.nix
+              ({ ... }: { clawlets.hostName = "openclaw-fleet-host"; })
+            ];
+          };
+          forced = builtins.deepSeq evalSystem.config "ok";
+        in pkgsLinux.runCommand "nix-module-eval" {} ''
+          echo ${forced} > $out
+        '';
       };
 
       checks.${systemDarwin} = {
@@ -333,21 +381,21 @@
 
       nixosModules = {
         clawletsProjectHost = import ./nix/hosts/project-host.nix;
-        clawletsCattleImage = import ./nix/cattle/image.nix;
+        clawletsCattleImage = import ./nix/openclaw/cattle/image.nix;
 
         # Advanced / reuse. Projects should generally import clawletsProjectHost only.
-        clawletsHostMeta = import ./nix/modules/clawlets-host-meta.nix;
-        clawletsHostBaseline = import ./nix/modules/clawlets-host-baseline.nix;
-        clawletsSelfUpdate = import ./nix/modules/clawlets-self-update.nix;
-        clawletsCacheAtticServer = import ./nix/modules/clawlets-cache-attic-server.nix;
-        clawletsCacheHarmoniaServer = import ./nix/modules/clawlets-cache-harmonia-server.nix;
-        clawletsImageFormats = import ./nix/modules/clawlets-image-formats.nix;
+        clawletsHostMeta = import ./nix/infra/modules/clawlets-host-meta.nix;
+        clawletsHostBaseline = import ./nix/infra/modules/clawlets-host-baseline.nix;
+        clawletsSelfUpdate = import ./nix/infra/modules/clawlets-self-update.nix;
+        clawletsCacheAtticServer = import ./nix/infra/modules/clawlets-cache-attic-server.nix;
+        clawletsCacheHarmoniaServer = import ./nix/infra/modules/clawlets-cache-harmonia-server.nix;
+        clawletsImageFormats = import ./nix/infra/modules/clawlets-image-formats.nix;
 
-        openclawFleet = import ./nix/modules/openclaw-fleet.nix;
-        openclawCattle = import ./nix/modules/openclaw-cattle.nix;
-        clfOrchestrator = import ./nix/modules/clf-orchestrator.nix;
+        openclawFleet = import ./nix/openclaw/modules/openclaw-fleet.nix;
+        openclawCattle = import ./nix/openclaw/modules/openclaw-cattle.nix;
+        clfOrchestrator = import ./nix/openclaw/modules/clf-orchestrator.nix;
 
-        diskoHetznerExt4 = import ./nix/disko/hetzner-ext4.nix;
+        diskoHetznerExt4 = import ./nix/infra/disko/hetzner-ext4.nix;
       };
     };
 }

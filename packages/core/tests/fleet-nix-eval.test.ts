@@ -35,7 +35,7 @@ describe("fleet nix eval", () => {
         "    config = { hosts = { alpha = { gatewaysOrder = []; gateways = {}; }; }; };",
         "  };",
         "  hostName = \"alpha\";",
-        "  fleet = import (flake.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project hostName; };",
+        "  fleet = import (flake.outPath + \"/nix/infra/lib/fleet-config.nix\") { inherit lib project hostName; };",
         "in fleet.gateways",
       ].join("\n");
 

@@ -81,7 +81,7 @@ disk so the service consumes one validated JSON file.
 flowchart LR
   A["fleet/clawlets.json"] --> B["CLI/Dashboard validation"]
   B --> S["Pinned OpenClaw schema snapshot"]
-  S --> C["nix eval: fleet-config.nix"]
+  S --> C["nix eval: nix/infra/lib/fleet-config.nix"]
   C --> D["services.openclawFleet (Nix module)"]
   D --> E["/run/secrets/rendered/openclaw-GATEWAY_ID.json"]
   E --> F["openclaw-GATEWAY_ID.service"]
@@ -134,6 +134,6 @@ In this example:
 
 If you're changing the config model, these files are the main touch points:
 
-- `nix/lib/fleet-config.nix` (maps JSON config → Nix module inputs)
-- `nix/modules/openclaw-fleet/impl/gateway-config.nix` (builds final OpenClaw config per gateway)
+- `nix/infra/lib/fleet-config.nix` (maps JSON config → Nix module inputs)
+- `nix/openclaw/modules/openclaw-fleet/impl/gateway-config.nix` (builds final OpenClaw config per gateway)
 - `packages/core/src/lib/clawlets-config.ts` (runtime schema + legacy layout rejection)

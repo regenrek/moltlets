@@ -3,7 +3,7 @@
 let
   cfg = config.services.openclawFleet;
   knownBundledSkills = builtins.fromJSON (builtins.readFile (project.root + "/fleet/bundled-skills.json"));
-  invariants = builtins.fromJSON (builtins.readFile (project.root + "/nix/lib/openclaw-invariants.json"));
+  invariants = builtins.fromJSON (builtins.readFile (project.root + "/nix/openclaw/lib/openclaw-invariants.json"));
 
   defaultHostSecretsDir = "/var/lib/clawlets/secrets/hosts/${config.networking.hostName}";
   resolvedSopsDir =
@@ -13,7 +13,7 @@ let
     then config.clawlets.secrets.hostDir
     else defaultHostSecretsDir;
 
-  sopsSecrets = import ../../../lib/sops-secrets.nix { };
+  sopsSecrets = import ../../../../infra/lib/sops-secrets.nix { };
   mkSopsSecretFor = sopsSecrets.mkSopsSecretFor { hostDir = resolvedSopsDir; };
 
   resticPaths =

@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ../modules/clawlets-host-meta.nix
+    ../../infra/modules/clawlets-host-meta.nix
     ../modules/openclaw-cattle.nix
   ];
 

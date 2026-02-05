@@ -11,17 +11,17 @@ let
   cacheNetrc = (cacheCfg.netrc or { });
   selfUpdate = (hostCfg.selfUpdate or { });
   allowMissingSecrets = config.clawlets.bootstrap.allowMissingSecrets;
-  fleet = import ../lib/fleet-config.nix { inherit lib project; hostName = config.clawlets.hostName; };
+  fleet = import ../infra/lib/fleet-config.nix { inherit lib project; hostName = config.clawlets.hostName; };
   enableRootPassword = false;
 in {
   imports = [
-    ../disko/hetzner-ext4.nix
-    ../modules/clawlets-image-formats.nix
-    ../modules/clawlets-host-baseline.nix
-    ../modules/clawlets-self-update.nix
-    ../modules/openclaw-fleet.nix
-    ../modules/clf-orchestrator.nix
-    ../modules/clawlets-host-meta.nix
+    ../infra/disko/hetzner-ext4.nix
+    ../infra/modules/clawlets-image-formats.nix
+    ../infra/modules/clawlets-host-baseline.nix
+    ../infra/modules/clawlets-self-update.nix
+    ../openclaw/modules/openclaw-fleet.nix
+    ../openclaw/modules/clf-orchestrator.nix
+    ../infra/modules/clawlets-host-meta.nix
   ];
 
   clawlets.diskDevice = hostCfg.diskDevice or "/dev/sda";

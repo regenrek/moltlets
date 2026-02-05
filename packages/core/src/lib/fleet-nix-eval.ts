@@ -24,7 +24,7 @@ export async function evalFleetConfig(params: {
     "    config = builtins.fromJSON (builtins.readFile (flake.outPath + \"/fleet/clawlets.json\"));",
     "  };",
     `  hostName = ${JSON.stringify(hostName)};`,
-    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/lib/fleet-config.nix\") { inherit lib project hostName; };",
+    "  fleet = import (flake.inputs.clawlets.outPath + \"/nix/infra/lib/fleet-config.nix\") { inherit lib project hostName; };",
     "in {",
     "  gateways = fleet.gateways;",
     "  gatewayProfiles = fleet.gatewayProfiles;",

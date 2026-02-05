@@ -9,8 +9,7 @@ function readJson(filePath: string): unknown {
 describe("openclaw invariants drift", () => {
   it("keeps TS + Nix invariants specs in sync", () => {
     const tsPath = path.resolve(__dirname, "../src/assets/openclaw-invariants.json")
-    const nixPath = path.resolve(__dirname, "../../..", "nix/lib/openclaw-invariants.json")
+    const nixPath = path.resolve(__dirname, "../../..", "nix/openclaw/lib/openclaw-invariants.json")
     expect(readJson(tsPath)).toEqual(readJson(nixPath))
   })
 })
-
