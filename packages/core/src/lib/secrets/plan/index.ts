@@ -7,15 +7,13 @@ import {
   collectGatewayModels,
   collectDerivedSecretEnvEntries,
   isWhatsAppEnabled,
-  normalizeSecretFiles,
-  normalizeEnvVarPaths,
-  type SecretSpecAccumulator,
-} from "../../fleet-secrets-plan-helpers.js";
+} from "../env-vars.js";
 import type { ClawletsConfig } from "../../clawlets-config.js";
 import type { SecretSource, SecretsPlanWarning } from "../../secrets-plan.js";
 import { buildOpenClawGatewayConfig } from "../../openclaw/config-invariants.js";
 import { runSecretRequirementCollectors } from "../collectors/registry.js";
 import { addMissingEnvVarConfig } from "./missing-config.js";
+import { normalizeEnvVarPaths, normalizeSecretFiles, type SecretSpecAccumulator } from "./spec-helpers.js";
 import {
   finalizeSecretSpecs,
   recordHostRequiredSecretSpec,

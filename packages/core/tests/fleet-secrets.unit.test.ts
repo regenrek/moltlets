@@ -580,7 +580,7 @@ describe("fleet secrets plan", () => {
   });
 
   it("suggests default secret names for env vars", async () => {
-    const { suggestSecretNameForEnvVar } = await import("../src/lib/fleet-secrets-plan-helpers");
+    const { suggestSecretNameForEnvVar } = await import("../src/lib/secrets/env-vars");
 
     expect(suggestSecretNameForEnvVar("OPENAI_API_KEY")).toBe("openai_api_key");
     expect(suggestSecretNameForEnvVar("DISCORD_BOT_TOKEN", "maren")).toBe("discord_token_maren");

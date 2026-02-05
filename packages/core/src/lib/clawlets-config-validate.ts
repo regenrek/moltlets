@@ -2,7 +2,7 @@ import type { ClawletsConfig } from "./clawlets-config.js";
 import { buildOpenClawGatewayConfig, type OpenClawInvariantWarning } from "./openclaw/config-invariants.js";
 import { validateOpenclawConfig } from "./openclaw/schema/validate.js";
 import { buildFleetSecretsPlan } from "./secrets/plan.js";
-import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./fleet-secrets-plan-helpers.js";
+import { buildBaseSecretEnv, buildDerivedSecretEnv, buildEnvVarAliasMap, canonicalizeEnvVar } from "./secrets/env-vars.js";
 import { EnvVarNameSchema } from "@clawlets/shared/lib/identifiers";
 import type { MissingSecretConfig, SecretsPlanWarning } from "./secrets-plan.js";
 

@@ -54,25 +54,20 @@ function readNodeRev(lock: any, nodeKey: string): string | null {
 }
 
 export function getNixOpenclawRevFromFlakeLock(repoRoot: string): string | null {
+  if (!repoRoot || !repoRoot.trim()) return null;
   const flakeLockPath = path.join(repoRoot, "flake.lock");
   if (!fs.existsSync(flakeLockPath)) return null;
 
   try {
     const lock = JSON.parse(fs.readFileSync(flakeLockPath, "utf8"));
-    // Canonical key first, then legacy key during migration window.
-    const nodeKeys = ["nix-openclaw", "nix-clawdbot"] as const;
-    for (const nodeKey of nodeKeys) {
-      const rev = readNodeRev(lock, nodeKey);
-      if (rev) return rev;
-    }
-    return null;
+    return readNodeRev(lock, "nix-openclaw");
   } catch {
     return null;
   }
 }
 
 const SAFE_REF_RE = /^[A-Za-z0-9._/-]{1,128}$/;
-const SOURCE_REPO_CANDIDATES = ["openclaw/nix-openclaw", "clawdbot/nix-clawdbot"] as const;
+const SOURCE_REPO_CANDIDATES = ["openclaw/nix-openclaw"] as const;
 
 function buildSourceUrl(repo: string, ref: string, fileName: string): string {
   return `https://raw.githubusercontent.com/${repo}/${ref}/nix/sources/${fileName}`;
