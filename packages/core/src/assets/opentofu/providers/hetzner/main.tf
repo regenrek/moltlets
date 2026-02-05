@@ -72,8 +72,8 @@ variable "location" {
 
 provider "hcloud" {}
 
-module "clawdbot_fleet_host" {
-  source        = "./modules/bot_host"
+module "host" {
+  source        = "./modules/host"
   name          = var.host_name
   admin_cidr    = var.admin_cidr
   admin_cidr_is_world_open = var.admin_cidr_is_world_open

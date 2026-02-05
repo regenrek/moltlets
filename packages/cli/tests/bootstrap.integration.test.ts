@@ -1,8 +1,31 @@
 import fs from "node:fs";
+import path from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
 
-const applyOpenTofuVarsMock = vi.fn().mockResolvedValue(undefined);
+const hostName = "openclaw-beta-3";
+
+const provisionMock = vi.fn(async ({ runtime }: any) => {
+  const token = String(runtime?.credentials?.hcloudToken || "").trim();
+  if (!token) {
+    throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
+  }
+  return {
+    hostName,
+    provider: "hetzner",
+    instanceId: "srv-123",
+    ipv4: "46.0.0.1",
+    sshUser: "root",
+  };
+});
+const lockdownMock = vi.fn().mockResolvedValue(undefined);
+const getProvisionerDriverMock = vi.fn(() => ({
+  id: "hetzner",
+  provision: provisionMock,
+  destroy: vi.fn(),
+  lockdown: lockdownMock,
+}));
 const runMock = vi.fn().mockResolvedValue(undefined);
 const captureMock = vi.fn().mockResolvedValue("46.0.0.1");
 const sshCaptureMock = vi.fn().mockResolvedValue("100.64.0.10\n");
@@ -18,9 +41,15 @@ const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "" });
 const loadClawletsConfigMock = vi.fn();
 const writeClawletsConfigMock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@clawlets/core/lib/opentofu", () => ({
-  applyOpenTofuVars: applyOpenTofuVarsMock,
-}));
+vi.mock("@clawlets/core/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/infra")>(
+    "@clawlets/core/lib/infra",
+  );
+  return {
+    ...actual,
+    getProvisionerDriver: getProvisionerDriverMock,
+  };
+});
 
 vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
@@ -81,15 +110,14 @@ vi.mock("@clawlets/core/lib/clawlets-config", async () => {
   };
 });
 
-const hostName = "openclaw-beta-3";
 const baseHost = {
   enable: false,
   gatewaysOrder: [],
   gateways: {},
   diskDevice: "/dev/sda",
   flakeHost: "",
-  hetzner: { serverType: "cx43" },
-  provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
+  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12" },
+  provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "" },
   sshExposure: { mode: "bootstrap" },
   tailnet: { mode: "tailscale" },
   cache: {
@@ -103,7 +131,15 @@ const baseHost = {
   agentModelPrimary: "zai/glm-4.7",
 };
 
+let defaultPubkeyFile = "";
+let tempDir = "";
+
 function setConfig(hostOverrides: Partial<typeof baseHost>) {
+  const provisioning = {
+    ...baseHost.provisioning,
+    sshPubkeyFile: defaultPubkeyFile,
+    ...(hostOverrides.provisioning || {}),
+  };
   loadClawletsConfigMock.mockReturnValue({
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
@@ -132,7 +168,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
         defaults: { autoShutdown: true, callbackUrl: "" },
       },
       hosts: {
-        [hostName]: { ...baseHost, ...hostOverrides },
+        [hostName]: { ...baseHost, ...hostOverrides, provisioning },
       },
     },
   });
@@ -144,6 +180,9 @@ describe("bootstrap command", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    tempDir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-bootstrap-"));
+    defaultPubkeyFile = path.join(tempDir, "id_ed25519.pub");
+    fs.writeFileSync(defaultPubkeyFile, "ssh-ed25519 AAAATEST bootstrap-test", "utf8");
     existsSpy = vi.spyOn(fs, "existsSync").mockReturnValue(true);
     loadDeployCredsMock.mockReturnValue({
       envFile: { status: "ok", path: "/repo/.clawlets/env" },
@@ -155,6 +194,9 @@ describe("bootstrap command", () => {
     existsSpy.mockRestore();
     if (logSpy) logSpy.mockRestore();
     logSpy = undefined;
+    if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    tempDir = "";
+    defaultPubkeyFile = "";
   });
 
   it("rejects tailnet-only SSH exposure for bootstrap", async () => {
@@ -172,7 +214,7 @@ describe("bootstrap command", () => {
         } as any,
       }),
     ).rejects.toThrow(/sshExposure\.mode=tailnet/i);
-    expect(applyOpenTofuVarsMock).not.toHaveBeenCalled();
+    expect(provisionMock).not.toHaveBeenCalled();
   });
 
   it("prints a lockdown warning when SSH exposure is not tailnet", async () => {
@@ -220,11 +262,12 @@ describe("bootstrap command", () => {
     expect(written?.config?.hosts?.[hostName]?.sshExposure?.mode).toBe("tailnet");
     expect(written?.config?.hosts?.[hostName]?.targetHost).toBe("admin@100.64.0.10");
 
-    expect(applyOpenTofuVarsMock).toHaveBeenCalledTimes(2);
-    const first = applyOpenTofuVarsMock.mock.calls[0]?.[0];
-    const second = applyOpenTofuVarsMock.mock.calls[1]?.[0];
-    expect(first?.vars?.sshExposureMode).toBe("bootstrap");
-    expect(second?.vars?.sshExposureMode).toBe("tailnet");
+    expect(provisionMock).toHaveBeenCalledTimes(1);
+    expect(lockdownMock).toHaveBeenCalledTimes(1);
+    const first = provisionMock.mock.calls[0]?.[0];
+    const second = lockdownMock.mock.calls[0]?.[0];
+    expect(first?.spec?.sshExposureMode).toBe("bootstrap");
+    expect(second?.spec?.sshExposureMode).toBe("tailnet");
   });
 
   it("rejects --lockdown-after when tailnet.mode is not tailscale", async () => {
@@ -243,7 +286,7 @@ describe("bootstrap command", () => {
         } as any,
       }),
     ).rejects.toThrow(/--lockdown-after requires tailnet\.mode=tailscale/i);
-    expect(applyOpenTofuVarsMock).not.toHaveBeenCalled();
+    expect(provisionMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid bootstrap mode", async () => {
@@ -292,7 +335,7 @@ describe("bootstrap command", () => {
   });
 
   it("rejects missing adminCidr", async () => {
-    setConfig({ provisioning: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" } });
+    setConfig({ provisioning: { adminCidr: "", sshPubkeyFile: defaultPubkeyFile } });
     const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: true } as any }),

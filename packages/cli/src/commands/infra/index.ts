@@ -1,3 +1,4 @@
+import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
@@ -48,11 +49,12 @@ const infraApply = defineCommand({
     };
 
     const provisioned = await driver.provision({ spec, runtime });
+    const providerStateDir = path.join(opentofuDir, "providers", spec.provider);
 
     console.log(`ok: provisioning applied for ${hostName}`);
     if (provisioned.instanceId) console.log(`instanceId: ${provisioned.instanceId}`);
     if (provisioned.ipv4) console.log(`ipv4: ${provisioned.ipv4}`);
-    console.log(`hint: outputs in ${opentofuDir}`);
+    console.log(`hint: outputs in ${providerStateDir}`);
   },
 });
 
@@ -112,9 +114,10 @@ const infraDestroy = defineCommand({
     }
 
     await driver.destroy({ spec, runtime });
+    const providerStateDir = path.join(opentofuDir, "providers", spec.provider);
 
     console.log(`ok: provisioning destroyed for ${hostName}`);
-    console.log(`hint: state in ${opentofuDir}`);
+    console.log(`hint: state in ${providerStateDir}`);
   },
 });
 

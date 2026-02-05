@@ -22,39 +22,54 @@ describe("opentofu", () => {
     ensureKeyMock.mockClear();
   });
 
-  it("destroyOpenTofuVars runs init + destroy with vars", async () => {
+  it("destroyHetznerOpenTofu runs init + destroy with vars", async () => {
     const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-opentofu-"));
     try {
       const opentofuDir = path.join(repoRoot, ".clawlets", "infra", "opentofu");
       const sshPubkeyFile = path.join(repoRoot, "id_ed25519.pub");
       await writeFile(sshPubkeyFile, "ssh-ed25519 AAAATEST test\n", "utf8");
 
-      const { destroyOpenTofuVars } = await import("../src/lib/opentofu");
-      await destroyOpenTofuVars({
-        opentofuDir,
-        vars: {
+      const { destroyHetznerOpenTofu } = await import("../src/lib/infra/providers/hetzner/opentofu");
+      await destroyHetznerOpenTofu({
+        spec: {
           hostName: "openclaw-fleet-host",
-          hcloudToken: "token",
-          adminCidr: "203.0.113.10/32",
-          adminCidrIsWorldOpen: false,
-          sshPubkeyFile,
-          serverType: "cx43",
+          provider: "hetzner",
+          diskDevice: "/dev/sda",
           sshExposureMode: "tailnet",
           tailnetMode: "tailscale",
+          ssh: {
+            adminCidr: "203.0.113.10/32",
+            adminCidrAllowWorldOpen: false,
+            publicKeyPath: sshPubkeyFile,
+            publicKey: "ssh-ed25519 AAAATEST test",
+          },
+          hetzner: {
+            serverType: "cx43",
+            image: "debian-12",
+            location: "nbg1",
+          },
         },
-        nixBin: "nix",
+        runtime: {
+          repoRoot,
+          opentofuDir,
+          nixBin: "nix",
+          dryRun: false,
+          redact: [],
+          credentials: { hcloudToken: "token" },
+        },
+        hcloudToken: "token",
       });
 
       expect(runMock).toHaveBeenCalledTimes(2);
 
       const [cmd1, args1, opts1] = runMock.mock.calls[0] as any[];
       expect(cmd1).toBe("nix");
-      expect(opts1.cwd).toBe(opentofuDir);
+      expect(opts1.cwd).toBe(path.join(opentofuDir, "providers", "hetzner"));
       expect(args1).toEqual(["run", "--impure", "nixpkgs#opentofu", "--", "init", "-input=false"]);
 
       const [cmd2, args2, opts2] = runMock.mock.calls[1] as any[];
       expect(cmd2).toBe("nix");
-      expect(opts2.cwd).toBe(opentofuDir);
+      expect(opts2.cwd).toBe(path.join(opentofuDir, "providers", "hetzner"));
       expect(args2.slice(0, 5)).toEqual(["run", "--impure", "nixpkgs#opentofu", "--", "destroy"]);
       expect(args2).toContain("-auto-approve");
       expect(args2).toContain("-input=false");
@@ -68,7 +83,7 @@ describe("opentofu", () => {
       expect(opts2.env?.HCLOUD_TOKEN).toBe("token");
 
       expect(ensureKeyMock).toHaveBeenCalledTimes(1);
-      expect(ensureKeyMock.mock.calls[0]?.[0]).toMatchObject({ token: "token", name: "clawdbot-admin" });
+      expect(ensureKeyMock.mock.calls[0]?.[0]).toMatchObject({ token: "token", name: "clawlets-admin" });
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }

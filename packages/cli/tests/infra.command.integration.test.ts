@@ -5,18 +5,36 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeConfig, baseHost } from "./fixtures.js";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
 
-const applyOpenTofuVarsMock = vi.fn();
-const destroyOpenTofuVarsMock = vi.fn();
+const provisionMock = vi.fn().mockResolvedValue({
+  hostName: "alpha",
+  provider: "hetzner",
+  instanceId: "srv-1",
+  ipv4: "203.0.113.20",
+  sshUser: "root",
+});
+const destroyMock = vi.fn().mockResolvedValue(undefined);
+const lockdownMock = vi.fn().mockResolvedValue(undefined);
+const getProvisionerDriverMock = vi.fn(() => ({
+  id: "hetzner",
+  provision: provisionMock,
+  destroy: destroyMock,
+  lockdown: lockdownMock,
+}));
 const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((v: string) => v);
 const findRepoRootMock = vi.fn(() => "/repo");
 const resolveHostNameOrExitMock = vi.fn(() => "alpha");
 const loadClawletsConfigMock = vi.fn();
 
-vi.mock("@clawlets/core/lib/opentofu", () => ({
-  applyOpenTofuVars: applyOpenTofuVarsMock,
-  destroyOpenTofuVars: destroyOpenTofuVarsMock,
-}));
+vi.mock("@clawlets/core/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/infra")>(
+    "@clawlets/core/lib/infra",
+  );
+  return {
+    ...actual,
+    getProvisionerDriver: getProvisionerDriverMock,
+  };
+});
 
 vi.mock("@clawlets/core/lib/deploy-creds", () => ({
   loadDeployCreds: loadDeployCredsMock,
@@ -49,7 +67,7 @@ describe("infra command", () => {
     vi.clearAllMocks();
   });
 
-  it("applies opentofu vars", async () => {
+  it("applies using provider driver", async () => {
     const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-infra-"));
     const pubkey = path.join(tmp, "id_ed25519.pub");
     fs.writeFileSync(pubkey, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P test", "utf8");
@@ -68,7 +86,8 @@ describe("infra command", () => {
     });
     const { infra } = await import("../src/commands/infra/index.js");
     await infra.subCommands?.apply?.run?.({ args: { host: "alpha", dryRun: true } } as any);
-    expect(applyOpenTofuVarsMock).toHaveBeenCalled();
+    expect(getProvisionerDriverMock).toHaveBeenCalledWith("hetzner");
+    expect(provisionMock).toHaveBeenCalled();
   });
 
   it("destroy requires force when no TTY", async () => {

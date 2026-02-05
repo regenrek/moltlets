@@ -11,8 +11,8 @@ function resolveBundledOpenTofuDir(): string {
   // Core is used both as a standalone workspace package (dist/lib -> dist/assets),
   // and bundled into the CLI/plugin build output (dist -> dist/assets).
   const candidates = [
-    path.resolve(here, "..", "assets", "opentofu"),
-    path.resolve(here, "assets", "opentofu"),
+    path.resolve(here, "..", "assets", "opentofu", "providers", "hetzner"),
+    path.resolve(here, "assets", "opentofu", "providers", "hetzner"),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
@@ -96,7 +96,7 @@ export async function applyOpenTofuVars(params: {
     ? "<hcloud-ssh-key-id>"
     : await ensureHcloudSshKeyId({
         token: params.vars.hcloudToken,
-        name: "clawdbot-admin",
+        name: "clawlets-admin",
         publicKey: sshPublicKey,
       });
 
@@ -179,7 +179,7 @@ export async function destroyOpenTofuVars(params: {
     ? "<hcloud-ssh-key-id>"
     : await ensureHcloudSshKeyId({
         token: params.vars.hcloudToken,
-        name: "clawdbot-admin",
+        name: "clawlets-admin",
         publicKey: sshPublicKey,
       });
 

@@ -1,7 +1,5 @@
 import type { ProvisionerDriver, ProvisionerRuntime, HetznerProvisionSpec, ProvisionedHost } from "../../types.js";
-import { applyOpenTofuVars, destroyOpenTofuVars } from "../../../opentofu.js";
-import { capture } from "../../../run.js";
-import { withFlakesEnv } from "../../../nix-flakes.js";
+import { applyHetznerOpenTofu, destroyHetznerOpenTofu, readHetznerOpenTofuOutput } from "./opentofu.js";
 
 function requireHcloudToken(runtime: ProvisionerRuntime): string {
   const token = String(runtime.credentials.hcloudToken || "").trim();
@@ -11,73 +9,14 @@ function requireHcloudToken(runtime: ProvisionerRuntime): string {
   return token;
 }
 
-function buildTofuEnv(spec: HetznerProvisionSpec, runtime: ProvisionerRuntime, hcloudToken: string): NodeJS.ProcessEnv {
-  return withFlakesEnv({
-    ...process.env,
-    HCLOUD_TOKEN: hcloudToken,
-    ADMIN_CIDR: spec.ssh.adminCidr,
-    SSH_PUBKEY_FILE: spec.ssh.publicKeyPath,
-    SERVER_TYPE: spec.hetzner.serverType,
-  });
-}
-
-async function readOutput(params: {
-  name: string;
-  runtime: ProvisionerRuntime;
-  spec: HetznerProvisionSpec;
-  hcloudToken: string;
-}): Promise<string> {
-  if (params.runtime.dryRun) return `<opentofu-output:${params.name}>`;
-  const out = await capture(
-    params.runtime.nixBin,
-    ["run", "--impure", "nixpkgs#opentofu", "--", "output", "-raw", params.name],
-    { cwd: params.runtime.opentofuDir, env: buildTofuEnv(params.spec, params.runtime, params.hcloudToken), dryRun: params.runtime.dryRun },
-  );
-  return String(out || "").trim();
-}
-
 async function applyHetzner(spec: HetznerProvisionSpec, runtime: ProvisionerRuntime): Promise<void> {
   const hcloudToken = requireHcloudToken(runtime);
-  await applyOpenTofuVars({
-    opentofuDir: runtime.opentofuDir,
-    vars: {
-      hostName: spec.hostName,
-      hcloudToken,
-      adminCidr: spec.ssh.adminCidr,
-      adminCidrIsWorldOpen: spec.ssh.adminCidrAllowWorldOpen,
-      sshPubkeyFile: spec.ssh.publicKeyPath,
-      serverType: spec.hetzner.serverType,
-      image: spec.hetzner.image,
-      location: spec.hetzner.location,
-      sshExposureMode: spec.sshExposureMode,
-      tailnetMode: spec.tailnetMode,
-    },
-    nixBin: runtime.nixBin,
-    dryRun: runtime.dryRun,
-    redact: runtime.redact,
-  });
+  await applyHetznerOpenTofu({ spec, runtime, hcloudToken });
 }
 
 async function destroyHetzner(spec: HetznerProvisionSpec, runtime: ProvisionerRuntime): Promise<void> {
   const hcloudToken = requireHcloudToken(runtime);
-  await destroyOpenTofuVars({
-    opentofuDir: runtime.opentofuDir,
-    vars: {
-      hostName: spec.hostName,
-      hcloudToken,
-      adminCidr: spec.ssh.adminCidr,
-      adminCidrIsWorldOpen: spec.ssh.adminCidrAllowWorldOpen,
-      sshPubkeyFile: spec.ssh.publicKeyPath,
-      serverType: spec.hetzner.serverType,
-      image: spec.hetzner.image,
-      location: spec.hetzner.location,
-      sshExposureMode: spec.sshExposureMode,
-      tailnetMode: spec.tailnetMode,
-    },
-    nixBin: runtime.nixBin,
-    dryRun: runtime.dryRun,
-    redact: runtime.redact,
-  });
+  await destroyHetznerOpenTofu({ spec, runtime, hcloudToken });
 }
 
 export const hetznerProvisionerDriver: ProvisionerDriver = {
@@ -89,8 +28,8 @@ export const hetznerProvisionerDriver: ProvisionerDriver = {
     await applyHetzner(spec, runtime);
 
     const hcloudToken = requireHcloudToken(runtime);
-    const ipv4 = await readOutput({ name: "ipv4", runtime, spec, hcloudToken });
-    const instanceId = await readOutput({ name: "instance_id", runtime, spec, hcloudToken });
+    const ipv4 = await readHetznerOpenTofuOutput({ name: "ipv4", runtime, spec, hcloudToken });
+    const instanceId = await readHetznerOpenTofuOutput({ name: "instance_id", runtime, spec, hcloudToken });
 
     return {
       hostName: spec.hostName,

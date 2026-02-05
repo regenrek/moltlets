@@ -8,7 +8,13 @@ const sshRunMock = vi.fn().mockResolvedValue(undefined);
 const sshCaptureMock = vi.fn().mockResolvedValue(
   JSON.stringify([{ outputs: { out: "/nix/store/lockdown-test-system" } }]),
 );
-const applyOpenTofuVarsMock = vi.fn().mockResolvedValue(undefined);
+const lockdownMock = vi.fn().mockResolvedValue(undefined);
+const getProvisionerDriverMock = vi.fn(() => ({
+  id: "hetzner",
+  provision: vi.fn(),
+  destroy: vi.fn(),
+  lockdown: lockdownMock,
+}));
 const resolveGitRevMock = vi.fn().mockResolvedValue("0123456789abcdef0123456789abcdef01234567");
 const loadDeployCredsMock = vi.fn();
 const findRepoRootMock = vi.fn().mockReturnValue("/repo");
@@ -27,9 +33,15 @@ vi.mock("@clawlets/core/lib/ssh-remote", async () => {
   };
 });
 
-vi.mock("@clawlets/core/lib/opentofu", () => ({
-  applyOpenTofuVars: applyOpenTofuVarsMock,
-}));
+vi.mock("@clawlets/core/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@clawlets/core/lib/infra")>(
+    "@clawlets/core/lib/infra",
+  );
+  return {
+    ...actual,
+    getProvisionerDriver: getProvisionerDriverMock,
+  };
+});
 
 vi.mock("@clawlets/core/lib/git", () => ({
   resolveGitRev: resolveGitRevMock,
@@ -69,7 +81,7 @@ const baseHost = {
   diskDevice: "/dev/sda",
   flakeHost: "",
   targetHost: "admin@100.64.0.10",
-  hetzner: { serverType: "cx43" },
+  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12" },
   provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
   sshExposure: { mode: "tailnet" },
   tailnet: { mode: "tailscale" },
@@ -109,7 +121,7 @@ describe("lockdown command", () => {
     });
   });
 
-  it("applies opentofu vars without ssh", async () => {
+  it("applies provider lockdown without ssh", async () => {
     const tempDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawlets-lockdown-"));
     const keyPath = path.join(tempDir, "id_ed25519.pub");
     await fs.promises.writeFile(keyPath, "ssh-ed25519 AAAA", "utf8");
@@ -147,12 +159,12 @@ describe("lockdown command", () => {
         ref: "",
         skipRebuild: false,
         skipTofu: false,
-        dryRun: false,
+        dryRun: true,
         sshTty: false,
       } as any,
     });
 
-    expect(applyOpenTofuVarsMock).toHaveBeenCalled();
+    expect(lockdownMock).toHaveBeenCalled();
     expect(sshCaptureMock).not.toHaveBeenCalled();
     expect(sshRunMock).not.toHaveBeenCalled();
   });
