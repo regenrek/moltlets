@@ -15,7 +15,7 @@ vi.mock("@clawlets/core/lib/ssh-remote", () => ({
 
 const needsSudoMock = vi.fn(() => false);
 const requireTargetHostMock = vi.fn((v: string) => v);
-vi.mock("../src/commands/server/common.js", () => ({
+vi.mock("../src/commands/openclaw/server/common.js", () => ({
   needsSudo: (v: string) => needsSudoMock(v),
   requireTargetHost: (v: string, hostName: string) => requireTargetHostMock(v, hostName),
 }));
@@ -31,7 +31,7 @@ describe("server update apply", () => {
       hostCfg: { targetHost: "admin@host" },
     });
 
-    const { serverUpdate } = await import("../src/commands/server/update.js");
+    const { serverUpdate } = await import("../src/commands/openclaw/server/update.js");
     await (serverUpdate.subCommands as any).apply.run({
       args: { host: "alpha", sshTty: false },
     } as any);
@@ -48,7 +48,7 @@ describe("server update apply", () => {
       hostCfg: { targetHost: "admin@host" },
     });
 
-    const { serverUpdate } = await import("../src/commands/server/update.js");
+    const { serverUpdate } = await import("../src/commands/openclaw/server/update.js");
     await (serverUpdate.subCommands as any).apply.run({
       args: { host: "alpha", sshTty: false },
     } as any);
@@ -56,4 +56,3 @@ describe("server update apply", () => {
     expect(sshRunMock.mock.calls[0]?.[1]).toMatch(/sudo systemctl start clawlets-update-fetch\.service/);
   });
 });
-

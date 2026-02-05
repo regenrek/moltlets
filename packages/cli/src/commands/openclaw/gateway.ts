@@ -3,7 +3,7 @@ import { defineCommand } from "citty";
 import * as p from "@clack/prompts";
 import { findRepoRoot } from "@clawlets/core/lib/repo";
 import { ClawletsConfigSchema, loadClawletsConfig, resolveHostName, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
-import { cancelFlow, navOnCancel, NAV_EXIT } from "../lib/wizard.js";
+import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
 
 function validateGatewayId(value: string | undefined): string | undefined {
   const v = String(value || "").trim();

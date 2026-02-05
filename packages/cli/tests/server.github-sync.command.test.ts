@@ -25,9 +25,9 @@ describe("server github-sync", () => {
 
   it("runs status/run/logs/show commands", async () => {
     const config = makeConfig({ hostName: "alpha" });
-    const hostCfg = config.hosts.alpha;
+    const hostCfg = { ...config.hosts.alpha, openclaw: { enable: true } };
     loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
-    const { serverGithubSync } = await import("../src/commands/server/github-sync.js");
+    const { serverGithubSync } = await import("../src/commands/openclaw/server/github-sync.js");
     await serverGithubSync.subCommands?.status?.run?.({ args: { host: "alpha", targetHost: "admin@host" } } as any);
     await serverGithubSync.subCommands?.run?.run?.({ args: { host: "alpha", targetHost: "admin@host", gateway: "maren" } } as any);
     await serverGithubSync.subCommands?.logs?.run?.({ args: { host: "alpha", targetHost: "admin@host", gateway: "maren", lines: "10" } } as any);

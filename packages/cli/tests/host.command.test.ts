@@ -44,7 +44,7 @@ describe("host command", () => {
   it("adds a host", async () => {
     const config = makeConfig();
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await host.subCommands?.add?.run?.({ args: { host: "beta" } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: added host beta");
@@ -54,7 +54,7 @@ describe("host command", () => {
     const config = makeConfig();
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: false, message: "bad host", tips: ["use --host alpha"] });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await host.subCommands?.["set-default"]?.run?.({ args: { host: "nope" } } as any);
     expect(process.exitCode).toBe(1);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringMatching(/warn:/));
@@ -71,7 +71,7 @@ describe("host command", () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await host.subCommands?.set?.run?.({
       args: {
         host: "alpha",
@@ -88,7 +88,7 @@ describe("host command", () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "beta" });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await host.subCommands?.set?.run?.({ args: { host: "beta", enable: "true" } } as any);
     expect(process.exitCode).toBe(1);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringMatching(/unknown host/i));
@@ -98,7 +98,7 @@ describe("host command", () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await expect(
       host.subCommands?.set?.run?.({ args: { host: "alpha", enable: "maybe" } } as any),
     ).rejects.toThrow(/invalid boolean/i);
@@ -118,7 +118,7 @@ describe("host command", () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await expect(
       host.subCommands?.set?.run?.({ args: { host: "alpha", "add-ssh-key": "not-a-key" } } as any),
     ).rejects.toThrow(/invalid --add-ssh-key/i);
@@ -134,7 +134,7 @@ describe("host command", () => {
     const config = makeConfig({ hostName: "alpha", hostOverrides: { ...baseHost } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     resolveHostNameMock.mockReturnValue({ ok: true, host: "alpha" });
-    const { host } = await import("../src/commands/host.js");
+    const { host } = await import("../src/commands/config/host.js");
     await expect(
       host.subCommands?.set?.run?.({ args: { host: "alpha", "add-ssh-known-host-file": emptyKnown } } as any),
     ).rejects.toThrow(/no known_hosts entries/i);

@@ -67,7 +67,7 @@ describe("project init", () => {
     writeTemplate(temp);
     downloadTemplateMock.mockResolvedValue({ dir: temp });
     const dest = path.join(tmpdir(), "clawlets-project-dry");
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: dest, dryRun: true, gitInit: false } } as any);
     expect(noteMock).toHaveBeenCalled();
     expect(outroMock).toHaveBeenCalledWith("dry-run");
@@ -79,7 +79,7 @@ describe("project init", () => {
     downloadTemplateMock.mockResolvedValue({ dir: temp });
     const dest = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     const target = path.join(dest, "my-fleet");
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: target, gitInit: false } } as any);
     expect(fs.existsSync(path.join(target, ".gitignore"))).toBe(true);
     const readme = fs.readFileSync(path.join(target, "README.md"), "utf8");
@@ -89,14 +89,14 @@ describe("project init", () => {
   });
 
   it("rejects missing --dir", async () => {
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await expect(project.subCommands?.init?.run?.({ args: {} } as any)).rejects.toThrow(/missing --dir/i);
   });
 
   it("rejects non-empty target dir", async () => {
     const temp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     fs.writeFileSync(path.join(temp, "README.md"), "existing", "utf8");
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await expect(project.subCommands?.init?.run?.({ args: { dir: temp } } as any)).rejects.toThrow(/not empty/i);
   });
 
@@ -107,7 +107,7 @@ describe("project init", () => {
     const dest = path.join(tmpdir(), "clawlets-project-tty");
     const stdoutTty = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await expect(project.subCommands?.init?.run?.({ args: { dir: dest, interactive: true, gitInit: false } } as any)).rejects.toThrow(
       /requires a TTY/i,
     );
@@ -123,7 +123,7 @@ describe("project init", () => {
     const target = path.join(dest, "my-fleet");
     const stdoutTty = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: target, gitInit: true, interactive: true } } as any);
     expect(noteMock).toHaveBeenCalledWith(expect.stringMatching(/git not available/i), "gitInit");
     Object.defineProperty(process.stdout, "isTTY", { value: stdoutTty, configurable: true });
@@ -137,7 +137,7 @@ describe("project init", () => {
     downloadTemplateMock.mockResolvedValue({ dir: temp });
     const dest = fs.mkdtempSync(path.join(tmpdir(), "clawlets-project-"));
     const target = path.join(dest, "my-fleet");
-    const { project } = await import("../src/commands/project.js");
+    const { project } = await import("../src/commands/platform/project.js");
     await project.subCommands?.init?.run?.({ args: { dir: target, gitInit: false } } as any);
     expect(fs.existsSync(path.join(target, "fleet", "clawlets.json"))).toBe(true);
   });

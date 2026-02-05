@@ -26,9 +26,9 @@ describe("server channels command", () => {
   });
 
   it("status builds exact remote command (quoted) + tty", async () => {
-    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host" } });
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host", openclaw: { enable: true } } });
 
-    const { serverChannels } = await import("../src/commands/server/channels.js");
+    const { serverChannels } = await import("../src/commands/openclaw/server/channels.js");
     await serverChannels.subCommands?.status?.run?.({
       args: {
         host: "alpha",
@@ -49,9 +49,9 @@ describe("server channels command", () => {
   });
 
   it("capabilities builds exact remote command (quoted)", async () => {
-    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host" } });
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host", openclaw: { enable: true } } });
 
-    const { serverChannels } = await import("../src/commands/server/channels.js");
+    const { serverChannels } = await import("../src/commands/openclaw/server/channels.js");
     await serverChannels.subCommands?.capabilities?.run?.({
       args: {
         host: "alpha",
@@ -74,9 +74,9 @@ describe("server channels command", () => {
   });
 
   it("login builds exact remote command (quoted)", async () => {
-    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host" } });
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "admin@host", openclaw: { enable: true } } });
 
-    const { serverChannels } = await import("../src/commands/server/channels.js");
+    const { serverChannels } = await import("../src/commands/openclaw/server/channels.js");
     await serverChannels.subCommands?.login?.run?.({
       args: {
         host: "alpha",
@@ -97,9 +97,9 @@ describe("server channels command", () => {
   });
 
   it("logout builds exact remote command (quoted) without sudo for root@", async () => {
-    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "root@host" } });
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg: { targetHost: "root@host", openclaw: { enable: true } } });
 
-    const { serverChannels } = await import("../src/commands/server/channels.js");
+    const { serverChannels } = await import("../src/commands/openclaw/server/channels.js");
     await serverChannels.subCommands?.logout?.run?.({
       args: {
         host: "alpha",

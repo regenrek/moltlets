@@ -5,7 +5,7 @@ import { defineCommand } from "citty";
 import { collectDoctorChecks } from "@clawlets/core/doctor";
 import { findRepoRoot } from "@clawlets/core/lib/repo";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
-import { renderDoctorReport } from "../lib/doctor-render.js";
+import { renderDoctorReport } from "../../lib/doctor-render.js";
 
 export const doctor = defineCommand({
   meta: {

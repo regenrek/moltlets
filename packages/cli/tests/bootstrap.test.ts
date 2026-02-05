@@ -159,7 +159,7 @@ describe("bootstrap command", () => {
 
   it("rejects tailnet-only SSH exposure for bootstrap", async () => {
     setConfig({ sshExposure: { mode: "tailnet" } });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: {
@@ -181,7 +181,7 @@ describe("bootstrap command", () => {
     logSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
       logs.push(args.join(" "));
     });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await bootstrap.run({
       args: {
         host: hostName,
@@ -200,7 +200,7 @@ describe("bootstrap command", () => {
 
   it("runs auto-lockdown when --lockdown-after is set", async () => {
     setConfig({ sshExposure: { mode: "bootstrap" }, tailnet: { mode: "tailscale" } });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await bootstrap.run({
       args: {
         host: hostName,
@@ -229,7 +229,7 @@ describe("bootstrap command", () => {
 
   it("rejects --lockdown-after when tailnet.mode is not tailscale", async () => {
     setConfig({ sshExposure: { mode: "bootstrap" }, tailnet: { mode: "none" } });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: {
@@ -248,7 +248,7 @@ describe("bootstrap command", () => {
 
   it("rejects invalid bootstrap mode", async () => {
     setConfig({});
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: { host: hostName, mode: "nope", flake: "github:owner/repo", force: true, dryRun: true } as any,
@@ -262,7 +262,7 @@ describe("bootstrap command", () => {
       envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "", GITHUB_TOKEN: "", NIX_BIN: "nix" },
     });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: true } as any,
@@ -272,7 +272,7 @@ describe("bootstrap command", () => {
 
   it("rejects image mode without hetzner image", async () => {
     setConfig({ hetzner: { serverType: "cx43", image: "", location: "nbg1" } });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: { host: hostName, mode: "image", flake: "github:owner/repo", force: true, dryRun: true } as any,
@@ -283,7 +283,7 @@ describe("bootstrap command", () => {
   it("rejects when both --rev and --ref are provided", async () => {
     resolveBaseFlakeMock.mockResolvedValueOnce({ flake: "github:owner/repo" });
     setConfig({});
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({
         args: { host: hostName, rev: "HEAD", ref: "main", force: true, dryRun: true } as any,
@@ -293,7 +293,7 @@ describe("bootstrap command", () => {
 
   it("rejects missing adminCidr", async () => {
     setConfig({ provisioning: { adminCidr: "", sshPubkeyFile: "~/.ssh/id_ed25519.pub" } });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: true } as any }),
     ).rejects.toThrow(/missing provisioning\.adminCidr/i);
@@ -302,7 +302,7 @@ describe("bootstrap command", () => {
   it("rejects missing ssh pubkey file", async () => {
     setConfig({ provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "missing.pub" } });
     existsSpy.mockImplementation((p: fs.PathLike) => !String(p).includes("missing.pub"));
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: true } as any }),
     ).rejects.toThrow(/ssh pubkey file not found/i);
@@ -311,7 +311,7 @@ describe("bootstrap command", () => {
   it("rejects missing base flake", async () => {
     resolveBaseFlakeMock.mockResolvedValueOnce({ flake: "" });
     setConfig({});
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, force: true, dryRun: true } as any }),
     ).rejects.toThrow(/missing base flake/i);
@@ -319,7 +319,7 @@ describe("bootstrap command", () => {
 
   it("rejects flake host mismatch", async () => {
     setConfig({});
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo#other", force: true, dryRun: true } as any }),
     ).rejects.toThrow(/flake host mismatch/i);
@@ -329,7 +329,7 @@ describe("bootstrap command", () => {
     setConfig({});
     tryParseGithubFlakeUriMock.mockReturnValueOnce({ owner: "owner", repo: "repo" });
     checkGithubRepoVisibilityMock.mockResolvedValueOnce({ ok: true, status: "private-or-missing" });
-    const { bootstrap } = await import("../src/commands/bootstrap.ts");
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: false } as any }),
     ).rejects.toThrow(/base flake repo appears private/i);

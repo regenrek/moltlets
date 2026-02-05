@@ -39,7 +39,7 @@ describe("image command", () => {
       hostName: "alpha",
     });
     resolveGitRevMock.mockResolvedValue("deadbeef");
-    const { image } = await import("../src/commands/image.js");
+    const { image } = await import("../src/commands/infra/image.js");
     await expect(image.subCommands?.build?.run?.({ args: { host: "alpha", dryRun: true } } as any)).rejects.toThrow(/requires Linux/i);
     platformSpy.mockRestore();
   });
@@ -52,7 +52,7 @@ describe("image command", () => {
     loadDeployCredsMock.mockReturnValue({
       values: { HCLOUD_TOKEN: "token" },
     });
-    const { image } = await import("../src/commands/image.js");
+    const { image } = await import("../src/commands/infra/image.js");
     await image.subCommands?.upload?.run?.({
       args: {
         host: "alpha",

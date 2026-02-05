@@ -1,6 +1,6 @@
 import { defineCommand } from "citty";
-import { releaseManifest } from "./release/manifest.js";
-import { releasePointer } from "./release/pointer.js";
+import { releaseManifest } from "./manifest.js";
+import { releasePointer } from "./pointer.js";
 
 export const release = defineCommand({
   meta: {
@@ -12,4 +12,3 @@ export const release = defineCommand({
     pointer: releasePointer,
   },
 });
-

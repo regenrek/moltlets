@@ -66,7 +66,7 @@ describe("infra command", () => {
       envFile: { status: "ok", path: "/repo/.clawlets/env" },
       values: { HCLOUD_TOKEN: "token", NIX_BIN: "nix", GITHUB_TOKEN: "" },
     });
-    const { infra } = await import("../src/commands/infra.js");
+    const { infra } = await import("../src/commands/infra/index.js");
     await infra.subCommands?.apply?.run?.({ args: { host: "alpha", dryRun: true } } as any);
     expect(applyOpenTofuVarsMock).toHaveBeenCalled();
   });
@@ -87,7 +87,7 @@ describe("infra command", () => {
     });
     const original = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
     Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
-    const { infra } = await import("../src/commands/infra.js");
+    const { infra } = await import("../src/commands/infra/index.js");
     await expect(infra.subCommands?.destroy?.run?.({ args: { host: "alpha" } } as any)).rejects.toThrow(/refusing to destroy/i);
     if (original) Object.defineProperty(process.stdin, "isTTY", original);
   });

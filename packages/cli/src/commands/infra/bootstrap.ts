@@ -15,7 +15,7 @@ import { withFlakesEnv } from "@clawlets/core/lib/nix-flakes";
 import { ClawletsConfigSchema, getSshExposureMode, getTailnetMode, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { resolveBaseFlake } from "@clawlets/core/lib/base-flake";
 import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostOpenTofuDir } from "@clawlets/core/repo-layout";
-import { requireDeployGate } from "../lib/deploy-gate.js";
+import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host-connectivity";
 

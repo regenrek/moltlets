@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsSudo, requireTargetHost } from "../src/commands/server/common.js";
+import { needsSudo, requireTargetHost } from "../src/commands/openclaw/server/common.js";
 
 describe("server common re-exports", () => {
   it("exposes ssh-target helpers", () => {

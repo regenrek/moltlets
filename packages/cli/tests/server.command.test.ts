@@ -39,7 +39,7 @@ describe("server command", () => {
     const logs: string[] = [];
     const logSpy = vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
 
-    const { server } = await import("../src/commands/server.js");
+    const { server } = await import("../src/commands/openclaw/server/index.js");
     await server.subCommands?.audit?.run?.({ args: { host: "alpha", targetHost: "admin@host", json: true } } as any);
     expect(logs.join("\n")).toMatch(/"checks"/);
     expect(process.exitCode).toBe(0);
@@ -50,7 +50,7 @@ describe("server command", () => {
     const config = makeConfig({ hostName: "alpha" });
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
-    const { server } = await import("../src/commands/server.js");
+    const { server } = await import("../src/commands/openclaw/server/index.js");
     await server.subCommands?.logs?.run?.({
       args: {
         host: "alpha",
@@ -70,7 +70,7 @@ describe("server command", () => {
     const hostCfg = config.hosts.alpha;
     loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
     sshCaptureMock.mockResolvedValue("ok");
-    const { server } = await import("../src/commands/server.js");
+    const { server } = await import("../src/commands/openclaw/server/index.js");
     await server.subCommands?.status?.run?.({ args: { host: "alpha", targetHost: "admin@host" } } as any);
     expect(sshCaptureMock).toHaveBeenCalled();
   });

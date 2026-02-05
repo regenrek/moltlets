@@ -139,7 +139,7 @@ describe("lockdown command", () => {
       },
     });
 
-    const { lockdown } = await import("../src/commands/lockdown.ts");
+    const { lockdown } = await import("../src/commands/infra/lockdown.ts");
     await lockdown.run({
       args: {
         host: hostName,

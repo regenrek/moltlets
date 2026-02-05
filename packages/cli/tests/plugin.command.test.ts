@@ -5,7 +5,7 @@ import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const TEST_TIMEOUT_MS = 15_000;
-import { plugin } from "../src/commands/plugin.js";
+import { plugin } from "../src/commands/platform/plugin.js";
 
 function makeRepoRoot(): string {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-plugin-cmd-"));

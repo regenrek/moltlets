@@ -44,7 +44,7 @@ describe("gateway command", () => {
       hostOverrides: { gatewaysOrder: ["maren", "gunnar"], gateways: { maren: {}, gunnar: {} } },
     });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { gateway } = await import("../src/commands/gateway.js");
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
     await gateway.subCommands?.list?.run?.({ args: {} } as any);
     expect(logSpy).toHaveBeenCalledWith("maren\ngunnar");
   });
@@ -52,7 +52,7 @@ describe("gateway command", () => {
   it("adds gateway and writes config", async () => {
     const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { gateway } = await import("../src/commands/gateway.js");
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
     await gateway.subCommands?.add?.run?.({ args: { gateway: "gunnar", interactive: false } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: added gateway gunnar (host=alpha)");
@@ -61,7 +61,7 @@ describe("gateway command", () => {
   it("skips add when already present", async () => {
     const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { gateway } = await import("../src/commands/gateway.js");
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
     await gateway.subCommands?.add?.run?.({ args: { gateway: "maren", interactive: false } } as any);
     expect(writeClawletsConfigMock).not.toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: already present: maren (host=alpha)");
@@ -70,7 +70,7 @@ describe("gateway command", () => {
   it("removes gateway", async () => {
     const config = makeConfig({ hostOverrides: { gatewaysOrder: ["maren"], gateways: { maren: {} } } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
-    const { gateway } = await import("../src/commands/gateway.js");
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
     await gateway.subCommands?.rm?.run?.({ args: { gateway: "maren" } } as any);
     expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: removed gateway maren (host=alpha)");
@@ -82,7 +82,7 @@ describe("gateway command", () => {
     const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
     promptTextMock.mockResolvedValue("maren");
-    const { gateway } = await import("../src/commands/gateway.js");
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
     await expect(gateway.subCommands?.add?.run?.({ args: { gateway: "", interactive: true } } as any)).rejects.toThrow(
       /TTY/,
     );

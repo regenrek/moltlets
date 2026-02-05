@@ -8,7 +8,7 @@ import { loadDeployCreds } from "@clawlets/core/lib/deploy-creds";
 import { findRepoRoot } from "@clawlets/core/lib/repo";
 import { getSshExposureMode, getTailnetMode, loadClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
-import { requireDeployGate } from "../lib/deploy-gate.js";
+import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 
 export const lockdown = defineCommand({

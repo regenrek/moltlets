@@ -1,7 +1,7 @@
 import process from "node:process";
 import { defineCommand } from "citty";
 async function loadPlugins() {
-  return await import("../lib/plugins.js");
+  return await import("../../lib/plugins.js");
 }
 
 function resolveSlug(args: any): string {

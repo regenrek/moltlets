@@ -26,7 +26,7 @@ describe("fleet set", () => {
   });
 
   it("sets codex enable", async () => {
-    const { fleet } = await import("../src/commands/fleet");
+    const { fleet } = await import("../src/commands/config/fleet");
     await fleet.subCommands.set.run({ args: { "codex-enable": "true" } as any });
     expect(writeClawletsConfigMock).toHaveBeenCalledTimes(1);
     const call = writeClawletsConfigMock.mock.calls[0][0];

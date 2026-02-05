@@ -34,7 +34,7 @@ describe("env commands", () => {
     const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-"));
     findRepoRootMock.mockReturnValue(repoRoot);
     const envFile = path.join(repoRoot, ".env.custom");
-    const { envInit } = await import("../src/commands/env.js");
+    const { envInit } = await import("../src/commands/infra/env.js");
     await envInit.run({ args: { envFile } } as any);
     const content = fs.readFileSync(envFile, "utf8");
     expect(content).toMatch(/HCLOUD_TOKEN=/);
@@ -49,7 +49,7 @@ describe("env commands", () => {
       values: { HCLOUD_TOKEN: "token", GITHUB_TOKEN: "gh", NIX_BIN: "nix", SOPS_AGE_KEY_FILE: "/keys/age" },
       sources: { HCLOUD_TOKEN: "file", GITHUB_TOKEN: "env", NIX_BIN: "default", SOPS_AGE_KEY_FILE: "file" },
     });
-    const { envShow } = await import("../src/commands/env.js");
+    const { envShow } = await import("../src/commands/infra/env.js");
     await envShow.run({ args: {} } as any);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("env file: ok"));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("HCLOUD_TOKEN: set"));

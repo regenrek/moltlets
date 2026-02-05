@@ -74,7 +74,7 @@ describe("plugins reserved commands", () => {
   });
 
   it("rejects third-party plugins without override", async () => {
-    const { plugin } = await import("../src/commands/plugin.js");
+    const { plugin } = await import("../src/commands/platform/plugin.js");
     const add = (plugin as any).subCommands?.add;
     await expect(
       add.run({ args: { name: "evil", package: "evil/plugin", allowThirdParty: false } }),
