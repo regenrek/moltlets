@@ -47,7 +47,7 @@ describe("image command", () => {
   it("image upload runs hcloud-upload-image", async () => {
     loadHostContextMock.mockReturnValue({
       hostName: "alpha",
-      hostCfg: { hetzner: { location: "nbg1" } },
+      hostCfg: { provisioning: { provider: "hetzner" }, hetzner: { location: "nbg1" } },
     });
     loadDeployCredsMock.mockReturnValue({
       values: { HCLOUD_TOKEN: "token" },
@@ -65,6 +65,64 @@ describe("image command", () => {
     expect(runMock).toHaveBeenCalledWith(
       "hcloud-upload-image",
       expect.arrayContaining(["upload", "--image-url", "https://example.com/image.raw"]),
+      expect.objectContaining({ dryRun: true }),
+    );
+  });
+
+  it("image aws upload runs aws s3 cp", async () => {
+    const imagePath = path.join(fs.mkdtempSync(path.join(tmpdir(), "clawlets-image-aws-")), "host.raw");
+    fs.writeFileSync(imagePath, "raw", "utf8");
+    loadHostContextMock.mockReturnValue({
+      hostName: "alpha",
+      hostCfg: {
+        provisioning: { provider: "aws" },
+        aws: { region: "us-east-1" },
+      },
+    });
+    loadDeployCredsMock.mockReturnValue({
+      envFromFile: {},
+      values: {},
+    });
+    const { image } = await import("../src/commands/infra/image.js");
+    await image.subCommands?.aws?.subCommands?.upload?.run?.({
+      args: {
+        host: "alpha",
+        "image-path": imagePath,
+        bucket: "clawlets-images",
+        dryRun: true,
+      },
+    } as any);
+    expect(runMock).toHaveBeenCalledWith(
+      "aws",
+      ["s3", "cp", imagePath, "s3://clawlets-images/images/alpha/host.raw"],
+      expect.objectContaining({ dryRun: true }),
+    );
+  });
+
+  it("image aws import dry-run prints import command", async () => {
+    loadHostContextMock.mockReturnValue({
+      hostName: "alpha",
+      hostCfg: {
+        provisioning: { provider: "aws" },
+        aws: { region: "us-east-1" },
+      },
+    });
+    loadDeployCredsMock.mockReturnValue({
+      envFromFile: {},
+      values: {},
+    });
+    const { image } = await import("../src/commands/infra/image.js");
+    await image.subCommands?.aws?.subCommands?.import?.run?.({
+      args: {
+        host: "alpha",
+        bucket: "clawlets-images",
+        key: "images/alpha/host.raw",
+        dryRun: true,
+      },
+    } as any);
+    expect(runMock).toHaveBeenCalledWith(
+      "aws",
+      expect.arrayContaining(["ec2", "import-image", "--disk-containers"]),
       expect.objectContaining({ dryRun: true }),
     );
   });

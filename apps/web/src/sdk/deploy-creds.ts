@@ -156,12 +156,18 @@ async function writeDeployCreds(params: { repoRoot: string; updates: Partial<Dep
     GITHUB_TOKEN: String(existing.GITHUB_TOKEN || "").trim(),
     NIX_BIN: String(existing.NIX_BIN || "nix").trim() || "nix",
     SOPS_AGE_KEY_FILE: String(existing.SOPS_AGE_KEY_FILE || "").trim(),
+    AWS_ACCESS_KEY_ID: String(existing.AWS_ACCESS_KEY_ID || "").trim(),
+    AWS_SECRET_ACCESS_KEY: String(existing.AWS_SECRET_ACCESS_KEY || "").trim(),
+    AWS_SESSION_TOKEN: String(existing.AWS_SESSION_TOKEN || "").trim(),
     ...params.updates,
   }
   next.HCLOUD_TOKEN = String(next.HCLOUD_TOKEN || "").trim()
   next.GITHUB_TOKEN = String(next.GITHUB_TOKEN || "").trim()
   next.NIX_BIN = String(next.NIX_BIN || "").trim() || "nix"
   next.SOPS_AGE_KEY_FILE = String(next.SOPS_AGE_KEY_FILE || "").trim()
+  next.AWS_ACCESS_KEY_ID = String(next.AWS_ACCESS_KEY_ID || "").trim()
+  next.AWS_SECRET_ACCESS_KEY = String(next.AWS_SECRET_ACCESS_KEY || "").trim()
+  next.AWS_SESSION_TOKEN = String(next.AWS_SESSION_TOKEN || "").trim()
 
   await writeFileAtomic(envPath, renderDeployCredsEnvFile(next), { mode: 0o600 })
 

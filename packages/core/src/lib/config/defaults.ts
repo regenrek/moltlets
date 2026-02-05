@@ -39,7 +39,7 @@ export function createDefaultClawletsConfig(params: { host: string; gateways?: s
         diskDevice: "/dev/sda",
         flakeHost: "",
         hetzner: { serverType: "cx43", image: "", location: "nbg1" },
-        aws: { region: "", instanceType: "", vpcId: "", subnetId: "", useDefaultVpc: false },
+        aws: { region: "", instanceType: "", amiId: "", vpcId: "", subnetId: "", useDefaultVpc: false },
         provisioning: { provider: "hetzner", adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "" },
         sshExposure: { mode: "bootstrap" },
         tailnet: { mode: "tailscale" },

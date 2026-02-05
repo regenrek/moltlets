@@ -4,11 +4,12 @@ export const AwsHostSchema = z
   .object({
     region: z.string().trim().default(""),
     instanceType: z.string().trim().default(""),
+    amiId: z.string().trim().default(""),
     vpcId: z.string().trim().default(""),
     subnetId: z.string().trim().default(""),
     useDefaultVpc: z.boolean().default(false),
   })
-  .default(() => ({ region: "", instanceType: "", vpcId: "", subnetId: "", useDefaultVpc: false }));
+  .default(() => ({ region: "", instanceType: "", amiId: "", vpcId: "", subnetId: "", useDefaultVpc: false }));
 
 export type AwsHostConfig = z.infer<typeof AwsHostSchema>;
 
@@ -29,6 +30,13 @@ export function addAwsProvisioningIssues(params: {
       code: z.ZodIssueCode.custom,
       path: ["aws", "instanceType"],
       message: "aws.instanceType must be set when provisioning.provider is aws",
+    });
+  }
+  if (!aws.amiId.trim()) {
+    params.ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["aws", "amiId"],
+      message: "aws.amiId must be set when provisioning.provider is aws",
     });
   }
   if (aws.useDefaultVpc) {

@@ -32,11 +32,12 @@ Example command sequence:
 - add host settings:
   - `clawlets host set --host <host> --admin-cidr <cidr> --ssh-pubkey-file ~/.ssh/id_ed25519.pub`
   - provider fields (Hetzner): `clawlets host set --host <host> --server-type cx43 --hetzner-location nbg1`
+  - provider fields (AWS): `clawlets host set --host <host> --aws-region us-east-1 --aws-instance-type t3.large --aws-ami-id ami-... --aws-use-default-vpc true`
 - add gateways: `clawlets gateway add --host <host> --gateway <gatewayId>`
 - wire secrets:
   - map env vars in `fleet.secretEnv` / per‑gateway overrides
   - or autowire: `clawlets config wire-secrets --write`
-- init deploy creds: `clawlets env init` (edit `.clawlets/env`; set `HCLOUD_TOKEN` for Hetzner)
+- init deploy creds: `clawlets env init` (edit `.clawlets/env`; set provider credentials: `HCLOUD_TOKEN` for Hetzner or AWS keys for AWS)
 - init secrets: `clawlets secrets init` (TTY prompt) or `clawlets secrets init --from-json <file>`
 - preflight: `clawlets doctor --scope bootstrap`
 - bootstrap: `clawlets bootstrap` (or `--mode image`)

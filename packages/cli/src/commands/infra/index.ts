@@ -8,6 +8,7 @@ import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config";
 import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 import { buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra";
+import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 const infraApply = defineCommand({
   meta: {
@@ -36,17 +37,12 @@ const infraApply = defineCommand({
 
     const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
     const driver = getProvisionerDriver(spec.provider);
-    const runtime = {
+    const runtime = buildProvisionerRuntime({
       repoRoot,
       opentofuDir,
-      nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
-      redact: [deployCreds.values.HCLOUD_TOKEN, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
-      credentials: {
-        hcloudToken: deployCreds.values.HCLOUD_TOKEN,
-        githubToken: deployCreds.values.GITHUB_TOKEN,
-      },
-    };
+      deployCreds,
+    });
 
     const provisioned = await driver.provision({ spec, runtime });
     const providerStateDir = path.join(opentofuDir, "providers", spec.provider);
@@ -86,17 +82,12 @@ const infraDestroy = defineCommand({
 
     const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
     const driver = getProvisionerDriver(spec.provider);
-    const runtime = {
+    const runtime = buildProvisionerRuntime({
       repoRoot,
       opentofuDir,
-      nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
-      redact: [deployCreds.values.HCLOUD_TOKEN, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
-      credentials: {
-        hcloudToken: deployCreds.values.HCLOUD_TOKEN,
-        githubToken: deployCreds.values.GITHUB_TOKEN,
-      },
-    };
+      deployCreds,
+    });
 
     const force = Boolean((args as any).force);
     const interactive = process.stdin.isTTY && process.stdout.isTTY;

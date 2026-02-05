@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadDeployCreds } from "../src/lib/deploy-creds";
 
-const ENV_KEYS = ["HCLOUD_TOKEN", "GITHUB_TOKEN", "NIX_BIN", "SOPS_AGE_KEY_FILE"] as const;
+const ENV_KEYS = [
+  "HCLOUD_TOKEN",
+  "GITHUB_TOKEN",
+  "NIX_BIN",
+  "SOPS_AGE_KEY_FILE",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+] as const;
 
 let savedEnv: Record<string, string | undefined> = {};
 
@@ -107,5 +115,33 @@ describe("deploy-creds", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
-});
 
+  it("loads AWS credentials from env file and lets process.env override", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(
+        path.join(dir, ".clawlets", "env"),
+        ["AWS_ACCESS_KEY_ID=file-key", "AWS_SECRET_ACCESS_KEY=file-secret", ""].join("\n"),
+        "utf8",
+      );
+      await chmod(path.join(dir, ".clawlets", "env"), 0o600);
+
+      let loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.values.AWS_ACCESS_KEY_ID).toBe("file-key");
+      expect(loaded.values.AWS_SECRET_ACCESS_KEY).toBe("file-secret");
+      expect(loaded.sources.AWS_ACCESS_KEY_ID).toBe("file");
+      expect(loaded.sources.AWS_SECRET_ACCESS_KEY).toBe("file");
+
+      process.env.AWS_ACCESS_KEY_ID = "env-key";
+      process.env.AWS_SECRET_ACCESS_KEY = "env-secret";
+      loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.values.AWS_ACCESS_KEY_ID).toBe("env-key");
+      expect(loaded.values.AWS_SECRET_ACCESS_KEY).toBe("env-secret");
+      expect(loaded.sources.AWS_ACCESS_KEY_ID).toBe("env");
+      expect(loaded.sources.AWS_SECRET_ACCESS_KEY).toBe("env");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

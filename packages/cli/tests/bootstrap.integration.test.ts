@@ -323,6 +323,26 @@ describe("bootstrap command", () => {
     ).rejects.toThrow(/missing hetzner\.image/i);
   });
 
+  it("rejects aws provider with nixos-anywhere mode (phase2-first)", async () => {
+    setConfig({
+      provisioning: { provider: "aws", adminCidr: "203.0.113.10/32", sshPubkeyFile: defaultPubkeyFile },
+      aws: {
+        region: "us-east-1",
+        instanceType: "t3.large",
+        amiId: "ami-0123456789abcdef0",
+        vpcId: "",
+        subnetId: "",
+        useDefaultVpc: true,
+      } as any,
+    });
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
+    await expect(
+      bootstrap.run({
+        args: { host: hostName, mode: "nixos-anywhere", flake: "github:owner/repo", force: true, dryRun: true } as any,
+      }),
+    ).rejects.toThrow(/not supported for provider=aws/i);
+  });
+
   it("rejects when both --rev and --ref are provided", async () => {
     resolveBaseFlakeMock.mockResolvedValueOnce({ flake: "github:owner/repo" });
     setConfig({});

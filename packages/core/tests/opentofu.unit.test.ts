@@ -88,4 +88,76 @@ describe("opentofu", () => {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
+
+  it("destroyAwsOpenTofu runs init + destroy with vars", async () => {
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-opentofu-aws-"));
+    try {
+      const opentofuDir = path.join(repoRoot, ".clawlets", "infra", "opentofu");
+      const { destroyAwsOpenTofu } = await import("../src/lib/infra/providers/aws/opentofu");
+      await destroyAwsOpenTofu({
+        spec: {
+          hostName: "openclaw-fleet-host",
+          provider: "aws",
+          diskDevice: "/dev/sda",
+          sshExposureMode: "bootstrap",
+          tailnetMode: "tailscale",
+          ssh: {
+            adminCidr: "203.0.113.10/32",
+            adminCidrAllowWorldOpen: false,
+            publicKeyPath: path.join(repoRoot, "id_ed25519.pub"),
+            publicKey: "ssh-ed25519 AAAATEST aws-test",
+          },
+          aws: {
+            region: "us-east-1",
+            instanceType: "t3.large",
+            amiId: "ami-0123456789abcdef0",
+            vpcId: "",
+            subnetId: "",
+            useDefaultVpc: true,
+          },
+        },
+        runtime: {
+          repoRoot,
+          opentofuDir,
+          nixBin: "nix",
+          dryRun: false,
+          redact: ["aws-secret"],
+          credentials: {
+            awsAccessKeyId: "AKIA_TEST",
+            awsSecretAccessKey: "aws-secret",
+            awsSessionToken: "aws-session",
+          },
+        },
+      });
+
+      expect(runMock).toHaveBeenCalledTimes(2);
+
+      const [cmd1, args1, opts1] = runMock.mock.calls[0] as any[];
+      expect(cmd1).toBe("nix");
+      expect(opts1.cwd).toBe(path.join(opentofuDir, "providers", "aws"));
+      expect(args1).toEqual(["run", "--impure", "nixpkgs#opentofu", "--", "init", "-input=false"]);
+
+      const [cmd2, args2, opts2] = runMock.mock.calls[1] as any[];
+      expect(cmd2).toBe("nix");
+      expect(opts2.cwd).toBe(path.join(opentofuDir, "providers", "aws"));
+      expect(args2.slice(0, 5)).toEqual(["run", "--impure", "nixpkgs#opentofu", "--", "destroy"]);
+      expect(args2).toContain("-auto-approve");
+      expect(args2).toContain("-input=false");
+      expect(args2).toContain("admin_cidr=203.0.113.10/32");
+      expect(args2).toContain("ssh_exposure_mode=bootstrap");
+      expect(args2).toContain("tailnet_mode=tailscale");
+      expect(args2).toContain("region=us-east-1");
+      expect(args2).toContain("instance_type=t3.large");
+      expect(args2).toContain("ami_id=ami-0123456789abcdef0");
+      expect(args2).toContain("use_default_vpc=true");
+      expect(args2).toContain("ssh_public_key=ssh-ed25519 AAAATEST aws-test");
+      expect(opts2.env?.AWS_REGION).toBe("us-east-1");
+      expect(opts2.env?.AWS_DEFAULT_REGION).toBe("us-east-1");
+      expect(opts2.env?.AWS_ACCESS_KEY_ID).toBe("AKIA_TEST");
+      expect(opts2.env?.AWS_SECRET_ACCESS_KEY).toBe("aws-secret");
+      expect(opts2.env?.AWS_SESSION_TOKEN).toBe("aws-session");
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
 });

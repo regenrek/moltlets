@@ -16,7 +16,8 @@ import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecret
 import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host-connectivity";
-import { buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra";
+import { assertProvisionerBootstrapMode, BOOTSTRAP_MODES, buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra";
+import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -116,13 +117,9 @@ export const bootstrap = defineCommand({
 	    const repoRoot = findRepoRoot(cwd);
 	    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
 	    if (!hostName) return;
-	    const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+    const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
     const hostCfg = clawletsConfig.hosts[hostName];
     if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
-    const provider = hostCfg.provisioning?.provider ?? "hetzner";
-    if (provider !== "hetzner") {
-      throw new Error(`bootstrap currently supports only hetzner (provider=${provider})`);
-    }
     const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
     const sshExposureMode = spec.sshExposureMode;
     const tailnetMode = spec.tailnetMode;
@@ -134,10 +131,11 @@ export const bootstrap = defineCommand({
 	    const lockdownPollMs = parseDurationToMs(lockdownPollRaw);
 	    if (!lockdownPollMs) throw new Error(`invalid --lockdown-poll: ${lockdownPollRaw} (expected <n><s|m|h|d>, e.g. 5s)`);
 	    const modeRaw = String((args as any).mode || "nixos-anywhere").trim();
-	    if (modeRaw !== "nixos-anywhere" && modeRaw !== "image") {
+	    if (!BOOTSTRAP_MODES.includes(modeRaw as (typeof BOOTSTRAP_MODES)[number])) {
 	      throw new Error(`invalid --mode: ${modeRaw} (expected nixos-anywhere|image)`);
 	    }
-	    const mode = modeRaw as "nixos-anywhere" | "image";
+	    const mode = modeRaw as (typeof BOOTSTRAP_MODES)[number];
+    assertProvisionerBootstrapMode({ provider: spec.provider, spec, mode });
 	    if (lockdownAfter && mode !== "nixos-anywhere") {
 	      throw new Error(`--lockdown-after is only supported with --mode nixos-anywhere`);
 	    }
@@ -163,25 +161,17 @@ export const bootstrap = defineCommand({
 
     const nixBin = String(deployCreds.values.NIX_BIN || "nix").trim() || "nix";
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
-    if (mode === "image" && !spec.hetzner.image) {
-      throw new Error(`missing hetzner.image for ${hostName} (set via: clawlets host set --hetzner-image <image_id>)`);
-    }
 
     if (sshExposureMode === "tailnet") {
       throw new Error(`sshExposure.mode=tailnet; bootstrap requires public SSH. Set: clawlets host set --host ${hostName} --ssh-exposure bootstrap`);
     }
     const driver = getProvisionerDriver(spec.provider);
-    const runtime = {
+    const runtime = buildProvisionerRuntime({
       repoRoot,
       opentofuDir,
-      nixBin,
       dryRun: args.dryRun,
-      redact: [deployCreds.values.HCLOUD_TOKEN, githubToken].filter(Boolean) as string[],
-      credentials: {
-        hcloudToken: deployCreds.values.HCLOUD_TOKEN,
-        githubToken,
-      },
-    };
+      deployCreds,
+    });
     const provisioned = await driver.provision({ spec, runtime });
     const ipv4 = provisioned.ipv4;
 

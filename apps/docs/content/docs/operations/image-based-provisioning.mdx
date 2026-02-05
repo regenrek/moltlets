@@ -3,15 +3,18 @@ title: Image‑based provisioning
 description: Image‑first bootstrap flow.
 ---
 
-Image‑based provisioning lets you boot Hetzner hosts from a prebuilt NixOS image and
-skip `nixos-anywhere` during bootstrap. This is useful when you want faster host creation
+Image‑based provisioning lets you boot hosts from a prebuilt NixOS image and skip
+`nixos-anywhere` during bootstrap. This is useful when you want faster host creation
 or a repeatable image pipeline.
 
-## Reality check (Hetzner)
+## Reality check (providers)
 
 Hetzner Cloud does not provide a first‑party image upload API. The reliable path today
 is `hcloud-upload-image` (provisions a rescue VM, writes the image, then snapshots it)
 or a manual snapshot from a seeded VM.
+
+AWS supports a direct import path from S3 (`ec2 import-image`) which fits the Phase 2
+image/AMI workflow.
 
 ## POC path (recommended)
 
@@ -61,6 +64,20 @@ clawlets server update apply --host <host> --target-host admin@<ipv4>
 If you cannot upload, create a temporary VM, install NixOS, then snapshot it. This is
 less deterministic and requires extra care to avoid leaking secrets or leaving behind
 credentials.
+
+## AWS path (Phase 2-first)
+
+For AWS, the canonical path is S3 upload + AMI import:
+
+```bash
+clawlets image build --host <host>
+clawlets image aws publish --host <host> --image-path .clawlets/images/<host>/<image>.raw --bucket <s3-bucket>
+clawlets host set --host <host> --aws-ami-id <ami-id>
+clawlets bootstrap --host <host> --mode image
+```
+
+Use `clawlets image aws upload` and `clawlets image aws import` separately if you need
+manual control over the S3 key or import timing.
 
 ## Notes
 

@@ -6,7 +6,15 @@ import { formatDotenvValue } from "./dotenv-file.js";
 import { expandPath } from "./path-expand.js";
 import { findRepoRoot } from "./repo.js";
 
-export const DEPLOY_CREDS_KEYS = ["HCLOUD_TOKEN", "GITHUB_TOKEN", "NIX_BIN", "SOPS_AGE_KEY_FILE"] as const;
+export const DEPLOY_CREDS_KEYS = [
+  "HCLOUD_TOKEN",
+  "GITHUB_TOKEN",
+  "NIX_BIN",
+  "SOPS_AGE_KEY_FILE",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+] as const;
 export type DeployCredsKey = (typeof DEPLOY_CREDS_KEYS)[number];
 
 export type DeployCredsEnvFileKeys = {
@@ -14,6 +22,9 @@ export type DeployCredsEnvFileKeys = {
   GITHUB_TOKEN: string;
   NIX_BIN: string;
   SOPS_AGE_KEY_FILE: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  AWS_SESSION_TOKEN: string;
 };
 
 export type DeployEnvFileOrigin = "default" | "explicit";
@@ -37,6 +48,9 @@ export type DeployCredsResult = {
     GITHUB_TOKEN?: string;
     NIX_BIN: string;
     SOPS_AGE_KEY_FILE?: string;
+    AWS_ACCESS_KEY_ID?: string;
+    AWS_SECRET_ACCESS_KEY?: string;
+    AWS_SESSION_TOKEN?: string;
   };
   sources: Record<DeployCredsKey, DeployCredsSource>;
 };
@@ -50,6 +64,9 @@ export function renderDeployCredsEnvFile(keys: DeployCredsEnvFileKeys): string {
     `GITHUB_TOKEN=${formatDotenvValue(keys.GITHUB_TOKEN)}`,
     `NIX_BIN=${formatDotenvValue(keys.NIX_BIN)}`,
     `SOPS_AGE_KEY_FILE=${formatDotenvValue(keys.SOPS_AGE_KEY_FILE)}`,
+    `AWS_ACCESS_KEY_ID=${formatDotenvValue(keys.AWS_ACCESS_KEY_ID)}`,
+    `AWS_SECRET_ACCESS_KEY=${formatDotenvValue(keys.AWS_SECRET_ACCESS_KEY)}`,
+    `AWS_SESSION_TOKEN=${formatDotenvValue(keys.AWS_SESSION_TOKEN)}`,
     "",
   ];
   return lines.join("\n");
@@ -143,6 +160,9 @@ export function loadDeployCreds(params: { cwd: string; runtimeDir?: string; envF
   const GITHUB_TOKEN = get("GITHUB_TOKEN");
   const NIX_BIN = get("NIX_BIN");
   const SOPS_AGE_KEY_FILE = get("SOPS_AGE_KEY_FILE");
+  const AWS_ACCESS_KEY_ID = get("AWS_ACCESS_KEY_ID");
+  const AWS_SECRET_ACCESS_KEY = get("AWS_SECRET_ACCESS_KEY");
+  const AWS_SESSION_TOKEN = get("AWS_SESSION_TOKEN");
 
   const sopsAgeKeyFileRaw = SOPS_AGE_KEY_FILE.value ? expandPath(SOPS_AGE_KEY_FILE.value) : undefined;
   const sopsAgeKeyFile = sopsAgeKeyFileRaw
@@ -158,12 +178,18 @@ export function loadDeployCreds(params: { cwd: string; runtimeDir?: string; envF
       GITHUB_TOKEN: GITHUB_TOKEN.value,
       NIX_BIN: NIX_BIN.value || "nix",
       SOPS_AGE_KEY_FILE: sopsAgeKeyFile,
+      AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID.value,
+      AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY.value,
+      AWS_SESSION_TOKEN: AWS_SESSION_TOKEN.value,
     },
     sources: {
       HCLOUD_TOKEN: HCLOUD_TOKEN.source,
       GITHUB_TOKEN: GITHUB_TOKEN.source,
       NIX_BIN: NIX_BIN.source,
       SOPS_AGE_KEY_FILE: SOPS_AGE_KEY_FILE.source,
+      AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID.source,
+      AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY.source,
+      AWS_SESSION_TOKEN: AWS_SESSION_TOKEN.source,
     },
   };
 }

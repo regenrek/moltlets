@@ -28,7 +28,10 @@ operations, and lockdown.
 ### `clawlets bootstrap`
 
 Provision through the selected provider driver, then install NixOS.
-Current implementation supports `provisioning.provider=hetzner`.
+Provider support:
+
+- `provisioning.provider=hetzner`: `--mode nixos-anywhere|image`
+- `provisioning.provider=aws`: `--mode image` only (Phase 2 image/AMI path)
 
 Key flags:
 
@@ -134,12 +137,16 @@ Subcommands:
 
 ### `clawlets image`
 
-Image build/upload helpers.
+Image build/upload/import helpers (provider-specific).
 
 Subcommands:
 
 - `build`
-- `upload`
+- `upload` (Hetzner alias for backward compatibility)
+- `hetzner upload`
+- `aws upload`
+- `aws import`
+- `aws publish`
 
 ---
 

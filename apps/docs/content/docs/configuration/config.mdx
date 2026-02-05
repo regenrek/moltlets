@@ -80,6 +80,7 @@ also define which gateways run on this host.
 - `hetzner.location`: e.g. `nbg1` (required when `provider=hetzner`)
 - `aws.region`: e.g. `us-east-1` (required when `provider=aws`)
 - `aws.instanceType`: e.g. `t3.large` (required when `provider=aws`)
+- `aws.amiId`: AMI ID for image-mode bootstrap/provisioning (required when `provider=aws`)
 - `aws.vpcId` / `aws.subnetId` / `aws.useDefaultVpc`: network placement settings for AWS driver
 - `operator.deploy.enable`: allow `admin` to run `install-secrets` (constrained allowlist)
 - `sshExposure.mode`: `tailnet|bootstrap|public`
@@ -228,6 +229,7 @@ repo, run:
       "aws": {
         "region": "us-east-1",
         "instanceType": "t3.large",
+        "amiId": "ami-0123456789abcdef0",
         "vpcId": "",
         "subnetId": "",
         "useDefaultVpc": true

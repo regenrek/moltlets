@@ -38,6 +38,8 @@ describe("env commands", () => {
     await envInit.run({ args: { envFile } } as any);
     const content = fs.readFileSync(envFile, "utf8");
     expect(content).toMatch(/HCLOUD_TOKEN=/);
+    expect(content).toMatch(/AWS_ACCESS_KEY_ID=/);
+    expect(content).toMatch(/AWS_SECRET_ACCESS_KEY=/);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("note: pass --env-file"));
   });
 
@@ -46,8 +48,24 @@ describe("env commands", () => {
     findRepoRootMock.mockReturnValue(repoRoot);
     loadDeployCredsMock.mockReturnValue({
       envFile: { status: "ok", origin: "default", path: "/repo/.clawlets/env" },
-      values: { HCLOUD_TOKEN: "token", GITHUB_TOKEN: "gh", NIX_BIN: "nix", SOPS_AGE_KEY_FILE: "/keys/age" },
-      sources: { HCLOUD_TOKEN: "file", GITHUB_TOKEN: "env", NIX_BIN: "default", SOPS_AGE_KEY_FILE: "file" },
+      values: {
+        HCLOUD_TOKEN: "token",
+        GITHUB_TOKEN: "gh",
+        NIX_BIN: "nix",
+        SOPS_AGE_KEY_FILE: "/keys/age",
+        AWS_ACCESS_KEY_ID: "AKIA_TEST",
+        AWS_SECRET_ACCESS_KEY: "secret",
+        AWS_SESSION_TOKEN: "",
+      },
+      sources: {
+        HCLOUD_TOKEN: "file",
+        GITHUB_TOKEN: "env",
+        NIX_BIN: "default",
+        SOPS_AGE_KEY_FILE: "file",
+        AWS_ACCESS_KEY_ID: "file",
+        AWS_SECRET_ACCESS_KEY: "file",
+        AWS_SESSION_TOKEN: "unset",
+      },
     });
     const { envShow } = await import("../src/commands/infra/env.js");
     await envShow.run({ args: {} } as any);

@@ -61,6 +61,9 @@ export const envInit = defineCommand({
       GITHUB_TOKEN: String(existing.GITHUB_TOKEN || "").trim(),
       NIX_BIN: String(existing.NIX_BIN || "nix").trim() || "nix",
       SOPS_AGE_KEY_FILE: String(existing.SOPS_AGE_KEY_FILE || "").trim(),
+      AWS_ACCESS_KEY_ID: String(existing.AWS_ACCESS_KEY_ID || "").trim(),
+      AWS_SECRET_ACCESS_KEY: String(existing.AWS_SECRET_ACCESS_KEY || "").trim(),
+      AWS_SESSION_TOKEN: String(existing.AWS_SESSION_TOKEN || "").trim(),
     };
 
     await writeFileAtomic(resolved.path, renderDeployCredsEnvFile(keys), { mode: 0o600 });
@@ -95,7 +98,17 @@ export const envShow = defineCommand({
       console.log("env file: (default missing; set vars via process env or run: clawlets env init)");
     }
 
-    const line = (k: "HCLOUD_TOKEN" | "GITHUB_TOKEN" | "NIX_BIN" | "SOPS_AGE_KEY_FILE", redact: boolean) => {
+    const line = (
+      k:
+        | "HCLOUD_TOKEN"
+        | "GITHUB_TOKEN"
+        | "NIX_BIN"
+        | "SOPS_AGE_KEY_FILE"
+        | "AWS_ACCESS_KEY_ID"
+        | "AWS_SECRET_ACCESS_KEY"
+        | "AWS_SESSION_TOKEN",
+      redact: boolean,
+    ) => {
       const v = loaded.values[k];
       const src = loaded.sources[k];
       if (!v) return `${k}: unset (${src})`;
@@ -107,6 +120,9 @@ export const envShow = defineCommand({
     console.log(line("GITHUB_TOKEN", true));
     console.log(line("NIX_BIN", false));
     console.log(line("SOPS_AGE_KEY_FILE", false));
+    console.log(line("AWS_ACCESS_KEY_ID", true));
+    console.log(line("AWS_SECRET_ACCESS_KEY", true));
+    console.log(line("AWS_SESSION_TOKEN", true));
   },
 });
 

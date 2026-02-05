@@ -284,6 +284,7 @@ describe("clawlets config schema", () => {
             aws: {
               region: "us-east-1",
               instanceType: "t3.large",
+              amiId: "ami-0123456789abcdef0",
               vpcId: "vpc-1234",
               subnetId: "",
               useDefaultVpc: true,
@@ -295,6 +296,33 @@ describe("clawlets config schema", () => {
         },
       }),
     ).toThrow(/useDefaultVpc/i);
+  });
+
+  it("rejects aws provider when amiId is missing", async () => {
+    const { ClawletsConfigSchema } = await import("../src/lib/clawlets-config");
+    expect(() =>
+      ClawletsConfigSchema.parse({
+        schemaVersion: 1,
+        hosts: {
+          "openclaw-fleet-host": {
+            enable: false,
+            diskDevice: "/dev/sda",
+            provisioning: { provider: "aws" },
+            aws: {
+              region: "us-east-1",
+              instanceType: "t3.large",
+              amiId: "",
+              vpcId: "vpc-1234",
+              subnetId: "",
+              useDefaultVpc: false,
+            },
+            sshExposure: { mode: "bootstrap" },
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+          },
+        },
+      }),
+    ).toThrow(/aws\.amiId/i);
   });
 
   it("accepts aws provider with required fields", async () => {
@@ -310,6 +338,7 @@ describe("clawlets config schema", () => {
             aws: {
               region: "us-east-1",
               instanceType: "t3.large",
+              amiId: "ami-0123456789abcdef0",
               vpcId: "vpc-1234",
               subnetId: "",
               useDefaultVpc: false,
@@ -340,6 +369,7 @@ describe("clawlets config schema", () => {
     expect(cfg.hosts["openclaw-fleet-host"].provisioning?.adminCidrAllowWorldOpen).toBe(false);
     expect(cfg.hosts["openclaw-fleet-host"].provisioning?.provider).toBe("hetzner");
     expect(cfg.hosts["openclaw-fleet-host"].aws?.useDefaultVpc).toBe(false);
+    expect(cfg.hosts["openclaw-fleet-host"].aws?.amiId).toBe("");
     expect(cfg.hosts["openclaw-fleet-host"].agentModelPrimary).toBe("zai/glm-4.7");
   });
 

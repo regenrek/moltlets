@@ -1,6 +1,9 @@
 import type { ProvisioningProvider } from "../config/providers/index.js";
 import type { SshExposureMode, TailnetMode } from "../config/schema-host.js";
 
+export const BOOTSTRAP_MODES = ["nixos-anywhere", "image"] as const;
+export type BootstrapMode = (typeof BOOTSTRAP_MODES)[number];
+
 export type HostProvisionSpecBase = {
   hostName: string;
   provider: ProvisioningProvider;
@@ -29,6 +32,7 @@ export type AwsProvisionSpec = HostProvisionSpecBase & {
   aws: {
     region: string;
     instanceType: string;
+    amiId: string;
     vpcId: string;
     subnetId: string;
     useDefaultVpc: boolean;
@@ -54,6 +58,9 @@ export type ProvisionerRuntime = {
   credentials: {
     hcloudToken?: string;
     githubToken?: string;
+    awsAccessKeyId?: string;
+    awsSecretAccessKey?: string;
+    awsSessionToken?: string;
   };
 };
 

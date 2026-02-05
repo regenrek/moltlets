@@ -8,6 +8,7 @@ export const baseHost = {
   flakeHost: "",
   targetHost: "admin@host",
   hetzner: { serverType: "cx43", image: "", location: "nbg1" },
+  aws: { region: "", instanceType: "", amiId: "", vpcId: "", subnetId: "", useDefaultVpc: false },
   provisioning: { adminCidr: "203.0.113.1/32", adminCidrAllowWorldOpen: false, sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
   sshExposure: { mode: "bootstrap" },
   tailnet: { mode: "tailscale" },

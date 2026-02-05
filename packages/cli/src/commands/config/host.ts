@@ -55,7 +55,7 @@ const add = defineCommand({
       targetHost: undefined,
       theme: { emoji: HOST_THEME_DEFAULT_EMOJI, color: HOST_THEME_DEFAULT_COLOR },
       hetzner: { serverType: "cx43", image: "", location: "nbg1" },
-      aws: { region: "", instanceType: "", vpcId: "", subnetId: "", useDefaultVpc: false },
+      aws: { region: "", instanceType: "", amiId: "", vpcId: "", subnetId: "", useDefaultVpc: false },
       provisioning: { provider: "hetzner", adminCidr: "", adminCidrAllowWorldOpen: false, sshPubkeyFile: "" },
       sshExposure: { mode: "bootstrap" },
       tailnet: { mode: "tailscale" },
@@ -131,6 +131,7 @@ const set = defineCommand({
     provider: { type: "string", description: "Provisioning provider (hetzner|aws)." },
     "aws-region": { type: "string", description: "AWS region (e.g. us-east-1)." },
     "aws-instance-type": { type: "string", description: "AWS instance type (e.g. t3.large)." },
+    "aws-ami-id": { type: "string", description: "AWS AMI ID (e.g. ami-0123456789abcdef0)." },
     "aws-vpc-id": { type: "string", description: "AWS VPC ID (e.g. vpc-1234)." },
     "aws-subnet-id": { type: "string", description: "AWS subnet ID (e.g. subnet-1234)." },
     "aws-use-default-vpc": { type: "string", description: "Use AWS default VPC (true/false)." },
@@ -213,6 +214,7 @@ const set = defineCommand({
     }
     if ((args as any)["aws-region"] !== undefined) next.aws.region = String((args as any)["aws-region"]).trim();
     if ((args as any)["aws-instance-type"] !== undefined) next.aws.instanceType = String((args as any)["aws-instance-type"]).trim();
+    if ((args as any)["aws-ami-id"] !== undefined) next.aws.amiId = String((args as any)["aws-ami-id"]).trim();
     if ((args as any)["aws-vpc-id"] !== undefined) next.aws.vpcId = String((args as any)["aws-vpc-id"]).trim();
     if ((args as any)["aws-subnet-id"] !== undefined) next.aws.subnetId = String((args as any)["aws-subnet-id"]).trim();
     if ((args as any)["aws-use-default-vpc"] !== undefined) {

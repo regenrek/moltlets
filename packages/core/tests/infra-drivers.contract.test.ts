@@ -54,7 +54,7 @@ describe("infra driver contracts", () => {
     }
   });
 
-  it("aws driver advertises explicit unsupported message until implementation ships", async () => {
+  it("aws driver provision/destroy/lockdown satisfy contract in dry-run mode", async () => {
     const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-infra-contract-aws-"));
     try {
       const pubkeyPath = path.join(repoRoot, "id_ed25519.pub");
@@ -75,6 +75,7 @@ describe("infra driver contracts", () => {
           aws: {
             region: "us-east-1",
             instanceType: "t3.large",
+            amiId: "ami-0123456789abcdef0",
             useDefaultVpc: true,
           },
         } as any,
@@ -83,19 +84,26 @@ describe("infra driver contracts", () => {
       expect(spec.provider).toBe("aws");
       const driver = getProvisionerDriver(spec.provider);
 
-      await expect(
-        driver.provision({
-          spec,
-          runtime: {
-            repoRoot,
-            opentofuDir: path.join(repoRoot, ".clawlets", "infra", "opentofu", "beta"),
-            nixBin: "nix",
-            dryRun: true,
-            redact: [],
-            credentials: {},
-          },
-        }),
-      ).rejects.toThrow(/AWS provisioning driver is not implemented yet/i);
+      const runtime = {
+        repoRoot,
+        opentofuDir: path.join(repoRoot, ".clawlets", "infra", "opentofu", "beta"),
+        nixBin: "nix",
+        dryRun: true,
+        redact: ["top-secret"],
+        credentials: {
+          awsAccessKeyId: "AKIA_TEST",
+          awsSecretAccessKey: "top-secret",
+        },
+      };
+
+      const provisioned = await driver.provision({ spec, runtime });
+      expect(provisioned.hostName).toBe("beta");
+      expect(provisioned.provider).toBe("aws");
+      expect(provisioned.instanceId).toContain("opentofu-output");
+      expect(provisioned.ipv4).toContain("opentofu-output");
+
+      await expect(driver.lockdown({ spec, runtime })).resolves.toBeUndefined();
+      await expect(driver.destroy({ spec, runtime })).resolves.toBeUndefined();
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

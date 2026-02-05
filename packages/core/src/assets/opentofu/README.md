@@ -3,7 +3,7 @@
 Clawlets stores provider OpenTofu assets under:
 
 - `providers/hetzner/`
-- `providers/aws/` (scaffold until aws driver is implemented)
+- `providers/aws/`
 
 Runtime state dir:
 
@@ -17,7 +17,7 @@ Notes:
 Manual runs (debugging):
 
 ```bash
-nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host> init
-nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host> plan
-nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host> apply
+nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host>/providers/<provider> init
+nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host>/providers/<provider> plan
+nix run --impure nixpkgs#opentofu -- -chdir=.clawlets/infra/opentofu/<host>/providers/<provider> apply
 ```

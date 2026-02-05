@@ -18,6 +18,11 @@ export function buildAwsProvisionSpec(params: {
     throw new Error(`missing aws.instanceType for ${params.hostName} (set via: clawlets host set --aws-instance-type ...)`);
   }
 
+  const amiId = String(params.hostCfg.aws?.amiId || "").trim();
+  if (!amiId) {
+    throw new Error(`missing aws.amiId for ${params.hostName} (set via: clawlets host set --aws-ami-id ...)`);
+  }
+
   const vpcId = String(params.hostCfg.aws?.vpcId || "").trim();
   const subnetId = String(params.hostCfg.aws?.subnetId || "").trim();
   const useDefaultVpc = Boolean(params.hostCfg.aws?.useDefaultVpc);
@@ -31,6 +36,6 @@ export function buildAwsProvisionSpec(params: {
   return {
     ...params.base,
     provider: "aws",
-    aws: { region, instanceType, vpcId, subnetId, useDefaultVpc },
+    aws: { region, instanceType, amiId, vpcId, subnetId, useDefaultVpc },
   };
 }

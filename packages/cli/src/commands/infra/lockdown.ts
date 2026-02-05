@@ -7,6 +7,7 @@ import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
 import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host-resolve";
 import { buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra";
+import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 export const lockdown = defineCommand({
   meta: {
@@ -49,17 +50,12 @@ export const lockdown = defineCommand({
     if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
     const driver = getProvisionerDriver(spec.provider);
-    const runtime = {
+    const runtime = buildProvisionerRuntime({
       repoRoot,
       opentofuDir,
-      nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix",
       dryRun: args.dryRun,
-      redact: [deployCreds.values.HCLOUD_TOKEN, deployCreds.values.GITHUB_TOKEN].filter(Boolean) as string[],
-      credentials: {
-        hcloudToken: deployCreds.values.HCLOUD_TOKEN,
-        githubToken: deployCreds.values.GITHUB_TOKEN,
-      },
-    };
+      deployCreds,
+    });
 
     if (!args.skipTofu) {
       await driver.lockdown({ spec, runtime });

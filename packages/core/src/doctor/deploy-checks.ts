@@ -203,6 +203,13 @@ export async function addDeployChecks(params: {
           detail: instanceType || "(unset)",
         });
 
+        const amiId = String(clawletsHostCfg.aws?.amiId || "").trim();
+        push({
+          status: amiId ? "ok" : "missing",
+          label: "aws.amiId",
+          detail: amiId || "(unset)",
+        });
+
         const vpcId = String(clawletsHostCfg.aws?.vpcId || "").trim();
         const subnetId = String(clawletsHostCfg.aws?.subnetId || "").trim();
         const useDefaultVpc = Boolean(clawletsHostCfg.aws?.useDefaultVpc);
