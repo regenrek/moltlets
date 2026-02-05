@@ -13,8 +13,8 @@ a local-first dashboard and a CLI to bootstrap, deploy, and operate fleets over 
 
 ## Official Templates
 
-- Looking for official AWS Deploy? [clawdbot/clawdinators](https://github.com/clawdbot/clawdinators)
-- Clawdbot [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot)
+- Looking for official AWS Deploy? [openclaw/clawdinators](https://github.com/openclaw/clawdinators)
+- Openclaw [nix-openclaw](https://github.com/openclaw/nix-openclaw)
 
 > 🚨🚨
 > **Use at your own risk!** This project is under active development. You absolutely need to know what you're doing
@@ -55,8 +55,8 @@ Source: `apps/docs/content/docs/`
 Clawlets is strictly an infrastructure wrapper. All credit for the AI assistant and Nix packaging goes to the core
 projects:
 
-- [nix-clawdbot](https://github.com/clawdbot/nix-clawdbot) by [joshp123](https://github.com/joshp123)
-- [clawdbot](https://github.com/clawdbot/clawdbot) by [steipete](https://x.com/steipete)
+- [nix-openclaw](https://github.com/openclaw/nix-openclaw) by [joshp123](https://github.com/joshp123)
+- [openclaw](https://github.com/openclaw/openclaw) by [steipete](https://x.com/steipete)
 
 ## License
 
@@ -65,4 +65,3 @@ MIT
 ## Find me
 
 [@kevinkernx](https://x.com/kevinkern)
-

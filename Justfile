@@ -36,13 +36,13 @@ config-validate:
 config-show:
   cd {{justfile_directory()}} && node packages/cli/dist/main.mjs config show
 
-secrets-init host="clawdbot-fleet-host":
+secrets-init host="openclaw-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawlets:secrets -- init --host {{host}}
 
-secrets-sync host="clawdbot-fleet-host":
+secrets-sync host="openclaw-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawlets:secrets -- sync --host {{host}}
 
-infra-apply host="clawdbot-fleet-host":
+infra-apply host="openclaw-fleet-host":
   cd {{justfile_directory()}} && pnpm run clawlets:infra -- apply --host {{host}}
 
 server-units target_host:
