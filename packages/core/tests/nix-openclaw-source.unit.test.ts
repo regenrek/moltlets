@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseNixClawdbotSource, fetchNixClawdbotSourceInfo } from "../src/lib/nix-clawdbot.js";
+import { parseNixOpenclawSource, fetchNixOpenclawSourceInfo } from "../src/lib/nix-openclaw-source.js";
 
-describe("parseNixClawdbotSource", () => {
+describe("parseNixOpenclawSource", () => {
   it("parses double-quoted attrs with comments", () => {
     const raw = `
       # pinned clawdbot
@@ -13,7 +13,7 @@ describe("parseNixClawdbotSource", () => {
         pnpmDepsHash = "sha256-abc";
       }
     `;
-    const parsed = parseNixClawdbotSource(raw);
+    const parsed = parseNixOpenclawSource(raw);
     expect(parsed).toEqual({ rev: "abc123", hash: "sha256-xyz", pnpmDepsHash: "sha256-abc" });
   });
 
@@ -28,31 +28,31 @@ describe("parseNixClawdbotSource", () => {
         pnpmDepsHash = 'sha256-2';
       }
     `;
-    const parsed = parseNixClawdbotSource(raw);
+    const parsed = parseNixOpenclawSource(raw);
     expect(parsed).toEqual({ rev: "deadbeef", hash: "sha256-1", pnpmDepsHash: "sha256-2" });
   });
 
   it("returns null when rev is missing", () => {
     const raw = `{ hash = "sha256-x"; }`;
-    const parsed = parseNixClawdbotSource(raw);
+    const parsed = parseNixOpenclawSource(raw);
     expect(parsed).toBeNull();
   });
 });
 
-describe("fetchNixClawdbotSourceInfo", () => {
+describe("fetchNixOpenclawSourceInfo", () => {
   it("rejects non-string refs without throwing", async () => {
-    const res = await fetchNixClawdbotSourceInfo({ ref: undefined as unknown as string, timeoutMs: 1000 });
+    const res = await fetchNixOpenclawSourceInfo({ ref: undefined as unknown as string, timeoutMs: 1000 });
     expect(res.ok).toBe(false);
     if (!res.ok) {
-      expect(res.error).toBe("invalid nix-clawdbot ref");
+      expect(res.error).toBe("invalid nix-openclaw ref");
     }
   });
 
   it("rejects invalid refs", async () => {
-    const res = await fetchNixClawdbotSourceInfo({ ref: "main\nbad", timeoutMs: 1000 });
+    const res = await fetchNixOpenclawSourceInfo({ ref: "main\nbad", timeoutMs: 1000 });
     expect(res.ok).toBe(false);
     if (!res.ok) {
-      expect(res.error).toBe("invalid nix-clawdbot ref");
+      expect(res.error).toBe("invalid nix-openclaw ref");
       expect(res.sourceUrl).toBe("");
     }
   });
@@ -70,7 +70,7 @@ describe("fetchNixClawdbotSourceInfo", () => {
             pnpmDepsHash = "sha256-y";
           }`,
         }) as Response;
-      const res = await fetchNixClawdbotSourceInfo({ ref: "main", timeoutMs: 1000 });
+      const res = await fetchNixOpenclawSourceInfo({ ref: "main", timeoutMs: 1000 });
       expect(res.ok).toBe(true);
       if (res.ok) {
         expect(res.info.rev).toBe("abc123");
@@ -99,7 +99,7 @@ describe("fetchNixClawdbotSourceInfo", () => {
           }`,
         } as Response;
       };
-      const res = await fetchNixClawdbotSourceInfo({ ref: "main", timeoutMs: 1000 });
+      const res = await fetchNixOpenclawSourceInfo({ ref: "main", timeoutMs: 1000 });
       expect(res.ok).toBe(true);
       expect(urls[0]).toContain("/openclaw-source.nix");
       expect(urls[1]).toContain("/moltbot-source.nix");
@@ -117,7 +117,7 @@ describe("fetchNixClawdbotSourceInfo", () => {
           status: 429,
           text: async () => "rate limited",
         }) as Response;
-      const res = await fetchNixClawdbotSourceInfo({ ref: "main", timeoutMs: 1000 });
+      const res = await fetchNixOpenclawSourceInfo({ ref: "main", timeoutMs: 1000 });
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.error).toContain("http 429");

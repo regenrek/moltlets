@@ -9,7 +9,7 @@ import { evalFleetConfig } from "../lib/fleet-nix-eval.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/clawlets-config.js";
 import { buildOpenClawGatewayConfig } from "../lib/openclaw-config-invariants.js";
 import { lintOpenclawSecurityConfig } from "../lib/openclaw-security-lint.js";
-import { checkSchemaVsNixClawdbot } from "./schema-checks.js";
+import { checkSchemaVsNixOpenclaw } from "./schema-checks.js";
 import { findClawdbotSecretViolations, findFleetSecretViolations } from "./repo-checks-secrets.js";
 import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
 import type { DoctorPush } from "./types.js";
@@ -73,7 +73,7 @@ export async function addRepoChecks(params: {
   }
 
   {
-    const checks = await checkSchemaVsNixClawdbot({ repoRoot });
+    const checks = await checkSchemaVsNixOpenclaw({ repoRoot });
     for (const check of checks) params.push(check);
   }
 

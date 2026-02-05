@@ -10,8 +10,8 @@ describe("openclaw schema comparison summary", () => {
       schemaVersion: "1.0.0",
       schemaRev: "rev123",
       warnings: ["warn1"],
-      pinned: { ok: true, nixClawdbotRev: "pinrev", openclawRev: "rev123", matches: true },
-      upstream: { ok: false, nixClawdbotRef: "main", error: "rate limited" },
+      pinned: { ok: true, nixOpenclawRev: "pinrev", openclawRev: "rev123", matches: true },
+      upstream: { ok: false, nixOpenclawRef: "main", error: "rate limited" },
     };
     const summary = summarizeOpenclawSchemaComparison(comparison);
     expect(summary.pinned?.status).toBe("ok");
@@ -25,8 +25,8 @@ describe("openclaw schema comparison summary", () => {
       schemaVersion: "2.0.0",
       schemaRev: "rev000",
       warnings: [],
-      pinned: { ok: true, nixClawdbotRev: "pinrev", openclawRev: "rev999", matches: false },
-      upstream: { ok: true, nixClawdbotRef: "main", openclawRev: "rev999", matches: false },
+      pinned: { ok: true, nixOpenclawRev: "pinrev", openclawRev: "rev999", matches: false },
+      upstream: { ok: true, nixOpenclawRef: "main", openclawRev: "rev999", matches: false },
     };
     const summary = summarizeOpenclawSchemaComparison(comparison);
     expect(summary.pinned?.status).toBe("warn");

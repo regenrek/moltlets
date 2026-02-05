@@ -24,14 +24,14 @@ describe("openclaw schema status cache", () => {
       }),
       getRepoRoot: async (_client: unknown, projectId: string) => `/tmp/${projectId}`,
     }))
-    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
-        "@clawlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-openclaw-source", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-openclaw-source")>(
+        "@clawlets/core/lib/nix-openclaw-source",
       )
       return {
         ...actual,
-        fetchNixClawdbotSourceInfo: fetchSpy,
-        getNixClawdbotRevFromFlakeLock: () => "pin-a",
+        fetchNixOpenclawSourceInfo: fetchSpy,
+        getNixOpenclawRevFromFlakeLock: () => "pin-a",
       }
     })
     const { fetchOpenclawSchemaStatus } = await import("~/server/openclaw-schema.server")
@@ -67,14 +67,14 @@ describe("openclaw schema status cache", () => {
       }),
       getRepoRoot: async (_client: unknown, projectId: string) => `/tmp/${projectId}`,
     }))
-    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
-        "@clawlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-openclaw-source", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-openclaw-source")>(
+        "@clawlets/core/lib/nix-openclaw-source",
       )
       return {
         ...actual,
-        fetchNixClawdbotSourceInfo: fetchSpy,
-        getNixClawdbotRevFromFlakeLock: (repoRoot: string) => {
+        fetchNixOpenclawSourceInfo: fetchSpy,
+        getNixOpenclawRevFromFlakeLock: (repoRoot: string) => {
           return repoRoot.includes("p1") ? "pin-a" : "pin-b"
         },
       }
@@ -108,7 +108,7 @@ describe("openclaw schema status cache", () => {
       )
       return {
         ...actual,
-        compareOpenclawSchemaToNixClawdbot: compareSpy,
+        compareOpenclawSchemaToNixOpenclaw: compareSpy,
       }
     })
 
@@ -154,14 +154,14 @@ describe("openclaw schema status cache", () => {
         repoRoot: `/tmp/${projectId}`,
       }),
     }))
-    vi.doMock("@clawlets/core/lib/nix-clawdbot", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-clawdbot")>(
-        "@clawlets/core/lib/nix-clawdbot",
+    vi.doMock("@clawlets/core/lib/nix-openclaw-source", async () => {
+      const actual = await vi.importActual<typeof import("@clawlets/core/lib/nix-openclaw-source")>(
+        "@clawlets/core/lib/nix-openclaw-source",
       )
       return {
         ...actual,
-        fetchNixClawdbotSourceInfo: fetchSpy,
-        getNixClawdbotRevFromFlakeLock: () => pinnedRef,
+        fetchNixOpenclawSourceInfo: fetchSpy,
+        getNixOpenclawRevFromFlakeLock: () => pinnedRef,
       }
     })
     const { fetchOpenclawSchemaStatus } = await import("~/server/openclaw-schema.server")

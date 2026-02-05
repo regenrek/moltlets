@@ -1,26 +1,26 @@
 import {
-  compareOpenclawSchemaToNixClawdbot,
+  compareOpenclawSchemaToNixOpenclaw,
   summarizeOpenclawSchemaComparison,
 } from "../lib/openclaw/schema/compare.js";
 import { getPinnedOpenclawSchemaArtifact } from "../lib/openclaw/schema/artifact.js";
-import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "../lib/nix-clawdbot.js";
+import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "../lib/nix-openclaw-source.js";
 import type { DoctorCheck } from "./types.js";
 
 type SchemaCheckDeps = {
   getPinnedSchema?: typeof getPinnedOpenclawSchemaArtifact;
-  getNixClawdbotRevFromFlakeLock?: typeof getNixClawdbotRevFromFlakeLock;
-  fetchNixClawdbotSourceInfo?: typeof fetchNixClawdbotSourceInfo;
+  getNixOpenclawRevFromFlakeLock?: typeof getNixOpenclawRevFromFlakeLock;
+  fetchNixOpenclawSourceInfo?: typeof fetchNixOpenclawSourceInfo;
 };
 
-export async function checkSchemaVsNixClawdbot(
+export async function checkSchemaVsNixOpenclaw(
   params: { repoRoot: string } & SchemaCheckDeps,
 ): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
-  const comparison = await compareOpenclawSchemaToNixClawdbot({
+  const comparison = await compareOpenclawSchemaToNixOpenclaw({
     repoRoot: params.repoRoot,
     getPinnedSchema: params.getPinnedSchema ?? getPinnedOpenclawSchemaArtifact,
-    getNixClawdbotRevFromFlakeLock: params.getNixClawdbotRevFromFlakeLock ?? getNixClawdbotRevFromFlakeLock,
-    fetchNixClawdbotSourceInfo: params.fetchNixClawdbotSourceInfo ?? fetchNixClawdbotSourceInfo,
+    getNixOpenclawRevFromFlakeLock: params.getNixOpenclawRevFromFlakeLock ?? getNixOpenclawRevFromFlakeLock,
+    fetchNixOpenclawSourceInfo: params.fetchNixOpenclawSourceInfo ?? fetchNixOpenclawSourceInfo,
     requireSchemaRev: true,
   });
   if (!comparison) return checks;
@@ -34,14 +34,14 @@ export async function checkSchemaVsNixClawdbot(
       checks.push({
         scope: "repo",
         status: "warn",
-        label: "openclaw schema vs nix-clawdbot",
-        detail: `pinned nix-clawdbot rev=${pinned.nixClawdbotRev.slice(0, 12)}... (${pinned.error})`,
+        label: "openclaw schema vs nix-openclaw",
+        detail: `pinned nix-openclaw rev=${pinned.nixOpenclawRev.slice(0, 12)}... (${pinned.error})`,
       });
     } else {
       checks.push({
         scope: "repo",
         status: pinned.status,
-        label: "openclaw schema vs nix-clawdbot",
+        label: "openclaw schema vs nix-openclaw",
         detail: pinned.matches
           ? `schema=v${schemaVersion} rev=${schemaRev.slice(0, 12)}...`
           : `schema=v${schemaVersion} rev=${schemaRev.slice(0, 12)}... nix=${pinned.openclawRev.slice(0, 12)}...`,

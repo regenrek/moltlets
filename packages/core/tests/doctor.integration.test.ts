@@ -252,9 +252,9 @@ describe("doctor", () => {
         openclawRev: "rev1234567890abcd",
       }),
     }));
-    vi.doMock("../src/lib/nix-clawdbot.js", () => ({
-      getNixClawdbotRevFromFlakeLock: () => "pinrev",
-      fetchNixClawdbotSourceInfo: async () => ({
+    vi.doMock("../src/lib/nix-openclaw-source.js", () => ({
+      getNixOpenclawRevFromFlakeLock: () => "pinrev",
+      fetchNixOpenclawSourceInfo: async () => ({
         ok: true as const,
         info: { rev: "rev1234567890abcd" },
         sourceUrl: "https://example.com",
@@ -263,7 +263,7 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("ok");
     expect(upstream?.status).toBe("ok");
@@ -280,9 +280,9 @@ describe("doctor", () => {
         openclawRev: "rev1234567890abcd",
       }),
     }));
-    vi.doMock("../src/lib/nix-clawdbot.js", () => ({
-      getNixClawdbotRevFromFlakeLock: () => "pinrev",
-      fetchNixClawdbotSourceInfo: async ({ ref }: { ref: string }) => {
+    vi.doMock("../src/lib/nix-openclaw-source.js", () => ({
+      getNixOpenclawRevFromFlakeLock: () => "pinrev",
+      fetchNixOpenclawSourceInfo: async ({ ref }: { ref: string }) => {
         if (ref === "pinrev") {
           return { ok: true as const, info: { rev: "rev9999999999" }, sourceUrl: "https://example.com" };
         }
@@ -292,14 +292,14 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
     expect(upstream?.status).toBe("warn");
     expect(upstream?.detail || "").toContain("unable to fetch");
   });
 
-  it("warns when pinned nix-clawdbot fetch fails", async () => {
+  it("warns when pinned nix-openclaw fetch fails", async () => {
     vi.resetModules();
     vi.doMock("../src/lib/openclaw/schema/artifact.js", () => ({
       getPinnedOpenclawSchemaArtifact: () => ({
@@ -310,9 +310,9 @@ describe("doctor", () => {
         openclawRev: "rev1234567890abcd",
       }),
     }));
-    vi.doMock("../src/lib/nix-clawdbot.js", () => ({
-      getNixClawdbotRevFromFlakeLock: () => "pinrev",
-      fetchNixClawdbotSourceInfo: async ({ ref }: { ref: string }) => {
+    vi.doMock("../src/lib/nix-openclaw-source.js", () => ({
+      getNixOpenclawRevFromFlakeLock: () => "pinrev",
+      fetchNixOpenclawSourceInfo: async ({ ref }: { ref: string }) => {
         if (ref === "pinrev") {
           return { ok: false as const, error: "nope", sourceUrl: "https://example.com" };
         }
@@ -322,7 +322,7 @@ describe("doctor", () => {
 
     const { collectDoctorChecks } = await import("../src/doctor");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "clawdbot-fleet-host", scope: "repo" });
-    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
     expect(pinned?.status).toBe("warn");
     expect(pinned?.detail || "").toContain("nope");

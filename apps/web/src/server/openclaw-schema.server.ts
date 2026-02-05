@@ -5,8 +5,8 @@ import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/
 import { parseOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw-config-invariants"
 import { loadClawletsConfig } from "@clawlets/core/lib/clawlets-config"
-import { compareOpenclawSchemaToNixClawdbot, summarizeOpenclawSchemaComparison } from "@clawlets/core/lib/openclaw/schema/compare"
-import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "@clawlets/core/lib/nix-clawdbot"
+import { compareOpenclawSchemaToNixOpenclaw, summarizeOpenclawSchemaComparison } from "@clawlets/core/lib/openclaw/schema/compare"
+import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "@clawlets/core/lib/nix-openclaw-source"
 import { shellQuote, sshCapture, validateTargetHost } from "@clawlets/core/lib/ssh-remote"
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
 import { createConvexClient } from "~/server/convex"
@@ -26,11 +26,11 @@ const SCHEMA_MARKER_BYTES_MAX = 2 * 1024 * 1024
 
 type SourceCacheEntry = {
   expiresAt: number
-  value: Awaited<ReturnType<typeof fetchNixClawdbotSourceInfo>>
+  value: Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>
 }
 
 const sourceCache = new Map<string, SourceCacheEntry>()
-const sourceInFlight = new Map<string, Promise<Awaited<ReturnType<typeof fetchNixClawdbotSourceInfo>>>>()
+const sourceInFlight = new Map<string, Promise<Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>>>()
 const statusCache = new Map<string, { expiresAt: number; value: OpenclawSchemaStatusResult }>()
 const statusInFlight = new Map<string, Promise<OpenclawSchemaStatusResult>>()
 const liveSchemaCache = new Map<string, { expiresAt: number; value: OpenclawSchemaLiveResult }>()
@@ -53,9 +53,9 @@ function capCache<T>(cache: Map<string, T>, maxSize: number) {
   }
 }
 
-async function fetchNixClawdbotSourceInfoCached(params: {
+async function fetchNixOpenclawSourceInfoCached(params: {
   ref: string
-}): Promise<Awaited<ReturnType<typeof fetchNixClawdbotSourceInfo>>> {
+}): Promise<Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>> {
   const key = params.ref.trim() || "main"
   const now = Date.now()
   pruneExpired(sourceCache, now)
@@ -64,7 +64,7 @@ async function fetchNixClawdbotSourceInfoCached(params: {
   const inFlight = sourceInFlight.get(key)
   if (inFlight) return inFlight
   const task = (async () => {
-    const value = await fetchNixClawdbotSourceInfo({ ref: key })
+    const value = await fetchNixOpenclawSourceInfo({ ref: key })
     const expiresAt = Date.now() + SOURCE_TTL_MS
     sourceCache.set(key, { expiresAt, value })
     capCache(sourceCache, SOURCE_CACHE_MAX)
@@ -266,10 +266,10 @@ export async function fetchOpenclawSchemaStatus(params: {
     try {
       const client = createConvexClient()
       const { repoRoot } = await getProjectContext(client, params.projectId)
-      const comparison = await compareOpenclawSchemaToNixClawdbot({
+      const comparison = await compareOpenclawSchemaToNixOpenclaw({
         repoRoot,
-        fetchNixClawdbotSourceInfo: fetchNixClawdbotSourceInfoCached,
-        getNixClawdbotRevFromFlakeLock,
+        fetchNixOpenclawSourceInfo: fetchNixOpenclawSourceInfoCached,
+        getNixOpenclawRevFromFlakeLock,
         requireSchemaRev: false,
       })
       if (!comparison) {
@@ -285,10 +285,10 @@ export async function fetchOpenclawSchemaStatus(params: {
 
       const summary = summarizeOpenclawSchemaComparison(comparison)
       const pinned = summary.pinned?.ok
-        ? { nixOpenclawRev: summary.pinned.nixClawdbotRev, openclawRev: summary.pinned.openclawRev }
+        ? { nixOpenclawRev: summary.pinned.nixOpenclawRev, openclawRev: summary.pinned.openclawRev }
         : undefined
       const upstream = summary.upstream.ok
-        ? { nixOpenclawRef: summary.upstream.nixClawdbotRef, openclawRev: summary.upstream.openclawRev }
+        ? { nixOpenclawRef: summary.upstream.nixOpenclawRef, openclawRev: summary.upstream.openclawRev }
         : undefined
 
       const result = {

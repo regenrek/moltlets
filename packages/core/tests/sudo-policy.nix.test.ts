@@ -53,7 +53,7 @@ let
     inherit system;
     specialArgs = {
       clawlets = flake.inputs.clawlets;
-      nix-clawdbot = flake.inputs.clawlets.inputs.nix-clawdbot;
+      nix-openclaw-source = flake.inputs.clawlets.inputs.nix-openclaw-source;
       inherit project;
       flakeInfo = { clawlets = { rev = null; lastModifiedDate = null; }; };
     };

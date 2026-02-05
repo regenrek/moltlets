@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkSchemaVsNixClawdbot } from "../src/doctor/schema-checks.js";
+import { checkSchemaVsNixOpenclaw } from "../src/doctor/schema-checks.js";
 
-describe("checkSchemaVsNixClawdbot", () => {
+describe("checkSchemaVsNixOpenclaw", () => {
   it("reports pinned and upstream status", async () => {
     const schemaRev = "rev1234567890abcd";
-    const checks = await checkSchemaVsNixClawdbot({
+    const checks = await checkSchemaVsNixOpenclaw({
       repoRoot: "/tmp/repo",
       getPinnedSchema: () => ({
         schema: {},
@@ -13,8 +13,8 @@ describe("checkSchemaVsNixClawdbot", () => {
         generatedAt: "now",
         openclawRev: schemaRev,
       }),
-      getNixClawdbotRevFromFlakeLock: () => "pin-rev",
-      fetchNixClawdbotSourceInfo: async ({ ref }) => {
+      getNixOpenclawRevFromFlakeLock: () => "pin-rev",
+      fetchNixOpenclawSourceInfo: async ({ ref }) => {
         if (ref === "pin-rev") {
           return { ok: true as const, info: { rev: schemaRev }, sourceUrl: "x" };
         }
@@ -25,7 +25,7 @@ describe("checkSchemaVsNixClawdbot", () => {
       },
     });
 
-    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-clawdbot");
+    const pinned = checks.find((c) => c.label === "openclaw schema vs nix-openclaw");
     const upstream = checks.find((c) => c.label === "openclaw schema vs upstream");
 
     expect(pinned?.status).toBe("ok");
@@ -35,7 +35,7 @@ describe("checkSchemaVsNixClawdbot", () => {
   });
 
   it("returns no checks when schema rev missing", async () => {
-    const checks = await checkSchemaVsNixClawdbot({
+    const checks = await checkSchemaVsNixOpenclaw({
       repoRoot: "/tmp/repo",
       getPinnedSchema: () => ({
         schema: {},
@@ -44,7 +44,7 @@ describe("checkSchemaVsNixClawdbot", () => {
         generatedAt: "",
         openclawRev: "",
       }),
-      fetchNixClawdbotSourceInfo: async () => {
+      fetchNixOpenclawSourceInfo: async () => {
         throw new Error("should not fetch");
       },
     });

@@ -1,18 +1,18 @@
 import type { OpenclawSchemaArtifact } from "./artifact.js";
 import { getPinnedOpenclawSchemaArtifact } from "./artifact.js";
-import { fetchNixClawdbotSourceInfo, getNixClawdbotRevFromFlakeLock } from "../../nix-clawdbot.js";
+import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "../../nix-openclaw-source.js";
 
-type FetchSourceInfo = typeof fetchNixClawdbotSourceInfo;
+type FetchSourceInfo = typeof fetchNixOpenclawSourceInfo;
 type GetPinnedSchema = typeof getPinnedOpenclawSchemaArtifact;
-type GetNixRev = typeof getNixClawdbotRevFromFlakeLock;
+type GetNixRev = typeof getNixOpenclawRevFromFlakeLock;
 
 export type OpenclawSchemaPinnedComparison =
-  | { ok: true; nixClawdbotRev: string; openclawRev: string; matches: boolean }
-  | { ok: false; nixClawdbotRev: string; error: string };
+  | { ok: true; nixOpenclawRev: string; openclawRev: string; matches: boolean }
+  | { ok: false; nixOpenclawRev: string; error: string };
 
 export type OpenclawSchemaUpstreamComparison =
-  | { ok: true; nixClawdbotRef: string; openclawRev: string; matches: boolean }
-  | { ok: false; nixClawdbotRef: string; error: string };
+  | { ok: true; nixOpenclawRef: string; openclawRev: string; matches: boolean }
+  | { ok: false; nixOpenclawRef: string; error: string };
 
 export type OpenclawSchemaComparison = {
   schemaVersion: string;
@@ -30,28 +30,28 @@ export type OpenclawSchemaComparisonSummary = {
     | {
         ok: true;
         status: "ok" | "warn";
-        nixClawdbotRev: string;
+        nixOpenclawRev: string;
         openclawRev: string;
         matches: boolean;
       }
     | {
         ok: false;
         status: "warn";
-        nixClawdbotRev: string;
+        nixOpenclawRev: string;
         error: string;
       };
   upstream:
     | {
         ok: true;
         status: "ok" | "warn";
-        nixClawdbotRef: string;
+        nixOpenclawRef: string;
         openclawRev: string;
         matches: boolean;
       }
     | {
         ok: false;
         status: "warn";
-        nixClawdbotRef: string;
+        nixOpenclawRef: string;
         error: string;
       };
 };
@@ -59,17 +59,17 @@ export type OpenclawSchemaComparisonSummary = {
 type CompareDeps = {
   schema?: OpenclawSchemaArtifact;
   getPinnedSchema?: GetPinnedSchema;
-  getNixClawdbotRevFromFlakeLock?: GetNixRev;
-  fetchNixClawdbotSourceInfo?: FetchSourceInfo;
+  getNixOpenclawRevFromFlakeLock?: GetNixRev;
+  fetchNixOpenclawSourceInfo?: FetchSourceInfo;
   requireSchemaRev?: boolean;
 };
 
-export async function compareOpenclawSchemaToNixClawdbot(
+export async function compareOpenclawSchemaToNixOpenclaw(
   params: { repoRoot: string } & CompareDeps,
 ): Promise<OpenclawSchemaComparison | null> {
   const getPinnedSchema = params.getPinnedSchema ?? getPinnedOpenclawSchemaArtifact;
-  const getNixRev = params.getNixClawdbotRevFromFlakeLock ?? getNixClawdbotRevFromFlakeLock;
-  const fetchSourceInfo = params.fetchNixClawdbotSourceInfo ?? fetchNixClawdbotSourceInfo;
+  const getNixRev = params.getNixOpenclawRevFromFlakeLock ?? getNixOpenclawRevFromFlakeLock;
+  const fetchSourceInfo = params.fetchNixOpenclawSourceInfo ?? fetchNixOpenclawSourceInfo;
   const schema = params.schema ?? getPinnedSchema();
   const schemaRev = schema?.openclawRev?.trim() || "";
   const schemaVersion = schema?.version?.trim() || "";
@@ -77,27 +77,27 @@ export async function compareOpenclawSchemaToNixClawdbot(
   if (requireSchemaRev && !schemaRev) return null;
 
   const warnings: string[] = [];
-  const nixClawdbotRev = getNixRev(params.repoRoot);
+  const nixOpenclawRev = getNixRev(params.repoRoot);
   let pinned: OpenclawSchemaPinnedComparison | undefined;
-  if (nixClawdbotRev) {
-    const pinnedResult = await fetchSourceInfo({ ref: nixClawdbotRev });
+  if (nixOpenclawRev) {
+    const pinnedResult = await fetchSourceInfo({ ref: nixOpenclawRev });
     if (!pinnedResult.ok) {
-      warnings.push(`pinned nix-clawdbot fetch failed: ${pinnedResult.error}`);
-      pinned = { ok: false, nixClawdbotRev, error: pinnedResult.error };
+      warnings.push(`pinned nix-openclaw fetch failed: ${pinnedResult.error}`);
+      pinned = { ok: false, nixOpenclawRev, error: pinnedResult.error };
     } else {
       const matches = schemaRev ? pinnedResult.info.rev === schemaRev : false;
-      pinned = { ok: true, nixClawdbotRev, openclawRev: pinnedResult.info.rev, matches };
+      pinned = { ok: true, nixOpenclawRev, openclawRev: pinnedResult.info.rev, matches };
     }
   }
 
   const upstreamResult = await fetchSourceInfo({ ref: "main" });
   let upstream: OpenclawSchemaUpstreamComparison;
   if (!upstreamResult.ok) {
-    warnings.push(`upstream nix-clawdbot fetch failed: ${upstreamResult.error}`);
-    upstream = { ok: false, nixClawdbotRef: "main", error: upstreamResult.error };
+    warnings.push(`upstream nix-openclaw fetch failed: ${upstreamResult.error}`);
+    upstream = { ok: false, nixOpenclawRef: "main", error: upstreamResult.error };
   } else {
     const matches = schemaRev ? upstreamResult.info.rev === schemaRev : false;
-    upstream = { ok: true, nixClawdbotRef: "main", openclawRev: upstreamResult.info.rev, matches };
+    upstream = { ok: true, nixOpenclawRef: "main", openclawRev: upstreamResult.info.rev, matches };
   }
 
   return {
@@ -117,14 +117,14 @@ export function summarizeOpenclawSchemaComparison(
       ? {
           ok: true,
           status: comparison.pinned.matches ? "ok" : "warn",
-          nixClawdbotRev: comparison.pinned.nixClawdbotRev,
+          nixOpenclawRev: comparison.pinned.nixOpenclawRev,
           openclawRev: comparison.pinned.openclawRev,
           matches: comparison.pinned.matches,
         }
       : {
           ok: false,
           status: "warn",
-          nixClawdbotRev: comparison.pinned.nixClawdbotRev,
+          nixOpenclawRev: comparison.pinned.nixOpenclawRev,
           error: comparison.pinned.error,
         }
     : undefined;
@@ -133,14 +133,14 @@ export function summarizeOpenclawSchemaComparison(
     ? {
         ok: true,
         status: comparison.upstream.matches ? "ok" : "warn",
-        nixClawdbotRef: comparison.upstream.nixClawdbotRef,
+        nixOpenclawRef: comparison.upstream.nixOpenclawRef,
         openclawRev: comparison.upstream.openclawRev,
         matches: comparison.upstream.matches,
       }
     : {
         ok: false,
         status: "warn",
-        nixClawdbotRef: comparison.upstream.nixClawdbotRef,
+        nixOpenclawRef: comparison.upstream.nixOpenclawRef,
         error: comparison.upstream.error,
       };
 
