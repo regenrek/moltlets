@@ -22,7 +22,9 @@ const STATUS_CACHE_MAX = 128
 const LIVE_SCHEMA_CACHE_MAX = 256
 const SCHEMA_MARKER_BEGIN = "__OPENCLAW_SCHEMA_BEGIN__"
 const SCHEMA_MARKER_END = "__OPENCLAW_SCHEMA_END__"
-const SCHEMA_MARKER_BYTES_MAX = 2 * 1024 * 1024
+const LIVE_SCHEMA_MAX_OUTPUT_BYTES = 5 * 1024 * 1024
+const SCHEMA_MARKER_OVERHEAD_BYTES = 16 * 1024
+const SCHEMA_PAYLOAD_BYTES_MAX = LIVE_SCHEMA_MAX_OUTPUT_BYTES - SCHEMA_MARKER_OVERHEAD_BYTES
 
 type SourceCacheEntry = {
   expiresAt: number
@@ -97,8 +99,9 @@ function extractJsonBlock(raw: string, nonce: string): string {
   if (payloadEnd > beginLineEnd && raw[payloadEnd - 1] === "\r") payloadEnd -= 1
   const between = raw.slice(beginLineEnd + 1, payloadEnd).trim()
   if (!between) throw new Error("empty schema payload in output")
-  if (Buffer.byteLength(between, "utf8") > SCHEMA_MARKER_BYTES_MAX) {
-    throw new Error("schema payload too large")
+  const payloadBytes = Buffer.byteLength(between, "utf8")
+  if (payloadBytes > SCHEMA_PAYLOAD_BYTES_MAX) {
+    throw new Error(`schema payload too large: ${payloadBytes} bytes (max ${SCHEMA_PAYLOAD_BYTES_MAX} bytes)`)
   }
   return between
 }
@@ -222,7 +225,7 @@ export async function fetchOpenclawSchemaLive(params: {
       const raw = await sshCapture(targetHost, remoteCmd, {
         cwd: repoRoot,
         timeoutMs: 15_000,
-        maxOutputBytes: 5 * 1024 * 1024,
+        maxOutputBytes: LIVE_SCHEMA_MAX_OUTPUT_BYTES,
       })
       const payload = extractJsonBlock(raw || "", nonce)
       const parsed = JSON.parse(payload)

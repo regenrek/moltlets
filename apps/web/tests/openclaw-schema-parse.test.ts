@@ -5,12 +5,27 @@ describe("openclaw schema output parsing", () => {
     const nonce = "big00001"
     const raw = [
       `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      "a".repeat(2 * 1024 * 1024 + 1),
+      "a".repeat(6 * 1024 * 1024),
       `__OPENCLAW_SCHEMA_END__${nonce}__`,
     ].join("\n")
     return (async () => {
       const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("schema payload too large")
+      expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("schema payload too large:")
+    })()
+  })
+
+  it("accepts payloads above 2MB when below transport-aligned cap", () => {
+    const nonce = "mid00001"
+    const payload = "a".repeat(3 * 1024 * 1024)
+    const raw = [
+      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
+      payload,
+      `__OPENCLAW_SCHEMA_END__${nonce}__`,
+    ].join("\n")
+    return (async () => {
+      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
+      const extracted = __test_extractJsonBlock(raw, nonce)
+      expect(extracted).toHaveLength(payload.length)
     })()
   })
 
