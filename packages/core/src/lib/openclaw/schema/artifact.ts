@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getPinnedOpenclawSchema } from "../openclaw-schema.js";
+import schemaArtifact from "../../../generated/openclaw-config.schema.json" with { type: "json" };
 
 export type OpenclawSchemaArtifact = {
   schema: Record<string, any>;
@@ -16,24 +16,16 @@ const RawOpenclawSchemaArtifactSchema = z.object({
   uiHints: OpenclawSchemaArtifactObject,
   version: z.string().min(1),
   generatedAt: z.string().min(1).optional(),
-  openclawRev: z.string().min(1).optional(),
+  openclawRev: z.string().min(1),
 }).passthrough();
 
-export const OpenclawSchemaArtifactSchema = RawOpenclawSchemaArtifactSchema.transform((value, ctx): OpenclawSchemaArtifact => {
-  const openclawRev = value.openclawRev || "";
-  if (!openclawRev) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "openclawRev is required",
-      path: ["openclawRev"],
-    });
-  }
+export const OpenclawSchemaArtifactSchema = RawOpenclawSchemaArtifactSchema.transform((value): OpenclawSchemaArtifact => {
   return {
     schema: value.schema,
     uiHints: value.uiHints,
     version: value.version,
-    generatedAt: value.generatedAt || openclawRev,
-    openclawRev,
+    generatedAt: value.generatedAt || value.openclawRev,
+    openclawRev: value.openclawRev,
   };
 });
 
@@ -49,13 +41,8 @@ let cachedPinnedSchema: OpenclawSchemaArtifact | null = null;
 
 export function getPinnedOpenclawSchemaArtifact(): OpenclawSchemaArtifact {
   if (cachedPinnedSchema) return cachedPinnedSchema;
-  const pinned = getPinnedOpenclawSchema();
-  cachedPinnedSchema = {
-    schema: pinned.schema,
-    uiHints: pinned.uiHints,
-    version: pinned.version,
-    generatedAt: pinned.openclawRev,
-    openclawRev: pinned.openclawRev,
-  };
+  const parsed = parseOpenclawSchemaArtifact(schemaArtifact);
+  if (!parsed.ok) throw new Error(`invalid pinned openclaw schema: ${parsed.error}`);
+  cachedPinnedSchema = parsed.value;
   return cachedPinnedSchema;
 }

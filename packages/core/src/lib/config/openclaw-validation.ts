@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getPinnedOpenclawSchema } from "../openclaw/openclaw-schema.js";
+import { getPinnedOpenclawSchemaArtifact } from "../openclaw/schema/artifact.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "../openclaw/openclaw-defaults.js";
 import { validateOpenclawConfig } from "../openclaw/schema/validate.js";
 import { formatPathLabel, isPlainObject, stripPathPrefix } from "./helpers.js";
@@ -9,7 +9,7 @@ type ConfigLike = {
 };
 
 export function addOpenclawSchemaIssues(params: { config: ConfigLike; ctx: z.RefinementCtx }): void {
-  const schema = getPinnedOpenclawSchema().schema as Record<string, unknown>;
+  const schema = getPinnedOpenclawSchemaArtifact().schema as Record<string, unknown>;
   for (const [hostName, hostCfg] of Object.entries(params.config.hosts || {})) {
     const gateways = (hostCfg as any)?.gateways;
     const gatewaysOrder = Array.isArray((hostCfg as any)?.gatewaysOrder)

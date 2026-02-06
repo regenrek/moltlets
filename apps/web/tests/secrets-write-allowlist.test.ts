@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 describe("secrets write allowlist", () => {
   it("rejects unmanaged secret names", async () => {
     const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/config/clawlets-config")
-    const { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
+    const { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } = await import("@clawlets/core/lib/secrets/secrets-allowlist")
 
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
@@ -39,7 +39,7 @@ describe("secrets write allowlist", () => {
 
   it("includes required host secrets", async () => {
     const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/config/clawlets-config")
-    const { buildManagedHostSecretNameAllowlist } = await import("../src/sdk/secrets-allowlist")
+    const { buildManagedHostSecretNameAllowlist } = await import("@clawlets/core/lib/secrets/secrets-allowlist")
 
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,

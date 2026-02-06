@@ -3,5 +3,5 @@ export * from "./channel-ui-metadata.js";
 export * from "./channel-policy-metadata.js";
 export * from "./config-invariants.js";
 export * from "./openclaw-defaults.js";
-export * from "./openclaw-schema.js";
+export * from "./schema/index.js";
 export * from "./security-lint.js";

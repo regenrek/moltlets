@@ -2,10 +2,16 @@ import path from "node:path"
 import fs from "node:fs"
 
 import { createServerFn } from "@tanstack/react-start"
-import { loadDeployCreds, DEPLOY_CREDS_KEYS, renderDeployCredsEnvFile, type DeployCredsEnvFileKeys } from "@clawlets/core/lib/infra/deploy-creds"
+import {
+  loadDeployCreds,
+  DEPLOY_CREDS_KEYS,
+  isDeployCredsSecretKey,
+  renderDeployCredsEnvTemplate,
+  updateDeployCredsEnvFile,
+  type DeployCredsEnvFileKeys,
+} from "@clawlets/core/lib/infra/deploy-creds"
 import { getRepoLayout } from "@clawlets/core/repo-layout"
 import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe"
-import { parseDotenv } from "@clawlets/core/lib/storage/dotenv-file"
 import { ageKeygen } from "@clawlets/core/lib/security/age-keygen"
 import { parseAgeKeyFile } from "@clawlets/core/lib/security/age"
 import { getLocalOperatorAgeKeyPath } from "@clawlets/core/repo-layout"
@@ -40,29 +46,6 @@ export type DeployCredsStatus = {
   template: string
 }
 
-type DeployCredsWriteResult = {
-  envPath: string
-  runtimeDir: string
-  updatedKeys: string[]
-}
-
-function renderTemplate(defaultEnvPath: string): string {
-  const rel = path.relative(process.cwd(), defaultEnvPath) || defaultEnvPath
-  const lines = [
-    "# clawlets deploy creds (local-only; never commit)",
-    "# Used by: bootstrap, infra, lockdown, doctor",
-    "#",
-    `# Default path: ${rel}`,
-    "",
-    "HCLOUD_TOKEN=",
-    "GITHUB_TOKEN=",
-    "NIX_BIN=nix",
-    "SOPS_AGE_KEY_FILE=",
-    "",
-  ]
-  return lines.join("\n")
-}
-
 export const getDeployCredsStatus = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     return parseProjectIdInput(data)
@@ -78,7 +61,7 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
     const keys: DeployCredsStatusKey[] = DEPLOY_CREDS_KEYS.map((key) => {
       const source = loaded.sources[key]
       const value = loaded.values[key]
-      const isSecret = key === "HCLOUD_TOKEN" || key === "GITHUB_TOKEN"
+      const isSecret = isDeployCredsSecretKey(key)
       const status = value ? "set" : "unset"
       if (isSecret) return { key, source, status }
       return { key, source, status, value: value ? String(value) : undefined }
@@ -90,7 +73,7 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
       defaultEnvPath: layout.envFilePath,
       defaultSopsAgeKeyPath,
       keys,
-      template: renderTemplate(layout.envFilePath),
+      template: renderDeployCredsEnvTemplate({ defaultEnvPath: layout.envFilePath, cwd: repoRoot }),
     } satisfies DeployCredsStatus
   })
 
@@ -116,7 +99,7 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const repoRoot = await getRepoRoot(client, data.projectId)
-    const writeResult = await writeDeployCreds({ repoRoot, updates: data.updates })
+    const writeResult = await updateDeployCredsEnvFile({ repoRoot, updates: data.updates })
 
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
@@ -130,49 +113,6 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
 
     return { ok: true as const }
   })
-
-function readEnvFileSafe(envPath: string): Record<string, string> {
-  if (!fs.existsSync(envPath)) return {}
-  const st = fs.lstatSync(envPath)
-  if (st.isSymbolicLink()) throw new Error(`refusing to read env file symlink: ${envPath}`)
-  if (!st.isFile()) throw new Error(`refusing to read non-file env path: ${envPath}`)
-  return parseDotenv(fs.readFileSync(envPath, "utf8"))
-}
-
-async function writeDeployCreds(params: { repoRoot: string; updates: Partial<DeployCredsEnvFileKeys> }): Promise<DeployCredsWriteResult> {
-  const layout = getRepoLayout(params.repoRoot)
-  const envPath = layout.envFilePath
-
-  try {
-    fs.mkdirSync(layout.runtimeDir, { recursive: true })
-    fs.chmodSync(layout.runtimeDir, 0o700)
-  } catch {
-    // best-effort on platforms without POSIX perms
-  }
-
-  const existing = readEnvFileSafe(envPath)
-  const next: DeployCredsEnvFileKeys = {
-    HCLOUD_TOKEN: String(existing.HCLOUD_TOKEN || "").trim(),
-    GITHUB_TOKEN: String(existing.GITHUB_TOKEN || "").trim(),
-    NIX_BIN: String(existing.NIX_BIN || "nix").trim() || "nix",
-    SOPS_AGE_KEY_FILE: String(existing.SOPS_AGE_KEY_FILE || "").trim(),
-    AWS_ACCESS_KEY_ID: String(existing.AWS_ACCESS_KEY_ID || "").trim(),
-    AWS_SECRET_ACCESS_KEY: String(existing.AWS_SECRET_ACCESS_KEY || "").trim(),
-    AWS_SESSION_TOKEN: String(existing.AWS_SESSION_TOKEN || "").trim(),
-    ...params.updates,
-  }
-  next.HCLOUD_TOKEN = String(next.HCLOUD_TOKEN || "").trim()
-  next.GITHUB_TOKEN = String(next.GITHUB_TOKEN || "").trim()
-  next.NIX_BIN = String(next.NIX_BIN || "").trim() || "nix"
-  next.SOPS_AGE_KEY_FILE = String(next.SOPS_AGE_KEY_FILE || "").trim()
-  next.AWS_ACCESS_KEY_ID = String(next.AWS_ACCESS_KEY_ID || "").trim()
-  next.AWS_SECRET_ACCESS_KEY = String(next.AWS_SECRET_ACCESS_KEY || "").trim()
-  next.AWS_SESSION_TOKEN = String(next.AWS_SESSION_TOKEN || "").trim()
-
-  await writeFileAtomic(envPath, renderDeployCredsEnvFile(next), { mode: 0o600 })
-
-  return { envPath, runtimeDir: layout.runtimeDir, updatedKeys: Object.keys(params.updates || {}) }
-}
 
 type KeyCandidate = {
   path: string
@@ -281,7 +221,7 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
     await writeFileAtomic(keyPath, keypair.fileText, { mode: 0o600 })
     await writeFileAtomic(pubPath, `${keypair.publicKey}\n`, { mode: 0o600 })
 
-    await writeDeployCreds({
+    await updateDeployCredsEnvFile({
       repoRoot,
       updates: {
         SOPS_AGE_KEY_FILE: keyPath,
