@@ -96,7 +96,7 @@ Before you bootstrap, make sure the basics are set:
   - `hosts.<host>.diskDevice`
   - `hosts.<host>.provisioning.provider`
   - `hosts.<host>.provisioning.adminCidr`
-  - `hosts.<host>.provisioning.sshPubkeyFile`
+  - `fleet.sshAuthorizedKeys` (at least one key; used for provisioning + admin access)
   - `hosts.<host>.sshExposure.mode = "bootstrap"`
   - `hosts.<host>.tailnet.mode` (`tailscale` or `none`)
   - provider subtree

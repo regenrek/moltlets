@@ -257,27 +257,31 @@ export async function addDeployChecks(params: {
 
       {
         const raw = String(clawletsHostCfg.provisioning?.sshPubkeyFile || "").trim();
-        if (!raw) {
-          push({ status: "missing", label: "provisioning ssh pubkey file", detail: "(unset)" });
-        } else if (looksLikeSshKeyContents(raw)) {
+        if (raw && looksLikeSshKeyContents(raw)) {
           push({
             status: "missing",
             label: "provisioning ssh pubkey file",
             detail: "(must be a path, not key contents)",
           });
-        } else {
-          const expanded = expandPath(raw);
-          const abs = path.isAbsolute(expanded) ? expanded : path.resolve(params.repoRoot, expanded);
-          push({ status: fs.existsSync(abs) ? "ok" : "missing", label: "provisioning ssh pubkey file", detail: abs });
+        }
 
-          const sshKey = fs.existsSync(abs) ? normalizeSshPublicKey(fs.readFileSync(abs, "utf8")) : null;
-          if (sshKey) {
-            const authorized = ((clawletsCfg as any).fleet?.sshAuthorizedKeys || []) as string[];
-            const has = authorized.some((k) => normalizeSshPublicKey(k) === sshKey);
+        const authorized = ((clawletsCfg as any).fleet?.sshAuthorizedKeys || []) as string[];
+        if (authorized.length > 0) {
+          push({
+            status: "ok",
+            label: "fleet.sshAuthorizedKeys",
+            detail: `${authorized.length} key(s)`,
+          });
+        } else {
+          if (!raw) {
+            push({ status: "missing", label: "ssh key", detail: "(add fleet.sshAuthorizedKeys or set provisioning.sshPubkeyFile)" });
+          } else if (!looksLikeSshKeyContents(raw)) {
+            const expanded = expandPath(raw);
+            const abs = path.isAbsolute(expanded) ? expanded : path.resolve(params.repoRoot, expanded);
             push({
-              status: has ? "ok" : "warn",
-              label: "admin authorizedKeys includes ssh pubkey file",
-              detail: has ? "(ok)" : `(add your key via: clawlets host set --add-ssh-key-file ${raw})`,
+              status: fs.existsSync(abs) ? "ok" : "missing",
+              label: "provisioning ssh pubkey file",
+              detail: abs,
             });
           }
         }

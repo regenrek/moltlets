@@ -311,7 +311,7 @@ export async function initProject(params: {
     `- cd ${destDir}`,
     "- create a git repo + set origin (recommended; enables blank base flake)",
     "- clawlets env init  # set HCLOUD_TOKEN in .clawlets/env (required for provisioning)",
-    `- clawlets host set --host ${host} --admin-cidr <your-ip>/32 --disk-device /dev/sda --ssh-pubkey-file <path-to-your-key.pub> --add-ssh-key-file <path-to-your-key.pub>`,
+    `- clawlets host set --host ${host} --admin-cidr <your-ip>/32 --disk-device /dev/sda --add-ssh-key-file <path-to-your-key.pub>`,
     `- clawlets host set --host ${host} --ssh-exposure bootstrap`,
     `- clawlets secrets init --host ${host}`,
     `- clawlets doctor --host ${host}`,

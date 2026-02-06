@@ -162,14 +162,19 @@ function AppSidebar() {
       tooltip: hostBase ? "Single host overview." : "Fleet host overview.",
     },
     {
-      to: hostAwarePath("bootstrap", "bootstrap"),
-      label: "Bootstrap",
-      icon: BoltIcon,
+      to: `${projectBase}/setup`,
+      label: "Setup",
+      icon: CheckIcon,
+      tooltip: "Guided first deploy checklist.",
     },
     {
-      to: hostAwarePath("updates", "updates"),
-      label: "Updates",
-      icon: ArrowPathIcon,
+      to: hostAwarePath("deploy", "deploy"),
+      label: "Deploy",
+      icon: BoltIcon,
+      aliases: [
+        hostAwarePath("bootstrap", "bootstrap"),
+        hostAwarePath("updates", "updates"),
+      ],
     },
     {
       to: hostAwarePath("runs", "runs"),
@@ -287,11 +292,10 @@ function AppSidebar() {
                     return (
                       <DropdownMenuItem
                         key={project._id}
-                        onSelect={() => {
+                        nativeButton={false}
+                        render={<Link to={buildProjectBasePath(slug)} />}
+                        onClick={() => {
                           storeLastProjectSlug(slug)
-                          void router.navigate({
-                            to: buildProjectBasePath(slug),
-                          })
                         }}
                       >
                         <span className="truncate">{project.name}</span>
@@ -306,22 +310,10 @@ function AppSidebar() {
                   <DropdownMenuItem disabled>No projects</DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() =>
-                    void router.navigate({
-                      to: "/projects/new",
-                    })
-                  }
-                >
+                <DropdownMenuItem nativeButton={false} render={<Link to="/projects/new" />}>
                   New project
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() =>
-                    void router.navigate({
-                      to: "/projects",
-                    })
-                  }
-                >
+                <DropdownMenuItem nativeButton={false} render={<Link to="/projects" />}>
                   View all
                 </DropdownMenuItem>
               </DropdownMenuContent>

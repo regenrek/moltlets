@@ -79,6 +79,7 @@ const schema = defineSchema({
   })
     .index("by_project_startedAt", ["projectId", "startedAt"])
     .index("by_project_host_startedAt", ["projectId", "host", "startedAt"])
+    .index("by_project_host_kind_startedAt", ["projectId", "host", "kind", "startedAt"])
     .index("by_project_status", ["projectId", "status"]),
 
   runEvents: defineTable({

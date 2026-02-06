@@ -3,21 +3,24 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
-import { ArrowPathIcon } from "@heroicons/react/24/outline"
 import { Button } from "~/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Switch } from "~/components/ui/switch"
-import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip"
-import { HostThemeBadge, HostThemeColorDropdown, HostThemeEmojiPicker, normalizeHostTheme, type HostThemeColor } from "~/components/hosts/host-theme"
+import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
+import {
+  HostThemeBadge,
+  HostThemeColorDropdown,
+  HostThemeEmojiPicker,
+  normalizeHostTheme,
+  type HostThemeColor,
+} from "~/components/hosts/host-theme"
 import { HostSshSection } from "~/components/hosts/host-ssh-section"
 import { HostUpdatesSection } from "~/components/hosts/host-updates-section"
 import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
-import { singleHostCidrFromIp } from "~/lib/ip-utils"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
@@ -73,8 +76,6 @@ function HostsSetup() {
   const [selfUpdatePublicKeys, setSelfUpdatePublicKeys] = useState("")
   const [selfUpdateAllowUnsigned, setSelfUpdateAllowUnsigned] = useState(false)
 
-  const [detectingAdminCidr, setDetectingAdminCidr] = useState(false)
-
   function parseTextList(value: string): string[] {
     return value
       .split(/[\n,]+/)
@@ -89,33 +90,6 @@ function HostsSetup() {
     const path = Array.isArray(first?.path) && first.path.length ? String(first.path.join(".")) : ""
     return path ? `${message} (${path})` : message
   }
-
-  async function detectAdminCidr() {
-    setDetectingAdminCidr(true)
-    const ctrl = new AbortController()
-    const timeout = setTimeout(() => ctrl.abort(), 6000)
-    try {
-      const res = await fetch("https://api.ipify.org?format=json", { signal: ctrl.signal })
-      if (!res.ok) throw new Error(`ip lookup failed (${res.status})`)
-      const json = (await res.json()) as { ip?: unknown }
-      const ip = typeof json.ip === "string" ? json.ip : ""
-      const cidr = singleHostCidrFromIp(ip)
-      setAdminCidr(cidr)
-      toast.success(`Admin CIDR set to ${cidr}`)
-    } catch (err) {
-      const msg =
-        err instanceof DOMException && err.name === "AbortError"
-          ? "timed out"
-          : err instanceof Error
-            ? err.message
-            : String(err)
-      toast.error(`Admin CIDR detect failed: ${msg}`)
-    } finally {
-      clearTimeout(timeout)
-      setDetectingAdminCidr(false)
-    }
-  }
-
   useEffect(() => {
     if (!hostCfg) return
     setEnable(Boolean(hostCfg.enable))
@@ -340,39 +314,13 @@ function HostsSetup() {
                 </LabelWithHelp>
                 <Input id="target" value={targetHost} onChange={(e) => setTargetHost(e.target.value)} placeholder="ssh-alias or user@host" />
               </div>
-              <div className="space-y-2">
-                <LabelWithHelp htmlFor="adminCidr" help={setupFieldHelp.hosts.adminCidr}>
-                  Admin CIDR
-                </LabelWithHelp>
-                <InputGroup>
-                  <InputGroupInput
-                    id="adminCidr"
-                    value={adminCidr}
-                    onChange={(e) => setAdminCidr(e.target.value)}
-                    placeholder="203.0.113.10/32"
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <InputGroupButton
-                            type="button"
-                            variant="secondary"
-                            disabled={detectingAdminCidr}
-                            onClick={() => void detectAdminCidr()}
-                          >
-                            <ArrowPathIcon className={detectingAdminCidr ? "animate-spin" : ""} />
-                            Detect
-                          </InputGroupButton>
-                        }
-                      />
-                      <TooltipContent side="top" align="end">
-                        Detect from your current public IP (via ipify).
-                      </TooltipContent>
-                    </Tooltip>
-                  </InputGroupAddon>
-                </InputGroup>
-              </div>
+              <AdminCidrField
+                id="adminCidr"
+                label="Admin CIDR"
+                help={setupFieldHelp.hosts.adminCidr}
+                value={adminCidr}
+                onValueChange={setAdminCidr}
+              />
             </div>
           </SettingsSection>
 

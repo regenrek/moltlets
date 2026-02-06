@@ -35,8 +35,8 @@ function pickFixLink(
   const toHostSecrets = () => hostBase
     ? ({ to: `${hostBase}/secrets`, label: "Open Host Secrets" })
     : toHosts()
-  const toUpdates = () => hostBase
-    ? ({ to: `${hostBase}/updates`, label: "Open Updates" })
+  const toDeploy = () => hostBase
+    ? ({ to: `${hostBase}/deploy`, label: "Open Deploy" })
     : toHosts()
   const toAudit = () => hostBase
     ? ({ to: `${hostBase}/audit`, label: "Open Audit" })
@@ -63,7 +63,7 @@ function pickFixLink(
   if (label.includes("sops") || label.includes("secrets")) return toHostSecrets()
   if (gatewayId && label.includes("openclaw security")) return toGatewaySettings(gatewayId)
   if (gatewayId && detail.includes("hosts.") && detail.includes(".gateways.")) return toGatewaySettings(gatewayId)
-  if (scope === "updates") return toUpdates()
+  if (scope === "updates") return toDeploy()
   if (label.includes("tailscale")) return toAudit()
   return null
 }

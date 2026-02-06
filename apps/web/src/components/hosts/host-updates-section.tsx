@@ -54,9 +54,9 @@ function HostUpdatesSection({
             size="sm"
             variant="outline"
             nativeButton={false}
-            render={<Link to="/$projectSlug/hosts/$host/updates" params={{ projectSlug, host }} />}
+            render={<Link to="/$projectSlug/hosts/$host/deploy" params={{ projectSlug, host }} />}
           >
-            Open updater tools
+            Open Deploy
           </Button>
           <Button disabled={saving} onClick={onSave}>
             Save

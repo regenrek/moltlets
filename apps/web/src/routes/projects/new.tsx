@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { RunLogTail } from "~/components/run-log-tail"
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/projects/new")({
 })
 
 function NewProject() {
+  const router = useRouter()
   const [name, setName] = useState("")
   const [baseDir, setBaseDir] = useState("")
   const [host, setHost] = useState("")
@@ -31,6 +32,7 @@ function NewProject() {
   const [hostThemeColor, setHostThemeColor] = useState<HostThemeColor>(defaultTheme.color)
   const [runId, setRunId] = useState<Id<"runs"> | null>(null)
   const [projectId, setProjectId] = useState<Id<"projects"> | null>(null)
+  const [redirected, setRedirected] = useState(false)
 
   const directoryInputRef = useRef<HTMLInputElement>(null)
   const nameSlug = useMemo(() => slugifyProjectName(name || "project"), [name])
@@ -285,21 +287,26 @@ function NewProject() {
 
         {projectId && runId ? (
           <div className="space-y-3">
-            <RunLogTail runId={runId} />
+            <RunLogTail
+              runId={runId}
+              onDone={(status) => {
+                if (redirected) return
+                if (status !== "succeeded") return
+                setRedirected(true)
+                void router.navigate({
+                  to: "/$projectSlug/setup",
+                  params: { projectSlug: nameSlug },
+                  search: { host: effectiveHost },
+                } as any)
+              }}
+            />
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 nativeButton={false}
-                render={
-                  <Link
-                    to="/$projectSlug"
-                    params={{
-                      projectSlug: slugifyProjectName(name || "project"),
-                    }}
-                  />
-                }
+                render={<Link to="/$projectSlug/setup" params={{ projectSlug: nameSlug }} search={{ host: effectiveHost }} />}
               >
-                Open project
+                Continue setup
               </Button>
               <Button
                 size="sm"
@@ -307,12 +314,18 @@ function NewProject() {
                 nativeButton={false}
                 render={
                   <Link
-                    to="/$projectSlug/runs"
-                    params={{
-                      projectSlug: slugifyProjectName(name || "project"),
-                    }}
+                    to="/$projectSlug"
+                    params={{ projectSlug: nameSlug }}
                   />
                 }
+              >
+                Open dashboard
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                nativeButton={false}
+                render={<Link to="/$projectSlug/runs" params={{ projectSlug: nameSlug }} />}
               >
                 Runs
               </Button>

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { HostSecretsPanel } from "~/components/secrets/host-secrets-panel"
+import { PageHeader } from "~/components/ui/page-header"
 import { useProjectBySlug } from "~/lib/project-data"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/secrets")({
@@ -24,6 +25,10 @@ function HostSecrets() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Secrets"
+        description={<>Host-scoped secrets stored under <code>secrets/hosts/&lt;host&gt;</code>.</>}
+      />
       <HostSecretsPanel projectId={projectId as Id<"projects">} host={host} />
     </div>
   )

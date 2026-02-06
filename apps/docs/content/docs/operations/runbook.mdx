@@ -27,6 +27,11 @@ If you want required status checks, re‑run with explicit contexts:
 This is the initial bootstrap sequence. The order matters because secrets, SSH
 exposure, and health checks depend on each other.
 
+Dashboard equivalent:
+
+- `/<projectSlug>/setup` (guided checklist)
+- `/<projectSlug>/hosts/<host>/deploy` (canonical deploy surface: initial install → apply changes)
+
 1) Enter deterministic toolchain (optional): `devenv shell`
 2) `export CLAWLETS_INTERACTIVE=1` (optional; forces prompts)
 3) `clawlets env init` (set `HCLOUD_TOKEN` in `.clawlets/env`)

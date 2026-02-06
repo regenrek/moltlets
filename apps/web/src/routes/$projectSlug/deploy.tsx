@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-export const Route = createFileRoute("/$projectSlug/bootstrap")({
+export const Route = createFileRoute("/$projectSlug/deploy")({
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$projectSlug/~/deploy",
@@ -9,3 +9,4 @@ export const Route = createFileRoute("/$projectSlug/bootstrap")({
   },
   component: () => null,
 })
+

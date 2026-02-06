@@ -1,9 +1,8 @@
 import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
+import { SshPubkeyFileField } from "~/components/hosts/ssh-pubkey-file-field"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
-import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 
 type HostSshSectionProps = {
@@ -44,71 +43,13 @@ function HostSshSection({
             <NativeSelectOption value="public">public</NativeSelectOption>
           </NativeSelect>
         </div>
-        <div className="space-y-2">
-          <LabelWithHelp htmlFor="pubkeyFile" help={setupFieldHelp.hosts.sshPubkeyFile}>
-            Operator public key file (local path)
-          </LabelWithHelp>
-          <Input
-            id="pubkeyFile"
-            value={sshPubkeyFile}
-            onChange={(e) => onSshPubkeyFileChange(e.target.value)}
-            placeholder="~/.ssh/id_ed25519.pub"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => onSshPubkeyFileChange("~/.ssh/id_ed25519.pub")}
-            >
-              Use ~/.ssh/id_ed25519.pub
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => onSshPubkeyFileChange("~/.ssh/id_rsa.pub")}
-            >
-              Use ~/.ssh/id_rsa.pub
-            </Button>
-          </div>
-          {(() => {
-            const v = sshPubkeyFile.trim()
-            if (!v) {
-              return (
-                <div className="text-xs text-destructive">
-                  Required for provisioning. This is a local path on the machine running bootstrap.
-                </div>
-              )
-            }
-            if (looksLikeSshPrivateKeyText(v)) {
-              return (
-                <div className="text-xs text-destructive">
-                  Private key detected. Do not paste secrets here.
-                </div>
-              )
-            }
-            if (looksLikeSshPublicKeyText(v)) {
-              return (
-                <div className="text-xs text-destructive">
-                  Looks like SSH key contents. This field expects a file path.
-                </div>
-              )
-            }
-            if (!v.endsWith(".pub")) {
-              return (
-                <div className="text-xs text-muted-foreground">
-                  Warning: does not end with <code>.pub</code>. Double-check this is a public key file path.
-                </div>
-              )
-            }
-            return (
-              <div className="text-xs text-muted-foreground">
-                The dashboard can’t read your filesystem; the CLI validates this path when you run bootstrap/infra.
-              </div>
-            )
-          })()}
-        </div>
+        <SshPubkeyFileField
+          id="pubkeyFile"
+          label="Operator public key file (local path)"
+          help={setupFieldHelp.hosts.sshPubkeyFile}
+          value={sshPubkeyFile}
+          onValueChange={onSshPubkeyFileChange}
+        />
       </div>
     </SettingsSection>
   )

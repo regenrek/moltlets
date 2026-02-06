@@ -206,13 +206,6 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight">Host secrets</h1>
-        <p className="text-muted-foreground">
-          Host-scoped secrets stored under <code>secrets/hosts/&lt;host&gt;</code>.
-        </p>
-      </div>
-
       {cfg.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
       ) : cfg.error ? (

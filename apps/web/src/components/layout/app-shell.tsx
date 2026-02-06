@@ -62,7 +62,7 @@ function OpenSshExposureBanner() {
   const hostLabel = formatOpenHostLabel(openHosts)
   const modeLabel = formatOpenHostModes(openHosts)
   const verb = openHosts.length === 1 ? "is" : "are"
-  const bootstrapPath = targetHost ? `${buildHostPath(projectSlug, targetHost)}/bootstrap` : ""
+  const setupLinkHost = targetHost || ""
   const settingsPath = targetHost ? `${buildHostPath(projectSlug, targetHost)}/settings` : ""
 
   return (
@@ -75,12 +75,12 @@ function OpenSshExposureBanner() {
         <span className="text-destructive/80">
           Complete the post-bootstrap checklist to switch SSH to tailnet and lock down public access.
         </span>
-        {bootstrapPath ? (
+        {setupLinkHost ? (
           <Button
             size="sm"
             variant="destructive"
             nativeButton={false}
-            render={<Link to={bootstrapPath} hash="lockdown" />}
+            render={<Link to="/$projectSlug/setup" params={{ projectSlug }} search={{ host: setupLinkHost }} />}
           >
             Open checklist
           </Button>

@@ -51,6 +51,29 @@ export const listByProjectHostPage = query({
   },
 });
 
+export const latestByProjectHostKind = query({
+  args: {
+    projectId: v.id("projects"),
+    host: v.string(),
+    kind: RunKind,
+  },
+  returns: v.union(RunDoc, v.null()),
+  handler: async (ctx, { projectId, host, kind }) => {
+    await requireProjectAccessQuery(ctx, projectId);
+    const normalizedHost = host.trim();
+    if (!normalizedHost) return null;
+
+    const runs = await ctx.db
+      .query("runs")
+      .withIndex("by_project_host_kind_startedAt", (q) =>
+        q.eq("projectId", projectId).eq("host", normalizedHost).eq("kind", kind),
+      )
+      .order("desc")
+      .take(1);
+
+    return runs[0] ?? null;
+  },
+});
 export const get = query({
   args: { runId: v.id("runs") },
   returns: v.object({ run: RunDoc, role: Role, project: ProjectDoc }),

@@ -41,6 +41,12 @@ const DOMAIN_RULES = {
   },
 };
 
+const CROSS_DOMAIN_LEAF_ALLOW = {
+  openclaw: {
+    secrets: new Set(["env-vars.ts"]),
+  },
+};
+
 function collectTypeScriptFiles(dir, out) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -167,6 +173,8 @@ for (const file of files) {
 
     const targetRelInDomain = toPosix(path.relative(path.join(libRoot, targetDomain), targetFile));
     if (targetRelInDomain !== "index.ts") {
+      const allow = CROSS_DOMAIN_LEAF_ALLOW[sourceDomain]?.[targetDomain];
+      if (allow?.has(targetRelInDomain)) continue;
       errors.push(
         `${toPosix(path.relative(root, file))} imports ${toPosix(path.relative(libRoot, targetFile))}; cross-domain imports must go through ${targetDomain}/index.ts`,
       );

@@ -8,7 +8,8 @@ export const setupFieldHelp = {
     targetHost: "SSH destination used for deploy/ops + live schema. Optional until you run server ops; set in Hosts → Settings → Target host (ssh alias or `user@host`).",
     provider: "Infrastructure provider for Day 0 lifecycle (`hetzner` or `aws`). Choose this first, then fill provider-specific fields.",
     adminCidr: "CIDR allowed to reach admin SSH during bootstrap (recommend your current IP `/32`). Use Detect to autofill from your public IP.",
-    sshPubkeyFile: "Local path to an SSH public key file used during provisioning. The dashboard can’t read your filesystem; the CLI validates it during bootstrap/infra.",
+    sshPubkeyFile:
+      "Local path to your SSH public key file used during provisioning (for example `~/.ssh/id_ed25519.pub`). The dashboard cannot read local files; validation runs in CLI bootstrap/infra. Generate one if missing: `ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_ed25519`.",
     sshExposure: "How SSH is exposed: `bootstrap` (temporary), `tailnet` (recommended), or `public` (risky).",
     tailnet: "Tailnet integration mode. `tailscale` enables Tailscale-based access; `none` disables it.",
     hetznerServerType: "Hetzner server type (e.g. `cx43`). Used by provisioning.",
@@ -30,7 +31,8 @@ export const setupFieldHelp = {
     cacheNetrcSecretName: "Sops secret name containing the netrc file contents (written to cache.netrc.path on the host).",
     cacheNetrcPath: "Filesystem path for netrc-file on the host (default: /etc/nix/netrc).",
     cacheNarinfoCachePositiveTtl: "narinfo-cache-positive-ttl (seconds). Private caches with presigned narinfo URLs (e.g. private Garnix) require this to avoid stale positive cache entries.",
-    sshKeyPaste: "Paste one or more public keys to append to `fleet.sshAuthorizedKeys` (shared across all hosts).",
+    sshKeyPaste:
+      "Paste one or more public keys to append to `fleet.sshAuthorizedKeys` (shared across all hosts). Generate a key: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent",
     sshKeyFile: "Read a local `.pub` file and append it to `fleet.sshAuthorizedKeys`.",
     knownHostsFile: "Optionally import entries from your local `known_hosts` into `fleet.sshKnownHosts`.",
   },
@@ -43,8 +45,8 @@ export const setupFieldHelp = {
     dotValue: "Value to set as a string (use JSON value if you need objects/arrays/bools/numbers).",
     dotValueJson: "Value to set as JSON (e.g. `true`, `123`, `{...}`, `[...]`).",
   },
-  gateways: {
-    gatewayId: "Stable gateway identifier (used in ports/services and config keys). Must match existing fleet conventions.",
+  bots: {
+    botId: "Stable bot identifier (used in ports/services and config keys). Must match existing fleet conventions.",
   },
   secrets: {
     host: "Host whose encrypted secrets you’re initializing/verifying/syncing.",

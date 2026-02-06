@@ -21,26 +21,24 @@ template source defaults to `config/template-source.json`, which the dashboard u
 to discover the starter files and expected layout.
 
 1. Create a new project.
-2. Set the repo root and template source (defaults to `config/template-source.json`).
-3. Save and continue to Setup.
+2. Configure the repo root and template source (defaults to `config/template-source.json`).
+3. Wait for the project init run to finish.
+4. Continue to **Setup** (the dashboard redirects there automatically).
 
 ## 3) Run through Setup
 
-The Setup flow mirrors the canonical config and helps you avoid missing required
-values before you bootstrap a host:
+Setup is a Vercel-style command center for the first deploy. It is derived from real
+state (config, secrets, local deploy creds, and runs), so you can close it and resume later.
 
-- Fleet basics (gateway list, ordering)
-- Host Day 0 config (provider, disk device, SSH exposure, tailnet)
-- Secrets wiring (env mappings + missing secrets)
+- Choose a host (and add one if none exist)
+- Set connection basics (`targetHost`, `adminCidr`, `sshPubkeyFile`)
+- Choose provider first (`hetzner|aws`), then fill provider-specific settings
+- Initialize + verify host secrets
+- Configure local deploy credentials (`.clawlets/env`)
+- Deploy (initial install → then apply changes)
 
-Provider should be selected before provider-specific fields:
-
-- `hosts.<host>.provisioning.provider = "hetzner" | "aws"`
-- then fill the matching subtree (`hosts.<host>.hetzner.*` or `hosts.<host>.aws.*`)
-
-Once the checklist is green you are ready to bootstrap and update via the CLI
-(`bootstrap`, `server update apply`, `lockdown`). The dashboard keeps the config
-consistent while those operations run from your workstation.
+The canonical deploy surface is **Deploy**: it automatically switches between initial install
+(bootstrap) and apply changes (updates) based on run history.
 
 Lifecycle split:
 

@@ -63,8 +63,9 @@ export function buildHostPath(projectSlug: string, host: string): string {
 }
 
 const HOST_SWITCH_GLOBAL_MAP = {
-  bootstrap: "bootstrap",
-  updates: "updates",
+  bootstrap: "deploy",
+  deploy: "deploy",
+  updates: "deploy",
   logs: "logs",
   "server-logs": "logs",
   audit: "audit",
@@ -72,6 +73,7 @@ const HOST_SWITCH_GLOBAL_MAP = {
   secrets: "secrets",
   gateways: "gateways",
   runs: "runs",
+  settings: "settings",
 } as const
 
 export function buildHostSwitchPath(params: {

@@ -101,9 +101,9 @@ function HostOverview() {
                 size="sm"
                 variant="outline"
                 nativeButton={false}
-                render={<Link to="/$projectSlug/hosts/$host/updates" params={{ projectSlug, host }} />}
+                render={<Link to="/$projectSlug/hosts/$host/deploy" params={{ projectSlug, host }} />}
               >
-                Updates
+                Deploy
               </Button>
               <Button
                 size="sm"
