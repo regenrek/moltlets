@@ -17,6 +17,7 @@ export const setupFieldHelp = {
     hetznerAllowTailscaleUdpIngress: "Controls inbound UDP/41641 for direct Tailscale WireGuard paths. Disable for relay-only mode and reduced public exposure.",
     awsRegion: "AWS region (e.g. `us-east-1`).",
     awsInstanceType: "AWS instance type (e.g. `t3.large`).",
+    awsAmiId: "AWS AMI ID used for image-mode provisioning/bootstrap (e.g. `ami-0123456789abcdef0`).",
     awsVpcId: "Optional explicit VPC id (`vpc-*`). Required if useDefaultVpc=false and subnet is not set.",
     awsSubnetId: "Optional explicit subnet id (`subnet-*`). Required if useDefaultVpc=false and vpc is not set.",
     awsUseDefaultVpc: "When enabled, AWS provisioning uses default VPC discovery. Disable to require explicit VPC/subnet values.",

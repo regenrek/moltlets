@@ -57,6 +57,7 @@ function HostsSetup() {
   const [hetznerAllowTailscaleUdpIngress, setHetznerAllowTailscaleUdpIngress] = useState(true)
   const [awsRegion, setAwsRegion] = useState("us-east-1")
   const [awsInstanceType, setAwsInstanceType] = useState("t3.large")
+  const [awsAmiId, setAwsAmiId] = useState("")
   const [awsVpcId, setAwsVpcId] = useState("")
   const [awsSubnetId, setAwsSubnetId] = useState("")
   const [awsUseDefaultVpc, setAwsUseDefaultVpc] = useState(true)
@@ -79,6 +80,14 @@ function HostsSetup() {
       .split(/[\n,]+/)
       .map((entry) => entry.trim())
       .filter(Boolean)
+  }
+
+  function formatValidationIssues(issues: unknown): string {
+    const list = Array.isArray(issues) ? (issues as Array<any>) : []
+    const first = list[0]
+    const message = typeof first?.message === "string" ? first.message : "Validation failed"
+    const path = Array.isArray(first?.path) && first.path.length ? String(first.path.join(".")) : ""
+    return path ? `${message} (${path})` : message
   }
 
   async function detectAdminCidr() {
@@ -123,6 +132,7 @@ function HostsSetup() {
     setHetznerAllowTailscaleUdpIngress(hostCfg.hetzner?.allowTailscaleUdpIngress !== false)
     setAwsRegion(hostCfg.aws?.region || "us-east-1")
     setAwsInstanceType(hostCfg.aws?.instanceType || "t3.large")
+    setAwsAmiId(hostCfg.aws?.amiId || "")
     setAwsVpcId(hostCfg.aws?.vpcId || "")
     setAwsSubnetId(hostCfg.aws?.subnetId || "")
     setAwsUseDefaultVpc(Boolean(hostCfg.aws?.useDefaultVpc))
@@ -182,6 +192,7 @@ function HostsSetup() {
               ...hostCfg.aws,
               region: awsRegion.trim(),
               instanceType: awsInstanceType.trim(),
+              amiId: awsAmiId.trim(),
               vpcId: awsVpcId.trim(),
               subnetId: awsSubnetId.trim(),
               useDefaultVpc: Boolean(awsUseDefaultVpc),
@@ -207,7 +218,7 @@ function HostsSetup() {
       if (res.ok) {
         toast.success("Saved")
         void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
-      } else toast.error("Validation failed")
+      } else toast.error(formatValidationIssues(res.issues))
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -456,6 +467,12 @@ function HostsSetup() {
                     Instance type
                   </LabelWithHelp>
                   <Input id="awsInstanceType" value={awsInstanceType} onChange={(e) => setAwsInstanceType(e.target.value)} placeholder="t3.large" />
+                </div>
+                <div className="space-y-2">
+                  <LabelWithHelp htmlFor="awsAmiId" help={setupFieldHelp.hosts.awsAmiId}>
+                    AMI ID
+                  </LabelWithHelp>
+                  <Input id="awsAmiId" value={awsAmiId} onChange={(e) => setAwsAmiId(e.target.value)} placeholder="ami-0123456789abcdef0" />
                 </div>
                 <div className="space-y-2">
                   <LabelWithHelp htmlFor="awsVpcId" help={setupFieldHelp.hosts.awsVpcId}>
