@@ -235,7 +235,7 @@ jobs:
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v5
         with:
           nix: false
-          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
+          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/openclaw/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
           restore-prefixes-first-match: |
             nix-clf-${{ runner.os }}-
           paths-linux: |
@@ -260,7 +260,7 @@ jobs:
               pnpm-lock.yaml \
               pnpm-workspace.yaml \
               package.json \
-              nix/subflakes/clf/flake.nix \
+              nix/openclaw/subflakes/clf/flake.nix \
               packages/shared/package.json \
               packages/cattle-core/package.json \
               packages/clf/**/package.json \
@@ -273,7 +273,7 @@ jobs:
 
       - name: Build CLF subflake
         if: ${{ steps.changed.outputs.run == 'true' }}
-        working-directory: nix/subflakes/clf
+        working-directory: nix/openclaw/subflakes/clf
         run: |
           set -euo pipefail
 
@@ -287,7 +287,7 @@ jobs:
 
           echo "### CLF pnpmDeps hash mismatch" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The hash in \`nix/subflakes/clf/flake.nix\` needs to be updated." >> "$GITHUB_STEP_SUMMARY"
+          echo "The hash in \`nix/openclaw/subflakes/clf/flake.nix\` needs to be updated." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ -n "${got}" ]]; then

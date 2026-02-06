@@ -9,7 +9,7 @@ on:
       - 'packages/shared/package.json'
       - 'packages/cattle-core/package.json'
       - 'packages/clf/**/package.json'
-      - 'nix/subflakes/clf/flake.nix'
+      - 'nix/openclaw/subflakes/clf/flake.nix'
 
 permissions:
   contents: write
@@ -38,7 +38,7 @@ jobs:
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v5
         with:
           nix: false
-          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
+          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/openclaw/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
           restore-prefixes-first-match: |
             nix-clf-${{ runner.os }}-
           paths-linux: |
@@ -46,7 +46,7 @@ jobs:
 
       - name: Try build CLF and extract new hash on failure
         id: hash
-        working-directory: nix/subflakes/clf
+        working-directory: nix/openclaw/subflakes/clf
         run: |
           set -euo pipefail
 
@@ -70,17 +70,17 @@ jobs:
           echo "needs_update=true" >> "$GITHUB_OUTPUT"
           echo "🔄 Hash update needed: ${got}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Update nix/subflakes/clf/flake.nix with new hash
+      - name: Update nix/openclaw/subflakes/clf/flake.nix with new hash
         if: steps.hash.outputs.needs_update == 'true'
         run: |
           set -euo pipefail
           new_hash="${{ steps.hash.outputs.new_hash }}"
 
-          # Update the hash in nix/subflakes/clf/flake.nix
-          sed -i "s|hash = \"sha256-[A-Za-z0-9+/=]*\";|hash = \"${new_hash}\";|" nix/subflakes/clf/flake.nix
+          # Update the hash in nix/openclaw/subflakes/clf/flake.nix
+          sed -i "s|hash = \"sha256-[A-Za-z0-9+/=]*\";|hash = \"${new_hash}\";|" nix/openclaw/subflakes/clf/flake.nix
 
-          echo "Updated nix/subflakes/clf/flake.nix with hash: ${new_hash}"
-          git diff nix/subflakes/clf/flake.nix
+          echo "Updated nix/openclaw/subflakes/clf/flake.nix with hash: ${new_hash}"
+          git diff nix/openclaw/subflakes/clf/flake.nix
 
       - name: Commit and push
         if: steps.hash.outputs.needs_update == 'true'
@@ -90,7 +90,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add nix/subflakes/clf/flake.nix
+          git add nix/openclaw/subflakes/clf/flake.nix
           git commit -m "chore(clf): update pnpmDeps hash [skip ci]" || {
             echo "No changes to commit"
             exit 0
