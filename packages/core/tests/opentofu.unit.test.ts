@@ -114,6 +114,7 @@ describe("opentofu", () => {
             vpcId: "",
             subnetId: "",
             useDefaultVpc: true,
+            allowTailscaleUdpIngress: false,
           },
         },
         runtime: {
@@ -150,6 +151,7 @@ describe("opentofu", () => {
       expect(args2).toContain("instance_type=t3.large");
       expect(args2).toContain("ami_id=ami-0123456789abcdef0");
       expect(args2).toContain("use_default_vpc=true");
+      expect(args2).toContain("tailscale_udp_ingress_enabled=false");
       expect(args2).toContain("ssh_public_key=ssh-ed25519 AAAATEST aws-test");
       expect(opts2.env?.AWS_REGION).toBe("us-east-1");
       expect(opts2.env?.AWS_DEFAULT_REGION).toBe("us-east-1");

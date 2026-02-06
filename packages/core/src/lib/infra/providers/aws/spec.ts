@@ -26,6 +26,7 @@ export function buildAwsProvisionSpec(params: {
   const vpcId = String(params.hostCfg.aws?.vpcId || "").trim();
   const subnetId = String(params.hostCfg.aws?.subnetId || "").trim();
   const useDefaultVpc = Boolean(params.hostCfg.aws?.useDefaultVpc);
+  const allowTailscaleUdpIngress = params.hostCfg.aws?.allowTailscaleUdpIngress !== false;
   if (useDefaultVpc && (vpcId || subnetId)) {
     throw new Error(`aws.useDefaultVpc cannot be combined with aws.vpcId or aws.subnetId for ${params.hostName}`);
   }
@@ -36,6 +37,6 @@ export function buildAwsProvisionSpec(params: {
   return {
     ...params.base,
     provider: "aws",
-    aws: { region, instanceType, amiId, vpcId, subnetId, useDefaultVpc },
+    aws: { region, instanceType, amiId, vpcId, subnetId, useDefaultVpc, allowTailscaleUdpIngress },
   };
 }

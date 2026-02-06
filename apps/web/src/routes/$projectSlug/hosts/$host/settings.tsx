@@ -59,6 +59,7 @@ function HostsSetup() {
   const [awsVpcId, setAwsVpcId] = useState("")
   const [awsSubnetId, setAwsSubnetId] = useState("")
   const [awsUseDefaultVpc, setAwsUseDefaultVpc] = useState(true)
+  const [awsAllowTailscaleUdpIngress, setAwsAllowTailscaleUdpIngress] = useState(true)
   const [flakeHost, setFlakeHost] = useState("")
   const [agentModelPrimary, setAgentModelPrimary] = useState("")
   const [hostThemeEmoji, setHostThemeEmoji] = useState("🖥️")
@@ -123,6 +124,7 @@ function HostsSetup() {
     setAwsVpcId(hostCfg.aws?.vpcId || "")
     setAwsSubnetId(hostCfg.aws?.subnetId || "")
     setAwsUseDefaultVpc(Boolean(hostCfg.aws?.useDefaultVpc))
+    setAwsAllowTailscaleUdpIngress(hostCfg.aws?.allowTailscaleUdpIngress !== false)
     setFlakeHost(hostCfg.flakeHost || "")
     setAgentModelPrimary((hostCfg as any).agentModelPrimary || "")
     const theme = normalizeHostTheme((hostCfg as any).theme)
@@ -180,6 +182,7 @@ function HostsSetup() {
               vpcId: awsVpcId.trim(),
               subnetId: awsSubnetId.trim(),
               useDefaultVpc: Boolean(awsUseDefaultVpc),
+              allowTailscaleUdpIngress: Boolean(awsAllowTailscaleUdpIngress),
             },
             agentModelPrimary: agentModelPrimary.trim(),
             selfUpdate: {
@@ -462,6 +465,10 @@ function HostsSetup() {
                 <div className="flex items-center gap-3 md:col-span-2">
                   <Switch checked={awsUseDefaultVpc} onCheckedChange={setAwsUseDefaultVpc} />
                   <div className="text-sm text-muted-foreground">{setupFieldHelp.hosts.awsUseDefaultVpc}</div>
+                </div>
+                <div className="flex items-center gap-3 md:col-span-2">
+                  <Switch checked={awsAllowTailscaleUdpIngress} onCheckedChange={setAwsAllowTailscaleUdpIngress} />
+                  <div className="text-sm text-muted-foreground">{setupFieldHelp.hosts.awsAllowTailscaleUdpIngress}</div>
                 </div>
               </div>
             </SettingsSection>

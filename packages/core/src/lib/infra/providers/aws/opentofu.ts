@@ -88,6 +88,8 @@ function buildSharedTfArgs(spec: AwsProvisionSpec): string[] {
     "-var",
     `tailnet_mode=${spec.tailnetMode}`,
     "-var",
+    `tailscale_udp_ingress_enabled=${spec.aws.allowTailscaleUdpIngress ? "true" : "false"}`,
+    "-var",
     `region=${spec.aws.region}`,
     "-var",
     `instance_type=${spec.aws.instanceType}`,

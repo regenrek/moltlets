@@ -82,6 +82,7 @@ also define which gateways run on this host.
 - `aws.instanceType`: e.g. `t3.large` (required when `provider=aws`)
 - `aws.amiId`: AMI ID for image-mode bootstrap/provisioning (required when `provider=aws`)
 - `aws.vpcId` / `aws.subnetId` / `aws.useDefaultVpc`: network placement settings for AWS driver
+- `aws.allowTailscaleUdpIngress`: allow inbound UDP/41641 for direct Tailscale WireGuard paths (default: `true`; set `false` for relay-only mode / reduced public exposure)
 - `operator.deploy.enable`: allow `admin` to run `install-secrets` (constrained allowlist)
 - `sshExposure.mode`: `tailnet|bootstrap|public`
 - `tailnet.mode`: `tailscale` or `none`
@@ -232,7 +233,8 @@ repo, run:
         "amiId": "ami-0123456789abcdef0",
         "vpcId": "",
         "subnetId": "",
-        "useDefaultVpc": true
+        "useDefaultVpc": true,
+        "allowTailscaleUdpIngress": true
       },
       "provisioning": {
         "provider": "hetzner",

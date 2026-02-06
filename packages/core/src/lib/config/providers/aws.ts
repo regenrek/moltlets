@@ -8,8 +8,17 @@ export const AwsHostSchema = z
     vpcId: z.string().trim().default(""),
     subnetId: z.string().trim().default(""),
     useDefaultVpc: z.boolean().default(false),
+    allowTailscaleUdpIngress: z.boolean().default(true),
   })
-  .default(() => ({ region: "", instanceType: "", amiId: "", vpcId: "", subnetId: "", useDefaultVpc: false }));
+  .default(() => ({
+    region: "",
+    instanceType: "",
+    amiId: "",
+    vpcId: "",
+    subnetId: "",
+    useDefaultVpc: false,
+    allowTailscaleUdpIngress: true,
+  }));
 
 export type AwsHostConfig = z.infer<typeof AwsHostSchema>;
 

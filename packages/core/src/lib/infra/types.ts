@@ -36,6 +36,7 @@ export type AwsProvisionSpec = HostProvisionSpecBase & {
     vpcId: string;
     subnetId: string;
     useDefaultVpc: boolean;
+    allowTailscaleUdpIngress: boolean;
   };
 };
 

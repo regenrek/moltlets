@@ -41,6 +41,12 @@ variable "tailnet_mode" {
   }
 }
 
+variable "tailscale_udp_ingress_enabled" {
+  type        = bool
+  default     = true
+  description = "Allow direct Tailscale WireGuard UDP ingress (port 41641) from the internet. Disable for relay-only mode."
+}
+
 variable "region" {
   type = string
 }
@@ -83,6 +89,7 @@ module "host" {
   admin_cidr_is_world_open = var.admin_cidr_is_world_open
   ssh_exposure_mode       = var.ssh_exposure_mode
   tailnet_mode            = var.tailnet_mode
+  tailscale_udp_ingress_enabled = var.tailscale_udp_ingress_enabled
   instance_type           = var.instance_type
   ami_id                  = var.ami_id
   ssh_public_key          = var.ssh_public_key

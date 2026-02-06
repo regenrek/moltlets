@@ -39,6 +39,12 @@ variable "tailnet_mode" {
   }
 }
 
+variable "tailscale_udp_ingress_enabled" {
+  type        = bool
+  default     = true
+  description = "Allow direct Tailscale WireGuard UDP ingress (port 41641) from the internet. Disable for relay-only mode."
+}
+
 variable "instance_type" {
   type = string
 }
@@ -69,7 +75,7 @@ variable "use_default_vpc" {
 locals {
   admin_cidr_is_ipv6    = strcontains(var.admin_cidr, ":")
   ssh_ingress_enabled   = var.ssh_exposure_mode != "tailnet"
-  tailscale_udp_enabled = var.tailnet_mode == "tailscale"
+  tailscale_udp_enabled = var.tailnet_mode == "tailscale" && var.tailscale_udp_ingress_enabled
 }
 
 data "aws_vpc" "default" {

@@ -19,6 +19,7 @@ export const setupFieldHelp = {
     awsVpcId: "Optional explicit VPC id (`vpc-*`). Required if useDefaultVpc=false and subnet is not set.",
     awsSubnetId: "Optional explicit subnet id (`subnet-*`). Required if useDefaultVpc=false and vpc is not set.",
     awsUseDefaultVpc: "When enabled, AWS provisioning uses default VPC discovery. Disable to require explicit VPC/subnet values.",
+    awsAllowTailscaleUdpIngress: "Controls inbound UDP/41641 for direct Tailscale WireGuard paths. Disable for relay-only mode and reduced public exposure.",
     flakeHost: "Override the Nix flake host target (advanced; usually leave empty).",
     agentModelPrimary: "Default model identifier used by agents on this host (provider/model).",
     cacheSubstituters: "Nix substituters (binary caches) for this host. One per line. Used by the updater allowlist; manifests may only specify a subset.",
