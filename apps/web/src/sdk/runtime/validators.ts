@@ -151,6 +151,26 @@ export function parseProjectHostInput(data: unknown): { projectId: Id<"projects"
   return { projectId: parseConvexId(d["projectId"], "projectId"), host: parseOptionalHostName(d["host"]) }
 }
 
+function parseSecretsScope(value: unknown): "bootstrap" | "updates" | "openclaw" | "all" {
+  const raw = typeof value === "string" ? value.trim() : ""
+  if (!raw) return "all"
+  if (raw === "bootstrap" || raw === "updates" || raw === "openclaw" || raw === "all") return raw
+  throw new Error("invalid scope (expected bootstrap|updates|openclaw|all)")
+}
+
+export function parseProjectHostScopeInput(data: unknown): {
+  projectId: Id<"projects">
+  host: string
+  scope: "bootstrap" | "updates" | "openclaw" | "all"
+} {
+  const base = parseProjectHostInput(data)
+  const d = requireObject(data)
+  return {
+    ...base,
+    scope: parseSecretsScope(d["scope"]),
+  }
+}
+
 export function parseProjectIdInput(data: unknown): { projectId: Id<"projects"> } {
   const d = requireObject(data)
   return { projectId: parseConvexId(d["projectId"], "projectId") }
@@ -273,6 +293,20 @@ export function parseProjectRunHostInput(data: unknown): { projectId: Id<"projec
     projectId: parseConvexId(d["projectId"], "projectId"),
     runId: parseConvexId(d["runId"], "runId"),
     host: parseHostNameRequired(d["host"]),
+  }
+}
+
+export function parseProjectRunHostScopeInput(data: unknown): {
+  projectId: Id<"projects">
+  runId: Id<"runs">
+  host: string
+  scope: "bootstrap" | "updates" | "openclaw" | "all"
+} {
+  const base = parseProjectRunHostInput(data)
+  const d = requireObject(data)
+  return {
+    ...base,
+    scope: parseSecretsScope(d["scope"]),
   }
 }
 
@@ -467,13 +501,14 @@ export function parseSecretsInitExecuteInput(data: unknown): {
   projectId: Id<"projects">
   runId: Id<"runs">
   host: string
+  scope: "bootstrap" | "updates" | "openclaw" | "all"
   allowPlaceholders: boolean
   adminPassword: string
   adminPasswordHash: string
   tailscaleAuthKey: string
   secrets: Record<string, string>
 } {
-  const base = parseProjectRunHostInput(data)
+  const base = parseProjectRunHostScopeInput(data)
   const d = requireObject(data)
   return {
     ...base,

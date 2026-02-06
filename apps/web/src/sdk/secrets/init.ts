@@ -25,12 +25,12 @@ import { readClawletsEnvTokens } from "~/server/redaction"
 import { getClawletsCliEnv } from "~/server/run-env"
 import { runWithEvents, spawnCommand } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/project"
-import { parseProjectHostInput, parseSecretsInitExecuteInput } from "~/sdk/runtime"
+import { parseProjectHostScopeInput, parseSecretsInitExecuteInput } from "~/sdk/runtime"
 import { resolveHostFromConfig } from "./helpers"
 import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
 
 export const getSecretsTemplate = createServerFn({ method: "POST" })
-  .inputValidator(parseProjectHostInput)
+  .inputValidator(parseProjectHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -39,8 +39,8 @@ export const getSecretsTemplate = createServerFn({ method: "POST" })
 
     const hostCfg = config.hosts[host]
 
-    const secretsPlan = buildFleetSecretsPlan({ config, hostName: host })
-    const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg })
+    const secretsPlan = buildFleetSecretsPlan({ config, hostName: host, scope: data.scope })
+    const sets = buildSecretsInitTemplateSets({ secretsPlan, hostCfg, scope: data.scope })
     const template = buildSecretsInitTemplate({
       requiresTailscaleAuthKey: sets.requiresTailscaleAuthKey,
       requiresAdminPassword: sets.requiresAdminPassword,
@@ -58,7 +58,7 @@ export const getSecretsTemplate = createServerFn({ method: "POST" })
   })
 
 export const secretsInitStart = createServerFn({ method: "POST" })
-  .inputValidator(parseProjectHostInput)
+  .inputValidator(parseProjectHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -68,14 +68,14 @@ export const secretsInitStart = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "secrets_init",
-      title: `Secrets init (${host})`,
+      title: `Secrets init (${host}, scope=${data.scope})`,
       host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.init",
       target: { host },
-      data: { runId },
+      data: { runId, scope: data.scope },
     })
     await client.mutation(api.runEvents.appendBatch, {
       runId,
@@ -103,7 +103,7 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
       if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
       const layout = getRepoLayout(repoRoot)
 
-      const allowlist = buildManagedHostSecretNameAllowlist({ config, host: data.host })
+      const allowlist = buildManagedHostSecretNameAllowlist({ config, host: data.host, scope: data.scope })
       assertSecretsAreManaged({ allowlist, secrets: data.secrets })
 
       const baseRedactions = await readClawletsEnvTokens(repoRoot)
@@ -187,6 +187,8 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
           "init",
           "--host",
           data.host,
+          "--scope",
+          data.scope,
           "--from-json",
           tmpJsonPath,
           "--yes",

@@ -92,7 +92,7 @@ describe("doctor", () => {
     await writeFile(operatorKey, "AGE-SECRET-KEY-TEST\n", "utf8");
 
     const clawletsConfig = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       defaultHost: "openclaw-fleet-host",
       baseFlake: "",
       fleet: {

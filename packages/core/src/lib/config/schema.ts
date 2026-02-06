@@ -5,10 +5,12 @@ import { FleetSchema } from "./schema-fleet.js";
 import { HostSchema } from "./schema-host.js";
 import { CattleSchema } from "./schema-cattle.js";
 import { addOpenclawSchemaIssues } from "./openclaw-validation.js";
+export { InfraConfigSchema, InfraHostConfigSchema, type InfraConfig, type InfraHostConfig } from "./schema-infra.js";
+export { OpenClawConfigSchema, OpenClawHostConfigSchema, type OpenClawConfig, type OpenClawHostConfig } from "./schema-openclaw.js";
 
 export const ClawletsConfigSchema = z
   .object({
-    schemaVersion: z.literal(CLAWLETS_CONFIG_SCHEMA_VERSION),
+    schemaVersion: z.union([z.literal(1), z.literal(CLAWLETS_CONFIG_SCHEMA_VERSION)]),
     defaultHost: HostNameSchema.optional(),
     baseFlake: z.string().trim().default(""),
     fleet: FleetSchema.default(() => ({

@@ -6,7 +6,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -34,7 +34,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -57,7 +57,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { Z_AI_API_KEY: "z_ai_api_key" },
       },
@@ -81,7 +81,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -105,7 +105,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -134,7 +134,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -166,7 +166,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -195,7 +195,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -227,7 +227,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -255,7 +255,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -282,7 +282,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
           secretFiles: {
@@ -306,7 +306,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
           secretFiles: {
@@ -330,7 +330,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -366,7 +366,7 @@ describe("fleet secrets plan", () => {
 
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         fleet: {
           secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
         },
@@ -400,7 +400,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },
@@ -427,7 +427,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -464,7 +464,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -493,7 +493,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -522,7 +522,7 @@ describe("fleet secrets plan", () => {
     const { buildFleetSecretsPlan } = await import("../src/lib/secrets/plan.js");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
       },

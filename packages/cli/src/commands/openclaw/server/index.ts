@@ -122,7 +122,7 @@ const serverAudit = defineCommand({
       add({
         status: "warn",
         label: "openclaw enable",
-        detail: `disabled (set hosts.${hostName}.openclaw.enable=true after secrets verify --scope openclaw)`,
+        detail: `disabled (set fleet/openclaw.json hosts.${hostName}.enable=true after secrets verify --scope openclaw)`,
       });
     }
 

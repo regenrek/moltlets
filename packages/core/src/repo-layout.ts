@@ -27,6 +27,7 @@ export type RepoLayout = {
   fleetWorkspacesCommonDir: string;
   fleetWorkspacesGatewaysDir: string;
   clawletsConfigPath: string;
+  openclawConfigPath: string;
   bundledSkillsPath: string;
 
   // Canonical secrets dir (committed; encrypted-at-rest via sops).
@@ -55,6 +56,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
   const fleetWorkspacesCommonDir = path.join(fleetWorkspacesDir, "common");
   const fleetWorkspacesGatewaysDir = path.join(fleetWorkspacesDir, "gateways");
   const clawletsConfigPath = path.join(fleetDir, "clawlets.json");
+  const openclawConfigPath = path.join(fleetDir, "openclaw.json");
   const bundledSkillsPath = path.join(fleetDir, "bundled-skills.json");
   const secretsDir = path.join(repoRoot, "secrets");
   const secretsHostsDir = path.join(secretsDir, "hosts");
@@ -79,6 +81,7 @@ export function getRepoLayout(repoRoot: string, runtimeDir?: string): RepoLayout
     fleetWorkspacesCommonDir,
     fleetWorkspacesGatewaysDir,
     clawletsConfigPath,
+    openclawConfigPath,
     bundledSkillsPath,
     secretsDir,
     secretsHostsDir,
