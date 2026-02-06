@@ -4,6 +4,7 @@ import readline from "node:readline";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { RunEventLevel } from "@clawlets/core/lib/runtime/run-types";
+import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 import type { ConvexClient } from "./convex";
 import { redactLine } from "./redaction";
 
@@ -317,10 +318,12 @@ export async function runWithEvents(params: {
     await params.fn(emit);
     await flush();
   } catch (err) {
+    const safeMessage = sanitizeErrorMessage(err, "run failed");
+    console.error("runWithEvents failed", err);
     try {
       await emit({
         level: "error",
-        message: err instanceof Error ? err.message : String(err),
+        message: safeMessage,
       });
       await flush();
     } catch {

@@ -32,7 +32,6 @@ export default defineConfig({
         'src/server/template-spec.ts',
         'src/sdk/run-binding.ts',
         'src/sdk/serverfn-validators.ts',
-        'src/sdk/secrets-allowlist.ts',
         'src/utils/seo.ts',
         'convex/lib/env.ts',
         'convex/lib/errors.ts',

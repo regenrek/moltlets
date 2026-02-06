@@ -5,6 +5,9 @@ describe("sanitizeErrorMessage", () => {
   it("returns safe message when matched", () => {
     expect(sanitizeErrorMessage(new Error("Admin required"), "fallback")).toBe("Admin required")
     expect(sanitizeErrorMessage("Too many requests", "fallback")).toBe("Too many requests")
+    expect(sanitizeErrorMessage(new Error("run canceled"), "fallback")).toBe("run canceled")
+    expect(sanitizeErrorMessage(new Error("run timed out after 45s"), "fallback")).toBe("run timed out after 45s")
+    expect(sanitizeErrorMessage(new Error("nix exited with code 1"), "fallback")).toBe("nix exited with code 1")
   })
 
   it("prefers safe err.message when data.message is unsafe", () => {
