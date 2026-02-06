@@ -6,7 +6,7 @@ import { findInlineScriptingViolations } from "../lib/security/inline-script-ban
 import { validateDocsIndexIntegrity } from "../lib/project/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/config/fleet-policy.js";
 import { evalFleetConfig } from "../lib/nix/fleet-nix-eval.js";
-import { ClawletsConfigSchema, type ClawletsConfig } from "../lib/config/clawlets-config.js";
+import { loadFullConfig, InfraConfigSchema, OpenClawConfigSchema, type ClawletsConfig } from "../lib/config/clawlets-config.js";
 import { buildOpenClawGatewayConfig } from "../lib/openclaw/config-invariants.js";
 import { lintOpenclawSecurityConfig } from "../lib/openclaw/security-lint.js";
 import { checkSchemaVsNixOpenclaw } from "./schema-checks.js";
@@ -296,36 +296,140 @@ export async function addRepoChecks(params: {
   }
 
   {
-    const configPath = layout.clawletsConfigPath;
-    if (!fs.existsSync(configPath)) {
-      params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: configPath });
+    const infraConfigPath = layout.clawletsConfigPath;
+    const openclawConfigPath = layout.openclawConfigPath;
+
+    if (!fs.existsSync(infraConfigPath)) {
+      params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: infraConfigPath });
     } else {
       try {
-        const raw = fs.readFileSync(configPath, "utf8");
+        const raw = fs.readFileSync(infraConfigPath, "utf8");
         const parsed = JSON.parse(raw);
-        clawletsConfig = ClawletsConfigSchema.parse(parsed);
-        params.push({ scope: "repo", status: "ok", label: "clawlets config", detail: path.relative(repoRoot, configPath) });
+        const schemaVersion = Number((parsed as any)?.schemaVersion ?? 0);
+        if (schemaVersion === 1) {
+          params.push({
+            scope: "repo",
+            status: "warn",
+            label: "clawlets config schema",
+            detail: "legacy schemaVersion=1 detected (will auto-migrate to split config on load)",
+          });
+        }
+
+        const loaded = loadFullConfig({ repoRoot });
+        clawletsConfig = loaded.config;
+
+        params.push({
+          scope: "repo",
+          status: "ok",
+          label: "clawlets config",
+          detail: path.relative(repoRoot, infraConfigPath),
+        });
+
+        if (!fs.existsSync(openclawConfigPath)) {
+          params.push({
+            scope: "repo",
+            status: "warn",
+            label: "openclaw config",
+            detail: "(optional) fleet/openclaw.json missing; infra-only host setup",
+          });
+        } else {
+          const openclawParsed = OpenClawConfigSchema.parse(JSON.parse(fs.readFileSync(openclawConfigPath, "utf8")));
+          params.push({
+            scope: "repo",
+            status: "ok",
+            label: "openclaw config",
+            detail: path.relative(repoRoot, openclawConfigPath),
+          });
+
+          const infraHosts = new Set(Object.keys(loaded.infra.hosts || {}));
+          const unknownOpenclawHosts = Object.keys(openclawParsed.hosts || {}).filter((host) => !infraHosts.has(host));
+          params.push({
+            scope: "repo",
+            status: unknownOpenclawHosts.length === 0 ? "ok" : "missing",
+            label: "config host consistency",
+            detail:
+              unknownOpenclawHosts.length === 0
+                ? "(openclaw hosts subset of infra hosts)"
+                : `openclaw hosts missing in infra: ${unknownOpenclawHosts.join(", ")}`,
+          });
+
+          const infraEnv = loaded.infra.fleet.secretEnv || {};
+          const openclawEnv = openclawParsed.fleet.secretEnv || {};
+          const envCollisions = Object.keys(infraEnv).filter((key) => Object.prototype.hasOwnProperty.call(openclawEnv, key));
+          params.push({
+            scope: "repo",
+            status: envCollisions.length === 0 ? "ok" : "missing",
+            label: "config secretEnv collisions",
+            detail:
+              envCollisions.length === 0
+                ? "(no cross-file fleet.secretEnv collisions)"
+                : `colliding env vars: ${envCollisions.join(", ")}`,
+          });
+        }
       } catch (e) {
         params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: String((e as Error)?.message || e) });
       }
     }
 
     if (templateRoot) {
-      const templateConfigPath = path.join(templateRoot, "fleet", "clawlets.json");
-      if (!fs.existsSync(templateConfigPath)) {
-        params.push({ scope: "repo", status: "missing", label: "template clawlets config", detail: templateConfigPath });
+      const templateInfraPath = path.join(templateRoot, "fleet", "clawlets.json");
+      const templateOpenclawPath = path.join(templateRoot, "fleet", "openclaw.json");
+      if (!fs.existsSync(templateInfraPath)) {
+        params.push({ scope: "repo", status: "missing", label: "template clawlets config", detail: templateInfraPath });
       } else {
         try {
-          const raw = fs.readFileSync(templateConfigPath, "utf8");
+          const raw = fs.readFileSync(templateInfraPath, "utf8");
           const parsed = JSON.parse(raw);
-          const parsedConfig = ClawletsConfigSchema.parse(parsed);
-          templateHostNames = Object.keys(parsedConfig.hosts || {});
-          params.push({
-            scope: "repo",
-            status: "ok",
-            label: "template clawlets config",
-            detail: path.relative(repoRoot, templateConfigPath),
-          });
+          let parsedConfig: ReturnType<typeof InfraConfigSchema.parse> | null = null;
+          try {
+            parsedConfig = InfraConfigSchema.parse(parsed);
+          } catch {
+            parsedConfig = null;
+          }
+
+          if (parsedConfig) {
+            templateHostNames = Object.keys(parsedConfig.hosts || {});
+            params.push({
+              scope: "repo",
+              status: "ok",
+              label: "template clawlets config",
+              detail: path.relative(repoRoot, templateInfraPath),
+            });
+
+            if (!fs.existsSync(templateOpenclawPath)) {
+              params.push({
+                scope: "repo",
+                status: "warn",
+                label: "template openclaw config",
+                detail: "(optional) fleet/openclaw.json missing",
+              });
+            } else {
+              const parsedOpenclaw = OpenClawConfigSchema.parse(JSON.parse(fs.readFileSync(templateOpenclawPath, "utf8")));
+              const infraHosts = new Set(Object.keys(parsedConfig.hosts || {}));
+              const unknownHosts = Object.keys(parsedOpenclaw.hosts || {}).filter((host) => !infraHosts.has(host));
+              params.push({
+                scope: "repo",
+                status: unknownHosts.length === 0 ? "ok" : "missing",
+                label: "template config host consistency",
+                detail:
+                  unknownHosts.length === 0
+                    ? "(openclaw hosts subset of infra hosts)"
+                    : `openclaw hosts missing in infra: ${unknownHosts.join(", ")}`,
+              });
+            }
+          } else {
+            const hosts = (parsed as any)?.hosts;
+            if (!hosts || typeof hosts !== "object" || Array.isArray(hosts)) {
+              throw new Error("template clawlets config missing hosts object");
+            }
+            templateHostNames = Object.keys(hosts);
+            params.push({
+              scope: "repo",
+              status: "warn",
+              label: "template clawlets config",
+              detail: `${path.relative(repoRoot, templateInfraPath)} (legacy monolith shape)`,
+            });
+          }
         } catch (e) {
           params.push({
             scope: "repo",

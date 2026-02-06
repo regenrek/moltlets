@@ -8,12 +8,12 @@ import { readClawletsEnvTokens } from "~/server/redaction"
 import { getClawletsCliEnv } from "~/server/run-env"
 import { runWithEvents, spawnCommandCapture } from "~/server/run-manager"
 import { getAdminProjectContext } from "~/sdk/project"
-import { parseProjectHostInput, parseProjectRunHostInput } from "~/sdk/runtime"
+import { parseProjectHostScopeInput, parseProjectRunHostScopeInput } from "~/sdk/runtime"
 import { resolveHostFromConfig } from "./helpers"
 import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
 
 export const secretsVerifyStart = createServerFn({ method: "POST" })
-  .inputValidator(parseProjectHostInput)
+  .inputValidator(parseProjectHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
@@ -23,20 +23,20 @@ export const secretsVerifyStart = createServerFn({ method: "POST" })
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "secrets_verify",
-      title: `Secrets verify (${host})`,
+      title: `Secrets verify (${host}, scope=${data.scope})`,
       host,
     })
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.verify",
       target: { host },
-      data: { runId },
+      data: { runId, scope: data.scope },
     })
     return { runId }
   })
 
 export const secretsVerifyExecute = createServerFn({ method: "POST" })
-  .inputValidator(parseProjectRunHostInput)
+  .inputValidator(parseProjectRunHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await requireAdminAndBoundRun({
@@ -67,7 +67,7 @@ export const secretsVerifyExecute = createServerFn({ method: "POST" })
         runId: data.runId,
         cwd: repoRoot,
         cmd: "node",
-        args: [cliEntry, "secrets", "verify", "--host", data.host, "--json"],
+        args: [cliEntry, "secrets", "verify", "--host", data.host, "--scope", data.scope, "--json"],
         env: cliEnv.env,
         envAllowlist: cliEnv.envAllowlist,
         redactTokens,

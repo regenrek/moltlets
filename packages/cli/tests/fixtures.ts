@@ -61,7 +61,7 @@ export function makeConfig(params?: {
     ...(params?.fleetOverrides ?? {}),
   };
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     defaultHost: hostName,
     baseFlake: "",
     fleet,

@@ -1,9 +1,17 @@
-export { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
+export { CLAWLETS_CONFIG_SCHEMA_VERSION, INFRA_CONFIG_SCHEMA_VERSION, OPENCLAW_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 export {
   ClawletsConfigSchema,
   type ClawletsConfig,
   type ClawletsHostConfig,
   validateClawletsConfigSchema,
+  InfraConfigSchema,
+  InfraHostConfigSchema,
+  type InfraConfig,
+  type InfraHostConfig,
+  OpenClawConfigSchema,
+  OpenClawHostConfigSchema,
+  type OpenClawConfig,
+  type OpenClawHostConfig,
 } from "./schema.js";
 export {
   SSH_EXPOSURE_MODES,
@@ -35,7 +43,16 @@ export {
   isPublicSshExposure,
   getTailnetMode,
 } from "./resolve-host.js";
-export { loadClawletsConfig, loadClawletsConfigRaw, writeClawletsConfig } from "./io.js";
+export {
+  loadClawletsConfig,
+  loadClawletsConfigRaw,
+  loadInfraConfig,
+  loadOpenClawConfig,
+  loadFullConfig,
+  writeClawletsConfig,
+  writeInfraConfig,
+  writeOpenClawConfig,
+} from "./io.js";
 export { migrateClawletsConfigToLatest, type MigrateToLatestResult } from "./migrate.js";
 export { HostNameSchema as SafeHostNameSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 export type { ClawletsCattleConfig } from "./schema-cattle.js";

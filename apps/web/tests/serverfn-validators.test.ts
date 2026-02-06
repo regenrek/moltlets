@@ -7,13 +7,18 @@ import {
   parseProjectIdInput,
   parseProjectGatewayInput,
   parseProjectHostInput,
+  parseProjectHostScopeInput,
   parseProjectHostRequiredInput,
   parseProjectRunHostInput,
+  parseProjectRunHostScopeInput,
   parseServerChannelsExecuteInput,
   parseServerChannelsStartInput,
   parseServerLogsExecuteInput,
   parseServerRestartExecuteInput,
   parseServerRestartStartInput,
+  parseServerUpdateApplyStartInput,
+  parseServerUpdateStatusExecuteInput,
+  parseServerUpdateLogsStartInput,
   parseServerUpdateLogsExecuteInput,
   parseServerUpdateStatusStartInput,
   parseSecretsInitExecuteInput,
@@ -144,6 +149,20 @@ describe("serverfn validators", () => {
     expect(parseProjectHostInput({ projectId: "p1", host: "" })).toEqual({ projectId: "p1", host: "" })
   })
 
+  it("parses scoped project+host inputs", () => {
+    expect(parseProjectHostScopeInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      scope: "all",
+    })
+    expect(parseProjectHostScopeInput({ projectId: "p1", host: "alpha", scope: " bootstrap " })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      scope: "bootstrap",
+    })
+    expect(() => parseProjectHostScopeInput({ projectId: "p1", host: "alpha", scope: "nope" })).toThrow(/invalid scope/i)
+  })
+
   it("rejects invalid project ids", () => {
     expect(() => parseProjectIdInput({ projectId: "" })).toThrow()
     expect(() => parseProjectIdInput({ projectId: 123 })).toThrow()
@@ -195,6 +214,21 @@ describe("serverfn validators", () => {
     expect(() => parseProjectRunHostInput({ projectId: "p1", runId: "r1", host: "" })).toThrow()
   })
 
+  it("parses scoped project+run+host inputs", () => {
+    expect(parseProjectRunHostScopeInput({ projectId: "p1", runId: "r1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      scope: "all",
+    })
+    expect(parseProjectRunHostScopeInput({ projectId: "p1", runId: "r1", host: "alpha", scope: "openclaw" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      scope: "openclaw",
+    })
+  })
+
   it("parses server logs lines and validates digits", () => {
     expect(
       parseServerLogsExecuteInput({
@@ -222,6 +256,7 @@ describe("serverfn validators", () => {
         projectId: "p1",
         runId: "r1",
         host: "alpha",
+        scope: "updates",
         allowPlaceholders: true,
         adminPassword: "pw",
         secrets: { discord_token: "abc" },
@@ -230,6 +265,7 @@ describe("serverfn validators", () => {
       projectId: "p1",
       runId: "r1",
       host: "alpha",
+      scope: "updates",
       allowPlaceholders: true,
       adminPassword: "pw",
       secrets: { discord_token: "abc" },
@@ -274,6 +310,25 @@ describe("serverfn validators", () => {
     })
 
     expect(
+      parseServerUpdateStatusExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "admin@1.2.3.4",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+
+    expect(parseServerUpdateLogsStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+
+    expect(
       parseServerUpdateLogsExecuteInput({
         projectId: "p1",
         runId: "r1",
@@ -282,6 +337,11 @@ describe("serverfn validators", () => {
         since: "",
       }),
     ).toMatchObject({ lines: "200", since: "", follow: false })
+
+    expect(parseServerUpdateApplyStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
   })
 
   it("rejects ssh key import file paths", () => {

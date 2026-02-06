@@ -38,7 +38,7 @@ describe("project init", () => {
       path.join(dir, "fleet", "clawlets.json"),
       JSON.stringify(
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           fleet: {
             secretEnv: {},
             secretFiles: {},

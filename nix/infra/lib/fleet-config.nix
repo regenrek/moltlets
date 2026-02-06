@@ -1,11 +1,14 @@
 { lib, project, hostName }:
 let
-  cfg = project.config;
-  fleetCfg = (cfg.fleet or { });
+  infraCfg = project.infraConfig or project.config or { };
+  openclawCfg = project.openclawConfig or { hosts = { }; fleet = { }; };
+  infraFleetCfg = (infraCfg.fleet or { });
+  fleetCfg = (openclawCfg.fleet or { });
   hostCfg =
     if hostName == null || hostName == ""
     then builtins.throw "hostName is required for fleet-config.nix"
-    else (cfg.hosts.${hostName} or (builtins.throw "unknown host in config.hosts"));
+    else (openclawCfg.hosts.${hostName} or { });
+  openclawEnabled = hostCfg.enable or false;
 
   _ =
     if builtins.hasAttr "guildId" fleetCfg
@@ -25,7 +28,8 @@ let
         else if builtins.isAttrs gatewaysById then builtins.attrNames gatewaysById
         else [ ];
     in
-      if derived == [] then builtins.throw "hosts.<host>.gateways must define at least one gateway id"
+      if !openclawEnabled then [ ]
+      else if derived == [] then builtins.throw "openclaw host enable=true requires at least one gateway id"
       else derived;
 
   baseGateway = {
@@ -96,8 +100,8 @@ in {
 
   backups = {
     restic = {
-      enable = ((fleetCfg.backups or { }).restic or { }).enable or false;
-      repository = ((fleetCfg.backups or { }).restic or { }).repository or "";
+      enable = ((infraFleetCfg.backups or { }).restic or { }).enable or false;
+      repository = ((infraFleetCfg.backups or { }).restic or { }).repository or "";
       passwordSecret = "restic_password";
       environmentSecret = null;
     };

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 function baseConfig(host: string) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     defaultHost: host,
     baseFlake: "",
     fleet: {
@@ -89,11 +89,11 @@ describe("openclaw harden command", () => {
     await writeFile(path.join(dir, "flake.nix"), "# test\n", "utf8");
     await mkdir(path.join(dir, "scripts"));
     await mkdir(path.join(dir, "fleet"));
-    await writeFile(
-      path.join(dir, "fleet", "clawlets.json"),
-      `${JSON.stringify(baseConfig("openclaw-fleet-host"), null, 2)}\n`,
-      "utf8",
-    );
+    const { writeClawletsConfig } = await import("@clawlets/core/lib/config/clawlets-config");
+    await writeClawletsConfig({
+      configPath: path.join(dir, "fleet", "clawlets.json"),
+      config: baseConfig("openclaw-fleet-host") as any,
+    });
     process.chdir(dir);
   });
 
@@ -116,7 +116,7 @@ describe("openclaw harden command", () => {
   it("writes changes when --write is set", async () => {
     const { openclawHarden } = await import("../src/commands/openclaw/harden.js");
     await openclawHarden.run({ args: { write: true } } as any);
-    const raw = await readFile(path.join(dir, "fleet", "clawlets.json"), "utf8");
+    const raw = await readFile(path.join(dir, "fleet", "openclaw.json"), "utf8");
     const parsed = JSON.parse(raw);
     expect(parsed.hosts["openclaw-fleet-host"].gateways.agent.openclaw.logging.redactSensitive).toBe("tools");
     expect(parsed.hosts["openclaw-fleet-host"].gateways.agent.openclaw.session.dmScope).toBe("per-channel-peer");

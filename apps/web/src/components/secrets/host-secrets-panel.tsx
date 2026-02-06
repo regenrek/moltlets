@@ -41,7 +41,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   const template = useQuery({
     queryKey: ["secretsTemplate", projectId, host],
-    queryFn: async () => await getSecretsTemplate({ data: { projectId, host } }),
+    queryFn: async () => await getSecretsTemplate({ data: { projectId, host, scope: "all" } }),
     enabled: Boolean(host),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -105,7 +105,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
   const initStart = useMutation({
-    mutationFn: async () => await secretsInitStart({ data: { projectId, host } }),
+    mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope: "all" } }),
     onSuccess: (res) => {
       setInitRunId(res.runId)
       const secretsPayload = Object.fromEntries(
@@ -118,6 +118,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
           projectId,
           runId: res.runId,
           host,
+          scope: "all",
           allowPlaceholders: false,
           adminPassword,
           tailscaleAuthKey,
@@ -132,9 +133,9 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
     queryKey: ["secretsVerify", projectId, host],
     queryFn: async () => {
       if (!host) throw new Error("missing host")
-      const res = await secretsVerifyStart({ data: { projectId, host } })
+      const res = await secretsVerifyStart({ data: { projectId, host, scope: "all" } })
       const result = await secretsVerifyExecute({
-        data: { projectId, runId: res.runId, host },
+        data: { projectId, runId: res.runId, host, scope: "all" },
       })
       return { runId: res.runId, result }
     },

@@ -11,9 +11,13 @@ import {
   createDefaultClawletsConfig,
   CLAWLETS_CONFIG_SCHEMA_VERSION,
   ClawletsConfigSchema,
+  InfraConfigSchema,
+  OpenClawConfigSchema,
   loadClawletsConfig,
   loadClawletsConfigRaw,
   resolveHostName,
+  writeInfraConfig,
+  writeOpenClawConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config";
 import { migrateClawletsConfigToLatest } from "@clawlets/core/lib/config/clawlets-config-migrate";
@@ -361,7 +365,14 @@ const migrate = defineCommand({
       return;
     }
 
-    const validated = ClawletsConfigSchema.parse(res.migrated);
+    const validated = InfraConfigSchema.parse(res.migrated);
+    const openclawValidated = OpenClawConfigSchema.parse(
+      res.openclawConfig || {
+        schemaVersion: 1,
+        hosts: {},
+        fleet: { secretEnv: {}, secretFiles: {}, gatewayArchitecture: "multi", codex: { enable: false, gateways: [] } },
+      },
+    );
 
     if ((args as any)["dry-run"]) {
       console.log(`planned: write ${path.relative(repoRoot, configPath)}`);
@@ -370,8 +381,11 @@ const migrate = defineCommand({
     }
 
     await ensureDir(path.dirname(configPath));
-    await writeClawletsConfig({ configPath, config: validated });
-    console.log(`ok: migrated to schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}: ${path.relative(repoRoot, configPath)}`);
+    await writeInfraConfig({ configPath, config: validated });
+    await writeOpenClawConfig({ configPath: getRepoLayout(repoRoot).openclawConfigPath, config: openclawValidated });
+    console.log(
+      `ok: migrated to schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION}: ${path.relative(repoRoot, configPath)} + ${path.relative(repoRoot, getRepoLayout(repoRoot).openclawConfigPath)}`,
+    );
     for (const w of res.warnings) console.log(`warn: ${w}`);
   },
 });

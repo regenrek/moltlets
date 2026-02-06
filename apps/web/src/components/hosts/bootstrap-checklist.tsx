@@ -126,8 +126,8 @@ export function BootstrapChecklist({
 
   const tailscaleSecretCheck = useMutation({
     mutationFn: async () => {
-      const start = await secretsVerifyStart({ data: { projectId, host } })
-      const result = await secretsVerifyExecute({ data: { projectId, runId: start.runId, host } })
+      const start = await secretsVerifyStart({ data: { projectId, host, scope: "bootstrap" } })
+      const result = await secretsVerifyExecute({ data: { projectId, runId: start.runId, host, scope: "bootstrap" } })
       return result
     },
     onSuccess: (res: any) => {

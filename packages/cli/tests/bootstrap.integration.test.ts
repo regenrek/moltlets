@@ -144,7 +144,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
     layout: getRepoLayout("/repo"),
     configPath: "/repo/fleet/clawlets.json",
     config: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       defaultHost: hostName,
       baseFlake: "",
       fleet: {

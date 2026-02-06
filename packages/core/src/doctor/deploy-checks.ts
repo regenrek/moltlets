@@ -346,22 +346,22 @@ export async function addDeployChecks(params: {
     const gatewaysForSecrets = secretsPlan?.gateways?.length ? secretsPlan.gateways : params.fleetGateways || [];
     const hostSecretNamesRequired = secretsPlan?.hostSecretNamesRequired || ["admin_password_hash"];
     const secretNamesAll = secretsPlan?.secretNamesAll || [];
+    const required = Array.from(new Set([
+      ...hostSecretNamesRequired,
+      ...(gatewaysForSecrets.length > 0 ? secretNamesAll : []),
+    ]));
 
-    if (gatewaysForSecrets.length > 0) {
-      const required = Array.from(new Set([
-        ...hostSecretNamesRequired,
-        ...secretNamesAll,
-      ]));
-      for (const secretName of required) {
-        const f = path.join(secretsLocalDir, `${secretName}.yaml`);
-        push({
-          status: fs.existsSync(f) ? "ok" : "missing",
-          label: `secret: ${secretName}`,
-          detail: fs.existsSync(f) ? undefined : f,
-        });
-      }
-    } else {
-      push({ status: "warn", label: "required secrets", detail: "(host gateways list missing; cannot validate per-gateway secrets)" });
+    for (const secretName of required) {
+      const f = path.join(secretsLocalDir, `${secretName}.yaml`);
+      push({
+        status: fs.existsSync(f) ? "ok" : "missing",
+        label: `secret: ${secretName}`,
+        detail: fs.existsSync(f) ? undefined : f,
+      });
+    }
+
+    if (gatewaysForSecrets.length === 0) {
+      push({ status: "warn", label: "required secrets", detail: "(host gateways list missing; skipping per-gateway secret checks)" });
     }
 
     const requiredForValues = Array.from(new Set([

@@ -7,6 +7,7 @@ import { ensureDir, writeFileAtomic } from "../storage/fs-safe.js";
 import { capture, run } from "../runtime/run.js";
 import { assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 import { normalizeHostTheme, type HostTheme } from "../host/host-theme.js";
+import { OPENCLAW_CONFIG_SCHEMA_VERSION } from "../config/clawlets-config-version.js";
 
 type DownloadedTemplate = { dir: string };
 
@@ -202,6 +203,29 @@ async function applyHostTheme(
   await writeFileAtomic(configPath, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
+async function ensureOpenclawConfig(destDir: string, host: string): Promise<void> {
+  const openclawPath = path.join(destDir, "fleet", "openclaw.json");
+  if (fs.existsSync(openclawPath)) return;
+  const payload = {
+    schemaVersion: OPENCLAW_CONFIG_SCHEMA_VERSION,
+    hosts: {
+      [host]: {
+        enable: false,
+        agentModelPrimary: "anthropic/claude-opus-4-5",
+        gatewaysOrder: [],
+        gateways: {},
+      },
+    },
+    fleet: {
+      secretEnv: {},
+      secretFiles: {},
+      gatewayArchitecture: "multi",
+      codex: { enable: false, gateways: [] },
+    },
+  };
+  await writeFileAtomic(openclawPath, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
 export type ProjectInitPlan = {
   destDir: string;
   host: string;
@@ -309,6 +333,7 @@ export async function initProject(params: {
     const planned = await listPlannedFiles({ templateDir, subs });
     await ensureDir(destDir);
     await copyTree({ srcDir: templateDir, destDir, subs });
+    await ensureOpenclawConfig(destDir, host);
     await disableCacheNetrc(destDir, host);
     await applyHostTheme(destDir, host, params.theme);
     return planned;
