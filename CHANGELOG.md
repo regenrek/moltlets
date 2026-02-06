@@ -17,12 +17,17 @@ The format is based on Keep a Changelog and this project follows SemVer for npm 
 - Canonical runtime naming now defaults to `openclaw` service/unit and host placeholders (`openclaw-*.service`, `openclaw-fleet-host`) across core/CLI/web flows.
 - Validate `hosts.<host>.gateways.<gateway>.openclaw` passthrough against pinned upstream schema (fail fast, full-path errors).
 - Template/Nix: add `flakeInfo.clawletsInput` (clawlets input revision) alongside `flakeInfo.clawlets` (project revision).
+- Web/CLI import hygiene: remove unjustified inline dynamic imports from auth/serverfn call sites; keep dynamic import only for runtime plugin entry loading by path.
+- Better Auth server module is now side-effect free at import time via lazy singleton init (env checks run on first use).
 
 ### Fixed
 - Config batch validation now rejects ambiguous ops early; migration now moves legacy `openclaw.*` typed surfaces.
 - Prevent gateways from fan-out across all enabled hosts by enforcing host-scoped gateway lists.
 - Web add-gateway flow now reconciles `hosts.<host>.gatewaysOrder` and `hosts.<host>.gateways` instead of silently leaving partial state.
 - Fix `clawlets project init` by updating the pinned default template ref; add CI gate to validate the pin stays compatible.
+- Web SDK contract drift: replaced legacy `botId` payloads with canonical `gatewayId` for OpenClaw schema and workspace docs server functions.
+- CLI plugin reserved-command guard no longer depends on ESM initialization order; uses live base command registry lookup.
+- CI/node regression fixed: `scripts/fetch-template-for-tests.mjs` now loads template helpers from `packages/core/dist/lib/project/index.js` after core domain re-architecture.
 
 ## [0.4.4] - 2026-02-01
 ### Added
