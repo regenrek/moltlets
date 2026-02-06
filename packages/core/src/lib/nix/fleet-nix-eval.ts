@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { capture } from "../runtime/run.js";
-import type { FleetConfig } from "../config/fleet-policy.js";
+import { capture } from "../runtime/index.js";
+import type { FleetConfig } from "../config/index.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 
 const FleetConfigSchema = z.object({

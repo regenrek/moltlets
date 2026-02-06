@@ -1,7 +1,7 @@
-import type { ClawletsConfig } from "../config/clawlets-config.js";
+import type { ClawletsConfig } from "../config/index.js";
 import { z } from "zod";
 import { getAtPath } from "../storage/object-path.js";
-import { skillApiKeyEnvVar } from "../secrets/env-vars.js";
+import { skillApiKeyEnvVar } from "../secrets/index.js";
 import invariantSpec from "../../assets/openclaw-invariants.json" with { type: "json" };
 import type { OpenClawConfig, OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../../generated/openclaw-config.types.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";

@@ -8,7 +8,6 @@ export * from "./env-var-refs.js";
 export * from "./env-vars.js";
 export * from "./plan/index.js";
 export * from "./plan/spec-helpers.js";
-export * from "./plan/fleet-secrets-plan.js";
 export * from "./secret-wiring.js";
 export * from "./secrets-allowlist.js";
 export * from "./secrets-autowire.js";

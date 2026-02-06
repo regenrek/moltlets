@@ -1,5 +1,5 @@
 import { tryGetOriginFlake } from "../vcs/git.js";
-import type { ClawletsConfig } from "../config/clawlets-config.js";
+import type { ClawletsConfig } from "../config/index.js";
 
 export async function resolveBaseFlake(params: {
   repoRoot: string;
@@ -11,4 +11,3 @@ export async function resolveBaseFlake(params: {
   if (fromOrigin) return { flake: fromOrigin, source: "origin" };
   return { flake: null, source: "none" };
 }
-

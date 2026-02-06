@@ -1,5 +1,5 @@
 import { SecretNameSchema } from "@clawlets/shared/lib/identifiers";
-import { assertSafeRecordKey, createNullProtoRecord } from "../runtime/safe-record.js";
+import { assertSafeRecordKey, createNullProtoRecord } from "../runtime/index.js";
 
 export type SecretsInitJson = {
   adminPasswordHash: string;

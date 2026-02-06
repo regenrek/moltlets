@@ -1,6 +1,6 @@
 import type { OpenclawSchemaArtifact } from "./artifact.js";
 import { getPinnedOpenclawSchemaArtifact } from "./artifact.js";
-import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "../../nix/nix-openclaw-source.js";
+import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "../../nix/index.js";
 
 type FetchSourceInfo = typeof fetchNixOpenclawSourceInfo;
 type GetPinnedSchema = typeof getPinnedOpenclawSchemaArtifact;

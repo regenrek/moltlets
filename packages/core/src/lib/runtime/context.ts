@@ -1,5 +1,5 @@
 import { findRepoRoot } from "../project/repo.js";
-import { loadClawletsConfig, type ClawletsConfig, type ClawletsHostConfig } from "../config/clawlets-config.js";
+import { loadClawletsConfig, type ClawletsConfig, type ClawletsHostConfig } from "../config/index.js";
 import type { RepoLayout } from "../../repo-layout.js";
 import { resolveHostNameOrExit } from "../host/host-resolve.js";
 

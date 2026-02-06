@@ -9,9 +9,9 @@ vi.mock("../src/lib/project/repo.js", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-vi.mock("../src/lib/config/clawlets-config.js", async () => {
-  const actual = await vi.importActual<typeof import("../src/lib/config/clawlets-config.js")>(
-    "../src/lib/config/clawlets-config.js",
+vi.mock("../src/lib/config/index.js", async () => {
+  const actual = await vi.importActual<typeof import("../src/lib/config/index.js")>(
+    "../src/lib/config/index.js",
   );
   return {
     ...actual,

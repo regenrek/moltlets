@@ -1,4 +1,4 @@
-import { capture, captureWithInput, run, type RunOpts } from "../runtime/run.js";
+import { capture, captureWithInput, run, type RunOpts } from "../runtime/index.js";
 import { withFlakesEnv } from "./nix-flakes.js";
 
 export type NixToolOpts = {

@@ -26,6 +26,7 @@ export {
   GatewayArchitectureSchema,
   type GatewayArchitecture,
 } from "./schema-fleet.js";
+export { validateFleetPolicy, type FleetConfig, type FleetPolicyViolation } from "./fleet-policy.js";
 export { createDefaultClawletsConfig } from "./defaults.js";
 export {
   resolveHostName,

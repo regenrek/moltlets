@@ -1,4 +1,4 @@
-import type { ClawletsConfig } from "../config/clawlets-config.js";
+import type { ClawletsConfig } from "../config/index.js";
 import { buildFleetSecretsPlan } from "./plan.js";
 
 export function buildManagedHostSecretNameAllowlist(params: {

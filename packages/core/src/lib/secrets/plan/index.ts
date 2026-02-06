@@ -8,9 +8,9 @@ import {
   collectDerivedSecretEnvEntries,
   isWhatsAppEnabled,
 } from "../env-vars.js";
-import type { ClawletsConfig } from "../../config/clawlets-config.js";
+import type { ClawletsConfig } from "../../config/index.js";
 import type { SecretSource, SecretsPlanWarning } from "../secrets-plan.js";
-import { buildOpenClawGatewayConfig } from "../../openclaw/config-invariants.js";
+import { buildOpenClawGatewayConfig } from "../../openclaw/index.js";
 import { runSecretRequirementCollectors } from "../collectors/registry.js";
 import { addMissingEnvVarConfig } from "./missing-config.js";
 import { normalizeEnvVarPaths, normalizeSecretFiles, type SecretSpecAccumulator } from "./spec-helpers.js";
@@ -29,11 +29,11 @@ export type { FleetSecretsPlan, MissingFleetSecretConfig } from "./types.js";
 
 export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName: string }): FleetSecretsPlan {
   const hostName = params.hostName.trim();
-  const hostCfg = (params.config.hosts as any)?.[hostName];
+  const hostCfg = params.config.hosts[hostName];
   if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
 
-  const gateways = Array.isArray((hostCfg as any)?.gatewaysOrder) ? ((hostCfg as any).gatewaysOrder as string[]) : [];
-  const gatewayConfigs = ((hostCfg as any)?.gateways || {}) as Record<string, unknown>;
+  const gateways = hostCfg.gatewaysOrder;
+  const gatewayConfigs = hostCfg.gateways;
 
   const secretNamesAll = new Set<string>();
   const secretNamesRequired = new Set<string>();
@@ -45,16 +45,16 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
 
   const hostSecretNamesRequired = new Set<string>(["admin_password_hash"]);
 
-  const tailnetMode = String((hostCfg as any)?.tailnet?.mode || "none");
+  const tailnetMode = String(hostCfg.tailnet?.mode || "none");
   if (tailnetMode === "tailscale") hostSecretNamesRequired.add("tailscale_auth_key");
 
-  const cacheNetrc = (hostCfg as any)?.cache?.netrc;
+  const cacheNetrc = hostCfg.cache?.netrc;
   if (cacheNetrc?.enable) {
     const secretName = String(cacheNetrc?.secretName || "garnix_netrc").trim();
     if (secretName) hostSecretNamesRequired.add(secretName);
   }
 
-  const resticEnabled = Boolean((params.config.fleet.backups as any)?.restic?.enable);
+  const resticEnabled = Boolean(params.config.fleet.backups?.restic?.enable);
   if (resticEnabled) hostSecretNamesRequired.add("restic_password");
 
   for (const secretName of hostSecretNamesRequired) {
@@ -66,7 +66,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
 
   const byGateway: FleetSecretsPlan["byGateway"] = {};
 
-  const hostSecretFiles = normalizeSecretFiles((params.config.fleet as any)?.secretFiles);
+  const hostSecretFiles = normalizeSecretFiles(params.config.fleet.secretFiles);
   for (const [fileId, spec] of Object.entries(hostSecretFiles)) {
     if (!spec?.secretName) continue;
 
@@ -87,7 +87,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
     });
   }
 
-  const fleetSecretEnv = (params.config.fleet as any)?.secretEnv;
+  const fleetSecretEnv = params.config.fleet.secretEnv;
 
   const envVarAliasMap = buildEnvVarAliasMap();
   const ignoredEnvVars = new Set<string>([
@@ -96,19 +96,20 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
   ]);
 
   for (const gatewayId of gateways) {
-    const gatewayCfg = (gatewayConfigs as any)?.[gatewayId] || {};
-    const profile = (gatewayCfg as any)?.profile || {};
+    const gatewayCfgRaw = gatewayConfigs[gatewayId] || {};
+    const gatewayCfg = gatewayCfgRaw as { profile?: { secretEnv?: unknown; secretFiles?: unknown } };
+    const profile = gatewayCfg.profile || {};
     const openclaw = buildOpenClawGatewayConfig({ config: params.config, hostName, gatewayId }).merged;
 
     const baseSecretEnv = buildBaseSecretEnv({
       globalEnv: fleetSecretEnv,
-      gatewayEnv: profile?.secretEnv,
+      gatewayEnv: profile.secretEnv,
       aliasMap: envVarAliasMap,
       warnings,
       gateway: gatewayId,
     });
-    const derivedEntries = collectDerivedSecretEnvEntries(gatewayCfg);
-    const derivedSecretEnv = buildDerivedSecretEnv(gatewayCfg);
+    const derivedEntries = collectDerivedSecretEnvEntries(gatewayCfgRaw);
+    const derivedSecretEnv = buildDerivedSecretEnv(gatewayCfgRaw);
     const secretEnv = { ...baseSecretEnv, ...derivedSecretEnv };
     const derivedDupes = derivedEntries
       .map((entry) => entry.envVar)
@@ -219,7 +220,7 @@ export function buildFleetSecretsPlan(params: { config: ClawletsConfig; hostName
       });
     }
 
-    const gatewaySecretFiles = normalizeSecretFiles(profile?.secretFiles);
+    const gatewaySecretFiles = normalizeSecretFiles(profile.secretFiles);
     for (const [fileId, spec] of Object.entries(gatewaySecretFiles)) {
       if (!spec?.secretName) continue;
 

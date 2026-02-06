@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import process from "node:process";
-import { run } from "../runtime/run.js";
+import { run } from "../runtime/index.js";
 import { validateHostSecretsYamlFiles } from "./secrets-policy.js";
 
 async function sha256File(filePath: string): Promise<string> {

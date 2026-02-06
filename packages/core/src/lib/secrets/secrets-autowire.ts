@@ -1,8 +1,8 @@
 import { buildFleetSecretsPlan } from "./plan.js";
 import { suggestSecretNameForEnvVar } from "./env-vars.js";
-import type { ClawletsConfig } from "../config/clawlets-config.js";
+import type { ClawletsConfig } from "../config/index.js";
 import type { MissingSecretConfig, SecretSource } from "./secrets-plan.js";
-import { ClawletsConfigSchema } from "../config/clawlets-config.js";
+import { ClawletsConfigSchema } from "../config/index.js";
 
 export type SecretsAutowireScope = "fleet" | "gateway";
 
@@ -101,7 +101,7 @@ export function applySecretsAutowire(params: {
 }): ClawletsConfig {
   const next = structuredClone(params.config) as ClawletsConfig;
   const hostName = params.hostName.trim();
-  const hostCfg = (next.hosts as any)?.[hostName];
+  const hostCfg = next.hosts[hostName];
   if (!hostCfg) throw new Error(`missing host in config.hosts: ${hostName}`);
 
   for (const entry of params.plan.updates) {
@@ -113,7 +113,7 @@ export function applySecretsAutowire(params: {
       next.fleet.secretEnv[entry.envVar] = entry.secretName;
       continue;
     }
-    const gateway = (hostCfg.gateways as any)?.[entry.gatewayId];
+    const gateway = hostCfg.gateways[entry.gatewayId];
     if (!gateway) throw new Error(`unknown gateway for host=${hostName}: ${entry.gatewayId}`);
     const profile = gateway.profile;
     if (!profile.secretEnv) profile.secretEnv = {};

@@ -25,7 +25,7 @@ const DOMAIN_RULES = {
     requireBarrelForCrossDomain: true,
   },
   runtime: {
-    allow: new Set(["runtime"]),
+    allow: new Set(["runtime", "config"]),
     allowRoot: true,
     requireBarrelForCrossDomain: true,
   },
