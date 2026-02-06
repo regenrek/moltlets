@@ -8,7 +8,7 @@
   outputs = { self, nixpkgs }:
     let
       lib = nixpkgs.lib;
-      clawletsSrc = ../../..;
+      clawletsSrc = ../../../..;
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: lib.genAttrs systems (system: f system);
 

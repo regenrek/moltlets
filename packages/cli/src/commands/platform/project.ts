@@ -68,6 +68,7 @@ const projectInit = defineCommand({
         destDir,
         host,
         templateSpec: templateSpec.spec,
+        templateRef: templateSpec.ref,
       });
       const list = plan.plannedFiles.join("\n");
       p.note(list, "Planned files");
@@ -79,6 +80,7 @@ const projectInit = defineCommand({
       destDir,
       host,
       templateSpec: templateSpec.spec,
+      templateRef: templateSpec.ref,
       gitInit: args.gitInit,
     });
 

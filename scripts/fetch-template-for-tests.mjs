@@ -64,6 +64,15 @@ async function writeMetadata(destRoot, meta) {
   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2) + "\n", "utf8");
 }
 
+async function replaceClawletsRefPlaceholder(destRoot, ref) {
+  const flakePath = path.join(destRoot, "flake.nix");
+  const flake = await fs.readFile(flakePath, "utf8").catch(() => null);
+  if (!flake) return;
+  if (!flake.includes("__CLAWLETS_REF__")) return;
+  const resolvedRef = String(ref || "").trim() || "main";
+  await fs.writeFile(flakePath, flake.replaceAll("__CLAWLETS_REF__", resolvedRef), "utf8");
+}
+
 async function ensureTemplate() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(scriptDir, "..");
@@ -71,6 +80,7 @@ async function ensureTemplate() {
     String(process.env.CLAWLETS_TEMPLATE_TEST_DIR || path.join(repoRoot, "packages", "core", "tests", ".template")),
   );
   const lib = await loadTemplateLib(repoRoot);
+  const configuredSource = await loadTemplateSource(repoRoot, lib);
   const safeDestRoot = lib.resolveTemplateTestDir({ repoRoot, destRoot });
   const localTemplateDir = await resolveLocalTemplateDir(repoRoot);
   if (localTemplateDir) {
@@ -82,11 +92,12 @@ async function ensureTemplate() {
     await fs.rm(safeDestRoot, { recursive: true, force: true });
     await fs.mkdir(safeDestRoot, { recursive: true });
     await fs.cp(localTemplateDir, safeDestRoot, { recursive: true });
+    await replaceClawletsRefPlaceholder(safeDestRoot, configuredSource.ref);
     await writeMetadata(safeDestRoot, source);
     return;
   }
 
-  const source = await loadTemplateSource(repoRoot, lib);
+  const source = configuredSource;
   const tarCacheDir = path.join(repoRoot, ".cache", "template");
   const tarCachePath = path.join(tarCacheDir, `${source.ref}.tar.gz`);
   const existing = await readMetadata(safeDestRoot);
@@ -144,6 +155,7 @@ async function ensureTemplate() {
 
     const marker = path.join(safeDestRoot, "fleet", "clawlets.json");
     await fs.access(marker);
+    await replaceClawletsRefPlaceholder(safeDestRoot, source.ref);
     await writeMetadata(safeDestRoot, source);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });

@@ -1,14 +1,14 @@
 import { createServerFn } from "@tanstack/react-start"
 import type { OpenclawSchemaLiveResult, OpenclawSchemaStatusResult } from "~/server/openclaw-schema.server"
-import { parseProjectHostGatewayInput, parseProjectIdInput } from "~/sdk/serverfn-validators"
-import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
+import { parseProjectHostBotInput, parseProjectIdInput } from "~/sdk/serverfn-validators"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/safe-error"
 
 export const getOpenclawSchemaLive = createServerFn({ method: "POST" })
-  .inputValidator(parseProjectHostGatewayInput)
+  .inputValidator(parseProjectHostBotInput)
   .handler(async ({ data }) => {
     try {
       const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-      return await fetchOpenclawSchemaLive({ projectId: data.projectId, host: data.host, gatewayId: data.gatewayId })
+      return await fetchOpenclawSchemaLive({ projectId: data.projectId, host: data.host, botId: data.botId })
     } catch (err) {
       const message = sanitizeErrorMessage(err, "Unable to fetch schema. Check logs.")
       return { ok: false as const, message } satisfies OpenclawSchemaLiveResult

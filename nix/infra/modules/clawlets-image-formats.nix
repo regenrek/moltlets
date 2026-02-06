@@ -1,6 +1,6 @@
-{ lib, ... }:
+{ lib, options, ... }:
 {
-  config = {
+  config = lib.optionalAttrs (options ? formatConfigs) {
     formatConfigs.raw = { ... }: {
       imports = [
         ./clawlets-image-bootstrap.nix

@@ -16,6 +16,7 @@ import {
 
 import { api } from "../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
+import { fetchOpenclawSchemaLive } from "~/server/openclaw-schema.server"
 import { readClawletsEnvTokens } from "~/server/redaction"
 import { getAdminProjectContext } from "~/sdk/repo-root"
 import {
@@ -131,7 +132,6 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
     let schema: Record<string, unknown> | undefined = undefined
     if (schemaMode === "live") {
       try {
-        const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
         const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
           host: data.host,
@@ -251,7 +251,6 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
 
     if (data.schemaMode === "live") {
       try {
-        const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
         const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
           host: data.host,
@@ -367,7 +366,6 @@ export const verifyGatewayOpenclawSchema = createServerFn({ method: "POST" })
     const pinned = getPinnedOpenclawSchemaArtifact()
     let liveSchema: Record<string, unknown> | null = null
     try {
-      const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
       const live = await fetchOpenclawSchemaLive({
         projectId: data.projectId,
         host: hostName,

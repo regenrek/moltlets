@@ -2,7 +2,7 @@
   description = "__PROJECT_NAME__";
 
   inputs = {
-    clawlets.url = "github:regenrek/clawlets";
+    clawlets.url = "github:regenrek/clawlets/__CLAWLETS_REF__";
   };
 
   outputs = { self, clawlets, ... }:

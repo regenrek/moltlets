@@ -212,10 +212,21 @@ export type ProjectInitPlan = {
 const LEGACY_TEMPLATE_HOST_PLACEHOLDER = ["claw", "dbot-fleet-host"].join("");
 const LEGACY_TEMPLATE_HOST_PLACEHOLDER_UNDERSCORE = ["claw", "dbot_fleet_host"].join("");
 
+function resolveTemplateRefForSubstitution(params: { templateSpec: string; templateRef?: string }): string {
+  const explicitRef = String(params.templateRef || "").trim();
+  if (explicitRef) return explicitRef;
+
+  const fromSpec = String(params.templateSpec || "").match(/#([^#]+)$/)?.[1]?.trim();
+  if (fromSpec) return fromSpec;
+
+  return "main";
+}
+
 export async function planProjectInit(params: {
   destDir: string;
   host: string;
   templateSpec: string;
+  templateRef?: string;
 }): Promise<ProjectInitPlan> {
   const destDir = path.resolve(process.cwd(), params.destDir);
   const defaultHost = "openclaw-fleet-host";
@@ -224,8 +235,13 @@ export async function planProjectInit(params: {
 
   const projectName = path.basename(destDir);
   const hostUnderscore = host.replace(/-/g, "_");
+  const templateRef = resolveTemplateRefForSubstitution({
+    templateSpec: params.templateSpec,
+    templateRef: params.templateRef,
+  });
   const subs = {
     "__PROJECT_NAME__": projectName,
+    "__CLAWLETS_REF__": templateRef,
     // Back-compat: templates historically used these placeholders.
     [LEGACY_TEMPLATE_HOST_PLACEHOLDER]: host,
     // Newer templates use openclaw-* placeholders.
@@ -258,6 +274,7 @@ export async function initProject(params: {
   destDir: string;
   host: string;
   templateSpec: string;
+  templateRef?: string;
   theme?: Partial<HostTheme> | null;
   gitInit?: boolean;
 }): Promise<ProjectInitResult> {
@@ -273,8 +290,13 @@ export async function initProject(params: {
 
   const projectName = path.basename(destDir);
   const hostUnderscore = host.replace(/-/g, "_");
+  const templateRef = resolveTemplateRefForSubstitution({
+    templateSpec: params.templateSpec,
+    templateRef: params.templateRef,
+  });
   const subs = {
     "__PROJECT_NAME__": projectName,
+    "__CLAWLETS_REF__": templateRef,
     // Back-compat: templates historically used these placeholders.
     [LEGACY_TEMPLATE_HOST_PLACEHOLDER]: host,
     // Newer templates use openclaw-* placeholders.

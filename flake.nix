@@ -275,11 +275,13 @@
             system = systemLinux;
             specialArgs = { inherit project flakeInfo; };
             modules = [
+              self.inputs.disko.nixosModules.disko
+              self.inputs.sops-nix.nixosModules.sops
               ./nix/hosts/project-host.nix
               ({ ... }: { clawlets.hostName = "openclaw-fleet-host"; })
             ];
           };
-          forced = builtins.deepSeq evalSystem.config "ok";
+          forced = builtins.deepSeq evalSystem.config.system.stateVersion "ok";
         in pkgsLinux.runCommand "nix-module-eval" {} ''
           echo ${forced} > $out
         '';

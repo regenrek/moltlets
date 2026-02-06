@@ -35,7 +35,16 @@ describe("fleet nix eval", () => {
         "    config = { hosts = { alpha = { gatewaysOrder = []; gateways = {}; }; }; };",
         "  };",
         "  hostName = \"alpha\";",
-        "  fleet = import (flake.outPath + \"/nix/infra/lib/fleet-config.nix\") { inherit lib project hostName; };",
+        "  fleetConfigPath =",
+        "    let",
+        "      modernPath = flake.outPath + \"/nix/lib/fleet-config.nix\";",
+        "      openclawPath = flake.outPath + \"/nix/openclaw/infra/lib/fleet-config.nix\";",
+        "      legacyPath = flake.outPath + \"/nix/infra/lib/fleet-config.nix\";",
+        "    in if builtins.pathExists modernPath then modernPath",
+        "    else if builtins.pathExists openclawPath then openclawPath",
+        "    else if builtins.pathExists legacyPath then legacyPath",
+        "    else throw \"fleet-config.nix not found\";",
+        "  fleet = import fleetConfigPath { inherit lib project hostName; };",
         "in fleet.gateways",
       ].join("\n");
 

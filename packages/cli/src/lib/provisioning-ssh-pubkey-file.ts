@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { RepoLayout } from "@clawlets/core/repo-layout";
-import { expandPath } from "@clawlets/core/lib/path-expand";
-import { normalizeSshPublicKey } from "@clawlets/core/lib/ssh";
-import type { ClawletsConfig } from "@clawlets/core/lib/clawlets-config";
+import { expandPath } from "@clawlets/core/lib/storage/path-expand";
+import { normalizeSshPublicKey } from "@clawlets/core/lib/security/ssh";
+import type { ClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 
 /**
  * Resolve the public key file used for provisioning/OpenTofu.
@@ -45,4 +45,3 @@ export function resolveProvisioningSshPubkeyFile(params: {
   if (!fs.existsSync(abs)) throw new Error(`ssh pubkey file not found: ${abs}`);
   return { sshPubkeyFile: abs, source: "hostPath" };
 }
-
