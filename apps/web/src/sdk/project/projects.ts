@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createHash } from "node:crypto";
 import { planProjectInit, initProject } from "@clawlets/core/lib/project/project-init";
 import { HOST_THEME_COLORS, type HostTheme, type HostThemeColor } from "@clawlets/core/lib/host/host-theme";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -30,6 +31,12 @@ function getHostTheme(input?: unknown):
     : undefined
   if (!emoji && !color) return undefined
   return { emoji, color }
+}
+
+function buildLocalWorkspaceRef(localPath: string): { kind: "local"; id: string } {
+  const normalized = localPath.trim().toLowerCase();
+  const digest = createHash("sha256").update(normalized, "utf8").digest("hex");
+  return { kind: "local", id: `sha256:${digest}` };
 }
 
 export const projectInitPlan = createServerFn({ method: "POST" })
@@ -71,6 +78,8 @@ export const projectCreateStart = createServerFn({ method: "POST" })
 
     const { projectId } = await client.mutation(api.projects.create, {
       name: data.name,
+      executionMode: "local",
+      workspaceRef: buildLocalWorkspaceRef(localPath),
       localPath,
     });
     const { runId } = await client.mutation(api.runs.create, {
@@ -165,6 +174,8 @@ export const projectImport = createServerFn({ method: "POST" })
 
     const { projectId } = await client.mutation(api.projects.create, {
       name: data.name,
+      executionMode: "local",
+      workspaceRef: buildLocalWorkspaceRef(localPath),
       localPath,
     });
     await client.mutation(api.projects.update, { projectId, status: "ready" });

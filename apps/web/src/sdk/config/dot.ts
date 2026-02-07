@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import {
   ClawletsConfigSchema,
   loadClawletsConfig,
-  loadClawletsConfigRaw,
+  loadFullConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { splitDotPath } from "@clawlets/core/lib/storage/dot-path"
@@ -60,9 +60,9 @@ export const configDotSet = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
     const parts = splitDotPath(data.path)
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
 
     if (isGatewayOpenclawPath(parts)) {
       return {
@@ -111,7 +111,7 @@ export const configDotSet = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating ${parts.join(".")}` })
-        await writeClawletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
       },
       onSuccess: () => ({ ok: true as const, runId }),
       onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
@@ -150,8 +150,8 @@ export const configDotBatch = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
-    const next = structuredClone(raw) as any
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
+    const next = structuredClone(config) as any
 
     const plannedPaths: string[] = []
 
@@ -219,7 +219,7 @@ export const configDotBatch = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating ${plannedPaths.length} config path(s)` })
-        await writeClawletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
       },
       onSuccess: () => ({ ok: true as const, runId }),
       onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),

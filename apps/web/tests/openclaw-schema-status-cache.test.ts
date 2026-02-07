@@ -18,7 +18,7 @@ describe("openclaw schema status cache", () => {
     }))
     vi.doMock("~/sdk/project", () => ({
       getProjectContext: async (_client: unknown, projectId: string) => ({
-        project: { localPath: `/tmp/${projectId}` },
+        project: { executionMode: "local", localPath: `/tmp/${projectId}` },
         role: "admin",
         repoRoot: `/tmp/${projectId}`,
       }),
@@ -61,7 +61,7 @@ describe("openclaw schema status cache", () => {
     }))
     vi.doMock("~/sdk/project", () => ({
       getProjectContext: async (_client: unknown, projectId: string) => ({
-        project: { localPath: `/tmp/${projectId}` },
+        project: { executionMode: "local", localPath: `/tmp/${projectId}` },
         role: "admin",
         repoRoot: `/tmp/${projectId}`,
       }),
@@ -97,7 +97,7 @@ describe("openclaw schema status cache", () => {
     }))
     vi.doMock("~/sdk/project", () => ({
       getProjectContext: async (_client: unknown, projectId: string) => ({
-        project: { localPath: `/tmp/${projectId}` },
+        project: { executionMode: "local", localPath: `/tmp/${projectId}` },
         role: "admin",
         repoRoot: `/tmp/${projectId}`,
       }),
@@ -149,7 +149,7 @@ describe("openclaw schema status cache", () => {
     }))
     vi.doMock("~/sdk/project", () => ({
       getProjectContext: async (_client: unknown, projectId: string) => ({
-        project: { localPath: `/tmp/${projectId}` },
+        project: { executionMode: "local", localPath: `/tmp/${projectId}` },
         role: "admin",
         repoRoot: `/tmp/${projectId}`,
       }),

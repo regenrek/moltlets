@@ -38,6 +38,7 @@ export function ProjectsTable(props: {
           const hosts = p.cfg.error
             ? "—"
             : `${p.cfg.hostsEnabled.toLocaleString()} / ${p.cfg.hostsTotal.toLocaleString()}`
+          const projectLocation = p.localPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`
           const projectSlug = slugifyProjectName(p.name)
 
           return (
@@ -50,7 +51,7 @@ export function ProjectsTable(props: {
               <TableCell className="max-w-[420px]">
                 <div className="min-w-0">
                   <div className="font-medium truncate">{p.name}</div>
-                  <div className="text-muted-foreground text-xs truncate mt-0.5">{p.localPath}</div>
+                  <div className="text-muted-foreground text-xs truncate mt-0.5">{projectLocation}</div>
                 </div>
               </TableCell>
               <TableCell>

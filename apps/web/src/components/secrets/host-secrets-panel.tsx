@@ -29,9 +29,10 @@ import { MissingEnvWiringPanel } from "~/components/secrets/missing-env-wiring"
 type HostSecretsPanelProps = {
   projectId: Id<"projects">
   host: string
+  scope?: "bootstrap" | "updates" | "openclaw" | "all"
 }
 
-export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
+export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecretsPanelProps) {
   const cfg = useQuery({
     queryKey: ["clawletsConfig", projectId],
     queryFn: async () => await getClawletsConfig({ data: { projectId } }),
@@ -40,8 +41,8 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
   const config = cfg.data?.config as any
 
   const template = useQuery({
-    queryKey: ["secretsTemplate", projectId, host],
-    queryFn: async () => await getSecretsTemplate({ data: { projectId, host, scope: "all" } }),
+    queryKey: ["secretsTemplate", projectId, host, scope],
+    queryFn: async () => await getSecretsTemplate({ data: { projectId, host, scope } }),
     enabled: Boolean(host),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -105,7 +106,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
   const initStart = useMutation({
-    mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope: "all" } }),
+    mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope } }),
     onSuccess: (res) => {
       setInitRunId(res.runId)
       const secretsPayload = Object.fromEntries(
@@ -118,7 +119,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
           projectId,
           runId: res.runId,
           host,
-          scope: "all",
+          scope,
           allowPlaceholders: false,
           adminPassword,
           tailscaleAuthKey,
@@ -130,12 +131,12 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
   })
 
   const verifyQuery = useQuery({
-    queryKey: ["secretsVerify", projectId, host],
+    queryKey: ["secretsVerify", projectId, host, scope],
     queryFn: async () => {
       if (!host) throw new Error("missing host")
-      const res = await secretsVerifyStart({ data: { projectId, host, scope: "all" } })
+      const res = await secretsVerifyStart({ data: { projectId, host, scope } })
       const result = await secretsVerifyExecute({
-        data: { projectId, runId: res.runId, host, scope: "all" },
+        data: { projectId, runId: res.runId, host, scope },
       })
       return { runId: res.runId, result }
     },
@@ -403,7 +404,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
               <div className="rounded-lg border bg-card p-6 space-y-4">
                 <div className="font-medium">Secrets verify</div>
                 <div className="text-xs text-muted-foreground">
-                  Runs <code>clawlets secrets verify --json</code> and summarizes missing secrets.
+                  Runs <code>{`clawlets secrets verify --scope ${scope} --json`}</code> and summarizes missing secrets.
                 </div>
                 <Button type="button" disabled={verifyQuery.isFetching || !host} onClick={() => void verifyQuery.refetch()}>
                   {verifyQuery.isFetching ? "Checking…" : "Run verify"}

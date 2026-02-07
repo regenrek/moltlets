@@ -4,7 +4,7 @@ import {
   type ClawletsConfig,
   assertSafeHostName,
   loadClawletsConfig,
-  loadClawletsConfigRaw,
+  loadFullConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { parseSshPublicKeysFromText } from "@clawlets/core/lib/security/ssh"
@@ -26,12 +26,12 @@ export const addHost = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
     const host = data.host.trim()
     assertSafeHostName(host)
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     if (next.hosts[host]) return { ok: true as const }
     next.hosts[host] = {}
@@ -50,7 +50,7 @@ export const addHost = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Adding host ${host}` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })

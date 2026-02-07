@@ -103,6 +103,7 @@ export function ProjectDashboard(props: {
   const hostsValue = project.cfg.error
     ? "—"
     : `${project.cfg.hostsEnabled.toLocaleString()} / ${project.cfg.hostsTotal.toLocaleString()}`
+  const projectLocation = project.localPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
   const defaultHost = project.cfg.error ? "—" : project.cfg.defaultHost || "—"
   const defaultHostName = project.cfg.error ? "" : project.cfg.defaultHost || ""
   const defaultHostBase = defaultHostName
@@ -120,7 +121,7 @@ export function ProjectDashboard(props: {
               {project.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground text-sm truncate">{project.localPath}</p>
+          <p className="text-muted-foreground text-sm truncate">{projectLocation}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button

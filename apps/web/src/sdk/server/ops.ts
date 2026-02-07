@@ -253,7 +253,7 @@ export const serverAuditExecute = createServerFn({ method: "POST" })
             ts: Date.now(),
             level: ok ? "info" : "error",
             message: ok ? "Server audit ok" : "Server audit failed",
-            data: parsed,
+            meta: { kind: "phase", phase: "command_end" },
           },
         ],
       })
@@ -402,7 +402,7 @@ export const serverUpdateStatusExecute = createServerFn({ method: "POST" })
             ts: Date.now(),
             level: ok ? "info" : "error",
             message: ok ? "Updater status fetched" : "Updater status failed",
-            data: parsed,
+            meta: { kind: "phase", phase: "command_end" },
           },
         ],
       })

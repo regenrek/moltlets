@@ -1,6 +1,23 @@
 import { v } from "convex/values";
 
-import { ProjectConfigType, ProjectStatus, ProviderType, Role, RunEventLevel, RunKind, RunStatus } from "../schema";
+import {
+  AuditAction,
+  AuditData,
+  AuditTarget,
+  ExecutionMode,
+  GitWritePolicy,
+  ProjectConfigType,
+  ProjectDeletionStage,
+  ProjectDeletionStatus,
+  ProjectStatus,
+  ProviderType,
+  Role,
+  RunEventLevel,
+  RunEventMeta,
+  RunKind,
+  RunStatus,
+  WorkspaceRef,
+} from "../schema";
 
 export const UserDoc = v.object({
   _id: v.id("users"),
@@ -19,7 +36,10 @@ export const ProjectDoc = v.object({
   _creationTime: v.number(),
   ownerUserId: v.id("users"),
   name: v.string(),
-  localPath: v.string(),
+  executionMode: ExecutionMode,
+  workspaceRef: WorkspaceRef,
+  workspaceRefKey: v.string(),
+  localPath: v.optional(v.string()),
   status: ProjectStatus,
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -69,7 +89,7 @@ export const RunEventDoc = v.object({
   ts: v.number(),
   level: RunEventLevel,
   message: v.string(),
-  data: v.optional(v.any()),
+  meta: v.optional(RunEventMeta),
   redacted: v.optional(v.boolean()),
 });
 
@@ -90,9 +110,9 @@ export const AuditLogDoc = v.object({
   ts: v.number(),
   userId: v.id("users"),
   projectId: v.optional(v.id("projects")),
-  action: v.string(),
-  target: v.optional(v.any()),
-  data: v.optional(v.any()),
+  action: AuditAction,
+  target: v.optional(AuditTarget),
+  data: v.optional(AuditData),
 });
 
 export const RateLimitDoc = v.object({
@@ -101,4 +121,40 @@ export const RateLimitDoc = v.object({
   key: v.string(),
   windowStart: v.number(),
   count: v.number(),
+});
+
+export const ProjectPolicyDoc = v.object({
+  _id: v.id("projectPolicies"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  retentionDays: v.number(),
+  gitWritePolicy: GitWritePolicy,
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export const ProjectDeletionTokenDoc = v.object({
+  _id: v.id("projectDeletionTokens"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  tokenHash: v.string(),
+  createdByUserId: v.id("users"),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+});
+
+export const ProjectDeletionJobDoc = v.object({
+  _id: v.id("projectDeletionJobs"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  requestedByUserId: v.id("users"),
+  status: ProjectDeletionStatus,
+  stage: ProjectDeletionStage,
+  lastError: v.optional(v.string()),
+  processed: v.number(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  completedAt: v.optional(v.number()),
+  leaseId: v.optional(v.string()),
+  leaseExpiresAt: v.optional(v.number()),
 });

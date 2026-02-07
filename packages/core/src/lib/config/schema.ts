@@ -10,7 +10,7 @@ export { OpenClawConfigSchema, OpenClawHostConfigSchema, type OpenClawConfig, ty
 
 export const ClawletsConfigSchema = z
   .object({
-    schemaVersion: z.union([z.literal(1), z.literal(CLAWLETS_CONFIG_SCHEMA_VERSION)]),
+    schemaVersion: z.literal(CLAWLETS_CONFIG_SCHEMA_VERSION),
     defaultHost: HostNameSchema.optional(),
     baseFlake: z.string().trim().default(""),
     fleet: FleetSchema.default(() => ({

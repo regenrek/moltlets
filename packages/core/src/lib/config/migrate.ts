@@ -1,11 +1,5 @@
 import { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 import { isPlainObject } from "./helpers.js";
-import { z } from "zod";
-import { HostNameSchema } from "@clawlets/shared/lib/identifiers";
-import { FleetSchema } from "./schema-fleet.js";
-import { HostSchema } from "./schema-host.js";
-import { CattleSchema } from "./schema-cattle.js";
-import { splitFullConfig } from "./split.js";
 
 type MigrationStepResult = {
   config: Record<string, unknown>;
@@ -15,39 +9,8 @@ type MigrationStepResult = {
 
 type MigrationStep = (input: Record<string, unknown>) => MigrationStepResult;
 
-const MIGRATIONS: Record<number, MigrationStep> = {
-  1: (input): MigrationStepResult => {
-    const LegacyV1Schema = z.object({
-      schemaVersion: z.literal(1),
-      defaultHost: HostNameSchema.optional(),
-      baseFlake: z.string().trim().default(""),
-      fleet: FleetSchema.default(() => ({
-        secretEnv: {},
-        secretFiles: {},
-        sshAuthorizedKeys: [],
-        sshKnownHosts: [],
-        codex: { enable: false, gateways: [] },
-        backups: { restic: { enable: false, repository: "" } },
-      })),
-      cattle: CattleSchema,
-      hosts: z.record(HostNameSchema, HostSchema).refine((value) => Object.keys(value).length > 0, {
-        message: "hosts must not be empty",
-      }),
-    });
-
-    const legacy = LegacyV1Schema.parse(input);
-    const upgradedForSplit = {
-      ...legacy,
-      schemaVersion: 2 as const,
-    };
-    const split = splitFullConfig({ config: upgradedForSplit as any });
-    return {
-      config: split.infra as unknown as Record<string, unknown>,
-      openclawConfig: split.openclaw as unknown as Record<string, unknown>,
-      warnings: ["migrated v1 monolithic config to split fleet/clawlets.json + fleet/openclaw.json"],
-    };
-  },
-};
+// Add shipped migrations here (e.g. v2 -> v3). Pre-release migrations are intentionally omitted.
+const MIGRATIONS: Record<number, MigrationStep> = {};
 
 export type MigrateToLatestResult = {
   ok: true;

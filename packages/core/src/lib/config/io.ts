@@ -3,20 +3,10 @@ import path from "node:path";
 import type { RepoLayout } from "../../repo-layout.js";
 import { getRepoLayout } from "../../repo-layout.js";
 import { writeFileAtomic } from "../storage/fs-safe.js";
-import { assertNoLegacyEnvSecrets, assertNoLegacyHostKeys } from "./clawlets-config-legacy.js";
-import { migrateClawletsConfigToLatest } from "./migrate.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "./schema.js";
 import { InfraConfigSchema, type InfraConfig } from "./schema-infra.js";
 import { OpenClawConfigSchema, type OpenClawConfig } from "./schema-openclaw.js";
-import { getDefaultOpenClawConfig, mergeSplitConfigs, splitFullConfig } from "./split.js";
-
-function writeFileAtomicSync(filePath: string, contents: string): void {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(dir, `.${path.basename(filePath)}.tmp.${process.pid}`);
-  fs.writeFileSync(tmp, contents, "utf8");
-  fs.renameSync(tmp, filePath);
-}
+import { mergeSplitConfigs, splitFullConfig } from "./split.js";
 
 function readJsonFile(filePath: string): unknown {
   const raw = fs.readFileSync(filePath, "utf8");
@@ -33,39 +23,10 @@ function readOpenClawConfigIfPresent(layout: RepoLayout): OpenClawConfig | null 
   return OpenClawConfigSchema.parse(readJsonFile(openclawPath));
 }
 
-function migrateLegacyIfNeeded(layout: RepoLayout): { infra: InfraConfig; openclaw: OpenClawConfig | null } {
+function readInfraConfig(layout: RepoLayout): InfraConfig {
   const infraPath = layout.clawletsConfigPath;
   if (!fs.existsSync(infraPath)) throw new Error(`missing clawlets config: ${infraPath}`);
-  const rawText = fs.readFileSync(infraPath, "utf8");
-  let raw: unknown;
-  try {
-    raw = JSON.parse(rawText);
-  } catch {
-    throw new Error(`invalid JSON: ${infraPath}`);
-  }
-
-  assertNoLegacyHostKeys(raw);
-  assertNoLegacyEnvSecrets(raw);
-
-  const schemaVersion = Number((raw as any)?.schemaVersion ?? 0);
-  if (schemaVersion !== 1) {
-    return {
-      infra: InfraConfigSchema.parse(raw),
-      openclaw: readOpenClawConfigIfPresent(layout),
-    };
-  }
-
-  const migrated = migrateClawletsConfigToLatest(raw);
-  const infra = InfraConfigSchema.parse(migrated.migrated);
-  const openclaw = OpenClawConfigSchema.parse(migrated.openclawConfig || getDefaultOpenClawConfig());
-
-  const backupPath = `${infraPath}.v1.bak`;
-  if (!fs.existsSync(backupPath)) writeFileAtomicSync(backupPath, `${rawText.trimEnd()}\n`);
-
-  writeFileAtomicSync(layout.clawletsConfigPath, `${JSON.stringify(infra, null, 2)}\n`);
-  writeFileAtomicSync(layout.openclawConfigPath, `${JSON.stringify(openclaw, null, 2)}\n`);
-
-  return { infra, openclaw };
+  return InfraConfigSchema.parse(readJsonFile(infraPath));
 }
 
 function readExistingSplit(params: { repoRootFromConfigPath: string }): {
@@ -100,8 +61,8 @@ export function loadInfraConfig(params: { repoRoot: string; runtimeDir?: string 
   config: InfraConfig;
 } {
   const layout = getRepoLayout(params.repoRoot, params.runtimeDir);
-  const { infra } = migrateLegacyIfNeeded(layout);
-  return { layout, configPath: layout.clawletsConfigPath, config: infra };
+  const config = readInfraConfig(layout);
+  return { layout, configPath: layout.clawletsConfigPath, config };
 }
 
 export function loadOpenClawConfig(params: { repoRoot: string; runtimeDir?: string }): {
@@ -110,7 +71,7 @@ export function loadOpenClawConfig(params: { repoRoot: string; runtimeDir?: stri
   config: OpenClawConfig;
 } | null {
   const layout = getRepoLayout(params.repoRoot, params.runtimeDir);
-  migrateLegacyIfNeeded(layout);
+  readInfraConfig(layout);
   const config = readOpenClawConfigIfPresent(layout);
   if (!config) return null;
   return { layout, configPath: layout.openclawConfigPath, config };
@@ -125,7 +86,8 @@ export function loadFullConfig(params: { repoRoot: string; runtimeDir?: string }
   config: ClawletsConfig;
 } {
   const layout = getRepoLayout(params.repoRoot, params.runtimeDir);
-  const { infra, openclaw } = migrateLegacyIfNeeded(layout);
+  const infra = readInfraConfig(layout);
+  const openclaw = readOpenClawConfigIfPresent(layout);
   const config = mergeSplitConfigs({ infra, openclaw });
   return {
     layout,
@@ -135,15 +97,6 @@ export function loadFullConfig(params: { repoRoot: string; runtimeDir?: string }
     openclaw,
     config,
   };
-}
-
-export function loadClawletsConfigRaw(params: { repoRoot: string; runtimeDir?: string }): {
-  layout: RepoLayout;
-  configPath: string;
-  config: unknown;
-} {
-  const { layout, infraConfigPath, config } = loadFullConfig(params);
-  return { layout, configPath: infraConfigPath, config };
 }
 
 export function loadClawletsConfig(params: { repoRoot: string; runtimeDir?: string }): {
@@ -157,12 +110,30 @@ export function loadClawletsConfig(params: { repoRoot: string; runtimeDir?: stri
 
 export async function writeInfraConfig(params: { configPath: string; config: InfraConfig }): Promise<void> {
   const config = InfraConfigSchema.parse(params.config);
-  await writeFileAtomic(params.configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const nextText = `${JSON.stringify(config, null, 2)}\n`;
+  if (fs.existsSync(params.configPath)) {
+    try {
+      const existingText = fs.readFileSync(params.configPath, "utf8");
+      if (existingText === nextText) return;
+    } catch {
+      // ignore; fall through to write
+    }
+  }
+  await writeFileAtomic(params.configPath, nextText);
 }
 
 export async function writeOpenClawConfig(params: { configPath: string; config: OpenClawConfig }): Promise<void> {
   const config = OpenClawConfigSchema.parse(params.config);
-  await writeFileAtomic(params.configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const nextText = `${JSON.stringify(config, null, 2)}\n`;
+  if (fs.existsSync(params.configPath)) {
+    try {
+      const existingText = fs.readFileSync(params.configPath, "utf8");
+      if (existingText === nextText) return;
+    } catch {
+      // ignore; fall through to write
+    }
+  }
+  await writeFileAtomic(params.configPath, nextText);
 }
 
 export async function writeClawletsConfig(params: { configPath: string; config: ClawletsConfig }): Promise<void> {

@@ -14,7 +14,7 @@ async function loadConfig(role: "admin" | "viewer") {
     if (payload?.kind) return { runId: "run1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role }))
+  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role }))
   const runWithEvents = vi.fn(async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
     await fn(async () => {})
   })
@@ -36,7 +36,7 @@ async function loadConfig(role: "admin" | "viewer") {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
       loadClawletsConfig: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
-      loadClawletsConfigRaw: () => ({ configPath: "/tmp/fleet/clawlets.json", config: {} }),
+      loadFullConfig: () => ({ infraConfigPath: "/tmp/fleet/clawlets.json", config: {} }),
       writeClawletsConfig: async () => {},
     }
   })

@@ -68,7 +68,7 @@ function DeployHost() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link to="/$projectSlug/setup" params={{ projectSlug }} search={{ host }} />}
+            render={<Link to="/$projectSlug/hosts/$host/setup" params={{ projectSlug, host }} />}
           >
             Open Setup
           </Button>

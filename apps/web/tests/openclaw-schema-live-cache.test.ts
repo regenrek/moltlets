@@ -14,7 +14,7 @@ describe("openclaw live schema cache", () => {
         "__OPENCLAW_SCHEMA_END__6e6f6e63653132__",
       ].join("\n"),
     )
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -71,7 +71,7 @@ describe("openclaw live schema cache", () => {
         "__OPENCLAW_SCHEMA_END__6e6f6e63653334__",
       ].join("\n")
     })
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -120,7 +120,7 @@ describe("openclaw live schema cache", () => {
         "__OPENCLAW_SCHEMA_END__6e6f6e63653636__",
       ].join("\n")
     })
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -168,8 +168,8 @@ describe("openclaw live schema cache", () => {
     )
     const query = vi
       .fn()
-      .mockResolvedValueOnce({ project: { localPath: "/tmp" }, role: "admin" })
-      .mockResolvedValueOnce({ project: { localPath: "/tmp" }, role: "viewer" })
+      .mockResolvedValueOnce({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
+      .mockResolvedValueOnce({ project: { executionMode: "local", localPath: "/tmp" }, role: "viewer" })
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -206,7 +206,7 @@ describe("openclaw live schema cache", () => {
     vi.useFakeTimers()
     vi.resetModules()
     const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => "")
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "viewer" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "viewer" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -232,7 +232,7 @@ describe("openclaw live schema cache", () => {
       randomBytes: () => Buffer.from("nonce99", "utf8"),
     }))
     const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => "")
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => {
       const err: any = new Error("ConvexError")
       err.data = { code: "rate_limited", message: "too many requests" }
@@ -276,7 +276,7 @@ describe("openclaw live schema cache", () => {
     const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => {
       throw new Error("boom")
     })
-    const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
     const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,

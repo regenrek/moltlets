@@ -28,8 +28,14 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
 
   const [hcloudToken, setHcloudToken] = useState("")
   const [githubToken, setGithubToken] = useState("")
+  const [awsAccessKeyId, setAwsAccessKeyId] = useState("")
+  const [awsSecretAccessKey, setAwsSecretAccessKey] = useState("")
+  const [awsSessionToken, setAwsSessionToken] = useState("")
   const [hcloudUnlocked, setHcloudUnlocked] = useState(false)
   const [githubUnlocked, setGithubUnlocked] = useState(false)
+  const [awsAccessKeyUnlocked, setAwsAccessKeyUnlocked] = useState(false)
+  const [awsSecretAccessKeyUnlocked, setAwsSecretAccessKeyUnlocked] = useState(false)
+  const [awsSessionTokenUnlocked, setAwsSessionTokenUnlocked] = useState(false)
   const [sopsAgeKeyFileOverride, setSopsAgeKeyFileOverride] = useState<string | undefined>(undefined)
   const [sopsStatus, setSopsStatus] = useState<{ kind: "ok" | "warn" | "error"; message: string } | null>(null)
 
@@ -46,6 +52,9 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
           updates: {
             ...(hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
             ...(githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
+            ...(awsAccessKeyId.trim() ? { AWS_ACCESS_KEY_ID: awsAccessKeyId.trim() } : {}),
+            ...(awsSecretAccessKey.trim() ? { AWS_SECRET_ACCESS_KEY: awsSecretAccessKey.trim() } : {}),
+            ...(awsSessionToken.trim() ? { AWS_SESSION_TOKEN: awsSessionToken.trim() } : {}),
             SOPS_AGE_KEY_FILE: sopsAgeKeyFile.trim(),
           },
         },
@@ -55,8 +64,14 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
       toast.success("Saved")
       setHcloudToken("")
       setGithubToken("")
+      setAwsAccessKeyId("")
+      setAwsSecretAccessKey("")
+      setAwsSessionToken("")
       setHcloudUnlocked(false)
       setGithubUnlocked(false)
+      setAwsAccessKeyUnlocked(false)
+      setAwsSecretAccessKeyUnlocked(false)
+      setAwsSessionTokenUnlocked(false)
       await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
     },
     onError: (err) => {
@@ -131,6 +146,39 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
               placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(recommended)"}
               locked={credsByKey["GITHUB_TOKEN"]?.status === "set" && !githubUnlocked}
               onUnlock={() => setGithubUnlocked(true)}
+            />
+          </StackedField>
+
+          <StackedField id="awsAccessKeyId" label="AWS access key id" help="AWS access key id (AWS_ACCESS_KEY_ID).">
+            <SecretInput
+              id="awsAccessKeyId"
+              value={awsAccessKeyId}
+              onValueChange={setAwsAccessKeyId}
+              placeholder={credsByKey["AWS_ACCESS_KEY_ID"]?.status === "set" ? "set (click Remove to edit)" : "(required for aws hosts)"}
+              locked={credsByKey["AWS_ACCESS_KEY_ID"]?.status === "set" && !awsAccessKeyUnlocked}
+              onUnlock={() => setAwsAccessKeyUnlocked(true)}
+            />
+          </StackedField>
+
+          <StackedField id="awsSecretAccessKey" label="AWS secret access key" help="AWS secret access key (AWS_SECRET_ACCESS_KEY).">
+            <SecretInput
+              id="awsSecretAccessKey"
+              value={awsSecretAccessKey}
+              onValueChange={setAwsSecretAccessKey}
+              placeholder={credsByKey["AWS_SECRET_ACCESS_KEY"]?.status === "set" ? "set (click Remove to edit)" : "(required for aws hosts)"}
+              locked={credsByKey["AWS_SECRET_ACCESS_KEY"]?.status === "set" && !awsSecretAccessKeyUnlocked}
+              onUnlock={() => setAwsSecretAccessKeyUnlocked(true)}
+            />
+          </StackedField>
+
+          <StackedField id="awsSessionToken" label="AWS session token" help="AWS session token (AWS_SESSION_TOKEN), when using temporary credentials.">
+            <SecretInput
+              id="awsSessionToken"
+              value={awsSessionToken}
+              onValueChange={setAwsSessionToken}
+              placeholder={credsByKey["AWS_SESSION_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(optional)"}
+              locked={credsByKey["AWS_SESSION_TOKEN"]?.status === "set" && !awsSessionTokenUnlocked}
+              onUnlock={() => setAwsSessionTokenUnlocked(true)}
             />
           </StackedField>
 

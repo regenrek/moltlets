@@ -1,0 +1,60 @@
+---
+title: Control Plane Metadata
+description: Metadata-only boundary, retention, erasure, and Git write policy.
+---
+
+This page defines the control-plane boundary for dashboard data.
+
+## Source of truth
+
+- Git repository is canonical for config + encrypted secrets.
+- Convex stores operational metadata only.
+
+Never store in Convex:
+
+- Secret values (plain or encrypted)
+- Operator keys
+- Deploy credentials
+- OpenTofu/Terraform state
+- Full fleet config blobs
+
+## Run and audit storage
+
+- `runEvents` stores redacted message text (`message`, `level`, `ts`, `redacted`) and bounded `meta`.
+- Structured command JSON remains in server-function return values, not persisted as run events.
+- `auditLogs` uses strict action-bound payload shapes (`action`, `target`, `data`).
+
+## Project identity and PII minimization
+
+Projects use canonical workspace identity:
+
+```json
+{
+  "kind": "local | git",
+  "id": "string",
+  "relPath": "optional string"
+}
+```
+
+Rules:
+
+- `executionMode=local`: `localPath` required.
+- `executionMode=remote_runner`: `localPath` forbidden.
+
+## Retention and erasure
+
+Convex does not provide TTL indexes for tables. Retention is enforced by scheduled batched deletion.
+
+- Hourly retention sweep prunes old `runEvents`, terminal `runs`, and `auditLogs`.
+- Default retention: 30 days (per-project policy).
+- Project deletion is two-step:
+1. Start deletion and receive short-lived confirmation token.
+2. Confirm deletion with token + typed confirmation string.
+
+Erasure scope is control-plane only. Git history and external repos are outside Convex deletion scope.
+
+## Git write policy
+
+- Default: PR-first (`pr_only`).
+- Direct commits require explicit per-project opt-in (`direct_commit_enabled`).
+- Policy changes are audited.

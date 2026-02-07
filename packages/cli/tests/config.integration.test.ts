@@ -9,14 +9,14 @@ vi.mock("@clawlets/core/lib/project/repo", () => ({
   findRepoRoot: findRepoRootMock,
 }));
 
-const loadClawletsConfigRawMock = vi.hoisted(() => vi.fn());
+const loadFullConfigMock = vi.hoisted(() => vi.fn());
 const loadClawletsConfigMock = vi.hoisted(() => vi.fn());
 const writeClawletsConfigMock = vi.hoisted(() => vi.fn());
 vi.mock("@clawlets/core/lib/config/clawlets-config", async () => {
   const actual = await vi.importActual<typeof import("@clawlets/core/lib/config/clawlets-config")>("@clawlets/core/lib/config/clawlets-config");
   return {
     ...actual,
-    loadClawletsConfigRaw: loadClawletsConfigRawMock,
+    loadFullConfig: loadFullConfigMock,
     loadClawletsConfig: loadClawletsConfigMock,
     writeClawletsConfig: writeClawletsConfigMock,
   };
@@ -86,8 +86,8 @@ describe("config set", () => {
     const baseConfig = createDefaultClawletsConfig({ host: "openclaw-fleet-host", gateways: ["maren"] });
     baseConfig.cattle.enabled = true;
     baseConfig.cattle.hetzner.image = "";
-    loadClawletsConfigRawMock.mockReturnValue({
-      configPath: "/repo/fleet/clawlets.json",
+    loadFullConfigMock.mockReturnValue({
+      infraConfigPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
 
@@ -103,8 +103,8 @@ describe("config set", () => {
 
   it("set fails on invalid JSON", async () => {
     const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: ["maren"] });
-    loadClawletsConfigRawMock.mockReturnValue({
-      configPath: "/repo/fleet/clawlets.json",
+    loadFullConfigMock.mockReturnValue({
+      infraConfigPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
@@ -117,8 +117,8 @@ describe("config set", () => {
 
   it("set rejects missing value flags", async () => {
     const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: ["maren"] });
-    loadClawletsConfigRawMock.mockReturnValue({
-      configPath: "/repo/fleet/clawlets.json",
+    loadFullConfigMock.mockReturnValue({
+      infraConfigPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");
@@ -129,8 +129,8 @@ describe("config set", () => {
 
   it("set delete errors on missing path", async () => {
     const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: ["maren"] });
-    loadClawletsConfigRawMock.mockReturnValue({
-      configPath: "/repo/fleet/clawlets.json",
+    loadFullConfigMock.mockReturnValue({
+      infraConfigPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
     });
     const { config } = await import("../src/commands/config");

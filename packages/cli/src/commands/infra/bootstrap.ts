@@ -250,11 +250,7 @@ export const bootstrap = defineCommand({
 
     const secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
 
-    const requiredSecrets = [
-      ...(tailnetMode === "tailscale" ? ["tailscale_auth_key"] : []),
-      "admin_password_hash",
-      ...secretsPlan.secretNamesRequired,
-    ];
+    const requiredSecrets = secretsPlan.scopes.bootstrapRequired;
 
 	    const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, hostName);
 	    if (!fs.existsSync(extraFilesSecretsDir)) {

@@ -228,6 +228,57 @@ describe("doctor", () => {
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   }, 15_000);
 
+  it("uses openclaw config for services.openclawFleet.enable (not infra host.enable)", async () => {
+    const openclawPath = path.join(repoRoot, "fleet", "openclaw.json");
+    await writeFile(
+      openclawPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          hosts: {
+            "openclaw-fleet-host": {
+              enable: true,
+              agentModelPrimary: "zai/glm-4.7",
+              gatewaysOrder: ["alpha"],
+              gateways: { alpha: {} },
+            },
+          },
+          fleet: {
+            secretEnv: {},
+            secretFiles: {},
+            gatewayArchitecture: "multi",
+            codex: { enable: false, gateways: [] },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+
+    try {
+      const { collectDoctorChecks } = await import("../src/doctor.js");
+      const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "updates" });
+
+      const openclawEnable = checks.find((c) => c.label === "services.openclawFleet.enable");
+      expect(openclawEnable?.status).toBe("ok");
+
+      const infraEnable = checks.find((c) => c.label === "host.enable");
+      expect(infraEnable?.status).toBe("warn");
+    } finally {
+      await rm(openclawPath, { force: true });
+    }
+  });
+
+  it("does not fail repo checks when gateways are empty and openclaw is disabled", async () => {
+    process.env.HCLOUD_TOKEN = "abc";
+    mockFleetMain = { gateways: [], gatewayProfiles: {} };
+    mockFleetTemplate = structuredClone(mockFleetMain);
+    const { collectDoctorChecks } = await import("../src/doctor.js");
+    const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
+    expect(checks.filter((c) => c.status === "missing")).toEqual([]);
+  });
+
   it("warns when clawlets config fails to load", async () => {
     const configPath = path.join(repoRoot, "fleet", "clawlets.json");
     const original = await readFile(configPath, "utf8");
@@ -239,6 +290,21 @@ describe("doctor", () => {
     expect(check?.status).toBe("warn");
 
     await writeFile(configPath, original, "utf8");
+  });
+
+  it("attributes openclaw.json parse failures to openclaw config (not clawlets config)", async () => {
+    const openclawPath = path.join(repoRoot, "fleet", "openclaw.json");
+    await writeFile(openclawPath, "{", "utf8");
+    try {
+      const { collectDoctorChecks } = await import("../src/doctor.js");
+      const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "repo" });
+      const infraCheck = checks.find((c) => c.label === "clawlets config");
+      expect(infraCheck?.status).toBe("ok");
+      const openclawCheck = checks.find((c) => c.label === "openclaw config");
+      expect(openclawCheck?.status).toBe("warn");
+    } finally {
+      await rm(openclawPath, { force: true });
+    }
   });
 
   it("reports schema vs nix/upstream matches", async () => {

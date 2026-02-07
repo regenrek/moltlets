@@ -1,44 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 describe("clawlets config migrate", () => {
-  it("migrates schemaVersion v1 to split schemaVersion v2", async () => {
-    const { migrateClawletsConfigToLatest } = await import("../src/lib/config/clawlets-config-migrate");
+  it("rejects pre-release schemaVersion v1", async () => {
+    const { migrateClawletsConfigToLatest } = await import("../src/lib/config/clawlets-config");
+    expect(() => migrateClawletsConfigToLatest({ schemaVersion: 1 })).toThrow(/unsupported schemaVersion/i);
+  });
 
-    const raw = {
-      schemaVersion: 1,
-      defaultHost: "alpha",
-      fleet: {
-        secretEnv: {},
-        secretFiles: {},
-        sshAuthorizedKeys: [],
-        sshKnownHosts: [],
-        codex: { enable: false, gateways: [] },
-        backups: { restic: { enable: false, repository: "" } },
-      },
-      cattle: { enabled: false },
-      hosts: {
-        alpha: {
-          enable: false,
-          gatewaysOrder: [],
-          gateways: {},
-          openclaw: { enable: false },
-          tailnet: { mode: "none" },
-          agentModelPrimary: "zai/glm-4.7",
-        },
-      },
-    };
-    const res = migrateClawletsConfigToLatest(raw);
-
+  it("no-ops on current schemaVersion", async () => {
+    const { CLAWLETS_CONFIG_SCHEMA_VERSION, migrateClawletsConfigToLatest } = await import("../src/lib/config/clawlets-config");
+    const res = migrateClawletsConfigToLatest({ schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION });
     expect(res.ok).toBe(true);
-    expect(res.changed).toBe(true);
-    expect(res.warnings.length).toBeGreaterThan(0);
-    expect(res.migrated).not.toBe(raw);
-    expect(res.migrated.schemaVersion).toBe(2);
-    expect(res.openclawConfig).toBeTruthy();
+    expect(res.changed).toBe(false);
+    expect(res.openclawConfig).toBeNull();
   });
 
   it("rejects unsupported schema versions", async () => {
-    const { migrateClawletsConfigToLatest } = await import("../src/lib/config/clawlets-config-migrate");
+    const { migrateClawletsConfigToLatest } = await import("../src/lib/config/clawlets-config");
     expect(() => migrateClawletsConfigToLatest({ schemaVersion: 3 })).toThrow(/unsupported schemaVersion/i);
     expect(() => migrateClawletsConfigToLatest({ schemaVersion: 18 })).toThrow(/unsupported schemaVersion/i);
   });

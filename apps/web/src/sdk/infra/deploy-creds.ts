@@ -1,5 +1,6 @@
 import path from "node:path"
 import fs from "node:fs"
+import crypto from "node:crypto"
 
 import { createServerFn } from "@tanstack/react-start"
 import {
@@ -22,6 +23,19 @@ import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { getRepoRoot } from "~/sdk/project"
 import { parseProjectIdInput } from "~/sdk/runtime"
+
+function sha256Hex(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex")
+}
+
+function toAuditDocPath(repoRoot: string, absPath: string, fallback: string): string {
+  const rel = path.relative(repoRoot, absPath)
+  const normalized = rel.split(path.sep).join("/")
+  if (!normalized || normalized === "." || normalized === "..") return fallback
+  if (normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) return fallback
+  if (path.isAbsolute(normalized)) return fallback
+  return normalized
+}
 
 export type DeployCredsStatusKey = {
   key: string
@@ -101,13 +115,13 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
     const repoRoot = await getRepoRoot(client, data.projectId)
     const writeResult = await updateDeployCredsEnvFile({ repoRoot, updates: data.updates })
 
+    const envDoc = toAuditDocPath(repoRoot, writeResult.envPath, ".clawlets/env")
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
       action: "deployCreds.update",
-      target: { envPath: writeResult.envPath },
+      target: { doc: envDoc },
       data: {
         updatedKeys: writeResult.updatedKeys,
-        runtimeDir: writeResult.runtimeDir,
       },
     })
 
@@ -228,11 +242,13 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       },
     })
 
+    const operatorKeysDoc = toAuditDocPath(repoRoot, layout.localOperatorKeysDir, ".clawlets/keys/operators")
+    const operatorIdHash = `sha256:${sha256Hex(`${data.projectId}:${operatorId}`)}`
     await client.mutation(api.auditLogs.append, {
       projectId: data.projectId,
       action: "sops.operatorKey.generate",
-      target: { keyPath },
-      data: { operatorId },
+      target: { doc: operatorKeysDoc },
+      data: { operatorIdHash },
     })
 
     return { ok: true as const, keyPath, publicKey: keypair.publicKey }

@@ -1,4 +1,5 @@
 import fs from "node:fs/promises"
+import { tmpdir } from "node:os"
 import path from "node:path"
 
 import { createServerFn } from "@tanstack/react-start"
@@ -97,6 +98,7 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
 
     const repoRoot = guard.repoRoot
     let tmpJsonPath = ""
+    let tmpJsonDir = ""
     let redactTokens: string[] = []
     try {
       const { config } = loadClawletsConfig({ repoRoot })
@@ -120,11 +122,13 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
 
       const cliEntry = resolveClawletsCliEntry()
       const cliEnv = getClawletsCliEnv()
-      tmpJsonPath = path.join(
-        repoRoot,
-        ".clawlets",
-        `secrets.ui.${Date.now()}.${process.pid}.json`,
-      )
+      tmpJsonDir = await fs.mkdtemp(path.join(tmpdir(), "clawlets-secrets-ui-"))
+      try {
+        await fs.chmod(tmpJsonDir, 0o700)
+      } catch {
+        // best-effort on platforms without POSIX perms
+      }
+      tmpJsonPath = path.join(tmpJsonDir, `secrets.ui.${Date.now()}.${process.pid}.json`)
 
       let adminPasswordHash = data.adminPasswordHash.trim()
       if (!adminPasswordHash && data.adminPassword.trim()) {
@@ -209,9 +213,9 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
       })
       return { ok: false as const, message }
     } finally {
-      if (tmpJsonPath) {
+      if (tmpJsonDir) {
         try {
-          await fs.rm(tmpJsonPath, { force: true })
+          await fs.rm(tmpJsonDir, { recursive: true, force: true })
         } catch {
           // ignore
         }

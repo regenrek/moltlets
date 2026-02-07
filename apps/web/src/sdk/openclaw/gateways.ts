@@ -10,7 +10,7 @@ import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/secrets/env-vars"
 import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw/security-lint"
 import {
   ClawletsConfigSchema,
-  loadClawletsConfigRaw,
+  loadFullConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 
@@ -118,9 +118,9 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     const hostCfg = next?.hosts?.[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
     const existingGateway = hostCfg?.gateways?.[gatewayId]
@@ -203,7 +203,7 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Updating hosts.${hostName}.gateways.${gatewayId}.openclaw` })
-        await writeClawletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId }),
@@ -221,9 +221,9 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     const hostCfg = next?.hosts?.[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
     const existingGateway = hostCfg?.gateways?.[gatewayId]
@@ -295,7 +295,7 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
       fn: async (emit) => {
         await emit({ level: "info", message: `Applying ${preset.id} preset for ${gatewayId} (host=${hostName})` })
         for (const w of warnings) await emit({ level: "warn", message: w })
-        await writeClawletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId, warnings }),
@@ -309,7 +309,7 @@ export const previewGatewayCapabilityPreset = createServerFn({ method: "POST" })
     const gatewayId = data.gatewayId.trim()
     const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
-    const { config: raw } = loadClawletsConfigRaw({
+    const { config: raw } = loadFullConfig({
       repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
     })
     const hostCfg = (raw as any)?.hosts?.[hostName]
@@ -357,7 +357,7 @@ export const verifyGatewayOpenclawSchema = createServerFn({ method: "POST" })
     const hostName = data.host.trim()
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { config: raw } = loadFullConfig({ repoRoot })
     const hostCfg = (raw as any)?.hosts?.[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
     const existingGateway = (hostCfg as any)?.gateways?.[gatewayId]
@@ -398,9 +398,9 @@ export const hardenGatewayOpenclawConfig = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     const hostCfg = next?.hosts?.[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
     const existingGateway = hostCfg?.gateways?.[gatewayId]
@@ -425,7 +425,11 @@ export const hardenGatewayOpenclawConfig = createServerFn({ method: "POST" })
       projectId: data.projectId,
       action: "gateway.openclaw.harden",
       target: { gatewayId },
-      data: { runId, changes: hardened.changes, warnings: hardened.warnings },
+      data: {
+        runId,
+        changesCount: hardened.changes.length,
+        warningsCount: hardened.warnings.length,
+      },
     })
 
     type HardenResult = {
@@ -442,7 +446,7 @@ export const hardenGatewayOpenclawConfig = createServerFn({ method: "POST" })
       fn: async (emit) => {
         await emit({ level: "info", message: `Hardening hosts.${hostName}.gateways.${gatewayId}` })
         for (const w of hardened.warnings) await emit({ level: "warn", message: w })
-        await writeClawletsConfig({ configPath, config: validated.data })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId, changes: hardened.changes, warnings: hardened.warnings }),

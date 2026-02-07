@@ -7,13 +7,13 @@ import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { clawletsConfigQueryOptions, deployCredsQueryOptions } from "~/lib/query-options"
 import { coerceSetupStepId, deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type SetupSearch = {
-  host?: string
   step?: string
 }
 
-export function useSetupModel(params: { projectSlug: string; search: SetupSearch }) {
+export function useSetupModel(params: { projectSlug: string; host: string; search: SetupSearch }) {
   const router = useRouter()
   const projectQuery = useProjectBySlug(params.projectSlug)
   const projectId = projectQuery.projectId
@@ -32,55 +32,40 @@ export function useSetupModel(params: { projectSlug: string; search: SetupSearch
   })
   const deployCreds = (deployCredsQuery.data as any) ?? null
 
-  const preModel = React.useMemo(
-    () =>
-      deriveSetupModel({
-        config,
-        hostFromSearch: params.search.host,
-        stepFromSearch: params.search.step,
-        deployCreds,
-        latestBootstrapRun: null,
-        latestSecretsVerifyRun: null,
-      }),
-    [config, deployCreds, params.search.host, params.search.step],
-  )
-
-  const selectedHost = preModel.selectedHost
-
   const latestBootstrapRunQuery = useQuery({
     ...convexQuery(api.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
-      host: selectedHost || "",
+      host: params.host,
       kind: "bootstrap",
     }),
-    enabled: Boolean(projectId && selectedHost),
+    enabled: Boolean(projectId && params.host),
   })
 
-  const latestSecretsVerifyRunQuery = useQuery({
+  const latestBootstrapSecretsVerifyRunQuery = useQuery({
     ...convexQuery(api.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
-      host: selectedHost || "",
-      kind: "secrets_verify",
+      host: params.host,
+      kind: SECRETS_VERIFY_BOOTSTRAP_RUN_KIND,
     }),
-    enabled: Boolean(projectId && selectedHost),
+    enabled: Boolean(projectId && params.host),
   })
 
   const model: SetupModel = React.useMemo(
     () =>
       deriveSetupModel({
         config,
-        hostFromSearch: params.search.host,
+        hostFromRoute: params.host,
         stepFromSearch: params.search.step,
         deployCreds,
         latestBootstrapRun: (latestBootstrapRunQuery.data as any) ?? null,
-        latestSecretsVerifyRun: (latestSecretsVerifyRunQuery.data as any) ?? null,
+        latestBootstrapSecretsVerifyRun: (latestBootstrapSecretsVerifyRunQuery.data as any) ?? null,
       }),
     [
       config,
       deployCreds,
       latestBootstrapRunQuery.data,
-      latestSecretsVerifyRunQuery.data,
-      params.search.host,
+      latestBootstrapSecretsVerifyRunQuery.data,
+      params.host,
       params.search.step,
     ],
   )
@@ -88,22 +73,13 @@ export function useSetupModel(params: { projectSlug: string; search: SetupSearch
   const setSearch = React.useCallback(
     (next: Partial<SetupSearch>, opts?: { replace?: boolean }) => {
       void router.navigate({
-        to: "/$projectSlug/setup",
-        params: { projectSlug: params.projectSlug },
+        to: "/$projectSlug/hosts/$host/setup",
+        params: { projectSlug: params.projectSlug, host: params.host },
         search: (prev: Record<string, unknown>) => ({ ...prev, ...next }),
         replace: opts?.replace,
       } as any)
     },
-    [params.projectSlug, router],
-  )
-
-  const setSelectedHost = React.useCallback(
-    (host: string) => {
-      const nextHost = host.trim()
-      if (!nextHost) return
-      setSearch({ host: nextHost })
-    },
-    [setSearch],
+    [params.host, params.projectSlug, router],
   )
 
   const setStep = React.useCallback(
@@ -121,14 +97,11 @@ export function useSetupModel(params: { projectSlug: string; search: SetupSearch
   }, [model.activeStepId, model.steps, setStep])
 
   React.useEffect(() => {
-    const desiredHost = model.selectedHost || undefined
-    const hostNeedsFix = desiredHost && params.search.host !== desiredHost
     const requested = coerceSetupStepId(params.search.step)
-    const stepNeedsFix = !requested
-    if (hostNeedsFix || stepNeedsFix) {
-      setSearch({ ...(hostNeedsFix ? { host: desiredHost } : {}), ...(stepNeedsFix ? { step: model.activeStepId } : {}) }, { replace: true })
+    if (!requested) {
+      setSearch({ step: model.activeStepId }, { replace: true })
     }
-  }, [model.activeStepId, model.selectedHost, params.search.host, params.search.step, setSearch])
+  }, [model.activeStepId, params.search.step, setSearch])
 
   return {
     projectQuery,
@@ -140,10 +113,9 @@ export function useSetupModel(params: { projectSlug: string; search: SetupSearch
     deployCredsQuery,
     deployCreds,
     latestBootstrapRunQuery,
-    latestSecretsVerifyRunQuery,
+    latestBootstrapSecretsVerifyRunQuery,
     model,
     selectedHost: model.selectedHost,
-    setSelectedHost,
     setStep,
     advance,
   }
