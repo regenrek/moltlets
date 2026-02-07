@@ -45,7 +45,6 @@ export {
 } from "./resolve-host.js";
 export {
   loadClawletsConfig,
-  loadClawletsConfigRaw,
   loadInfraConfig,
   loadOpenClawConfig,
   loadFullConfig,

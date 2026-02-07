@@ -136,10 +136,16 @@ export async function addDeployChecks(params: {
   if (!clawletsConfigError && !clawletsHostCfg) {
     push({ status: "warn", label: "host config", detail: `(missing host in fleet/clawlets.json: ${host})` });
   } else if (clawletsHostCfg) {
+    const openclawEnabled = Boolean(clawletsHostCfg.openclaw?.enable);
+    push({
+      status: openclawEnabled ? "ok" : "warn",
+      label: "services.openclawFleet.enable",
+      detail: openclawEnabled ? "(true)" : `(false; set fleet/openclaw.json hosts.${host}.enable=true)`,
+    });
     push({
       status: clawletsHostCfg.enable ? "ok" : "warn",
-      label: "services.openclawFleet.enable",
-      detail: clawletsHostCfg.enable ? "(true)" : "(false; host will install but fleet services/VPN won't run until enabled)",
+      label: "host.enable",
+      detail: clawletsHostCfg.enable ? "(true)" : `(false; set fleet/clawlets.json hosts.${host}.enable=true)`,
     });
 
     {
@@ -343,7 +349,21 @@ export async function addDeployChecks(params: {
       }
     }
 
-    const gatewaysForSecrets = secretsPlan?.gateways?.length ? secretsPlan.gateways : params.fleetGateways || [];
+    const gatewaysFromHostCfg = (() => {
+      if (!clawletsHostCfg) return [];
+      const cfg = clawletsHostCfg as any;
+      const gatewaysOrder = Array.isArray(cfg.gatewaysOrder) ? cfg.gatewaysOrder : [];
+      const gatewaysKeys = Object.keys(cfg.gateways || {});
+      return (gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys)
+        .map((id: unknown) => String(id || "").trim())
+        .filter(Boolean);
+    })();
+
+    const gatewaysForSecrets = secretsPlan?.gateways?.length
+      ? secretsPlan.gateways
+      : gatewaysFromHostCfg.length > 0
+        ? gatewaysFromHostCfg
+        : params.fleetGateways || [];
     const hostSecretNamesRequired = secretsPlan?.hostSecretNamesRequired || ["admin_password_hash"];
     const secretNamesAll = secretsPlan?.secretNamesAll || [];
     const required = Array.from(new Set([

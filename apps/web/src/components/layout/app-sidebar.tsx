@@ -162,10 +162,11 @@ function AppSidebar() {
       tooltip: hostBase ? "Single host overview." : "Fleet host overview.",
     },
     {
-      to: `${projectBase}/setup`,
+      to: hostBase ? `${hostBase}/setup` : hostsBase,
       label: "Setup",
       icon: CheckIcon,
-      tooltip: "Guided first deploy checklist.",
+      tooltip: "Server and OpenClaw setup guides.",
+      aliases: hostBase ? [`${hostBase}/openclaw-setup`] : undefined,
     },
     {
       to: hostAwarePath("deploy", "deploy"),

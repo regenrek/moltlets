@@ -19,7 +19,7 @@ async function loadGateways(options: {
     if (payload?.kind) return { runId: "run1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }))
+  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
 
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
@@ -37,8 +37,8 @@ async function loadGateways(options: {
       ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadClawletsConfigRaw: () => ({
-        configPath: "/tmp/fleet/clawlets.json",
+      loadFullConfig: () => ({
+        infraConfigPath: "/tmp/fleet/clawlets.json",
         config: { hosts: { h1: { gatewaysOrder: ["gateway1"], gateways: { gateway1: { openclaw: {} } } } } },
       }),
       writeClawletsConfig: async () => {},

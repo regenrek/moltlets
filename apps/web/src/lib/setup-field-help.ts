@@ -7,10 +7,10 @@ export const setupFieldHelp = {
     diskDevice: "Block device to install NixOS onto (usually `/dev/sda` on Hetzner). Must start with `/dev/`.",
     targetHost: "SSH destination used for deploy/ops + live schema. Optional until you run server ops; set in Hosts → Settings → Target host (ssh alias or `user@host`).",
     provider: "Infrastructure provider for Day 0 lifecycle (`hetzner` or `aws`). Choose this first, then fill provider-specific fields.",
-    adminCidr: "CIDR allowed to reach admin SSH during bootstrap (recommend your current IP `/32`). Use Detect to autofill from your public IP.",
+    adminCidr: "Which IP addresses can connect to admin SSH during setup (usually your current IP with `/32`). Use Detect to autofill.",
     sshPubkeyFile:
       "Local path to your SSH public key file used during provisioning (for example `~/.ssh/id_ed25519.pub`). The dashboard cannot read local files; validation runs in CLI bootstrap/infra. Generate one if missing: `ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_ed25519`.",
-    sshExposure: "How SSH is exposed: `bootstrap` (temporary), `tailnet` (recommended), or `public` (risky).",
+    sshExposure: "How SSH is exposed: `bootstrap` (temporary), `tailnet` (recommended), or `public` (least safe).",
     tailnet: "Tailnet integration mode. `tailscale` enables Tailscale-based access; `none` disables it.",
     hetznerServerType: "Hetzner server type (e.g. `cx43`). Used by provisioning.",
     hetznerLocation: "Hetzner DC location (e.g. `nbg1`).",
@@ -50,10 +50,10 @@ export const setupFieldHelp = {
   },
   secrets: {
     host: "Host whose encrypted secrets you’re initializing/verifying/syncing.",
-    allowPlaceholders: "Allow `<PLACEHOLDER>` values during init (unsafe; use only for dry scaffolding).",
-    adminPassword: "Optional admin password used to generate a yescrypt hash via Nix.",
-    adminPasswordHash: "Precomputed yescrypt hash (`$y$…`). Stored as `admin_password_hash` secret.",
-    tailscaleAuthKey: "Tailscale auth key for joining the tailnet (only required for Tailscale-based access).",
+    allowPlaceholders: "Allow placeholder secret values during init (unsafe; only for dry scaffolding).",
+    adminPassword: "Server admin password (optional). If set, a secure hash is generated automatically.",
+    adminPasswordHash: "Precomputed server admin password hash (`$y$…`). Stored as `admin_password_hash`.",
+    tailscaleAuthKey: "Tailscale auth key used to join your tailnet (only required when tailnet mode is tailscale).",
     extraSecret: "Additional secret value written to encrypted YAML under `secrets/hosts/<host>`.",
   },
   doctor: {

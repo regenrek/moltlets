@@ -11,6 +11,7 @@ import { getAdminProjectContext } from "~/sdk/project"
 import { parseProjectHostScopeInput, parseProjectRunHostScopeInput } from "~/sdk/runtime"
 import { resolveHostFromConfig } from "./helpers"
 import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
+import { getSecretsVerifyRunKind } from "./run-kind"
 
 export const secretsVerifyStart = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostScopeInput)
@@ -19,10 +20,11 @@ export const secretsVerifyStart = createServerFn({ method: "POST" })
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const { config } = loadClawletsConfig({ repoRoot })
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
+    const runKind = getSecretsVerifyRunKind(data.scope)
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
-      kind: "secrets_verify",
+      kind: runKind,
       title: `Secrets verify (${host}, scope=${data.scope})`,
       host,
     })
@@ -39,11 +41,12 @@ export const secretsVerifyExecute = createServerFn({ method: "POST" })
   .inputValidator(parseProjectRunHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
+    const expectedKind = getSecretsVerifyRunKind(data.scope)
     const { repoRoot } = await requireAdminAndBoundRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
-      expectedKind: "secrets_verify",
+      expectedKind,
     })
 
     try {
@@ -100,7 +103,7 @@ export const secretsVerifyExecute = createServerFn({ method: "POST" })
             ts: Date.now(),
             level: ok ? "info" : "error",
             message: ok ? "Secrets verify ok" : "Secrets verify failed",
-            data: parsed,
+            meta: { kind: "phase", phase: "command_end" },
           },
         ],
       })

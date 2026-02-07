@@ -23,7 +23,9 @@ export type DashboardProjectSummary = {
   projectId: Id<"projects">
   name: string
   status: "creating" | "ready" | "error"
-  localPath: string
+  executionMode: "local" | "remote_runner"
+  workspaceRef: { kind: "local" | "git"; id: string; relPath?: string }
+  localPath: string | null
   updatedAt: number
   lastSeenAt: number | null
   cfg: DashboardProjectConfigSummary
@@ -45,13 +47,33 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
           projectId: p._id as Id<"projects">,
           name: p.name,
           status: p.status,
-          localPath: p.localPath,
+          executionMode: p.executionMode,
+          workspaceRef: p.workspaceRef,
+          localPath: typeof p.localPath === "string" && p.localPath.trim() ? p.localPath : null,
           updatedAt: p.updatedAt,
           lastSeenAt: typeof p.lastSeenAt === "number" ? p.lastSeenAt : null,
         }
 
         try {
-          const repoRoot = assertRepoRootPath(p.localPath, { allowMissing: false })
+          if (base.executionMode !== "local" || !base.localPath) {
+            return {
+              ...base,
+              cfg: {
+                configPath: null,
+                configMtimeMs: null,
+                gatewaysTotal: 0,
+                gatewayIdsPreview: [],
+                hostsTotal: 0,
+                hostsEnabled: 0,
+                defaultHost: null,
+                codexEnabled: false,
+                resticEnabled: false,
+                error: null,
+              },
+            }
+          }
+
+          const repoRoot = assertRepoRootPath(base.localPath, { allowMissing: false })
           const { configPath, config } = loadClawletsConfig({ repoRoot })
 
           const hostNames = Object.keys(config.hosts || {})

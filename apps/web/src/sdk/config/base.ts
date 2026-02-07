@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import {
   ClawletsConfigSchema,
   loadClawletsConfig,
-  loadClawletsConfigRaw,
+  loadFullConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { getRepoLayout } from "@clawlets/core/repo-layout"
@@ -62,18 +62,18 @@ export const writeClawletsConfigFile = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return {
-      ...base,
-      next: d["next"] as unknown,
-      title: typeof d["title"] === "string" ? d["title"] : "Update fleet/clawlets.json",
-    }
-  })
+      return {
+        ...base,
+        next: d["next"] as unknown,
+        title: typeof d["title"] === "string" ? d["title"] : "Update fleet config",
+      }
+    })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
 
-    const { configPath, config: current } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config: current } = loadFullConfig({ repoRoot })
     const blocked = findGatewayOpenclawChanges(current, data.next)
     if (blocked) {
       return { ok: false as const, issues: [{ code: "policy", path: blocked.path, message: blocked.message }] }
@@ -95,8 +95,8 @@ export const writeClawletsConfigFile = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: "Validating config…" })
-        await emit({ level: "info", message: "Writing fleet/clawlets.json…" })
-        await writeClawletsConfig({ configPath, config: parsed.data })
+        await emit({ level: "info", message: "Writing fleet/clawlets.json + fleet/openclaw.json…" })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: parsed.data })
         await emit({ level: "info", message: "Done." })
       },
       onSuccess: () => ({ ok: true as const, runId }),

@@ -42,13 +42,17 @@ export async function collectDoctorChecks(params: {
 
   const host = params.host.trim() || "openclaw-fleet-host";
 
-  const repoResult = await addRepoChecks({
-    repoRoot,
-    layout,
-    host,
-    nixBin: NIX_BIN,
-    push,
-  });
+  let fleetGateways: string[] | null = null;
+  if (wantRepo) {
+    const repoResult = await addRepoChecks({
+      repoRoot,
+      layout,
+      host,
+      nixBin: NIX_BIN,
+      push,
+    });
+    fleetGateways = repoResult.fleetGateways;
+  }
 
   if (wantBootstrap && deployCreds.envFile && deployCreds.envFile.status !== "ok") {
     const detail = deployCreds.envFile.error ? `${deployCreds.envFile.path} (${deployCreds.envFile.error})` : deployCreds.envFile.path;
@@ -65,7 +69,7 @@ export async function collectDoctorChecks(params: {
       hcloudToken: HCLOUD_TOKEN,
       sopsAgeKeyFile: SOPS_AGE_KEY_FILE,
       githubToken: GITHUB_TOKEN,
-      fleetGateways: repoResult.fleetGateways,
+      fleetGateways,
       push,
       skipGithubTokenCheck: params.skipGithubTokenCheck,
       scope: "bootstrap",
@@ -82,7 +86,7 @@ export async function collectDoctorChecks(params: {
       hcloudToken: HCLOUD_TOKEN,
       sopsAgeKeyFile: SOPS_AGE_KEY_FILE,
       githubToken: GITHUB_TOKEN,
-      fleetGateways: repoResult.fleetGateways,
+      fleetGateways,
       push,
       skipGithubTokenCheck: params.skipGithubTokenCheck,
       scope: "updates",

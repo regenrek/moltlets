@@ -80,7 +80,7 @@ function OpenSshExposureBanner() {
             size="sm"
             variant="destructive"
             nativeButton={false}
-            render={<Link to="/$projectSlug/setup" params={{ projectSlug }} search={{ host: setupLinkHost }} />}
+            render={<Link to="/$projectSlug/hosts/$host/setup" params={{ projectSlug, host: setupLinkHost }} />}
           >
             Open checklist
           </Button>

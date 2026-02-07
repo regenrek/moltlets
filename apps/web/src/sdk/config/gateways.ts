@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import {
   ClawletsConfigSchema,
   GatewayArchitectureSchema,
-  loadClawletsConfigRaw,
+  loadFullConfig,
   writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { GatewayIdSchema, PersonaNameSchema } from "@clawlets/shared/lib/identifiers"
@@ -77,9 +77,9 @@ export const addGateway = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
     next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     const hostName = data.host.trim()
@@ -124,7 +124,7 @@ export const addGateway = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Adding gateway ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -147,7 +147,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
@@ -158,7 +158,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     const parsedAgent = PersonaNameSchema.safeParse(agentId)
     if (!parsedAgent.success) throw new Error("invalid agent id")
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     const hostCfg = next.hosts[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
@@ -196,7 +196,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Adding agent ${agentId} to ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -217,7 +217,7 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
@@ -228,7 +228,7 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     const parsedAgent = PersonaNameSchema.safeParse(agentId)
     if (!parsedAgent.success) throw new Error("invalid agent id")
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     const hostCfg = next.hosts[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
@@ -252,7 +252,7 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Removing agent ${agentId} from ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -268,12 +268,12 @@ export const removeGateway = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
     const gatewayId = data.gatewayId.trim()
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     const hostCfg = next.hosts[hostName]
     if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
@@ -309,7 +309,7 @@ export const removeGateway = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Removing gateway ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })
@@ -328,13 +328,13 @@ export const setGatewayArchitecture = createServerFn({ method: "POST" })
     const client = createConvexClient()
     const { repoRoot } = await getAdminProjectContext(client, data.projectId)
     const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot })
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
 
     const architecture = data.architecture.trim()
     const parsedArchitecture = GatewayArchitectureSchema.safeParse(architecture)
     if (!parsedArchitecture.success) throw new Error("invalid gateway architecture")
 
-    const next = structuredClone(raw) as any
+    const next = structuredClone(config) as any
     next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
     next.fleet.gatewayArchitecture = parsedArchitecture.data
 
@@ -350,7 +350,7 @@ export const setGatewayArchitecture = createServerFn({ method: "POST" })
       redactTokens,
       fn: async (emit) => {
         await emit({ level: "info", message: `Setting gateway architecture: ${parsedArchitecture.data}` })
-        await writeClawletsConfig({ configPath, config: validated })
+        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
       },
       onSuccess: () => ({ ok: true as const, runId }),
     })

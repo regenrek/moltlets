@@ -113,7 +113,7 @@ describe("openclaw schema output parsing", () => {
         "{\"ok\":true}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653132__",
       ].join("\n")
-    const query = async () => ({ project: { localPath: "/tmp" }, role: "admin" })
+    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
     const mutation = async () => null
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -155,7 +155,7 @@ describe("openclaw schema output parsing", () => {
         "{\"schema\":[],\"version\":\"1\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653334__",
       ].join("\n")
-    const query = async () => ({ project: { localPath: "/tmp" }, role: "admin" })
+    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
     const mutation = async () => null
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -197,7 +197,7 @@ describe("openclaw schema output parsing", () => {
         "{\"schema\":{},\"uiHints\":[],\"version\":\"1\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
         "__OPENCLAW_SCHEMA_END__6e6f6e63653738__",
       ].join("\n")
-    const query = async () => ({ project: { localPath: "/tmp" }, role: "admin" })
+    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
     const mutation = async () => null
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
@@ -293,7 +293,7 @@ describe("openclaw schema output parsing", () => {
         "ssh: connect to host 10.0.0.1 port 22: Connection timed out; cmd: bash -lc 'source /srv/openclaw/gateway1/credentials/gateway.env'",
       )
     }
-    const query = async () => ({ project: { localPath: "/tmp" }, role: "admin" })
+    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
     const mutation = async () => null
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,

@@ -12,7 +12,7 @@ export function SetupStepSecrets(props: {
 }) {
   return (
     <div className="space-y-4">
-      <HostSecretsPanel projectId={props.projectId} host={props.host} />
+      <HostSecretsPanel projectId={props.projectId} host={props.host} scope="bootstrap" />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" disabled={!props.isComplete} onClick={props.onContinue}>
           Continue
@@ -35,4 +35,3 @@ export function SetupStepSecrets(props: {
     </div>
   )
 }
-

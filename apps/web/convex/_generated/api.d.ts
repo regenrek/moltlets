@@ -10,14 +10,19 @@
 
 import type * as auditLogs from "../auditLogs.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as lib_workspaceRef from "../lib/workspaceRef.js";
 import type * as maintenance from "../maintenance.js";
+import type * as projectErasure from "../projectErasure.js";
+import type * as projectPolicies from "../projectPolicies.js";
 import type * as projects from "../projects.js";
+import type * as retention from "../retention.js";
 import type * as runEvents from "../runEvents.js";
 import type * as runs from "../runs.js";
 import type * as users from "../users.js";
@@ -31,14 +36,19 @@ import type {
 declare const fullApi: ApiFromModules<{
   auditLogs: typeof auditLogs;
   auth: typeof auth;
+  crons: typeof crons;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/env": typeof lib_env;
   "lib/errors": typeof lib_errors;
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/validators": typeof lib_validators;
+  "lib/workspaceRef": typeof lib_workspaceRef;
   maintenance: typeof maintenance;
+  projectErasure: typeof projectErasure;
+  projectPolicies: typeof projectPolicies;
   projects: typeof projects;
+  retention: typeof retention;
   runEvents: typeof runEvents;
   runs: typeof runs;
   users: typeof users;
