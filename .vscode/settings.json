@@ -1,0 +1,16 @@
+{
+  "oxc.enable": true,
+  "oxc.lint.run": "onType",
+  "oxc.fixKind": "safe_fix",
+  "oxc.fmt.experimental": true,
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.oxc": "explicit"
+  },
+
+  "[javascript][javascriptreact][typescript][typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+
+  "eslint.useFlatConfig": true
+}
