@@ -239,8 +239,8 @@ function labelSelectorFromLabels(labels: Record<string, string> | undefined): st
 
 function normalizeFirewallRules(rules: HcloudFirewallRule[]): unknown[] {
   const normalized = rules.map((r) => {
-    const sourceIps = (r.source_ips || []).map((s) => String(s || "").trim()).filter(Boolean).sort();
-    const destIps = (r.destination_ips || []).map((s) => String(s || "").trim()).filter(Boolean).sort();
+    const sourceIps = (r.source_ips || []).map((s) => String(s || "").trim()).filter(Boolean).toSorted();
+    const destIps = (r.destination_ips || []).map((s) => String(s || "").trim()).filter(Boolean).toSorted();
     return {
       direction: r.direction,
       protocol: r.protocol,

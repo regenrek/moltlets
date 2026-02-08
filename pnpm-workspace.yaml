@@ -1,5 +1,3 @@
 packages:
   - "packages/*"
-  - "packages/clf/*"
-  - "packages/plugins/*"
   - "apps/*"

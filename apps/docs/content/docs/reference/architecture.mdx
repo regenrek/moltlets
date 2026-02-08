@@ -9,7 +9,8 @@ Clawlets is split across a few repos and a local runtime directory. Understandin
 these boundaries makes it easier to reason about what should be committed and what
 must remain local.
 
-- **Clawlets (this repo)**: CLI, Nix modules, `clf` queue/orchestrator, docs.
+- **Clawlets (this repo)**: CLI, core Nix modules, docs.
+- **clf-cattle (plugin repo)**: `@clawlets/plugin-cattle` + `clf` queue/orchestrator stack (opt-in).
 - **clawlets-template**: project scaffolding used by `clawlets project init`.
 - **Project repo**: `flake.nix`, `fleet/`, `secrets/`, `cattle/personas/` (public-safe).
 - **Runtime (`.clawlets/`)**: gitignored operator state + keys + provisioning artifacts.
@@ -24,9 +25,9 @@ These components are the core of the system. The CLI and Nix modules define desi
 state, and the runtime pieces implement it on the host.
 
 - **CLI (`clawlets`)**: bootstrap, deploy, secrets, server ops.
-- **Nix modules**: `clawletsProjectHost`, `openclawFleet`, `clawletsSelfUpdate`, `clfOrchestrator`.
+- **Nix modules**: `clawletsProjectHost`, `openclawFleet`, `clawletsSelfUpdate`.
 - **Per-gateway instance**: one OpenClaw gateway per instance (user `gateway-<id>`, state `/srv/openclaw/<id>`).
-- **Orchestrator (`clf-orchestrator`)**: job queue + cattle worker, socket `/run/clf/orchestrator.sock`.
+- **Orchestrator (`clf-orchestrator`, plugin)**: job queue + cattle worker, socket `/run/clf/orchestrator.sock`.
 - **Updater**: pulls signed manifests + optional secrets bundle, applies by store path.
 
 ## Data + secret flow
@@ -60,6 +61,7 @@ image and inject the persona and task at runtime.
 - Enabled via `cattle.*` in `fleet/clawlets.json`.
 - Spawned via `clawlets cattle spawn` (plugin) or `clf jobs enqueue`.
 - Secrets fetched at runtime from tailnet-only HTTP (`/v1/cattle/env`).
+- Setup details: [CLF Orchestrator](/plugins/clf-orchestrator)
 
 ## Single source of truth
 

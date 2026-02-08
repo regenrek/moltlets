@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 describe("ttl", () => {
   it("parses ttl strings", async () => {
-    const { parseTtlToSeconds } = await import("@clawlets/cattle-core/lib/ttl");
+    const { parseTtlToSeconds } = await import("../src/lib/config/ttl.js");
     expect(parseTtlToSeconds("30s")?.seconds).toBe(30);
     expect(parseTtlToSeconds("15m")?.seconds).toBe(15 * 60);
     expect(parseTtlToSeconds("2h")?.seconds).toBe(2 * 60 * 60);
@@ -10,11 +10,10 @@ describe("ttl", () => {
   });
 
   it("rejects invalid ttl strings", async () => {
-    const { parseTtlToSeconds } = await import("@clawlets/cattle-core/lib/ttl");
+    const { parseTtlToSeconds } = await import("../src/lib/config/ttl.js");
     expect(parseTtlToSeconds("")).toBeNull();
     expect(parseTtlToSeconds("0m")).toBeNull();
     expect(parseTtlToSeconds("2 hours")).toBeNull();
     expect(parseTtlToSeconds("m2")).toBeNull();
   });
 });
-

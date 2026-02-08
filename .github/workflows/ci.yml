@@ -16,10 +16,8 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       core: ${{ steps.filter.outputs.core }}
       cli: ${{ steps.filter.outputs.cli }}
-      plugins_cattle: ${{ steps.filter.outputs.plugins_cattle }}
       web: ${{ steps.filter.outputs.web }}
       docs: ${{ steps.filter.outputs.docs }}
-      clf: ${{ steps.filter.outputs.clf }}
       nix: ${{ steps.filter.outputs.nix }}
       boundaries: ${{ steps.filter.outputs.boundaries }}
       template_e2e: ${{ steps.filter.outputs.template_e2e }}
@@ -39,7 +37,7 @@ jobs:
           head="${HEAD_SHA}"
 
           if [[ -z "${base}" || -z "${head}" ]]; then
-            for name in node core cli plugins_cattle web docs clf nix boundaries template_e2e; do
+            for name in node core cli web docs nix boundaries template_e2e; do
               echo "${name}=true" >> "$GITHUB_OUTPUT"
             done
             exit 0
@@ -63,13 +61,11 @@ jobs:
             .github/workflows/ci.yml
           )
 
-          core_paths=(packages/core packages/shared packages/cattle-core templates "${root_paths[@]}")
-          cli_paths=(packages/cli packages/core packages/shared packages/cattle-core templates "${root_paths[@]}")
-          plugins_cattle_paths=(packages/plugins/cattle packages/core packages/shared packages/cattle-core packages/clf/queue templates "${root_paths[@]}")
+          core_paths=(packages/core packages/shared templates "${root_paths[@]}")
+          cli_paths=(packages/cli packages/core packages/shared templates "${root_paths[@]}")
           web_paths=(apps/web packages/core packages/shared templates "${root_paths[@]}")
           docs_paths=(apps/docs "${root_paths[@]}")
-          clf_paths=(packages/clf packages/cattle-core packages/shared "${root_paths[@]}")
-          node_paths=(packages/core packages/cli packages/shared packages/cattle-core packages/plugins packages/clf apps/web templates "${root_paths[@]}")
+          node_paths=(packages/core packages/cli packages/shared apps/web templates "${root_paths[@]}")
           boundaries_paths=(packages apps config/workspace-boundaries.json package.json pnpm-workspace.yaml)
           nix_paths=(nix flake.nix flake.lock)
           template_paths=(templates packages/cli packages/core config/template-source.json scripts "${root_paths[@]}")
@@ -77,10 +73,8 @@ jobs:
           echo "node=$(changed \"${node_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "core=$(changed \"${core_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "cli=$(changed \"${cli_paths[@]}\")" >> "$GITHUB_OUTPUT"
-          echo "plugins_cattle=$(changed \"${plugins_cattle_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "web=$(changed \"${web_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "docs=$(changed \"${docs_paths[@]}\")" >> "$GITHUB_OUTPUT"
-          echo "clf=$(changed \"${clf_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "nix=$(changed \"${nix_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "boundaries=$(changed \"${boundaries_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "template_e2e=$(changed \"${template_paths[@]}\")" >> "$GITHUB_OUTPUT"
@@ -146,12 +140,6 @@ jobs:
           CI: "1"
         run: pnpm -C packages/cli test
 
-      - name: Plugin tests (cattle)
-        if: needs.changes.outputs.plugins_cattle == 'true'
-        env:
-          CI: "1"
-        run: pnpm -C packages/plugins/cattle test
-
       - name: Core tests
         if: needs.changes.outputs.core == 'true'
         env:
@@ -165,21 +153,6 @@ jobs:
           CI: "1"
           CLAWLETS_TEMPLATE_REF: ${{ github.sha }}
         run: pnpm -C packages/core run coverage
-
-      - name: Plugin coverage (cattle)
-        if: needs.changes.outputs.plugins_cattle == 'true'
-        env:
-          CI: "1"
-        run: pnpm -C packages/plugins/cattle run coverage
-
-      - name: CLF tests
-        if: needs.changes.outputs.clf == 'true'
-        env:
-          CI: "1"
-        run: |
-          pnpm -C packages/clf/cli test
-          pnpm -C packages/clf/queue test
-          pnpm -C packages/clf/orchestrator test
 
       - name: Web tests
         if: needs.changes.outputs.web == 'true'
@@ -288,90 +261,6 @@ jobs:
 
       - name: Nix flake check
         run: nix flake check -L
-
-  # CLF hash validation - checks the clf subflake
-  # Auto-update is handled by .github/workflows/update-clf-hash.yml
-  nix-clf-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
-        with:
-          fetch-depth: 0
-
-      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15 # v31.9.0
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Cache Nix store
-        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v5
-        with:
-          nix: false
-          primary-key: nix-clf-${{ runner.os }}-${{ hashFiles('nix/openclaw/subflakes/clf/flake.nix', 'pnpm-lock.yaml') }}
-          restore-prefixes-first-match: |
-            nix-clf-${{ runner.os }}-
-          paths-linux: |
-            /nix/store
-
-      - name: Detect whether clf deps could have changed
-        id: changed
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          base="${BASE_SHA}"
-          head="${HEAD_SHA}"
-
-          if [[ -z "${base}" || -z "${head}" ]]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if git diff --name-only "${base}" "${head}" -- \
-              pnpm-lock.yaml \
-              pnpm-workspace.yaml \
-              package.json \
-              nix/openclaw/subflakes/clf/flake.nix \
-              packages/shared/package.json \
-              packages/cattle-core/package.json \
-              packages/clf/**/package.json \
-              | grep -q .; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_STEP_SUMMARY"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build CLF subflake
-        if: ${{ steps.changed.outputs.run == 'true' }}
-        working-directory: nix/openclaw/subflakes/clf
-        run: |
-          set -euo pipefail
-
-          if nix build .#clf -L --no-link 2>&1 | tee nix-build.log; then
-            echo "✅ CLF subflake built successfully" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          # Build failed - show the correct hash for manual update or wait for auto-update
-          got="$(grep -Eo 'got: sha256-[A-Za-z0-9+/=]+' nix-build.log | tail -n1 | awk '{print $2}')"
-
-          echo "### CLF pnpmDeps hash mismatch" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The hash in \`nix/openclaw/subflakes/clf/flake.nix\` needs to be updated." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ -n "${got}" ]]; then
-            echo "Expected hash: \`${got}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "This will be auto-updated on main branch by the update-clf-hash workflow." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Could not parse hash from log. Check the raw output." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          exit 1
 
   template-e2e:
     needs: [changes, lockfile]

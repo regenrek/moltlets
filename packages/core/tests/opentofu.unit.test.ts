@@ -12,7 +12,7 @@ vi.mock("../src/lib/runtime/run.js", () => ({
   captureWithInput: vi.fn(async () => ""),
 }));
 
-vi.mock("@clawlets/cattle-core/lib/hcloud", () => ({
+vi.mock("../src/lib/infra/providers/hetzner/hcloud.js", () => ({
   ensureHcloudSshKeyId: ensureKeyMock,
 }));
 

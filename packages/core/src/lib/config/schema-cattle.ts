@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { TtlStringSchema } from "@clawlets/cattle-core/lib/ttl";
-import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "@clawlets/cattle-core/lib/hcloud-labels";
+import { TtlStringSchema } from "./ttl.js";
+import { HcloudLabelsSchema, validateHcloudLabelsAtPath } from "./hcloud-labels.js";
 
 export const CattleSchema = z
   .object({

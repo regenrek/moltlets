@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 describe("hcloud-labels", () => {
   it("validates label keys/values", async () => {
-    const { isValidHcloudLabelKey, isValidHcloudLabelValue } = await import("@clawlets/cattle-core/lib/hcloud-labels");
+    const { isValidHcloudLabelKey, isValidHcloudLabelValue } = await import("../src/lib/config/hcloud-labels.js");
 
     expect(isValidHcloudLabelKey("managed-by")).toBe(true);
     expect(isValidHcloudLabelKey("a/b")).toBe(true);
@@ -15,9 +15,8 @@ describe("hcloud-labels", () => {
   });
 
   it("slugs unsafe values deterministically", async () => {
-    const { toHcloudLabelValueSlug } = await import("@clawlets/cattle-core/lib/hcloud-labels");
+    const { toHcloudLabelValueSlug } = await import("../src/lib/config/hcloud-labels.js");
     expect(toHcloudLabelValueSlug("Hello World", { fallback: "x" })).toBe("hello-world");
     expect(toHcloudLabelValueSlug("////", { fallback: "x" })).toBe("x");
   });
 });
-

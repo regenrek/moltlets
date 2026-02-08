@@ -33,7 +33,6 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@clawlets/cattle-core": "workspace:*",
     "@clawlets/shared": "workspace:*",
     "ajv": "^8.17.1",
     "dotenv": "^17.2.3",

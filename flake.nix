@@ -43,7 +43,6 @@
 
           pnpmWorkspacesCli = [
             "@clawlets/shared"
-            "@clawlets/cattle-core"
             "@clawlets/core"
             "clawlets"
           ];
@@ -162,7 +161,6 @@
 
               # Dependencies are installed by pnpmConfigHook (offline, workspace-scoped).
               pnpm --filter=@clawlets/shared build
-              pnpm --filter=@clawlets/cattle-core build
               pnpm --filter=@clawlets/core build
               pnpm --filter=clawlets build
 
@@ -416,7 +414,6 @@
 
         openclawFleet = import ./nix/openclaw/modules/openclaw-fleet.nix;
         openclawCattle = import ./nix/openclaw/modules/openclaw-cattle.nix;
-        clfOrchestrator = import ./nix/openclaw/modules/clf-orchestrator.nix;
 
         diskoHetznerExt4 = import ./nix/infra/disko/hetzner-ext4.nix;
       };
