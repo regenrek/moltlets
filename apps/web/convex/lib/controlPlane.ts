@@ -56,7 +56,7 @@ function visit(value: unknown, path: string): void {
   }
 }
 
-function asBoundedOptional(value: unknown, field: string, max = CONTROL_PLANE_LIMITS.hash): string | undefined {
+function asBoundedOptional(value: unknown, field: string, max: number = CONTROL_PLANE_LIMITS.hash): string | undefined {
   return ensureOptionalBoundedString(typeof value === "string" ? value : undefined, field, max);
 }
 
