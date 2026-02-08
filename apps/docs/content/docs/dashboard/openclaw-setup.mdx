@@ -1,0 +1,87 @@
+---
+title: OpenClaw setup
+description: Guided OpenClaw enablement flow after host bootstrap.
+---
+
+Use this flow after the host is installed. Host setup gets infrastructure online.
+OpenClaw setup enables gateway services, validates app-level secrets, then applies the
+update.
+
+Route: `/<projectSlug>/hosts/<host>/openclaw-setup`
+
+## Prereqs
+
+- Host exists in project config.
+- Host bootstrap already succeeded (from [Setup](/dashboard/setup)).
+- Runner is online for the project.
+
+## Step 1: Enable OpenClaw
+
+Action:
+
+- Click **Enable OpenClaw**.
+
+What it changes:
+
+- Sets `hosts.<host>.openclaw.enable = true`.
+
+This step is complete when the enable run succeeds.
+
+## Step 2: Configure Gateway
+
+Action:
+
+- Open Gateways from the step.
+- Add at least one gateway and basic channel/agent settings.
+
+This step unlocks only after OpenClaw is enabled, and completes when at least one
+gateway exists for the host.
+
+## Step 3: App Secrets
+
+Action:
+
+- Use Host Secrets panel (openclaw scope).
+- Fill missing secret values and mappings.
+- Run verify for OpenClaw scope.
+
+This step completes only after a successful `secrets_verify_openclaw` run.
+
+## Step 4: Deploy Update
+
+Action:
+
+- Run apply from the embedded deploy panel.
+
+This step unlocks after OpenClaw-scope secrets verify succeeds, and completes after a
+successful `server_update_apply` run for the host.
+
+## Verify
+
+You are done when:
+
+- All four steps show done.
+- OpenClaw setup celebration is shown.
+- Host gateways page loads with expected gateways.
+
+## Troubleshooting
+
+### Step is locked
+
+Open the previous step. Locks are strict and driven by state:
+
+- `gateway` locked until OpenClaw is enabled.
+- `secrets` locked until at least one gateway exists.
+- `deploy` locked until OpenClaw-scope secrets verify succeeds.
+
+### Secrets step never completes
+
+- Open full host secrets page and resolve missing wiring.
+- Re-run verify and confirm run kind `secrets_verify_openclaw` succeeds.
+- If using remote runner, verify runner is online.
+
+### Deploy step fails
+
+- Open full deploy page for the host.
+- Check latest run logs for `server_update_apply`.
+- If failure mentions digest/signature, use [Deploy](/operations/deploy) checks.

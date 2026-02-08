@@ -28,19 +28,11 @@ to discover the starter files and expected layout.
 ## 3) Run through Setup
 
 Setup is a Vercel-style command center for the first deploy. It is derived from real
-state (config, secrets, local deploy creds, and runs), so you can close it and resume later.
+state (config, secrets, local deploy creds, and runs), so you can close it and resume
+later. After host setup completes, continue with OpenClaw setup for gateway/app wiring.
 
-- Choose a host (and add one if none exist)
-- Set connection basics (`targetHost`, `adminCidr`, `sshPubkeyFile`)
-- Choose provider first (`hetzner|aws`), then fill provider-specific settings
-- Initialize + verify host secrets
-- Configure local deploy credentials (`.clawlets/env`)
-- Deploy (initial install → then apply changes)
+Use this as the full lifecycle map:
 
-The canonical deploy surface is **Deploy**: it automatically switches between initial install
-(bootstrap) and apply changes (updates) based on run history.
-
-Lifecycle split:
-
-- Day 0 infra: provider bootstrap and host access (`bootstrap`, `infra`, `lockdown`)
-- Day X OpenClaw: gateway config, channels, skills, and policy hardening
+- [Model C workflow](/dashboard/model-c-workflow)
+- [Setup](/dashboard/setup)
+- [OpenClaw setup](/dashboard/openclaw-setup)

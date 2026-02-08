@@ -24,20 +24,23 @@ Open:
     Select which host you will deploy first. If the project has no hosts yet, add one inline.
   </Step>
   <Step>
-    <strong>Connection</strong>
+    <strong>Server access</strong>
     <br />
     Fill <code>provisioning.adminCidr</code> and add at least one SSH key to{" "}
     <code>fleet.sshAuthorizedKeys</code>.
   </Step>
   <Step>
-    <strong>Secrets</strong>
-    <br />
-    Initialize and verify host secrets. Setup relies on <code>secrets verify</code> to confirm required values are present.
-  </Step>
-  <Step>
     <strong>Deploy credentials</strong>
     <br />
-    Configure local-only credentials in <code>.clawlets/env</code> (for example <code>HCLOUD_TOKEN</code> and <code>SOPS_AGE_KEY_FILE</code>).
+    Configure local-only credentials in <code>.clawlets/env</code>. Setup requires{" "}
+    <code>SOPS_AGE_KEY_FILE</code> plus provider creds (
+    <code>HCLOUD_TOKEN</code> for Hetzner or AWS access key pair for AWS).
+  </Step>
+  <Step>
+    <strong>Server passwords</strong>
+    <br />
+    Initialize and verify bootstrap-scope host secrets. Setup requires a successful{" "}
+    <code>secrets_verify_bootstrap</code> run before install.
   </Step>
   <Step>
     <strong>Deploy</strong>
@@ -59,6 +62,11 @@ You are “done” when:
 - The post-bootstrap checklist is green (or you have consciously accepted the remaining risk).
 - Follow-up Deploy runs apply changes cleanly.
 
+After this, continue with OpenClaw app-layer setup:
+
+- [OpenClaw setup](/dashboard/openclaw-setup)
+- [Model C workflow](/dashboard/model-c-workflow)
+
 ## Troubleshooting
 
 ### Setup says “project setup in progress”
@@ -76,4 +84,3 @@ run Verify, and resolve missing values.
 
 Open the Deploy credentials step and set the required keys in <code>.clawlets/env</code>.
 These are local-only and must not be committed.
-

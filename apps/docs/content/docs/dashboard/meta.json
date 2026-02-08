@@ -6,9 +6,12 @@
     "index",
     "requirements",
     "convex-setup",
-    "local-dev",
     "first-login",
     "setup",
+    "openclaw-setup",
+    "deploy-credentials",
+    "model-c-workflow",
+    "local-dev",
     "troubleshooting"
   ]
 }

@@ -6,6 +6,7 @@
     "index",
     "install",
     "deploy",
+    "deployment-scenarios",
     "runner-agent",
     "runbook",
     "image-based-provisioning",

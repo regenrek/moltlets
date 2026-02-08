@@ -1,0 +1,108 @@
+---
+title: Deployment scenarios
+description: Choose control-plane and runner topology for your environment.
+---
+
+Model C lets you split control plane and execution. The right topology depends on your
+trust boundary, uptime needs, and who operates the fleet.
+
+Use this page before finalizing install/deploy architecture.
+
+## Scenario comparison
+
+| Scenario | When to pick | Runner location | Main tradeoff |
+| --- | --- | --- | --- |
+| Local dashboard + local runner | Solo operator, local-first setup | Same workstation | Lowest complexity, weakest always-on availability |
+| VPS dashboard + local runner | Always-on UI, local secrets handling | Workstation | Better uptime, runner must stay available |
+| VPS dashboard + VPS runner | Team/shared operations, centralized execution | Dedicated runner host | More ops surface, stronger separation from laptops |
+| CI publish + host pull updates | Stable Day-2 release pipeline | CI builds, host updater applies | Requires release/signing discipline |
+
+## 1) Local dashboard + local runner
+
+Use when:
+
+- You are bootstrapping quickly.
+- Fleet is managed by one operator.
+
+Pros:
+
+- Simple setup.
+- Fast local iteration.
+
+Risks:
+
+- Dashboard and runner availability tied to one machine.
+- Harder to share operator workflows.
+
+## 2) VPS dashboard + local runner
+
+Use when:
+
+- You want always-on dashboard status and run history.
+- You still want secrets submit from browser to local runner.
+
+Pros:
+
+- Control plane stays up while laptop sleeps.
+- Runner keeps repo and local key material.
+
+Risks:
+
+- Job execution pauses when local runner is offline.
+- Need strict `--dashboardOrigin` and nonce hygiene for local submit.
+
+## 3) VPS dashboard + VPS runner
+
+Use when:
+
+- Multiple operators share a project.
+- You want execution detached from personal workstations.
+
+Pros:
+
+- More consistent job execution availability.
+- Cleaner separation of operator UI vs execution host.
+
+Risks:
+
+- Runner host must be hardened like any privileged ops node.
+- Key and secret material now live on a server you operate.
+
+## 4) CI publish + host pull updates
+
+Use when:
+
+- You need repeatable audited deploys.
+- Day-2 updates should be pull-based and deterministic.
+
+Pros:
+
+- Hosts switch by signed manifest and store path.
+- Operator laptops are not part of steady-state deploy path.
+
+Risks:
+
+- CI signing keys become critical.
+- Manifest/signature/secrets digest integrity becomes core control.
+
+## Recommended default
+
+For most teams:
+
+1. Start with **VPS dashboard + local runner** for fast adoption and clear Model C split.
+2. Move to **VPS dashboard + VPS runner** when you need shared/on-call execution.
+3. Standardize Day-2 on **CI publish + host pull updates**.
+
+## Migration path
+
+1. Keep project config and secrets in Git as source of truth.
+2. Move dashboard first (no repo mount on web host).
+3. Pair runner in new target location and verify heartbeat/capabilities.
+4. Cut over deploy operations.
+5. Enable or tighten self-update + signed manifest workflow.
+
+Related:
+
+- [Deploy](/operations/deploy)
+- [Runner Agent](/operations/runner-agent)
+- [Control Plane Metadata](/security/control-plane-metadata)
