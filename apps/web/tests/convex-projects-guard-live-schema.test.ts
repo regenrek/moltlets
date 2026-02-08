@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ConvexError } from "convex/values"
 
-import { __test_parseLiveSchemaTarget } from "../convex/projects"
+import { parseLiveSchemaTarget } from "../convex/controlPlane/projects"
 
 function expectConvexFail(fn: () => void, code: string, message?: string) {
   try {
@@ -17,7 +17,7 @@ function expectConvexFail(fn: () => void, code: string, message?: string) {
 describe("guardLiveSchemaFetch validation", () => {
   it("rejects oversized host", () => {
     expectConvexFail(
-      () => __test_parseLiveSchemaTarget({ host: "a".repeat(129), gatewayId: "bot1" }),
+      () => parseLiveSchemaTarget({ host: "a".repeat(129), gatewayId: "bot1" }),
       "conflict",
       "host too long",
     )
@@ -25,14 +25,14 @@ describe("guardLiveSchemaFetch validation", () => {
 
   it("rejects oversized gatewayId", () => {
     expectConvexFail(
-      () => __test_parseLiveSchemaTarget({ host: "host1", gatewayId: "b".repeat(129) }),
+      () => parseLiveSchemaTarget({ host: "host1", gatewayId: "b".repeat(129) }),
       "conflict",
       "gatewayId too long",
     )
   })
 
   it("accepts valid host/gatewayId", () => {
-    expect(__test_parseLiveSchemaTarget({ host: "host-1", gatewayId: "bot_1" })).toEqual({
+    expect(parseLiveSchemaTarget({ host: "host-1", gatewayId: "bot_1" })).toEqual({
       host: "host-1",
       gatewayId: "bot_1",
     })

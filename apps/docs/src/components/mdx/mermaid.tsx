@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- code-split heavy Mermaid dependency */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 

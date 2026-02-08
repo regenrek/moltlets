@@ -22,7 +22,7 @@ type ChannelRow = {
   statusTone: EntityStatusTone
 }
 
-function collectChannelRows(gateways: (typeof api.gateways.listByProject)["_returnType"]): ChannelRow[] {
+function collectChannelRows(gateways: (typeof api.controlPlane.gateways.listByProject)["_returnType"]): ChannelRow[] {
   const channelModelById = new Map(listPinnedChannelUiModels().map((model) => [model.id, model] as const))
   const rows: ChannelRow[] = []
   for (const gateway of gateways) {
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/$projectSlug/~/channels")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(convexQuery(api.gateways.listByProject, { projectId }))
+    await context.queryClient.ensureQueryData(convexQuery(api.controlPlane.gateways.listByProject, { projectId }))
   },
   component: ChannelsAggregate,
 })
@@ -68,7 +68,7 @@ function ChannelsAggregate() {
   const isReady = projectStatus === "ready"
 
   const gatewaysQuery = useQuery({
-    ...convexQuery(api.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId && isReady),
   })
 

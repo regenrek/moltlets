@@ -9,13 +9,13 @@ export const lockdownStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     await requireAdminProjectAccess(client, data.projectId)
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "lockdown",
       title: `Lockdown (${data.host})`,
       host: data.host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "lockdown",
       target: { host: data.host },

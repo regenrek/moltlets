@@ -59,7 +59,7 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const deployCreds = (deployCredsQuery.data as any) ?? null
 
   const latestBootstrapRunQuery = useQuery({
-    ...convexQuery(api.runs.latestByProjectHostKind, {
+    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
       host: params.host,
       kind: "bootstrap",
@@ -68,7 +68,7 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   })
 
   const latestBootstrapSecretsVerifyRunQuery = useQuery({
-    ...convexQuery(api.runs.latestByProjectHostKind, {
+    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
       host: params.host,
       kind: SECRETS_VERIFY_BOOTSTRAP_RUN_KIND,

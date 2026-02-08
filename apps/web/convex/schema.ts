@@ -8,7 +8,7 @@ import {
   SECRET_WIRING_SCOPES,
   SECRET_WIRING_STATUSES,
 } from "@clawlets/core/lib/runtime/control-plane-constants";
-import { PROJECT_DELETION_STAGES } from "./lib/projectErasureStages";
+import { PROJECT_DELETION_STAGES } from "./shared/projectErasureStages";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));

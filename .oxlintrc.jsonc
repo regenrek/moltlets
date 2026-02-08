@@ -1,0 +1,86 @@
+// .oxlintrc.jsonc — Oxlint config for the clawlets monorepo
+//
+// Single root config + overrides keeps every package consistent.
+// React/TanStack rules are off globally, enabled only in apps/web.
+// require() is banned everywhere except tests.
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/convex/_generated/**",
+    "templates/**",
+    "**/.nitro/**",
+    "**/.output/**",
+    "**/.vinxi/**"
+  ],
+
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "promise",
+    "react",
+    "jsx-a11y",
+    "node"
+  ],
+
+  "jsPlugins": [
+    "./tools/lint/tanstack-query-plugin.mjs",
+    "./tools/lint/tanstack-router-plugin.mjs"
+  ],
+
+  "rules": {
+    // --- Ban CommonJS require() in main code (tests override below) ---
+    "typescript/no-require-imports": "error",
+    "typescript/no-var-requires": "error",
+
+    // --- Multi-file import checks ---
+    "import/no-cycle": ["error", { "maxDepth": 3 }],
+
+    // --- Type-aware (only active with --type-aware) ---
+    "typescript/no-floating-promises": "error",
+
+    // --- Web-only rules: off globally, enabled in apps/web override ---
+    "react/rules-of-hooks": "off",
+    "react/exhaustive-deps": "off",
+    "tanstack-query/exhaustive-deps": "off",
+    "tanstack-router/create-route-property-order": "off"
+  },
+
+  "overrides": [
+    {
+      // Enable React + TanStack rules only in apps/web
+      "files": ["apps/web/**/*.{ts,tsx,js,jsx}"],
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "warn",
+        "tanstack-query/exhaustive-deps": "warn",
+        "tanstack-router/create-route-property-order": "error"
+      }
+    },
+    {
+      // Allow require() and dynamic imports in tests
+      "files": [
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/__tests__/**",
+        "**/tests/**"
+      ],
+      "rules": {
+        "typescript/no-require-imports": "off",
+        "typescript/no-var-requires": "off"
+      }
+    }
+  ]
+}

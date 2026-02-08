@@ -1,14 +1,14 @@
 import { RUNNER_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { v } from "convex/values";
 
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS } from "./lib/controlPlane";
-import { rateLimit } from "./lib/rateLimit";
-import { RunnerDoc } from "./lib/validators";
-import { RunnerCapabilities } from "./schema";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS } from "../shared/controlPlane";
+import { rateLimit } from "../shared/rateLimit";
+import { RunnerDoc } from "../shared/validators";
+import { RunnerCapabilities } from "../schema";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));

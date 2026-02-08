@@ -22,13 +22,13 @@ export const secretsSyncStart = createServerFn({ method: "POST" })
     const host = data.host.trim()
     if (!host) throw new Error("missing host")
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "secrets_sync",
       title: `Secrets sync (${host})`,
       host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.sync",
       target: { host },

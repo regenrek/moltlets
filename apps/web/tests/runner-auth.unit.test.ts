@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { __test_isRunnerTokenUsable } from "../convex/http";
+import { isRunnerTokenUsable } from "../convex/controlPlane/httpParsers";
 
 describe("runner auth token validation", () => {
   it("accepts valid non-revoked token bound to runner project", () => {
     expect(
-      __test_isRunnerTokenUsable({
+      isRunnerTokenUsable({
         tokenDoc: {
           projectId: "p1",
           runnerId: "r1",
@@ -22,7 +22,7 @@ describe("runner auth token validation", () => {
 
   it("rejects expired or revoked tokens", () => {
     expect(
-      __test_isRunnerTokenUsable({
+      isRunnerTokenUsable({
         tokenDoc: {
           projectId: "p1",
           runnerId: "r1",
@@ -37,7 +37,7 @@ describe("runner auth token validation", () => {
       }),
     ).toBe(false);
     expect(
-      __test_isRunnerTokenUsable({
+      isRunnerTokenUsable({
         tokenDoc: {
           projectId: "p1",
           runnerId: "r1",
@@ -56,7 +56,7 @@ describe("runner auth token validation", () => {
 
   it("rejects runner/project mismatches", () => {
     expect(
-      __test_isRunnerTokenUsable({
+      isRunnerTokenUsable({
         tokenDoc: {
           projectId: "p1",
           runnerId: "r1",
@@ -71,7 +71,7 @@ describe("runner auth token validation", () => {
       }),
     ).toBe(false);
     expect(
-      __test_isRunnerTokenUsable({
+      isRunnerTokenUsable({
         tokenDoc: {
           projectId: "p1",
           runnerId: "r1",

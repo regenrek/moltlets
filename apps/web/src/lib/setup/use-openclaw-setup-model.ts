@@ -45,7 +45,7 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
   const config = (configQuery.data as any) ?? null
 
   const latestOpenClawSecretsVerifyRunQuery = useQuery({
-    ...convexQuery(api.runs.latestByProjectHostKind, {
+    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
       host: params.host,
       kind: SECRETS_VERIFY_OPENCLAW_RUN_KIND,
@@ -54,7 +54,7 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
   })
 
   const latestUpdateApplyRunQuery = useQuery({
-    ...convexQuery(api.runs.latestByProjectHostKind, {
+    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
       projectId: projectId as Id<"projects">,
       host: params.host,
       kind: "server_update_apply",

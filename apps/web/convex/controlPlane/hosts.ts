@@ -2,20 +2,20 @@ import { HOST_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constant
 import { RUN_STATUSES } from "@clawlets/core/lib/runtime/run-constants";
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
 import {
   ensureBoundedString,
   ensureOptionalBoundedString,
   sanitizeDesiredHostSummary,
   CONTROL_PLANE_LIMITS,
-} from "./lib/controlPlane";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { HostDoc } from "./lib/validators";
-import { HostStatus, RunStatus } from "./schema";
+} from "../shared/controlPlane";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { HostDoc } from "../shared/validators";
+import { HostStatus, RunStatus } from "../schema";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
@@ -93,7 +93,7 @@ function normalizeRunStatus(value: string | undefined): (typeof RUN_STATUSES)[nu
   fail("conflict", `invalid run status: ${value}`);
 }
 
-function sanitizeHostPatchInput(patch: HostPatchInput): {
+export function sanitizeHostPatchInput(patch: HostPatchInput): {
   provider?: string;
   region?: string;
   lastSeenAt?: number;
@@ -212,7 +212,3 @@ export const listByProject = query({
     return rows.sort((a, b) => a.hostName.localeCompare(b.hostName));
   },
 });
-
-export function __test_sanitizeHostPatchInput(patch: HostPatchInput): Record<string, unknown> {
-  return sanitizeHostPatchInput(patch);
-}

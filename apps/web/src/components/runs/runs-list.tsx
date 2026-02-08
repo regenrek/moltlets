@@ -29,20 +29,20 @@ function RunsList({ projectSlug, projectId, host }: RunsListProps) {
       if (convexQueryClient.serverHttpClient) {
         return hostFilter
           ? await convexQueryClient.serverHttpClient.consistentQuery(
-            api.runs.listByProjectHostPage,
+            api.controlPlane.runs.listByProjectHostPage,
             args,
           )
           : await convexQueryClient.serverHttpClient.consistentQuery(
-            api.runs.listByProjectPage,
+            api.controlPlane.runs.listByProjectPage,
             args,
           )
       }
       return hostFilter
         ? await convexQueryClient.convexClient.query(
-          api.runs.listByProjectHostPage,
+          api.controlPlane.runs.listByProjectHostPage,
           args,
         )
-        : await convexQueryClient.convexClient.query(api.runs.listByProjectPage, args)
+        : await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },
     getNextPageParam: (lastPage) =>
       lastPage.isDone ? undefined : lastPage.continueCursor,

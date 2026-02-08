@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ConvexError } from "convex/values"
 
-import { requireAdmin } from "../convex/lib/auth"
+import { requireAdmin } from "../convex/shared/auth"
 
 describe("requireAdmin", () => {
   it("throws forbidden for viewer", () => {

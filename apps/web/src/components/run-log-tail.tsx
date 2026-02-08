@@ -11,9 +11,9 @@ export function RunLogTail({ runId, onDone }: { runId: Id<"runs">; onDone?: (sta
   const router = useRouter();
   const convexQueryClient = router.options.context.convexQueryClient;
 
-  const runQuery = useQuery({ ...convexQuery(api.runs.get, { runId }) });
+  const runQuery = useQuery({ ...convexQuery(api.controlPlane.runs.get, { runId }) });
   const pageQuery = useQuery({
-    ...convexQuery(api.runEvents.pageByRun, { runId, paginationOpts: { numItems: 300, cursor: null } }),
+    ...convexQuery(api.controlPlane.runEvents.pageByRun, { runId, paginationOpts: { numItems: 300, cursor: null } }),
   });
 
   const [olderPages, setOlderPages] = React.useState<any[]>([]);
@@ -41,9 +41,9 @@ export function RunLogTail({ runId, onDone }: { runId: Id<"runs">; onDone?: (sta
       if (!cursor || isDone) return null;
       const args = { runId, paginationOpts: { numItems: 300, cursor } };
       if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.runEvents.pageByRun, args);
+        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runEvents.pageByRun, args);
       }
-      return await convexQueryClient.convexClient.query(api.runEvents.pageByRun, args);
+      return await convexQueryClient.convexClient.query(api.controlPlane.runEvents.pageByRun, args);
     },
     onSuccess: (res) => {
       if (!res) return;

@@ -22,13 +22,13 @@ function RestartOperate() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })
   const hostExists = Boolean(hostsQuery.data?.some((row) => row.hostName === host))
   const gatewaysQuery = useQuery({
-    ...convexQuery(api.gateways.listByProjectHost, {
+    ...convexQuery(api.controlPlane.gateways.listByProjectHost, {
       projectId: projectId as Id<"projects">,
       hostName: host,
     }),

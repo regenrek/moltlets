@@ -14,7 +14,7 @@ export async function getProjectAccess(
   client: ConvexClient,
   projectId: Id<"projects">,
 ): Promise<ProjectAccess> {
-  const result = await client.query(api.projects.get, { projectId })
+  const result = await client.query(api.controlPlane.projects.get, { projectId })
   return result
 }
 

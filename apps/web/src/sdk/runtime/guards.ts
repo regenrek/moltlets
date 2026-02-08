@@ -12,7 +12,7 @@ export async function requireAdminAndBoundRun(params: {
   requireRunning?: boolean
 }): Promise<ProjectAccess & { run: { kind: string; status: string } }> {
   const context = await requireAdminProjectAccess(params.client, params.projectId)
-  const runGet = await params.client.query(api.runs.get, { runId: params.runId })
+  const runGet = await params.client.query(api.controlPlane.runs.get, { runId: params.runId })
 
   assertRunBoundToProject({
     runId: params.runId,

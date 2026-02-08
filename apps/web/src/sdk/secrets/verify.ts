@@ -15,13 +15,13 @@ export const secretsVerifyStart = createServerFn({ method: "POST" })
     if (!host) throw new Error("missing host")
     const runKind = getSecretsVerifyRunKind(data.scope)
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: runKind,
       title: `Secrets verify (${host}, scope=${data.scope})`,
       host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.verify",
       target: { host },

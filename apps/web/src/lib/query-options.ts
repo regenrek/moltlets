@@ -10,15 +10,15 @@ export const queryKeys = {
 } as const
 
 export function projectsListQueryOptions() {
-  return { ...convexQuery(api.projects.list, {}), staleTime: 10_000 }
+  return { ...convexQuery(api.controlPlane.projects.list, {}), staleTime: 10_000 }
 }
 
 export function projectGetQueryOptions(projectId: Id<"projects">) {
-  return { ...convexQuery(api.projects.get, { projectId }), staleTime: 10_000 }
+  return { ...convexQuery(api.controlPlane.projects.get, { projectId }), staleTime: 10_000 }
 }
 
 export function currentUserQueryOptions() {
-  return { ...convexQuery(api.users.getCurrent, {}), staleTime: 30_000 }
+  return { ...convexQuery(api.identity.users.getCurrent, {}), staleTime: 30_000 }
 }
 
 export function dashboardOverviewQueryOptions() {

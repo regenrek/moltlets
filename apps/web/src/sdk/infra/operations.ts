@@ -23,7 +23,7 @@ export const runDoctor = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "doctor",
       title: `Doctor (${data.scope})`,
@@ -57,13 +57,13 @@ export const bootstrapStart = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "bootstrap",
       title: `Bootstrap (${data.host})`,
       host: data.host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "bootstrap",
       target: { host: data.host, mode: data.mode },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ConvexError } from "convex/values"
 
-import { __test_normalizeWorkspaceRef } from "../convex/projects"
+import { normalizeWorkspaceRef } from "../convex/shared/workspaceRef"
 
 function expectConvexFail(fn: () => void, code: string, message?: string) {
   try {
@@ -17,7 +17,7 @@ function expectConvexFail(fn: () => void, code: string, message?: string) {
 describe("workspaceRef normalization", () => {
   it("builds canonical key with trimmed relPath", () => {
     expect(
-      __test_normalizeWorkspaceRef({
+      normalizeWorkspaceRef({
         kind: "git",
         id: "repo-123",
         relPath: "  fleet/prod  ",
@@ -32,7 +32,7 @@ describe("workspaceRef normalization", () => {
 
   it("rejects missing id", () => {
     expectConvexFail(
-      () => __test_normalizeWorkspaceRef({ kind: "local", id: "   " }),
+      () => normalizeWorkspaceRef({ kind: "local", id: "   " }),
       "conflict",
       "workspaceRef.id required",
     )
@@ -40,7 +40,7 @@ describe("workspaceRef normalization", () => {
 
   it("rejects oversized relPath", () => {
     expectConvexFail(
-      () => __test_normalizeWorkspaceRef({ kind: "git", id: "repo-1", relPath: "a".repeat(257) }),
+      () => normalizeWorkspaceRef({ kind: "git", id: "repo-1", relPath: "a".repeat(257) }),
       "conflict",
       "workspaceRef.relPath too long",
     )

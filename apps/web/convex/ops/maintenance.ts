@@ -1,11 +1,18 @@
-import { internal } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import { internal } from "../_generated/api";
+import { internalMutation } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 
 const WIPE_TABLES = [
+  // Most-dependent tables first, then parent tables.
   "runEvents",
   "runs",
+  "jobs",
+  "runnerTokens",
+  "runners",
+  "hosts",
+  "gateways",
+  "secretWiring",
   "providers",
   "projectConfigs",
   "projectMembers",
@@ -16,6 +23,7 @@ const WIPE_TABLES = [
   "auditLogs",
   "rateLimits",
   "projects",
+  "users",
 ] as const;
 
 type WipeTable = (typeof WIPE_TABLES)[number];
@@ -79,7 +87,7 @@ export const purgeProjects = internalMutation({
 
     const continued = !dryRun && tableIdx < WIPE_TABLES.length;
     if (continued) {
-      await ctx.scheduler.runAfter(PURGE_CONTINUE_DELAY_MS, internal.maintenance.purgeProjects, {
+      await ctx.scheduler.runAfter(PURGE_CONTINUE_DELAY_MS, internal.ops.maintenance.purgeProjects, {
         confirm: args.confirm,
         tableIdx,
         maxDeletes,

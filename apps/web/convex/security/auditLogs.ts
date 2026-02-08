@@ -2,18 +2,18 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import {
   requireAuthMutation,
   requireProjectAccessMutation,
   requireProjectAccessQuery,
   requireAdmin,
-} from "./lib/auth";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { AuditLogDoc } from "./lib/validators";
-import { AuditAction, AuditData, AuditTarget } from "./schema";
+} from "../shared/auth";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { AuditLogDoc } from "../shared/validators";
+import { AuditAction, AuditData, AuditTarget } from "../schema";
 
 type AuditTargetValue = Infer<typeof AuditTarget>;
 type AuditDataValue = Infer<typeof AuditData>;
@@ -135,10 +135,14 @@ export const listByProjectPage = query({
           userId: row.userId,
           projectId: row.projectId,
           action: row.action,
-        } as any;
+        };
+        const rowData =
+          row.data && typeof row.data === "object" && !Array.isArray(row.data)
+            ? (row.data as Record<string, unknown>)
+            : {};
 
         if (row.action === "deployCreds.update") {
-          const updatedKeys = safeBoundedStringArray((row as any).data?.updatedKeys);
+          const updatedKeys = safeBoundedStringArray(rowData.updatedKeys);
           return {
             ...base,
             target: { doc: ".clawlets/env" },
@@ -149,7 +153,7 @@ export const listByProjectPage = query({
         if (row.action === "sops.operatorKey.generate") {
           const projectIdStr = row.projectId ? String(row.projectId) : "";
           const operatorId =
-            typeof (row as any).data?.operatorId === "string" ? String((row as any).data.operatorId).trim() : "";
+            typeof rowData.operatorId === "string" ? String(rowData.operatorId).trim() : "";
           if (projectIdStr && operatorId) {
             const hash = await sha256Hex(`${projectIdStr}:${operatorId}`);
             return {
@@ -159,7 +163,7 @@ export const listByProjectPage = query({
             };
           }
           const operatorIdHash =
-            typeof (row as any).data?.operatorIdHash === "string" ? String((row as any).data.operatorIdHash).trim() : "";
+            typeof rowData.operatorIdHash === "string" ? String(rowData.operatorIdHash).trim() : "";
           return {
             ...base,
             target: { doc: ".clawlets/keys/operators" },
@@ -431,10 +435,10 @@ export const append = mutation({
   },
 });
 
-export function __test_normalizeBoundedStringArray(value: unknown): string[] {
+export function normalizeBoundedStringArrayForAudit(value: unknown): string[] {
   return normalizeBoundedStringArray(value, "value");
 }
 
-export function __test_ensureRepoRelativePath(value: string): string {
+export function ensureAuditRepoRelativePath(value: string): string {
   return ensureRepoRelativePath(value, "value", 128);
 }

@@ -14,9 +14,9 @@ export const writeHostSecrets = createServerFn({ method: "POST" })
     if (secretNames.length === 0) throw new Error("no secrets provided")
 
     const client = createConvexClient()
-    const project = await client.query(api.projects.get, { projectId: data.projectId })
+    const project = await client.query(api.controlPlane.projects.get, { projectId: data.projectId })
     if (!project || project.role !== "admin") throw new Error("admin required")
-    const queued = await client.mutation(api.jobs.enqueue, {
+    const queued = await client.mutation(api.controlPlane.jobs.enqueue, {
       projectId: data.projectId,
       kind: "secrets_write",
       title: `Secrets write (${host})`,
@@ -40,7 +40,7 @@ export const writeHostSecrets = createServerFn({ method: "POST" })
       },
     })
 
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.write",
       target: { host },

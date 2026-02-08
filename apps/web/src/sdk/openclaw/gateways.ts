@@ -74,7 +74,7 @@ async function writeGatewayConfig(params: {
   if (!writeRes.ok) return { ok: false as const, issues: writeRes.issues }
 
   const client = createConvexClient()
-  await client.mutation(api.auditLogs.append, {
+  await client.mutation(api.security.auditLogs.append, {
     projectId: params.projectId as any,
     action: params.action as any,
     target: { gatewayId: params.gatewayId },

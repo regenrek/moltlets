@@ -70,8 +70,7 @@ export function AdminCidrField(props: {
     attemptedAutoDetectRef.current = true
     if (props.value.trim()) return
     void detect("auto")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.autoDetectIfEmpty])
+  }, [props.autoDetectIfEmpty]) // oxlint-disable-line react/exhaustive-deps -- run-once on mount
 
   return (
     <div className="space-y-2">

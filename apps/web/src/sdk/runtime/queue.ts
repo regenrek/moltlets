@@ -20,7 +20,7 @@ export async function requireAdminBoundRun(params: {
   expectedKind: string;
   requireRunning?: boolean;
 }): Promise<{ run: { kind: string; status: string } }> {
-  const runGet = await params.client.query(api.runs.get, { runId: params.runId });
+  const runGet = await params.client.query(api.controlPlane.runs.get, { runId: params.runId });
   if (!runGet || runGet.role !== "admin") throw new Error("admin required");
   if (!runGet.run) throw new Error("run not found");
   assertRunBoundToProject({
@@ -52,7 +52,7 @@ export async function enqueueRunnerJobForRun(params: {
     runId: params.runId,
     expectedKind: params.expectedKind,
   });
-  const queued = await params.client.mutation(api.jobs.enqueue, {
+  const queued = await params.client.mutation(api.controlPlane.jobs.enqueue, {
     projectId: params.projectId,
     runId: params.runId,
     kind: params.jobKind,

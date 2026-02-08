@@ -37,7 +37,7 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
   })
   .handler(async () => {
     const client = createConvexClient()
-    const projects = await client.query(api.projects.list, {})
+    const projects = await client.query(api.controlPlane.projects.list, {})
 
     const summaries = await Promise.all(
       projects.map(async (p): Promise<DashboardProjectSummary> => {
@@ -54,8 +54,8 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
 
         try {
           const [projectConfigs, hosts] = await Promise.all([
-            client.query(api.projectConfigs.listByProject, { projectId: p._id as Id<"projects"> }),
-            client.query(api.hosts.listByProject, { projectId: p._id as Id<"projects"> }),
+            client.query(api.controlPlane.projectConfigs.listByProject, { projectId: p._id as Id<"projects"> }),
+            client.query(api.controlPlane.hosts.listByProject, { projectId: p._id as Id<"projects"> }),
           ])
           if (projectConfigs.length > 0 || hosts.length > 0) {
             const fleetCfg = projectConfigs.find((row) => row.type === "fleet") ?? projectConfigs[0] ?? null
@@ -140,7 +140,7 @@ export const getProjectHostExposureSummary = createServerFn({ method: "POST" })
   .inputValidator(parseProjectIdInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const rows = await client.query(api.hosts.listByProject, { projectId: data.projectId })
+    const rows = await client.query(api.controlPlane.hosts.listByProject, { projectId: data.projectId })
     const hosts: ProjectHostExposure[] = rows.map((row) => ({
       hostName: row.hostName,
       enabled: row.desired?.enabled !== false,

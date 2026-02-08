@@ -37,10 +37,10 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/openclaw-setup")
     if (!projectId || project?.status !== "ready") return
     await Promise.all([
       context.queryClient.ensureQueryData(
-        convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+        convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
       ),
       context.queryClient.ensureQueryData(
-        convexQuery(api.gateways.listByProjectHost, { projectId: projectId as Id<"projects">, hostName: params.host }),
+        convexQuery(api.controlPlane.gateways.listByProjectHost, { projectId: projectId as Id<"projects">, hostName: params.host }),
       ),
     ])
   },

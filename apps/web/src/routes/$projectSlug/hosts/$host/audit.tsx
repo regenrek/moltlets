@@ -25,7 +25,7 @@ function AuditOperate() {
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })
@@ -40,9 +40,9 @@ function AuditOperate() {
         paginationOpts: { numItems: 50, cursor: pageParam },
       }
       if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.auditLogs.listByProjectPage, args)
+        return await convexQueryClient.serverHttpClient.consistentQuery(api.security.auditLogs.listByProjectPage, args)
       }
-      return await convexQueryClient.convexClient.query(api.auditLogs.listByProjectPage, args)
+      return await convexQueryClient.convexClient.query(api.security.auditLogs.listByProjectPage, args)
     },
     getNextPageParam: (lastPage) => (lastPage.isDone ? undefined : lastPage.continueCursor),
     enabled: Boolean(projectId),

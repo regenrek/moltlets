@@ -32,7 +32,7 @@ async function assertKnownHost(params: {
   host: string
 }): Promise<void> {
   const client = createConvexClient()
-  const hosts = await client.query(api.hosts.listByProject, { projectId: params.projectId })
+  const hosts = await client.query(api.controlPlane.hosts.listByProject, { projectId: params.projectId })
   if (!hosts.some((row) => row.hostName === params.host)) {
     throw new Error(`unknown host: ${params.host}`)
   }
@@ -45,7 +45,7 @@ async function enqueueCustomProbe(params: {
   args: string[]
 }): Promise<{ runId: Id<"runs"> }> {
   const client = createConvexClient()
-  const { runId } = await client.mutation(api.runs.create, {
+  const { runId } = await client.mutation(api.controlPlane.runs.create, {
     projectId: params.projectId,
     kind: "custom",
     title: params.title,
@@ -80,7 +80,7 @@ async function waitForRunTerminal(params: {
   let lastStatus: MinimalRunStatus = "running"
 
   while (Date.now() - startedAt < timeoutMs) {
-    const runGet = await client.query(api.runs.get, { runId: params.runId })
+    const runGet = await client.query(api.controlPlane.runs.get, { runId: params.runId })
     if (!runGet.run || runGet.run.projectId !== params.projectId) {
       throw new Error("run not found")
     }
@@ -97,7 +97,7 @@ async function waitForRunTerminal(params: {
 
 async function listRunMessages(runId: Id<"runs">): Promise<string[]> {
   const client = createConvexClient()
-  const page = await client.query(api.runEvents.pageByRun, {
+  const page = await client.query(api.controlPlane.runEvents.pageByRun, {
     runId,
     paginationOpts: { numItems: 200, cursor: null },
   })
@@ -131,7 +131,7 @@ function lastErrorMessage(messages: string[]): string {
 
 async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: string }): Promise<PublicIpv4Result> {
   const client = createConvexClient()
-  const page = await client.query(api.runs.listByProjectPage, {
+  const page = await client.query(api.controlPlane.runs.listByProjectPage, {
     projectId: params.projectId,
     paginationOpts: { numItems: 50, cursor: null },
   })
@@ -139,7 +139,7 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
   const match = runs.find((run: any) => run.kind === "bootstrap" && String(run.title || "").includes(params.host))
   if (!match) return { ok: false, error: "bootstrap run not found", source: "bootstrap_logs" }
 
-  const eventsPage = await client.query(api.runEvents.pageByRun, {
+  const eventsPage = await client.query(api.controlPlane.runEvents.pageByRun, {
     runId: match._id,
     paginationOpts: { numItems: 200, cursor: null },
   })

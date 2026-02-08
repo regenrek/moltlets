@@ -79,24 +79,24 @@ export const secretsInitStart = createServerFn({ method: "POST" })
     const host = data.host.trim()
     if (!host) throw new Error("missing host")
 
-    const hosts = await client.query(api.hosts.listByProject, { projectId: data.projectId })
+    const hosts = await client.query(api.controlPlane.hosts.listByProject, { projectId: data.projectId })
     if (!hosts.some((row) => row.hostName === host)) {
       throw new Error(`unknown host: ${host}`)
     }
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "secrets_init",
       title: `Secrets init (${host}, scope=${data.scope})`,
       host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "secrets.init",
       target: { host },
       data: { runId, scope: data.scope },
     })
-    await client.mutation(api.runEvents.appendBatch, {
+    await client.mutation(api.controlPlane.runEvents.appendBatch, {
       runId,
       events: [{ ts: Date.now(), level: "info", message: "Starting secrets init…" }],
     })

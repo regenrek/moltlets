@@ -41,7 +41,7 @@ export function NavUser() {
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
 
   const viewer = useQuery({
-    ...convexQuery(api.users.getCurrent, {}),
+    ...convexQuery(api.identity.users.getCurrent, {}),
     enabled: canQuery,
     gcTime: 60_000,
   })

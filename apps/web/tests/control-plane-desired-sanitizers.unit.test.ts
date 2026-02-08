@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { __test_sanitizeHostPatch, __test_sanitizeGatewayPatch } from "../convex/http";
-import { __test_sanitizeHostPatchInput } from "../convex/hosts";
-import { __test_sanitizeGatewayPatchInput } from "../convex/gateways";
+import { sanitizeHostPatch, sanitizeGatewayPatch } from "../convex/controlPlane/httpParsers";
+import { sanitizeHostPatchInput } from "../convex/controlPlane/hosts";
+import { sanitizeGatewayPatchInput } from "../convex/controlPlane/gateways";
 
 describe("control-plane desired sanitizers", () => {
   it("keeps host desired output identical across HTTP and mutation paths", () => {
@@ -20,8 +20,8 @@ describe("control-plane desired sanitizers", () => {
       },
     };
 
-    const httpOut = __test_sanitizeHostPatch(patch);
-    const mutationOut = __test_sanitizeHostPatchInput(patch as any);
+    const httpOut = sanitizeHostPatch(patch);
+    const mutationOut = sanitizeHostPatchInput(patch as any);
     expect(httpOut).toEqual(mutationOut);
     expect((httpOut.desired as any)?.gatewayCount).toBe(10_000);
     expect((httpOut.desired as any)?.selfUpdateBaseUrlCount).toBe(10_000);
@@ -44,8 +44,8 @@ describe("control-plane desired sanitizers", () => {
       },
     };
 
-    const httpOut = __test_sanitizeGatewayPatch(patch);
-    const mutationOut = __test_sanitizeGatewayPatchInput(patch as any);
+    const httpOut = sanitizeGatewayPatch(patch);
+    const mutationOut = sanitizeGatewayPatchInput(patch as any);
     expect(httpOut).toEqual(mutationOut);
     expect((httpOut.desired as any)?.channels).toHaveLength(256);
     expect((httpOut.desired as any)?.personaIds).toHaveLength(256);

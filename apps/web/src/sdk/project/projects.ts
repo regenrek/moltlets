@@ -76,19 +76,19 @@ export const projectCreateStart = createServerFn({ method: "POST" })
     const client = createConvexClient();
     const localPath = resolveWorkspacePath(data.localPath, { allowMissing: true });
 
-    const { projectId } = await client.mutation(api.projects.create, {
+    const { projectId } = await client.mutation(api.controlPlane.projects.create, {
       name: data.name,
       executionMode: "local",
       workspaceRef: buildLocalWorkspaceRef(localPath),
       localPath,
     });
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId,
       kind: "project_init",
       title: `Create project`,
     });
 
-    await client.mutation(api.runEvents.appendBatch, {
+    await client.mutation(api.controlPlane.runEvents.appendBatch, {
       runId,
       events: [{ ts: Date.now(), level: "info", message: "Starting project init…" }],
     });
@@ -122,7 +122,7 @@ export const projectCreateExecute = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient();
     const context = await getAdminProjectContext(client, data.projectId, { allowMissing: true });
-    const run = await client.query(api.runs.get, { runId: data.runId });
+    const run = await client.query(api.controlPlane.runs.get, { runId: data.runId });
     if (run.run.projectId !== data.projectId) throw new Error("runId does not match project");
     const repoRoot = context.repoRoot;
     const redactTokens = await readClawletsEnvTokens(repoRoot);
@@ -148,13 +148,13 @@ export const projectCreateExecute = createServerFn({ method: "POST" })
         },
       });
 
-      await client.mutation(api.projects.update, { projectId: data.projectId, status: "ready" });
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" });
+      await client.mutation(api.controlPlane.projects.update, { projectId: data.projectId, status: "ready" });
+      await client.mutation(api.controlPlane.runs.setStatus, { runId: data.runId, status: "succeeded" });
       return { ok: true as const };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      await client.mutation(api.projects.update, { projectId: data.projectId, status: "error" });
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "failed", errorMessage: message });
+      await client.mutation(api.controlPlane.projects.update, { projectId: data.projectId, status: "error" });
+      await client.mutation(api.controlPlane.runs.setStatus, { runId: data.runId, status: "failed", errorMessage: message });
       return { ok: false as const, message };
     }
   });
@@ -172,26 +172,26 @@ export const projectImport = createServerFn({ method: "POST" })
     const client = createConvexClient();
     const localPath = resolveWorkspacePath(data.localPath, { requireRepoLayout: true });
 
-    const { projectId } = await client.mutation(api.projects.create, {
+    const { projectId } = await client.mutation(api.controlPlane.projects.create, {
       name: data.name,
       executionMode: "local",
       workspaceRef: buildLocalWorkspaceRef(localPath),
       localPath,
     });
-    await client.mutation(api.projects.update, { projectId, status: "ready" });
+    await client.mutation(api.controlPlane.projects.update, { projectId, status: "ready" });
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId,
       kind: "project_import",
       title: "Import project",
     });
-    await client.mutation(api.runEvents.appendBatch, {
+    await client.mutation(api.controlPlane.runEvents.appendBatch, {
       runId,
       events: [
         { ts: Date.now(), level: "info", message: `Imported project at ${localPath}` },
       ],
     });
-    await client.mutation(api.runs.setStatus, { runId, status: "succeeded" });
+    await client.mutation(api.controlPlane.runs.setStatus, { runId, status: "succeeded" });
 
     return { projectId: projectId as Id<"projects">, runId: runId as Id<"runs"> };
   });

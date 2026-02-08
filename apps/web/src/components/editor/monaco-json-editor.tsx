@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- code-split heavy Monaco + JSON language service */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ClientOnly } from "@tanstack/react-router"
 import type { editor as MonacoEditor } from "monaco-editor"

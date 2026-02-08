@@ -18,7 +18,7 @@ export async function enqueueRunnerCommand(params: {
   note?: string
 }): Promise<{ runId: Id<"runs">; jobId: Id<"jobs"> }> {
   const host = String(params.host || "").trim() || undefined
-  const queued = await params.client.mutation(api.jobs.enqueue, {
+  const queued = await params.client.mutation(api.controlPlane.jobs.enqueue, {
     projectId: params.projectId,
     kind: params.runKind as any,
     title: params.title,
@@ -45,7 +45,7 @@ export async function waitForRunTerminal(params: {
   let lastStatus: TerminalRunStatus = "running"
 
   while (Date.now() - startedAt < timeoutMs) {
-    const runGet = await params.client.query(api.runs.get, { runId: params.runId })
+    const runGet = await params.client.query(api.controlPlane.runs.get, { runId: params.runId })
     if (!runGet.run || runGet.run.projectId !== params.projectId) {
       throw new Error("run not found")
     }
@@ -65,7 +65,7 @@ export async function listRunMessages(params: {
   runId: Id<"runs">
   limit?: number
 }): Promise<string[]> {
-  const page = await params.client.query(api.runEvents.pageByRun, {
+  const page = await params.client.query(api.controlPlane.runEvents.pageByRun, {
     runId: params.runId,
     paginationOpts: { numItems: Math.max(1, Math.min(500, params.limit ?? 200)), cursor: null },
   })

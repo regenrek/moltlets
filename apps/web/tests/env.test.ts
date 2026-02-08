@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest"
 
 import { hasAuthEnv as hasWebAuthEnv } from "../src/server/env"
-import { hasAuthEnv as hasConvexAuthEnv } from "../convex/lib/env"
+import { hasAuthEnv as hasConvexAuthEnv } from "../convex/shared/env"
 
 const envKeys = [
   "NODE_ENV",

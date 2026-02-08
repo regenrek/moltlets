@@ -12,13 +12,13 @@ export const serverChannelsStart = createServerFn({ method: "POST" })
     if (!host) throw new Error("missing host")
     const gatewayId = data.gatewayId
 
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_channels",
       title: `Channels ${data.op} (${gatewayId}@${host})`,
       host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "server.channels",
       target: { host, gatewayId, op: data.op },

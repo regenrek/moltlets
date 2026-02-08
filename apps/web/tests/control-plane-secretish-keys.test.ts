@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertNoSecretLikeKeys } from "../convex/lib/controlPlane";
+import { assertNoSecretLikeKeys } from "../convex/shared/controlPlane";
 
 describe("control-plane secret-like key guard", () => {
   it("rejects password/secret/apiKey/privateKey keys", () => {

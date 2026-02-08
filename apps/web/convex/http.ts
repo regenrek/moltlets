@@ -1,26 +1,25 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { authComponent, createAuth } from "./auth";
 import {
   ensureBoundedString,
   ensureOptionalBoundedString,
-  sanitizeDesiredGatewaySummary,
-  sanitizeDesiredHostSummary,
   sha256Hex,
   CONTROL_PLANE_LIMITS,
-} from "./lib/controlPlane";
+} from "./shared/controlPlane";
+import {
+  isRunnerTokenUsable,
+  METADATA_SYNC_LIMITS,
+  parseRunnerHeartbeatCapabilities,
+  sanitizeGatewayPatch,
+  sanitizeHostPatch,
+  validateMetadataSyncPayloadSizes,
+} from "./controlPlane/httpParsers";
 
 const http = httpRouter();
-const METADATA_SYNC_LIMITS = {
-  projectConfigs: 500,
-  hosts: 200,
-  gateways: 500,
-  secretWiring: 2000,
-  secretWiringPerHost: 500,
-} as const;
-const HOST_STATUSES = new Set(["online", "offline", "degraded", "unknown"]);
-const RUN_STATUSES = new Set(["queued", "running", "succeeded", "failed", "canceled"]);
+type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
 
 authComponent.registerRoutes(http, createAuth);
 
@@ -39,92 +38,20 @@ async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-function isRunnerTokenUsable(params: {
-  tokenDoc:
-    | {
-        projectId: string;
-        runnerId: string;
-        revokedAt?: number;
-        expiresAt?: number;
-      }
-    | null
-    | undefined;
-  runner:
-    | {
-        projectId: string;
-        runnerName: string;
-      }
-    | null
-    | undefined;
-  expectedProjectId?: string;
-  now: number;
-}): boolean {
-  const tokenDoc = params.tokenDoc;
-  const runner = params.runner;
-  if (!tokenDoc || tokenDoc.revokedAt) return false;
-  if (typeof tokenDoc.expiresAt !== "number" || tokenDoc.expiresAt <= params.now) return false;
-  if (params.expectedProjectId && tokenDoc.projectId !== params.expectedProjectId) return false;
-  if (!runner) return false;
-  if (runner.projectId !== tokenDoc.projectId) return false;
-  return true;
-}
-
-function validateMetadataSyncPayloadSizes(params: {
-  projectConfigs: unknown[];
-  hosts: unknown[];
-  gateways: unknown[];
-  secretWiring: unknown[];
-}): string | null {
-  if (params.projectConfigs.length > METADATA_SYNC_LIMITS.projectConfigs) return "projectConfigs too large";
-  if (params.hosts.length > METADATA_SYNC_LIMITS.hosts) return "hosts too large";
-  if (params.gateways.length > METADATA_SYNC_LIMITS.gateways) return "gateways too large";
-  if (params.secretWiring.length > METADATA_SYNC_LIMITS.secretWiring) return "secretWiring too large";
-  return null;
-}
-
-function asBoundedOptional(value: unknown, field: string, max = CONTROL_PLANE_LIMITS.hash): string | undefined {
-  return ensureOptionalBoundedString(typeof value === "string" ? value : undefined, field, max);
-}
-
-function sanitizeHostPatch(patch: unknown): Record<string, unknown> {
-  const row = patch && typeof patch === "object" && !Array.isArray(patch) ? (patch as Record<string, unknown>) : {};
-  const desired = sanitizeDesiredHostSummary(row.desired);
-  const status =
-    typeof row.lastStatus === "string" && HOST_STATUSES.has(row.lastStatus) ? row.lastStatus : undefined;
-  const runStatus =
-    typeof row.lastRunStatus === "string" && RUN_STATUSES.has(row.lastRunStatus) ? row.lastRunStatus : undefined;
-  return {
-    provider: asBoundedOptional(row.provider, "hosts.patch.provider"),
-    region: asBoundedOptional(row.region, "hosts.patch.region"),
-    lastSeenAt: typeof row.lastSeenAt === "number" && Number.isFinite(row.lastSeenAt) ? Math.trunc(row.lastSeenAt) : undefined,
-    lastStatus: status,
-    lastRunId: asBoundedOptional(row.lastRunId, "hosts.patch.lastRunId"),
-    lastRunStatus: runStatus,
-    desired,
-  };
-}
-
-function sanitizeGatewayPatch(patch: unknown): Record<string, unknown> {
-  const row = patch && typeof patch === "object" && !Array.isArray(patch) ? (patch as Record<string, unknown>) : {};
-  const desired = sanitizeDesiredGatewaySummary(row.desired);
-  const status =
-    typeof row.lastStatus === "string" && HOST_STATUSES.has(row.lastStatus) ? row.lastStatus : undefined;
-  return {
-    lastSeenAt: typeof row.lastSeenAt === "number" && Number.isFinite(row.lastSeenAt) ? Math.trunc(row.lastSeenAt) : undefined,
-    lastStatus: status,
-    desired,
-  };
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }
 
 async function requireRunnerAuth(
-  ctx: Parameters<typeof httpAction>[0] extends never ? never : any,
+  ctx: HttpActionCtx,
   request: Request,
   expectedProjectId?: string,
 ): Promise<
   | {
-      tokenId: string;
-      projectId: string;
-      runnerId: string;
+      tokenId: Id<"runnerTokens">;
+      projectId: Id<"projects">;
+      runnerId: Id<"runners">;
       runnerName: string;
     }
   | null
@@ -134,10 +61,10 @@ async function requireRunnerAuth(
   const token = authHeader.slice(7).trim();
   if (!token) return null;
   const tokenHash = await sha256Hex(token);
-  const tokenDoc = await ctx.runQuery(internal.runnerTokens.getByTokenHashInternal, { tokenHash });
+  const tokenDoc = await ctx.runQuery(internal.controlPlane.runnerTokens.getByTokenHashInternal, { tokenHash });
   if (!tokenDoc) return null;
   const now = Date.now();
-  const runner = await ctx.runQuery(internal.runners.getByIdInternal, { runnerId: tokenDoc.runnerId });
+  const runner = await ctx.runQuery(internal.controlPlane.runners.getByIdInternal, { runnerId: tokenDoc.runnerId });
   if (
     !isRunnerTokenUsable({
       tokenDoc,
@@ -148,71 +75,16 @@ async function requireRunnerAuth(
   ) {
     return null;
   }
-  void ctx.runMutation(internal.runnerTokens.touchLastUsedInternal, {
+  void ctx.runMutation(internal.controlPlane.runnerTokens.touchLastUsedInternal, {
     tokenId: tokenDoc.tokenId,
     now: Date.now(),
   }).catch(() => {});
+  if (!runner) return null;
   return {
     tokenId: tokenDoc.tokenId,
     projectId: tokenDoc.projectId,
     runnerId: tokenDoc.runnerId,
     runnerName: runner.runnerName,
-  };
-}
-
-function parseRunnerHeartbeatCapabilities(
-  value: unknown,
-): {
-  ok: true;
-  capabilities: {
-    supportsLocalSecretsSubmit?: boolean;
-    supportsInteractiveSecrets?: boolean;
-    supportsInfraApply?: boolean;
-    localSecretsPort?: number;
-    localSecretsNonce?: string;
-  };
-} | { ok: false; error: string } {
-  const capabilities =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : undefined;
-  const supportsLocalSecretsSubmit =
-    typeof capabilities?.supportsLocalSecretsSubmit === "boolean"
-      ? capabilities.supportsLocalSecretsSubmit
-      : undefined;
-  const supportsInteractiveSecrets =
-    typeof capabilities?.supportsInteractiveSecrets === "boolean"
-      ? capabilities.supportsInteractiveSecrets
-      : undefined;
-  const supportsInfraApply =
-    typeof capabilities?.supportsInfraApply === "boolean" ? capabilities.supportsInfraApply : undefined;
-  const localSecretsPort =
-    typeof capabilities?.localSecretsPort === "number" && Number.isFinite(capabilities.localSecretsPort)
-      ? Math.trunc(capabilities.localSecretsPort)
-      : undefined;
-  if (localSecretsPort !== undefined && (localSecretsPort < 1024 || localSecretsPort > 65535)) {
-    return { ok: false, error: "invalid capabilities.localSecretsPort" };
-  }
-  const localSecretsNonceRaw =
-    typeof capabilities?.localSecretsNonce === "string"
-      ? capabilities.localSecretsNonce
-      : undefined;
-  const localSecretsNonceTrimmed = localSecretsNonceRaw?.trim();
-  if (localSecretsNonceRaw !== undefined && !localSecretsNonceTrimmed) {
-    return { ok: false, error: "invalid capabilities.localSecretsNonce" };
-  }
-  if (localSecretsNonceTrimmed && localSecretsNonceTrimmed.length > CONTROL_PLANE_LIMITS.hash) {
-    return { ok: false, error: "invalid capabilities.localSecretsNonce" };
-  }
-  return {
-    ok: true,
-    capabilities: {
-      supportsLocalSecretsSubmit,
-      supportsInteractiveSecrets,
-      supportsInfraApply,
-      localSecretsPort,
-      localSecretsNonce: localSecretsNonceTrimmed,
-    },
   };
 }
 
@@ -242,8 +114,8 @@ http.route({
     );
     const parsedCapabilities = parseRunnerHeartbeatCapabilities(payload.capabilities);
     if (!parsedCapabilities.ok) return json(400, { error: parsedCapabilities.error });
-    const res = await ctx.runMutation(internal.runners.upsertHeartbeatInternal, {
-      projectId: auth.projectId as any,
+    const res = await ctx.runMutation(internal.controlPlane.runners.upsertHeartbeatInternal, {
+      projectId: auth.projectId,
       runnerName: auth.runnerName,
       patch: {
         status: "online",
@@ -272,9 +144,9 @@ http.route({
       typeof payload.leaseTtlMs === "number" && Number.isFinite(payload.leaseTtlMs)
         ? Math.trunc(payload.leaseTtlMs)
         : undefined;
-    const job = await ctx.runMutation(internal.jobs.leaseNextInternal, {
-      projectId: auth.projectId as any,
-      runnerId: auth.runnerId as any,
+    const job = await ctx.runMutation(internal.controlPlane.jobs.leaseNextInternal, {
+      projectId: auth.projectId,
+      runnerId: auth.runnerId,
       leaseTtlMs,
     });
     return json(200, { job });
@@ -300,8 +172,8 @@ http.route({
       typeof payload.leaseTtlMs === "number" && Number.isFinite(payload.leaseTtlMs)
         ? Math.trunc(payload.leaseTtlMs)
         : undefined;
-    const result = await ctx.runMutation(internal.jobs.heartbeatInternal, {
-      jobId: jobId as any,
+    const result = await ctx.runMutation(internal.controlPlane.jobs.heartbeatInternal, {
+      jobId: jobId as Id<"jobs">,
       leaseId,
       leaseTtlMs,
     });
@@ -330,8 +202,8 @@ http.route({
       return json(400, { error: "invalid status" });
     }
 
-    const result = await ctx.runMutation(internal.jobs.completeInternal, {
-      jobId: jobId as any,
+    const result = await ctx.runMutation(internal.controlPlane.jobs.completeInternal, {
+      jobId: jobId as Id<"jobs">,
       leaseId,
       status,
       errorMessage,
@@ -357,9 +229,17 @@ http.route({
     const events = Array.isArray(payload.events) ? payload.events : [];
     if (!runId) return json(400, { error: "runId required" });
 
-    await ctx.runMutation(internal.runEvents.appendBatchInternal, {
-      runId: runId as any,
-      events: events as any,
+    await ctx.runMutation(internal.controlPlane.runEvents.appendBatchInternal, {
+      runId: runId as Id<"runs">,
+      events: events as Array<{
+        ts: number;
+        level: string;
+        message: string;
+        meta?:
+          | { kind: "phase"; phase: "command_start" | "command_end" | "post_run_cleanup" | "truncated" }
+          | { kind: "exit"; code: number };
+        redacted?: boolean;
+      }>,
     });
     return json(200, { ok: true });
   }),
@@ -384,61 +264,82 @@ http.route({
     const secretWiring = Array.isArray(payload.secretWiring) ? payload.secretWiring : [];
     const sizeError = validateMetadataSyncPayloadSizes({ projectConfigs, hosts, gateways, secretWiring });
     if (sizeError) return json(400, { error: sizeError });
-    const erasure = await ctx.runQuery(internal.projectErasure.isDeletionInProgressInternal, {
-      projectId: auth.projectId as any,
+    const erasure = await ctx.runQuery(internal.controlPlane.projectErasure.isDeletionInProgressInternal, {
+      projectId: auth.projectId,
     });
     if (erasure.active) {
       return json(409, { error: "project deletion in progress" });
     }
 
     if (projectConfigs.length > 0) {
-      await ctx.runMutation(internal.projectConfigs.upsertManyInternal, {
-        projectId: auth.projectId as any,
-        entries: projectConfigs as any,
+      await ctx.runMutation(internal.controlPlane.projectConfigs.upsertManyInternal, {
+        projectId: auth.projectId,
+        entries: projectConfigs as Array<{
+          path: string;
+          type: "fleet" | "host" | "gateway" | "provider" | "raw";
+          sha256?: string;
+          error?: string;
+        }>,
       });
     }
     for (const row of hosts) {
+      const rowObj = asObject(row) ?? {};
       const hostName = ensureBoundedString(
-        typeof (row as any).hostName === "string" ? (row as any).hostName : "",
+        typeof rowObj.hostName === "string" ? rowObj.hostName : "",
         "hosts[].hostName",
         CONTROL_PLANE_LIMITS.hostName,
       );
-      await ctx.runMutation(internal.hosts.upsertInternal, {
-        projectId: auth.projectId as any,
+      await ctx.runMutation(internal.controlPlane.hosts.upsertInternal, {
+        projectId: auth.projectId,
         hostName,
-        patch: sanitizeHostPatch((row as any).patch),
+        patch: sanitizeHostPatch(rowObj.patch),
       });
     }
     for (const row of gateways) {
+      const rowObj = asObject(row) ?? {};
       const hostName = ensureBoundedString(
-        typeof (row as any).hostName === "string" ? (row as any).hostName : "",
+        typeof rowObj.hostName === "string" ? rowObj.hostName : "",
         "gateways[].hostName",
         CONTROL_PLANE_LIMITS.hostName,
       );
       const gatewayId = ensureBoundedString(
-        typeof (row as any).gatewayId === "string" ? (row as any).gatewayId : "",
+        typeof rowObj.gatewayId === "string" ? rowObj.gatewayId : "",
         "gateways[].gatewayId",
         CONTROL_PLANE_LIMITS.gatewayId,
       );
-      await ctx.runMutation(internal.gateways.upsertInternal, {
-        projectId: auth.projectId as any,
+      await ctx.runMutation(internal.controlPlane.gateways.upsertInternal, {
+        projectId: auth.projectId,
         hostName,
         gatewayId,
-        patch: sanitizeGatewayPatch((row as any).patch),
+        patch: sanitizeGatewayPatch(rowObj.patch),
       });
     }
     if (secretWiring.length > 0) {
-      const byHost = new Map<string, any[]>();
+      const byHost = new Map<
+        string,
+        Array<{
+          secretName: string;
+          scope: "bootstrap" | "updates" | "openclaw";
+          status: "configured" | "missing" | "placeholder" | "warn";
+          required: boolean;
+          lastVerifiedAt?: number;
+        }>
+      >();
       for (const row of secretWiring) {
-        const hostName = String((row as any).hostName || "").trim();
+        const rowObj = asObject(row) ?? {};
+        const hostName = typeof rowObj.hostName === "string" ? rowObj.hostName.trim() : "";
         if (!hostName) continue;
+        const secretName = typeof rowObj.secretName === "string" ? rowObj.secretName : "";
+        const scope = typeof rowObj.scope === "string" ? rowObj.scope : "";
+        const status = typeof rowObj.status === "string" ? rowObj.status : "";
+        if (!secretName || !scope || !status) continue;
         const entry = {
-          secretName: (row as any).secretName,
-          scope: (row as any).scope,
-          status: (row as any).status,
-          required: Boolean((row as any).required),
+          secretName,
+          scope: scope as "bootstrap" | "updates" | "openclaw",
+          status: status as "configured" | "missing" | "placeholder" | "warn",
+          required: Boolean(rowObj.required),
           lastVerifiedAt:
-            typeof (row as any).lastVerifiedAt === "number" ? Math.trunc((row as any).lastVerifiedAt) : undefined,
+            typeof rowObj.lastVerifiedAt === "number" ? Math.trunc(rowObj.lastVerifiedAt) : undefined,
         };
         const list = byHost.get(hostName) ?? [];
         if (list.length >= METADATA_SYNC_LIMITS.secretWiringPerHost) continue;
@@ -446,10 +347,10 @@ http.route({
         byHost.set(hostName, list);
       }
       for (const [hostName, entries] of byHost.entries()) {
-        await ctx.runMutation(internal.secretWiring.upsertManyInternal, {
-          projectId: auth.projectId as any,
+        await ctx.runMutation(internal.controlPlane.secretWiring.upsertManyInternal, {
+          projectId: auth.projectId,
           hostName,
-          entries: entries as any,
+          entries,
         });
       }
     }
@@ -459,58 +360,3 @@ http.route({
 });
 
 export default http;
-
-export function __test_isRunnerTokenUsable(params: {
-  tokenDoc:
-    | {
-        projectId: string;
-        runnerId: string;
-        revokedAt?: number;
-        expiresAt?: number;
-      }
-    | null
-    | undefined;
-  runner:
-    | {
-        projectId: string;
-        runnerName: string;
-      }
-    | null
-    | undefined;
-  expectedProjectId?: string;
-  now: number;
-}): boolean {
-  return isRunnerTokenUsable(params);
-}
-
-export function __test_validateMetadataSyncPayloadSizes(params: {
-  projectConfigs: unknown[];
-  hosts: unknown[];
-  gateways: unknown[];
-  secretWiring: unknown[];
-}): string | null {
-  return validateMetadataSyncPayloadSizes(params);
-}
-
-export function __test_sanitizeHostPatch(patch: unknown): Record<string, unknown> {
-  return sanitizeHostPatch(patch);
-}
-
-export function __test_sanitizeGatewayPatch(patch: unknown): Record<string, unknown> {
-  return sanitizeGatewayPatch(patch);
-}
-
-export function __test_parseRunnerHeartbeatCapabilities(value: unknown):
-  | {
-      ok: true;
-      capabilities: {
-        supportsLocalSecretsSubmit?: boolean;
-        supportsInteractiveSecrets?: boolean;
-        supportsInfraApply?: boolean;
-        localSecretsPort?: number;
-        localSecretsNonce?: string;
-      };
-    }
-  | { ok: false; error: string } {
-  return parseRunnerHeartbeatCapabilities(value);
-}

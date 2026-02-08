@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 
-import { query, mutation } from "./_generated/server";
-import { authComponent } from "./auth";
-import { requireAuthMutation } from "./lib/auth";
-import { UserDoc } from "./lib/validators";
+import { query, mutation } from "../_generated/server";
+import { authComponent } from "../auth";
+import { requireAuthMutation } from "../shared/auth";
+import { UserDoc } from "../shared/validators";
 
 const AuthUserPreview = v.object({
   id: v.string(),

@@ -2,8 +2,13 @@ pre-commit:
   jobs:
     - name: block-forbidden-files
       run: node scripts/hooks/block-forbidden-staged-files.mjs
+    - name: oxlint
+      glob: "*.{ts,tsx,js,jsx}"
+      run: npx oxlint {staged_files}
 
 pre-push:
   jobs:
     - name: block-forbidden-files
       run: node scripts/hooks/block-forbidden-staged-files.mjs
+    - name: oxlint
+      run: npx oxlint .

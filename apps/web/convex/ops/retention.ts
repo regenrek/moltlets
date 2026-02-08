@@ -1,9 +1,10 @@
 import { Base64, v } from "convex/values";
 
-import { internal } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { internal } from "../_generated/api";
+import { internalMutation } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { hasActiveLease, normalizeRetentionDays } from "./retentionHelpers";
 
 const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "canceled"]);
 const SWEEP_STATE_KEY = "default";
@@ -32,15 +33,6 @@ function randomToken(): string {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
-}
-
-function hasActiveLease(leaseExpiresAt: number | undefined, now: number): boolean {
-  return typeof leaseExpiresAt === "number" && leaseExpiresAt > now;
-}
-
-function normalizeRetentionDays(raw: number | undefined): number {
-  const value = typeof raw === "number" && Number.isFinite(raw) ? raw : 30;
-  return Math.max(1, Math.min(365, Math.trunc(value)));
 }
 
 async function deleteRunEventsBeforeCutoff(params: {
@@ -246,7 +238,7 @@ export const runRetentionSweep = internalMutation({
     });
 
     if (continued) {
-      await ctx.scheduler.runAfter(CONTINUE_DELAY_MS, internal.retention.runRetentionSweep, {
+      await ctx.scheduler.runAfter(CONTINUE_DELAY_MS, internal.ops.retention.runRetentionSweep, {
         reason: "continue",
         leaseId,
       });
@@ -261,11 +253,3 @@ export const runRetentionSweep = internalMutation({
     };
   },
 });
-
-export function __test_hasActiveLease(leaseExpiresAt: number | undefined, now: number): boolean {
-  return hasActiveLease(leaseExpiresAt, now);
-}
-
-export function __test_normalizeRetentionDays(raw: number | undefined): number {
-  return normalizeRetentionDays(raw);
-}

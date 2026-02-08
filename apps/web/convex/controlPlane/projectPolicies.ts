@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { fail } from "./lib/errors";
-import { GitWritePolicy } from "./schema";
+import { mutation, query } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { fail } from "../shared/errors";
+import { GitWritePolicy } from "../schema";
 
 const DEFAULT_RETENTION_DAYS = 30;
 const MIN_RETENTION_DAYS = 1;

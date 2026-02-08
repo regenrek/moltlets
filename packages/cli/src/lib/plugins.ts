@@ -215,6 +215,7 @@ export async function loadPluginCommand(plugin: InstalledPlugin): Promise<any> {
     throw new Error(`plugin entry missing: ${entryPath}`);
   }
   // Runtime path is user/plugin-provided and unknown at build time.
+  // eslint-disable-next-line no-restricted-syntax -- dynamic plugin loading
   const mod = await import(pathToFileURL(entryPath).href);
   const command = mod.command || mod.plugin?.command || mod.default?.command || mod.default;
   if (!command) throw new Error(`plugin entry ${entryPath} does not export a command`);

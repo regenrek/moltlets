@@ -21,13 +21,13 @@ function GatewayPersonasRoute() {
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
 
   const project = useQuery({
-    ...convexQuery(api.projects.get, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.projects.get, { projectId: projectId as Id<"projects"> }),
     gcTime: 5_000,
     enabled: Boolean(projectId) && canQuery,
   })
   const canEdit = project.data?.role === "admin"
 
-  const gatewaysQuerySpec = convexQuery(api.gateways.listByProjectHost, {
+  const gatewaysQuerySpec = convexQuery(api.controlPlane.gateways.listByProjectHost, {
     projectId: projectId as Id<"projects">,
     hostName: host,
   })

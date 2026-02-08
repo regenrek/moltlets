@@ -1,25 +1,25 @@
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
-import { ProjectDoc } from "./lib/validators";
-import { toProjectDocValue } from "./lib/returnShapes";
-import { ExecutionMode, Role, WorkspaceRef } from "./schema";
+import { mutation, query } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { ProjectDoc } from "../shared/validators";
+import { toProjectDocValue } from "../shared/returnShapes";
+import { ExecutionMode, Role, WorkspaceRef } from "../schema";
 import {
   requireAuthMutation,
   requireAuthQuery,
   requireProjectAccessMutation,
   requireProjectAccessQuery,
   requireAdmin,
-} from "./lib/auth";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
+} from "../shared/auth";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
 import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
-import { normalizeWorkspaceRef } from "./lib/workspaceRef";
+import { normalizeWorkspaceRef } from "../shared/workspaceRef";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 
-function parseLiveSchemaTarget(args: { host: string; gatewayId: string }): { host: string; gatewayId: string } {
+export function parseLiveSchemaTarget(args: { host: string; gatewayId: string }): { host: string; gatewayId: string } {
   const host = args.host.trim();
   const gatewayId = args.gatewayId.trim();
   if (!host) fail("conflict", "host required");
@@ -31,13 +31,6 @@ function parseLiveSchemaTarget(args: { host: string; gatewayId: string }): { hos
   const gatewayParsed = GatewayIdSchema.safeParse(gatewayId);
   if (!gatewayParsed.success) fail("conflict", gatewayParsed.error.issues[0]?.message ?? "invalid gateway id");
   return { host, gatewayId };
-}
-
-export function __test_parseLiveSchemaTarget(args: {
-  host: string;
-  gatewayId: string;
-}): { host: string; gatewayId: string } {
-  return parseLiveSchemaTarget(args);
 }
 
 export const list = query({
@@ -258,11 +251,3 @@ export const guardLiveSchemaFetch = mutation({
     return null;
   },
 });
-
-export function __test_normalizeWorkspaceRef(value: {
-  kind: "local" | "git";
-  id: string;
-  relPath?: string;
-}): { kind: "local" | "git"; id: string; relPath?: string; key: string } {
-  return normalizeWorkspaceRef(value);
-}

@@ -1,83 +1,28 @@
-import { Base64, v } from "convex/values";
+import { v } from "convex/values";
 
-import { internal } from "./_generated/api";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { requireAuthQuery, requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { PROJECT_DELETION_STAGES } from "./lib/projectErasureStages";
-import { ProjectDeletionStage } from "./schema";
+import { internal } from "../_generated/api";
+import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { requireAuthQuery, requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { ProjectDeletionStage } from "../schema";
+import {
+  canReadDeleteStatusAfterProjectRemoval,
+  constantTimeEqual,
+  type DeleteStage,
+  hasActiveLease,
+  isDeleteTokenValid,
+  nextStage,
+  randomToken,
+  sha256Hex,
+} from "./projectErasureHelpers";
 
 const DELETE_BATCH_SIZE = 200;
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 const LEASE_TTL_MS = 60 * 1000;
 const JOB_STEP_DELAY_MS = 500;
-const DELETE_STAGES = PROJECT_DELETION_STAGES;
-
-type DeleteStage = (typeof DELETE_STAGES)[number];
-
-function nextStage(stage: DeleteStage): DeleteStage {
-  const idx = DELETE_STAGES.indexOf(stage);
-  if (idx < 0) return "done";
-  return DELETE_STAGES[Math.min(idx + 1, DELETE_STAGES.length - 1)] as DeleteStage;
-}
-
-function canReadDeleteStatusAfterProjectRemoval(params: {
-  authedUserId: string;
-  authedRole: "admin" | "viewer";
-  requestedByUserId: string;
-}): boolean {
-  return params.authedRole === "admin" || params.authedUserId === params.requestedByUserId;
-}
-
-function randomToken(): string {
-  if (!globalThis.crypto?.getRandomValues) {
-    throw new Error("crypto.getRandomValues unavailable");
-  }
-  const bytes = new Uint8Array(32);
-  globalThis.crypto.getRandomValues(bytes);
-  return Base64.fromByteArray(bytes)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  if (!globalThis.crypto?.subtle?.digest) {
-    throw new Error("crypto.subtle.digest unavailable");
-  }
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function hasActiveLease(job: { leaseExpiresAt?: number | undefined }, now: number): boolean {
-  const exp = job.leaseExpiresAt;
-  return typeof exp === "number" && exp > now;
-}
-
-function isDeleteTokenValid(params: {
-  tokens: Array<{ tokenHash: string; expiresAt: number }>;
-  now: number;
-  tokenHash: string;
-}): boolean {
-  return params.tokens.some((row) => row.expiresAt >= params.now && constantTimeEqual(row.tokenHash, params.tokenHash));
-}
 
 async function deleteBatchFromProjectIndex(params: {
   ctx: MutationCtx;
@@ -323,7 +268,7 @@ export const deleteConfirm = mutation({
       data: { deletionJobId: jobId },
     });
 
-    await ctx.scheduler.runAfter(JOB_STEP_DELAY_MS, internal.projectErasure.runDeletionJobStep, { jobId });
+    await ctx.scheduler.runAfter(JOB_STEP_DELAY_MS, internal.controlPlane.projectErasure.runDeletionJobStep, { jobId });
     return { jobId };
   },
 });
@@ -455,7 +400,7 @@ export const runDeletionJobStep = internalMutation({
       });
 
       if (!completed) {
-        await ctx.scheduler.runAfter(JOB_STEP_DELAY_MS, internal.projectErasure.runDeletionJobStep, { jobId });
+        await ctx.scheduler.runAfter(JOB_STEP_DELAY_MS, internal.controlPlane.projectErasure.runDeletionJobStep, { jobId });
       }
 
       return { status: status as "pending" | "completed", stage, deleted: step.deleted, processed };
@@ -472,39 +417,3 @@ export const runDeletionJobStep = internalMutation({
     }
   },
 });
-
-export async function __test_sha256Hex(input: string): Promise<string> {
-  return await sha256Hex(input);
-}
-
-export function __test_randomToken(): string {
-  return randomToken();
-}
-
-export function __test_canReadDeleteStatusAfterProjectRemoval(params: {
-  authedUserId: string;
-  authedRole: "admin" | "viewer";
-  requestedByUserId: string;
-}): boolean {
-  return canReadDeleteStatusAfterProjectRemoval(params);
-}
-
-export function __test_constantTimeEqual(a: string, b: string): boolean {
-  return constantTimeEqual(a, b);
-}
-
-export function __test_hasActiveLease(leaseExpiresAt: number | undefined, now: number): boolean {
-  return hasActiveLease({ leaseExpiresAt }, now);
-}
-
-export function __test_isDeleteTokenValid(params: {
-  tokens: Array<{ tokenHash: string; expiresAt: number }>;
-  now: number;
-  tokenHash: string;
-}): boolean {
-  return isDeleteTokenValid(params);
-}
-
-export function __test_nextStage(stage: DeleteStage): DeleteStage {
-  return nextStage(stage);
-}

@@ -80,7 +80,6 @@ function withAgeRecipients(rule: SopsCreationRule, recipients: string[]): SopsCr
   }
   if (!sawAge) nextGroups.push({ age: recipients });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { age: _legacyAge, ...rest } = rule;
   return { ...rest, key_groups: nextGroups, path_regex: rule.path_regex };
 }

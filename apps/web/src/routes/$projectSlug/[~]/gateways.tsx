@@ -33,8 +33,8 @@ function sortedUnique(values: unknown): string[] {
 }
 
 function collectGatewayRows(params: {
-  hosts: (typeof api.hosts.listByProject)["_returnType"]
-  gateways: (typeof api.gateways.listByProject)["_returnType"]
+  hosts: (typeof api.controlPlane.hosts.listByProject)["_returnType"]
+  gateways: (typeof api.controlPlane.gateways.listByProject)["_returnType"]
 }): GatewayRow[] {
   const hostByName = new Map(params.hosts.map((row) => [row.hostName, row] as const))
   return params.gateways.map((row) => {
@@ -71,8 +71,8 @@ export const Route = createFileRoute("/$projectSlug/~/gateways")({
     if (!projectId) return
     if (project?.status !== "ready") return
     await Promise.all([
-      context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId })),
-      context.queryClient.ensureQueryData(convexQuery(api.gateways.listByProject, { projectId })),
+      context.queryClient.ensureQueryData(convexQuery(api.controlPlane.hosts.listByProject, { projectId })),
+      context.queryClient.ensureQueryData(convexQuery(api.controlPlane.gateways.listByProject, { projectId })),
     ])
   },
   component: GatewaysAggregate,
@@ -86,11 +86,11 @@ function GatewaysAggregate() {
   const isReady = projectStatus === "ready"
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId && isReady),
   })
   const gatewaysQuery = useQuery({
-    ...convexQuery(api.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId && isReady),
   })
 

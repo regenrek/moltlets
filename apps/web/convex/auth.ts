@@ -5,7 +5,7 @@ import { createClient } from "@convex-dev/better-auth";
 import type { DataModel } from "./_generated/dataModel";
 import { components } from "./_generated/api";
 import authConfig from "./auth.config";
-import { hasAuthEnv } from "./lib/env";
+import { hasAuthEnv } from "./shared/env";
 
 function requireAuthConfig(): { siteUrl: string; secret: string } {
   if (!hasAuthEnv()) {

@@ -20,7 +20,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId }))
+    await context.queryClient.ensureQueryData(convexQuery(api.controlPlane.hosts.listByProject, { projectId }))
   },
   component: HostOverview,
 })
@@ -35,7 +35,7 @@ function HostOverview() {
   const isReady = projectStatus === "ready"
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId && isReady),
   })
 
@@ -51,9 +51,9 @@ function HostOverview() {
         paginationOpts: { numItems: 200, cursor: null as string | null },
       }
       if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.runs.listByProjectPage, args)
+        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
-      return await convexQueryClient.convexClient.query(api.runs.listByProjectPage, args)
+      return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },
   })
   const runs = (recentRuns.data?.page ?? []) as RunRow[]

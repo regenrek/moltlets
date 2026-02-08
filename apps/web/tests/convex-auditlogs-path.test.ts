@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values"
 import { describe, expect, it } from "vitest"
 
-import { __test_ensureRepoRelativePath } from "../convex/auditLogs"
+import { ensureAuditRepoRelativePath } from "../convex/security/auditLogs"
 
 function expectConvexFail(fn: () => void, code: string) {
   try {
@@ -15,31 +15,31 @@ function expectConvexFail(fn: () => void, code: string) {
 
 describe("auditLogs ensureRepoRelativePath", () => {
   it("accepts trimmed repo-relative paths", () => {
-    expect(__test_ensureRepoRelativePath("  fleet/clawlets.json  ")).toBe("fleet/clawlets.json")
+    expect(ensureAuditRepoRelativePath("  fleet/clawlets.json  ")).toBe("fleet/clawlets.json")
   })
 
   it("normalizes backslashes to forward slashes", () => {
-    expect(__test_ensureRepoRelativePath("a\\b")).toBe("a/b")
+    expect(ensureAuditRepoRelativePath("a\\b")).toBe("a/b")
   })
 
   it("rejects absolute paths", () => {
-    expectConvexFail(() => __test_ensureRepoRelativePath("/etc/passwd"), "conflict")
-    expectConvexFail(() => __test_ensureRepoRelativePath("//server/share"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("/etc/passwd"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("//server/share"), "conflict")
   })
 
   it("rejects Windows drive absolute paths", () => {
-    expectConvexFail(() => __test_ensureRepoRelativePath("C:/Windows/System32"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("C:/Windows/System32"), "conflict")
   })
 
   it("rejects parent traversal", () => {
-    expectConvexFail(() => __test_ensureRepoRelativePath("../secrets"), "conflict")
-    expectConvexFail(() => __test_ensureRepoRelativePath("a/../b"), "conflict")
-    expectConvexFail(() => __test_ensureRepoRelativePath("a/.."), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("../secrets"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("a/../b"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("a/.."), "conflict")
   })
 
   it("rejects NUL and newlines", () => {
-    expectConvexFail(() => __test_ensureRepoRelativePath("a\0b"), "conflict")
-    expectConvexFail(() => __test_ensureRepoRelativePath("a\nb"), "conflict")
-    expectConvexFail(() => __test_ensureRepoRelativePath("a\rb"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("a\0b"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("a\nb"), "conflict")
+    expectConvexFail(() => ensureAuditRepoRelativePath("a\rb"), "conflict")
   })
 })

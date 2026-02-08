@@ -219,7 +219,7 @@ async function appendEvents(client: ConvexClient, runId: Id<"runs">, events: Run
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await client.mutation(api.runEvents.appendBatch, payload);
+      await client.mutation(api.controlPlane.runEvents.appendBatch, payload);
       return;
     } catch (err) {
       if (attempt === 2) throw err;

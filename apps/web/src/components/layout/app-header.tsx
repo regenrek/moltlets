@@ -50,7 +50,7 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
   const projectId = projectQuery.projectId
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     gcTime: 5_000,
     enabled: Boolean(projectId),
   })

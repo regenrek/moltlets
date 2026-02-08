@@ -2,12 +2,12 @@ import { RUN_KINDS, RUN_STATUSES } from "@clawlets/core/lib/runtime/run-constant
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { rateLimit } from "./lib/rateLimit";
-import { toProjectDocValue } from "./lib/returnShapes";
-import { ProjectDoc, RunDoc } from "./lib/validators";
-import { Role } from "./schema";
+import { mutation, query } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { rateLimit } from "../shared/rateLimit";
+import { toProjectDocValue } from "../shared/returnShapes";
+import { ProjectDoc, RunDoc } from "../shared/validators";
+import { Role } from "../schema";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 
 function literals<const T extends readonly string[]>(values: T) {

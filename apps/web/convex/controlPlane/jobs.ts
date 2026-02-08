@@ -1,21 +1,30 @@
-import { RUN_KINDS } from "@clawlets/core/lib/runtime/run-constants";
 import { JOB_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
 import {
   assertNoSecretLikeKeys,
   ensureBoundedString,
   ensureOptionalBoundedString,
   sha256Hex,
   CONTROL_PLANE_LIMITS,
-} from "./lib/controlPlane";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { JobDoc } from "./lib/validators";
-import { JobPayloadMeta } from "./schema";
+} from "../shared/controlPlane";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { JobDoc } from "../shared/validators";
+import { JobPayloadMeta } from "../schema";
+import {
+  canCompleteJob,
+  cancelJobPatch,
+  cancelRunPatch,
+  isTerminalJobStatus,
+  resolveRunKind,
+  type JobStatus,
+} from "./jobState";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
@@ -23,58 +32,8 @@ function literals<const T extends readonly string[]>(values: T) {
 
 const ListLimit = 200;
 const MAX_JOB_ATTEMPTS = 25;
-type JobStatus = (typeof JOB_STATUSES)[number];
-const JOB_STATUS_SET = new Set<string>(JOB_STATUSES);
 
 const JobStatusArg = v.union(...literals(JOB_STATUSES));
-
-function resolveRunKind(kind: string): (typeof RUN_KINDS)[number] {
-  return (RUN_KINDS as readonly string[]).includes(kind) ? (kind as (typeof RUN_KINDS)[number]) : "custom";
-}
-
-function isKnownJobStatus(status: string): status is JobStatus {
-  return JOB_STATUS_SET.has(status);
-}
-
-function normalizeJobStatus(status: string | undefined): JobStatus {
-  return typeof status === "string" && isKnownJobStatus(status) ? status : "failed";
-}
-
-function isTerminalJobStatus(status: string): boolean {
-  return status === "succeeded" || status === "failed" || status === "canceled";
-}
-
-function cancelJobPatch(now: number): {
-  status: "canceled";
-  finishedAt: number;
-  payload: undefined;
-  leaseId: undefined;
-  leasedByRunnerId: undefined;
-  leaseExpiresAt: undefined;
-  errorMessage: undefined;
-} {
-  return {
-    status: "canceled",
-    finishedAt: now,
-    payload: undefined,
-    leaseId: undefined,
-    leasedByRunnerId: undefined,
-    leaseExpiresAt: undefined,
-    errorMessage: undefined,
-  };
-}
-
-function cancelRunPatch(now: number): {
-  status: "canceled";
-  finishedAt: number;
-  errorMessage: undefined;
-} {
-  return {
-    status: "canceled",
-    finishedAt: now,
-    errorMessage: undefined,
-  };
-}
 
 export const enqueue = mutation({
   args: {
@@ -190,37 +149,9 @@ export const get = query({
   },
 });
 
-export function __test_resolveRunKind(kind: string): (typeof RUN_KINDS)[number] {
-  return resolveRunKind(kind);
-}
-
-export function __test_isTerminalJobStatus(status: (typeof JOB_STATUSES)[number]): boolean {
-  return isTerminalJobStatus(status);
-}
-
-export function __test_cancelJobPatch(now: number): {
-  status: "canceled";
-  finishedAt: number;
-  payload: undefined;
-  leaseId: undefined;
-  leasedByRunnerId: undefined;
-  leaseExpiresAt: undefined;
-  errorMessage: undefined;
-} {
-  return cancelJobPatch(now);
-}
-
-export function __test_cancelRunPatch(now: number): {
-  status: "canceled";
-  finishedAt: number;
-  errorMessage: undefined;
-} {
-  return cancelRunPatch(now);
-}
-
 const RunnerTerminalStatus = v.union(v.literal("succeeded"), v.literal("failed"), v.literal("canceled"));
 
-async function markRunQueued(ctx: any, runId: any): Promise<void> {
+async function markRunQueued(ctx: MutationCtx, runId: Id<"runs">): Promise<void> {
   await ctx.db.patch(runId, {
     status: "queued",
     finishedAt: undefined,
@@ -229,12 +160,8 @@ async function markRunQueued(ctx: any, runId: any): Promise<void> {
 }
 
 async function markJobFailedAttemptCap(
-  ctx: any,
-  job: {
-    _id: any;
-    runId: any;
-    attempt: number;
-  },
+  ctx: MutationCtx,
+  job: Pick<Doc<"jobs">, "_id" | "runId" | "attempt">,
 ): Promise<void> {
   const now = Date.now();
   const errorMessage = `attempt cap exceeded (${job.attempt}/${MAX_JOB_ATTEMPTS})`;
@@ -252,28 +179,6 @@ async function markJobFailedAttemptCap(
     finishedAt: now,
     errorMessage,
   });
-}
-
-function canCompleteJob(params: {
-  job:
-    | {
-        leaseId?: string;
-        status: string;
-        leaseExpiresAt?: number;
-      }
-    | null;
-  leaseId: string;
-  now: number;
-}): { ok: boolean; status: JobStatus } {
-  const job = params.job;
-  if (!job) return { ok: false, status: "failed" };
-  const status = normalizeJobStatus(job.status);
-  if (job.leaseId !== params.leaseId) return { ok: false, status };
-  if (status !== "leased" && status !== "running") return { ok: false, status };
-  if (typeof job.leaseExpiresAt !== "number" || job.leaseExpiresAt <= params.now) {
-    return { ok: false, status };
-  }
-  return { ok: true, status };
 }
 
 export const leaseNextInternal = internalMutation({
@@ -417,17 +322,3 @@ export const completeInternal = internalMutation({
     return { ok: true, status };
   },
 });
-
-export function __test_canCompleteJob(params: {
-  job:
-    | {
-        leaseId?: string;
-        status: string;
-        leaseExpiresAt?: number;
-      }
-    | null;
-  leaseId: string;
-  now: number;
-}): { ok: boolean; status: JobStatus } {
-  return canCompleteJob(params);
-}

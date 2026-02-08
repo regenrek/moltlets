@@ -170,7 +170,7 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
     const client = createConvexClient()
     await requireAdminProjectAccess(client, data.projectId)
 
-    const runners = await client.query(api.runners.listByProject, { projectId: data.projectId })
+    const runners = await client.query(api.controlPlane.runners.listByProject, { projectId: data.projectId })
     const localSubmit = (runners || [])
       .filter((runner) =>
         runner.lastStatus === "online"
@@ -195,7 +195,7 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
       note: "deploy creds values supplied directly to local runner submit endpoint or runner prompt",
     })
 
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "deployCreds.update",
       target: { doc: ".clawlets/env" },
@@ -269,7 +269,7 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       const keyPath = typeof row.keyPath === "string" ? row.keyPath : ""
       const publicKey = typeof row.publicKey === "string" ? row.publicKey : ""
       if (ok && keyPath) {
-        await client.mutation(api.auditLogs.append, {
+        await client.mutation(api.security.auditLogs.append, {
           projectId: data.projectId,
           action: "sops.operatorKey.generate",
           target: { doc: ".clawlets/keys/operators" },

@@ -53,9 +53,9 @@ export function ProjectDashboard(props: {
         paginationOpts: { numItems: 200, cursor: null as string | null },
       }
       if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.runs.listByProjectPage, args)
+        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
-      return await convexQueryClient.convexClient.query(api.runs.listByProjectPage, args)
+      return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },
     gcTime: 5_000,
   })
@@ -63,7 +63,7 @@ export function ProjectDashboard(props: {
   const runs = (recentRuns.data?.page ?? []) as RunRow[]
 
   const projectAccess = useQuery({
-    ...convexQuery(api.projects.get, {
+    ...convexQuery(api.controlPlane.projects.get, {
       projectId: props.projectId,
     }),
     gcTime: 5_000,

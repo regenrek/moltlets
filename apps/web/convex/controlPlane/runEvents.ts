@@ -2,11 +2,11 @@ import { RUN_EVENT_LEVELS } from "@clawlets/core/lib/runtime/run-constants";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { rateLimit } from "./lib/rateLimit";
-import { RunEventDoc } from "./lib/validators";
-import { RunEventMeta } from "./schema";
+import { internalMutation, mutation, query } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { rateLimit } from "../shared/rateLimit";
+import { RunEventDoc } from "../shared/validators";
+import { RunEventMeta } from "../schema";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));

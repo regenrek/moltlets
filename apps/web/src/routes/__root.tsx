@@ -163,7 +163,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 }
 
 function EnsureAuthedUser() {
-  const ensureCurrent = useConvexMutation(api.users.ensureCurrent)
+  const ensureCurrent = useConvexMutation(api.identity.users.ensureCurrent)
   const { isAuthenticated, isLoading } = useConvexAuth()
   const { data: session, isPending } = authClient.useSession()
   const hasSession = Boolean(session?.user?.id)

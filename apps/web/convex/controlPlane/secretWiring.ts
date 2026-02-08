@@ -1,14 +1,14 @@
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { ensureBoundedString, CONTROL_PLANE_LIMITS } from "./lib/controlPlane";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { SecretWiringDoc } from "./lib/validators";
-import { SecretWiringScope, SecretWiringStatus } from "./schema";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { ensureBoundedString, CONTROL_PLANE_LIMITS } from "../shared/controlPlane";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { SecretWiringDoc } from "../shared/validators";
+import { SecretWiringScope, SecretWiringStatus } from "../schema";
 
 const SecretWiringEntry = v.object({
   secretName: v.string(),

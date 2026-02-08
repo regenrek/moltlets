@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ConvexError } from "convex/values"
 
-import { fail } from "../convex/lib/errors"
-import { rateLimit } from "../convex/lib/rateLimit"
+import { fail } from "../convex/shared/errors"
+import { rateLimit } from "../convex/shared/rateLimit"
 
 type RateLimitRow = { _id: string; windowStart: number; count: number }
 

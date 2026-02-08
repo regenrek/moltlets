@@ -14,7 +14,7 @@ export const cancelRun = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient();
-    const { run, project, role } = await client.query(api.runs.get, { runId: data.runId });
+    const { run, project, role } = await client.query(api.controlPlane.runs.get, { runId: data.runId });
     if (role !== "admin") throw new Error("admin required");
     if (project.executionMode !== "local") {
       throw new Error("cancel unavailable for remote_runner projects");
@@ -38,6 +38,6 @@ export const cancelRun = createServerFn({ method: "POST" })
         await emit({ level: "warn", message: "Cancel requested." });
       },
     });
-    await client.mutation(api.runs.setStatus, { runId: data.runId, status: "canceled" });
+    await client.mutation(api.controlPlane.runs.setStatus, { runId: data.runId, status: "canceled" });
     return { canceled };
   });

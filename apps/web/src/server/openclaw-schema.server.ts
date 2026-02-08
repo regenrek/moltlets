@@ -219,7 +219,7 @@ export async function fetchOpenclawSchemaLive(params: {
 
   const task = (async () => {
     try {
-      await client.mutation(api.projects.guardLiveSchemaFetch, {
+      await client.mutation(api.controlPlane.projects.guardLiveSchemaFetch, {
         projectId: params.projectId,
         host,
         gatewayId,

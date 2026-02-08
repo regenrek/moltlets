@@ -36,13 +36,13 @@ export const serverUpdateApplyStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateApplyStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_update_apply",
       title: `Updater apply (${data.host})`,
       host: data.host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "server.update.apply",
       target: { host: data.host },
@@ -87,7 +87,7 @@ export const serverStatusStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerStatusStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_status",
       title: `Server status (${data.host})`,
@@ -127,13 +127,13 @@ export const serverAuditStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerAuditStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_audit",
       title: `Server audit (${data.host})`,
       host: data.host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "server.audit",
       target: { host: data.host },
@@ -175,7 +175,7 @@ export const serverLogsStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const unit = data.unit.trim() || "openclaw-*.service"
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_logs",
       title: `Logs (${data.host} · ${unit})`,
@@ -223,7 +223,7 @@ export const serverUpdateStatusStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateStatusStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_update_status",
       title: `Updater status (${data.host})`,
@@ -264,7 +264,7 @@ export const serverUpdateLogsStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateLogsStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_update_logs",
       title: `Updater logs (${data.host})`,
@@ -311,13 +311,13 @@ export const serverRestartStart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     const unit = data.unit.trim() || "openclaw-*.service"
-    const { runId } = await client.mutation(api.runs.create, {
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "server_restart",
       title: `Restart (${data.host} · ${unit})`,
       host: data.host,
     })
-    await client.mutation(api.auditLogs.append, {
+    await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "server.restart",
       target: { host: data.host, unit },

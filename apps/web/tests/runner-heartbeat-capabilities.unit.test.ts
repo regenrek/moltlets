@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { __test_parseRunnerHeartbeatCapabilities } from "../convex/http";
+import { parseRunnerHeartbeatCapabilities } from "../convex/controlPlane/httpParsers";
 
 describe("runner heartbeat capabilities", () => {
   it("accepts a valid nonce and port", () => {
     expect(
-      __test_parseRunnerHeartbeatCapabilities({
+      parseRunnerHeartbeatCapabilities({
         supportsLocalSecretsSubmit: true,
         supportsInteractiveSecrets: false,
         supportsInfraApply: true,
@@ -24,14 +24,14 @@ describe("runner heartbeat capabilities", () => {
   });
 
   it("rejects blank nonce when provided", () => {
-    expect(__test_parseRunnerHeartbeatCapabilities({ localSecretsNonce: "   " })).toEqual({
+    expect(parseRunnerHeartbeatCapabilities({ localSecretsNonce: "   " })).toEqual({
       ok: false,
       error: "invalid capabilities.localSecretsNonce",
     });
   });
 
   it("rejects oversized nonce", () => {
-    expect(__test_parseRunnerHeartbeatCapabilities({ localSecretsNonce: "x".repeat(129) })).toEqual({
+    expect(parseRunnerHeartbeatCapabilities({ localSecretsNonce: "x".repeat(129) })).toEqual({
       ok: false,
       error: "invalid capabilities.localSecretsNonce",
     });

@@ -24,7 +24,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId }))
+    await context.queryClient.ensureQueryData(convexQuery(api.controlPlane.hosts.listByProject, { projectId }))
   },
   component: HostsOverview,
 })
@@ -36,7 +36,7 @@ function HostsOverview() {
   const projectStatus = projectQuery.project?.status
   const isReady = projectStatus === "ready"
   const queryClient = useQueryClient()
-  const hostsQuerySpec = convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> })
+  const hostsQuerySpec = convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> })
   const hostsQuery = useQuery({
     ...hostsQuerySpec,
     enabled: Boolean(projectId && isReady),

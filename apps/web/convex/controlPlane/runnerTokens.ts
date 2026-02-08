@@ -1,17 +1,17 @@
 import { v } from "convex/values";
 
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
 import {
   ensureBoundedString,
   randomToken,
   sha256Hex,
   CONTROL_PLANE_LIMITS,
-} from "./lib/controlPlane";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
+} from "../shared/controlPlane";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
 
 const RunnerTokenListItem = v.object({
   tokenId: v.id("runnerTokens"),
@@ -23,6 +23,10 @@ const RunnerTokenListItem = v.object({
 });
 
 const RUNNER_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export async function hashToken(token: string): Promise<string> {
+  return await sha256Hex(token);
+}
 
 async function upsertRunner(params: {
   ctx: MutationCtx;
@@ -65,7 +69,7 @@ export const create = mutation({
     const runnerId = await upsertRunner({ ctx, projectId, runnerName: name });
 
     const token = randomToken();
-    const tokenHash = await sha256Hex(token);
+    const tokenHash = await hashToken(token);
     const now = Date.now();
     const tokenId = await ctx.db.insert("runnerTokens", {
       projectId,
@@ -120,10 +124,6 @@ export const listByProject = query({
       }));
   },
 });
-
-export async function __test_hashToken(token: string): Promise<string> {
-  return await sha256Hex(token);
-}
 
 const RunnerTokenAuthDoc = v.object({
   tokenId: v.id("runnerTokens"),

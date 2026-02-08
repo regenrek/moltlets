@@ -13,7 +13,7 @@ export const Route = createFileRoute("/$projectSlug/~/restart")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId }))
+    await context.queryClient.ensureQueryData(convexQuery(api.controlPlane.hosts.listByProject, { projectId }))
   },
   component: RestartChooser,
 })

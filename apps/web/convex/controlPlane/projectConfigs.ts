@@ -1,13 +1,13 @@
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS } from "./lib/controlPlane";
-import { rateLimit } from "./lib/rateLimit";
-import { ProjectConfigDoc } from "./lib/validators";
-import { ProjectConfigType } from "./schema";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS } from "../shared/controlPlane";
+import { rateLimit } from "../shared/rateLimit";
+import { ProjectConfigDoc } from "../shared/validators";
+import { ProjectConfigType } from "../schema";
 
 const UpsertManyArgs = {
   projectId: v.id("projects"),

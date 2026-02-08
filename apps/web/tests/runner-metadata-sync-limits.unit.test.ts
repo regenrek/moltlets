@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { __test_validateMetadataSyncPayloadSizes } from "../convex/http";
+import { validateMetadataSyncPayloadSizes } from "../convex/controlPlane/httpParsers";
 
 describe("runner metadata sync payload limits", () => {
   it("accepts payloads within bounds", () => {
     expect(
-      __test_validateMetadataSyncPayloadSizes({
+      validateMetadataSyncPayloadSizes({
         projectConfigs: new Array(10).fill({}),
         hosts: new Array(10).fill({}),
         gateways: new Array(10).fill({}),
@@ -15,7 +15,7 @@ describe("runner metadata sync payload limits", () => {
 
   it("rejects oversized payload arrays", () => {
     expect(
-      __test_validateMetadataSyncPayloadSizes({
+      validateMetadataSyncPayloadSizes({
         projectConfigs: new Array(501).fill({}),
         hosts: [],
         gateways: [],
@@ -23,7 +23,7 @@ describe("runner metadata sync payload limits", () => {
       }),
     ).toBe("projectConfigs too large");
     expect(
-      __test_validateMetadataSyncPayloadSizes({
+      validateMetadataSyncPayloadSizes({
         projectConfigs: [],
         hosts: [],
         gateways: [],

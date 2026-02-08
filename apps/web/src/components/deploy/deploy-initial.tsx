@@ -48,7 +48,7 @@ export function DeployInitialInstall({
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
   const hostsQuery = useQuery({
-    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })

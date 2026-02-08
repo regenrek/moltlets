@@ -1,15 +1,15 @@
 import { HOST_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { ensureBoundedString, sanitizeDesiredGatewaySummary, CONTROL_PLANE_LIMITS } from "./lib/controlPlane";
-import { fail } from "./lib/errors";
-import { rateLimit } from "./lib/rateLimit";
-import { GatewayDoc } from "./lib/validators";
-import { HostStatus } from "./schema";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { ensureBoundedString, sanitizeDesiredGatewaySummary, CONTROL_PLANE_LIMITS } from "../shared/controlPlane";
+import { fail } from "../shared/errors";
+import { rateLimit } from "../shared/rateLimit";
+import { GatewayDoc } from "../shared/validators";
+import { HostStatus } from "../schema";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
@@ -60,7 +60,7 @@ function normalizeHostStatus(value: string | undefined): (typeof HOST_STATUSES)[
   fail("conflict", `invalid host status: ${value}`);
 }
 
-function sanitizeGatewayPatchInput(patch: GatewayPatchInput): {
+export function sanitizeGatewayPatchInput(patch: GatewayPatchInput): {
   lastSeenAt?: number;
   lastStatus?: (typeof HOST_STATUSES)[number];
   desired?: {
@@ -186,7 +186,3 @@ export const remove = mutation({
     return { removed: true };
   },
 });
-
-export function __test_sanitizeGatewayPatchInput(patch: GatewayPatchInput): Record<string, unknown> {
-  return sanitizeGatewayPatchInput(patch);
-}

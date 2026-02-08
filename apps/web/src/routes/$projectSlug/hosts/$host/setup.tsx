@@ -38,7 +38,7 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/setup")({
     if (!projectId || project?.status !== "ready") return
     await Promise.all([
       context.queryClient.ensureQueryData(
-        convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+        convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
       ),
       context.queryClient.ensureQueryData(deployCredsQueryOptions(projectId)),
     ])

@@ -130,7 +130,7 @@ export function BootstrapChecklist({
   const targetHostPublic = publicIpv4 ? `admin@${publicIpv4}` : ""
   const targetHostTailnet = tailscaleIp ? `admin@${tailscaleIp}` : ""
   const tailscaleRequired = tailnetMode === "tailscale"
-  const hostsQuerySpec = convexQuery(api.hosts.listByProject, { projectId })
+  const hostsQuerySpec = convexQuery(api.controlPlane.hosts.listByProject, { projectId })
 
   const setConfig = useMutation({
     mutationFn: async (payload: { path: string; value?: string; valueJson?: string }) =>
