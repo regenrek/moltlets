@@ -14,11 +14,10 @@
     "test:integration": "pnpm -r --if-present test:integration",
     "test:nix": "pnpm -r --if-present test:nix",
     "test:layers": "pnpm test:unit && pnpm test:contract && pnpm test:integration && pnpm test:nix",
-    "lint": "oxlint . && eslint .",
+    "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "lint:oxlint": "oxlint .",
-    "lint:eslint": "eslint .",
-    "lint:typeaware": "oxlint . --type-aware --type-check",
+    "lint:typeaware": "oxlint packages scripts config templates --type-aware",
     "lint:json": "oxlint . --format=json",
     "check:workspace-boundaries": "node scripts/check-boundaries.mjs",
     "check:core-lib-boundaries": "node scripts/check-core-lib-domain-boundaries.mjs",
@@ -37,6 +36,8 @@
     "clawlets:openclaw-assets": "tsx scripts/generate-openclaw-assets.ts"
   },
   "devDependencies": {
+    "oxlint": "1.43.0",
+    "oxlint-tsgolint": "0.11.5",
     "tsx": "^4.7.0"
   },
   "pnpm": {
