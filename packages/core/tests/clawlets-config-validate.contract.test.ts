@@ -10,7 +10,7 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
@@ -48,7 +48,7 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
@@ -79,7 +79,7 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },
@@ -114,7 +114,7 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -157,7 +157,7 @@ describe("clawlets config validate", () => {
     const { validateClawletsConfig } = await import("../src/lib/config/clawlets-config-validate");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },

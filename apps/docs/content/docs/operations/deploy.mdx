@@ -7,6 +7,19 @@ This page describes the deploy model used by Clawlets: build a NixOS system, pub
 signed manifest, and have hosts switch by store path. The goal is repeatable updates
 without editing hosts directly.
 
+## Self-hosted dashboard + remote runner
+
+In Model C, the dashboard/control plane can run on a VPS without local repo access.
+
+- Dashboard enqueues jobs and reads metadata from Convex.
+- Runner agent executes repo/Git/SOPS/SSH actions on a runner machine.
+- Secret values are handled by the runner path, not persisted in control-plane storage.
+
+Recommended deployment split:
+
+- `apps/web` on VPS (no repo mount, no `.clawlets`, no host keys)
+- `clawlets runner start ...` on workstation or dedicated runner host with repo access
+
 ## Recommended: CI build + cache‑only deploy
 
 Principle: the host does not evaluate flakes at runtime. It only downloads prebuilt

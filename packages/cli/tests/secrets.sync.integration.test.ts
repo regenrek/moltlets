@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { getRepoLayout } from "@clawlets/core/repo-layout";
+import { getHostRemoteSecretsDir, getHostSecretsDir, getRepoLayout } from "@clawlets/core/repo-layout";
 import { makeConfig } from "./fixtures.js";
 
 const loadHostContextMock = vi.fn();
@@ -55,5 +55,30 @@ describe("secrets sync", () => {
     await secretsSync.run({ args: { host: "alpha", targetHost: "admin@host" } } as any);
     expect(runMock).toHaveBeenCalledWith("scp", [tarPath, "admin@host:/tmp/clawlets-secrets.alpha." + process.pid + ".tgz"], { redact: [] });
     expect(sshRunMock).toHaveBeenCalled();
+  });
+
+  it("supports --preview-json without ssh upload", async () => {
+    const layout = getRepoLayout("/repo");
+    const config = makeConfig({ hostName: "alpha" });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
+    const tarPath = path.join(tmpdir(), "secrets-preview.tgz");
+    fs.writeFileSync(tarPath, "data");
+    createSecretsTarMock.mockResolvedValue({ tarPath, digest: "digest", files: ["DISCORD_TOKEN.yaml"] });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { secretsSync } = await import("../src/commands/secrets/sync.js");
+    await secretsSync.run({ args: { host: "alpha", previewJson: true } } as any);
+    expect(resolveGitRevMock).not.toHaveBeenCalled();
+    expect(runMock).not.toHaveBeenCalled();
+    expect(sshRunMock).not.toHaveBeenCalled();
+    const payloadRaw = String(logSpy.mock.calls[0]?.[0] || "{}");
+    expect(JSON.parse(payloadRaw)).toEqual({
+      ok: true,
+      localDir: getHostSecretsDir(layout, "alpha"),
+      remoteDir: getHostRemoteSecretsDir("alpha"),
+      digest: "digest",
+      files: ["DISCORD_TOKEN.yaml"],
+    });
+    logSpy.mockRestore();
   });
 });

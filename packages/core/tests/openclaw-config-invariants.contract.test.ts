@@ -15,7 +15,7 @@ const baseHost = {
 describe("openclaw gateway config builder", () => {
   it("merges typed surfaces into openclaw config", () => {
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       hosts: {
         "openclaw-fleet-host": {
           ...baseHost,
@@ -47,7 +47,7 @@ describe("openclaw gateway config builder", () => {
       { id: "support", name: "Support" },
     ];
     const config = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       hosts: {
         "openclaw-fleet-host": {
           ...baseHost,

@@ -20,6 +20,7 @@ export const secretsSync = defineCommand({
     targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
     rev: { type: "string", description: "Git rev for secrets metadata (HEAD/sha/tag).", default: "HEAD" },
     sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
+    previewJson: { type: "boolean", description: "Emit preview JSON and exit without SSH upload.", default: false },
   },
   async run({ args }) {
     const cwd = process.cwd();
@@ -31,11 +32,25 @@ export const secretsSync = defineCommand({
 
     const localDir = getHostSecretsDir(layout, hostName);
     const remoteDir = getHostRemoteSecretsDir(hostName);
+    const created = await createSecretsTar({ hostName, localDir });
+    const tarLocal = created.tarPath;
+    const digest = created.digest;
+    if (args.previewJson) {
+      try {
+        console.log(JSON.stringify({ ok: true, localDir, remoteDir, digest, files: created.files }));
+      } finally {
+        try {
+          if (fs.existsSync(tarLocal)) fs.unlinkSync(tarLocal);
+        } catch {
+          // best-effort cleanup
+        }
+      }
+      return;
+    }
     const revRaw = String(args.rev || "").trim() || "HEAD";
     const resolved = await resolveGitRev(layout.repoRoot, revRaw);
     if (!resolved) throw new Error(`unable to resolve git rev: ${revRaw}`);
 
-    const { tarPath: tarLocal, digest } = await createSecretsTar({ hostName, localDir });
     const tarRemote = `/tmp/clawlets-secrets.${hostName}.${process.pid}.tgz`;
 
     try {

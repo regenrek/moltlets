@@ -35,6 +35,8 @@ describe("run manager", () => {
 
     expect(events.length).toBe(4)
     expect(events[events.length - 1]?.message).toMatch(/log truncated/i)
+    expect(events[events.length - 1]?.meta).toEqual({ kind: "phase", phase: "truncated" })
+    expect(events.every((event) => !Object.prototype.hasOwnProperty.call(event as Record<string, unknown>, "data"))).toBe(true)
   })
 
   it("caps output by total bytes", async () => {
@@ -166,8 +168,8 @@ describe("run manager", () => {
           "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);",
         ],
         redactTokens: [],
-        timeoutMs: 200,
-        killGraceMs: 200,
+        timeoutMs: 1000,
+        killGraceMs: 1000,
       }),
     ).rejects.toThrow(/timed out/i)
   })

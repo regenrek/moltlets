@@ -51,7 +51,7 @@ async function loadGitServer(options: {
     if (payload?.kind) return { runId: "run1" };
     return null;
   });
-  const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role: "admin" }));
+  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }));
 
   vi.doMock("@clawlets/core/lib/runtime/run", () => ({ capture }));
   vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => ["secret"] }));
@@ -99,6 +99,10 @@ describe("git push flow", () => {
     expect(statusCalls).toHaveLength(1);
     expect(statusCalls[0]?.status).toBe("succeeded");
     expect(statusCalls[0]?.errorMessage).toBeUndefined();
+    const runCreates = mutation.mock.calls
+      .map(([, payload]) => payload)
+      .filter((payload) => payload?.kind);
+    expect(runCreates[0]?.kind).toBe("git_push");
   });
 
   it("uses set-upstream when no upstream configured", async () => {
@@ -189,6 +193,7 @@ describe("git push flow", () => {
       .map(([, payload]) => payload)
       .filter((payload) => payload?.kind);
     expect(runCreates).toHaveLength(1);
+    expect(runCreates[0]?.kind).toBe("git_push");
   });
 
   it("rejects pushes when origin remote is missing", async () => {

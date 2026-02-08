@@ -7,6 +7,20 @@ This page describes the main trust zones in a Clawlets project and why they exis
 intent is to keep it obvious which data can be committed, which must stay local, and
 which lives on the servers.
 
+## Model C: Control Plane + Runner
+
+Clawlets uses a split architecture:
+
+- **Control plane (web + Convex):** schedules jobs, stores metadata, renders status.
+- **Runner agent (CLI):** leases jobs, executes Git/fs/SOPS/SSH operations, streams run events.
+
+Rules:
+
+- Web/control plane must not require repo-root filesystem access.
+- Git remains source of truth for config + encrypted secrets.
+- Convex stores metadata only (status, hashes, wiring), never secret values.
+- Runner is the only component that touches plaintext secret input and host credentials.
+
 ## Trust zones
 
 There are three primary zones (plus a Git remote):

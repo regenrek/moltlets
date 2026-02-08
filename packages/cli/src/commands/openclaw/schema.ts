@@ -4,6 +4,9 @@ import { shellQuote, sshRun } from "@clawlets/core/lib/security/ssh-remote";
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers";
 import { loadHostContextOrExit } from "@clawlets/core/lib/runtime/context";
 import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw/config-invariants";
+import { compareOpenclawSchemaToNixOpenclaw, summarizeOpenclawSchemaComparison } from "@clawlets/core/lib/openclaw/schema/compare";
+import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "@clawlets/core/lib/nix/nix-openclaw-source";
+import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { needsSudo, requireTargetHost } from "./server/common.js";
 
 function requireGatewayId(value: string): string {
@@ -62,9 +65,71 @@ const schemaFetch = defineCommand({
   },
 });
 
+const schemaStatus = defineCommand({
+  meta: { name: "status", description: "Compare pinned OpenClaw schema with nix-openclaw revisions." },
+  args: {
+    json: { type: "boolean", description: "Output JSON.", default: false },
+  },
+  async run({ args }) {
+    type SchemaStatusOutput = {
+      ok: true
+      pinned?: { nixOpenclawRev: string; openclawRev: string }
+      upstream?: { nixOpenclawRef: string; openclawRev: string }
+      warnings?: string[]
+    }
+
+    const repoRoot = findRepoRoot(process.cwd());
+    const comparison = await compareOpenclawSchemaToNixOpenclaw({
+      repoRoot,
+      fetchNixOpenclawSourceInfo,
+      getNixOpenclawRevFromFlakeLock,
+      requireSchemaRev: false,
+    });
+
+    const result: SchemaStatusOutput = !comparison
+      ? {
+          ok: true as const,
+          warnings: ["openclaw schema revision unavailable"],
+        }
+      : (() => {
+          const summary = summarizeOpenclawSchemaComparison(comparison);
+          const pinned = summary.pinned?.ok
+            ? { nixOpenclawRev: summary.pinned.nixOpenclawRev, openclawRev: summary.pinned.openclawRev }
+            : undefined;
+          const upstream = summary.upstream.ok
+            ? { nixOpenclawRef: summary.upstream.nixOpenclawRef, openclawRev: summary.upstream.openclawRev }
+            : undefined;
+          return {
+            ok: true as const,
+            pinned,
+            upstream,
+            warnings: summary.warnings.length > 0 ? summary.warnings : undefined,
+          };
+        })();
+
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.pinned) {
+      console.log(`pinned: nix=${result.pinned.nixOpenclawRev} openclaw=${result.pinned.openclawRev}`);
+    } else {
+      console.log("pinned: unavailable");
+    }
+    if (result.upstream) {
+      console.log(`upstream: ref=${result.upstream.nixOpenclawRef} openclaw=${result.upstream.openclawRev}`);
+    } else {
+      console.log("upstream: unavailable");
+    }
+    for (const warning of result.warnings || []) console.log(`warn: ${warning}`);
+  },
+});
+
 export const openclawSchema = defineCommand({
   meta: { name: "schema", description: "OpenClaw config schema helpers." },
   subCommands: {
     fetch: schemaFetch,
+    status: schemaStatus,
   },
 });

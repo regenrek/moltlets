@@ -1,29 +1,16 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
 
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getClawletsCliEnv } from "~/server/run-env"
-import { spawnCommand } from "~/server/run-manager"
-import { getAdminProjectContext } from "~/sdk/project"
-import { parseServerChannelsExecuteInput, parseServerChannelsStartInput } from "~/sdk/runtime"
-import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
+import { enqueueRunnerJobForRun, parseServerChannelsExecuteInput, parseServerChannelsStartInput } from "~/sdk/runtime"
 
 export const serverChannelsStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerChannelsStartInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-
-    const host = data.host || config.defaultHost || ""
+    const host = data.host.trim()
     if (!host) throw new Error("missing host")
-    if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
-
     const gatewayId = data.gatewayId
-    if (!(config.hosts as any)?.[host]?.gateways?.[gatewayId]) throw new Error(`unknown gateway: ${gatewayId}`)
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -44,35 +31,11 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerChannelsExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
-      client,
-      projectId: data.projectId,
-      runId: data.runId,
-      expectedKind: "server_channels",
-    })
-    const { config } = loadClawletsConfig({ repoRoot })
-
-    const host = data.host || config.defaultHost || ""
+    const host = data.host.trim()
     if (!host) throw new Error("missing host")
-    if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
-
     const gatewayId = data.gatewayId
-    if (!(config.hosts as any)?.[host]?.gateways?.[gatewayId]) throw new Error(`unknown gateway: ${gatewayId}`)
 
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    const args = [
-      cliEntry,
-      "server",
-      "channels",
-      data.op,
-      "--host",
-      host,
-      "--gateway",
-      gatewayId,
-    ]
+    const args = ["server", "channels", data.op, "--host", host, "--gateway", gatewayId]
 
     if (data.op === "status") {
       if (data.probe) args.push("--probe")
@@ -99,22 +62,18 @@ export const serverChannelsExecute = createServerFn({ method: "POST" })
       if (data.account) args.push(`--account=${data.account}`)
     }
 
-    try {
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+    const queued = await enqueueRunnerJobForRun({
+      client,
+      projectId: data.projectId,
+      runId: data.runId,
+      expectedKind: "server_channels",
+      jobKind: "server_channels",
+      host,
+      payloadMeta: {
+        hostName: host,
+        gatewayId,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "failed", errorMessage: message })
-      return { ok: false as const, message }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })

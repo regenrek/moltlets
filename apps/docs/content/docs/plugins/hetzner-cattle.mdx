@@ -37,7 +37,7 @@ Enable cattle in `fleet/clawlets.json` and set the Hetzner image and defaults:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "cattle": {
     "enabled": true,
     "hetzner": {
@@ -49,7 +49,8 @@ Enable cattle in `fleet/clawlets.json` and set the Hetzner image and defaults:
       "labels": { "managed-by": "clawlets" }
     },
     "defaults": { "autoShutdown": true, "callbackUrl": "" }
-  }
+  },
+  "hosts": { "openclaw-fleet-host": { "enable": true } }
 }
 ```
 

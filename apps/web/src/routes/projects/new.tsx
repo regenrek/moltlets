@@ -294,9 +294,8 @@ function NewProject() {
                 if (status !== "succeeded") return
                 setRedirected(true)
                 void router.navigate({
-                  to: "/$projectSlug/setup",
-                  params: { projectSlug: nameSlug },
-                  search: { host: effectiveHost },
+                  to: "/$projectSlug/hosts/$host/setup",
+                  params: { projectSlug: nameSlug, host: effectiveHost },
                 } as any)
               }}
             />
@@ -304,7 +303,7 @@ function NewProject() {
               <Button
                 size="sm"
                 nativeButton={false}
-                render={<Link to="/$projectSlug/setup" params={{ projectSlug: nameSlug }} search={{ host: effectiveHost }} />}
+                render={<Link to="/$projectSlug/hosts/$host/setup" params={{ projectSlug: nameSlug, host: effectiveHost }} />}
               >
                 Continue setup
               </Button>

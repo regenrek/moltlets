@@ -1,25 +1,7 @@
-import fs from "node:fs/promises"
-import fsSync from "node:fs"
-import path from "node:path"
-
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
-import {
-  getRepoLayout,
-  getHostExtraFilesKeyPath,
-  getHostExtraFilesSecretsDir,
-  getHostEncryptedAgeKeyFile,
-  getHostSecretFile,
-} from "@clawlets/core/repo-layout"
-import { writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe"
-import { sopsEncryptYamlToFile } from "@clawlets/core/lib/security/sops"
-import { upsertYamlScalarLine } from "@clawlets/core/lib/storage/yaml-scalar"
-import { loadDeployCreds } from "@clawlets/core/lib/infra/deploy-creds"
-import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawlets/core/lib/secrets/secrets-allowlist"
 
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { getAdminProjectContext } from "~/sdk/project"
 import { parseWriteHostSecretsInput } from "~/sdk/runtime"
 
 export const writeHostSecrets = createServerFn({ method: "POST" })
@@ -28,48 +10,49 @@ export const writeHostSecrets = createServerFn({ method: "POST" })
     const host = data.host.trim()
     if (!host) throw new Error("missing host")
 
+    const secretNames = data.secretNames
+    if (secretNames.length === 0) throw new Error("no secrets provided")
+
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
+    const project = await client.query(api.projects.get, { projectId: data.projectId })
+    if (!project || project.role !== "admin") throw new Error("admin required")
+    const queued = await client.mutation(api.jobs.enqueue, {
+      projectId: data.projectId,
+      kind: "secrets_write",
+      title: `Secrets write (${host})`,
+      host,
+      payloadMeta: {
+        hostName: host,
+        scope: "all",
+        secretNames,
+        args: [
+          "secrets",
+          "init",
+          "--host",
+          host,
+          "--scope",
+          "all",
+          "--from-json",
+          "__RUNNER_SECRETS_JSON__",
+          "--yes",
+        ],
+        note: "secrets supplied locally to runner (localhost submit or runner prompt)",
+      },
+    })
 
-    const allowlist = buildManagedHostSecretNameAllowlist({ config, host })
-    assertSecretsAreManaged({ allowlist, secrets: data.secrets })
+    await client.mutation(api.auditLogs.append, {
+      projectId: data.projectId,
+      action: "secrets.write",
+      target: { host },
+      data: { runId: queued.runId, secrets: secretNames },
+    })
 
-    const layout = getRepoLayout(repoRoot)
-    if (!fsSync.existsSync(layout.sopsConfigPath)) {
-      throw new Error("missing sops config (run Secrets → Init for this host first)")
+    return {
+      ok: true as const,
+      queued: true as const,
+      runId: queued.runId,
+      jobId: queued.jobId,
+      updated: secretNames,
+      localSubmitRequired: true as const,
     }
-    if (!fsSync.existsSync(getHostEncryptedAgeKeyFile(layout, host))) {
-      throw new Error("missing host age key (run Secrets → Init for this host first)")
-    }
-    if (!fsSync.existsSync(getHostExtraFilesKeyPath(layout, host))) {
-      throw new Error("missing extra-files key (run Secrets → Init for this host first)")
-    }
-
-    const loaded = loadDeployCreds({ cwd: repoRoot })
-    const nix = { nixBin: String(loaded.values.NIX_BIN || "nix").trim() || "nix", cwd: repoRoot, dryRun: false } as const
-
-    const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, host)
-    const updated: string[] = []
-
-    for (const [secretName, secretValue] of Object.entries(data.secrets)) {
-      const outPath = getHostSecretFile(layout, host, secretName)
-      const plaintextYaml = upsertYamlScalarLine({ text: "\n", key: secretName, value: secretValue }) + "\n"
-      await sopsEncryptYamlToFile({ plaintextYaml, outPath, configPath: layout.sopsConfigPath, nix })
-      const encrypted = await fs.readFile(outPath, "utf8")
-      await writeFileAtomic(path.join(extraFilesSecretsDir, `${secretName}.yaml`), encrypted, { mode: 0o400 })
-      updated.push(secretName)
-    }
-
-    if (updated.length > 0) {
-      await client.mutation(api.auditLogs.append, {
-        projectId: data.projectId,
-        action: "secrets.write",
-        target: { host },
-        data: { secrets: updated },
-      })
-    }
-
-    return { ok: true as const, updated }
   })

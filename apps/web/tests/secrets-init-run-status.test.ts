@@ -8,106 +8,46 @@ const startStorage = globalObj[GLOBAL_STORAGE_KEY]
 const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
   startStorage?.run(context, fn) as Promise<T>
 
-async function loadSecretsInit(options: { mkpasswdThrows: boolean; writeThrows: boolean }) {
-  vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, payload?: { status?: string }) => {
-    return null
-  })
-
-  vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation, query: vi.fn() }) as any,
-  }))
-  vi.doMock("~/sdk/runtime/server", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("~/sdk/runtime/server")>()
-    return {
-      ...actual,
-      requireAdminAndBoundRun: async () => ({
-        project: { localPath: "/tmp/repo" },
-        role: "admin",
-        repoRoot: "/tmp/repo",
-        run: { kind: "secrets_init", status: "running" },
-      }),
-    }
-  })
-  vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-    loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
-  }))
-  vi.doMock("@clawlets/core/lib/secrets/secrets-allowlist", () => ({
-    buildManagedHostSecretNameAllowlist: () => new Set<string>(),
-    assertSecretsAreManaged: () => {},
-  }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
-  vi.doMock("~/server/run-manager", () => ({
-    runWithEvents: async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
-      await fn(async () => {})
-    },
-    spawnCommand: async () => {},
-  }))
-  vi.doMock("@clawlets/core/lib/security/mkpasswd", () => ({
-    mkpasswdYescryptHash: async () => {
-      if (options.mkpasswdThrows) throw new Error("hash failed")
-      return "hash"
-    },
-  }))
-  vi.doMock("@clawlets/core/lib/storage/fs-safe", () => ({
-    writeFileAtomic: async () => {
-      if (options.writeThrows) throw new Error("write failed")
-    },
-  }))
-
-  const mod = await import("~/sdk/secrets")
-  return { mod, mutation }
+const startContext = {
+  request: new Request("http://localhost"),
+  contextAfterGlobalMiddlewares: {},
+  executedRequestMiddlewares: new Set(),
 }
 
-describe("secrets init run status", () => {
-  it("marks run failed when mkpasswdYescryptHash throws", async () => {
-    const { mod, mutation } = await loadSecretsInit({ mkpasswdThrows: true, writeThrows: false })
-    const res = await runWithStartContext(
-      { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
-      async () =>
-        await mod.secretsInitExecute({
-          data: {
-            projectId: "p1" as any,
-            runId: "run1" as any,
-            host: "alpha",
-            adminPassword: "pw",
-            adminPasswordHash: "",
-            tailscaleAuthKey: "",
-            allowPlaceholders: true,
-            secrets: {},
-          },
-        }),
-    )
-    expect(res.ok).toBe(false)
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
-  })
+describe("secrets init execute queueing", () => {
+  it("queues secrets init job with local-submit marker", async () => {
+    vi.resetModules()
+    const mutation = vi.fn(async () => ({ runId: "run1", jobId: "job1" }))
+    const query = vi.fn(async () => ({
+      role: "admin",
+      run: { projectId: "p1", kind: "secrets_init", status: "running" },
+    }))
 
-  it("marks run failed when writeFileAtomic throws", async () => {
-    const { mod, mutation } = await loadSecretsInit({ mkpasswdThrows: false, writeThrows: true })
-    const res = await runWithStartContext(
-      { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
-      async () =>
-        await mod.secretsInitExecute({
-          data: {
-            projectId: "p1" as any,
-            runId: "run1" as any,
-            host: "alpha",
-            adminPassword: "pw",
-            adminPasswordHash: "",
-            tailscaleAuthKey: "",
-            allowPlaceholders: true,
-            secrets: {},
-          },
-        }),
+    vi.doMock("~/server/convex", () => ({
+      createConvexClient: () => ({ mutation, query }) as any,
+    }))
+
+    const mod = await import("~/sdk/secrets")
+    const res = await runWithStartContext(startContext, async () =>
+      await mod.secretsInitExecute({
+        data: {
+          projectId: "p1" as any,
+          runId: "run1" as any,
+          host: "alpha",
+          scope: "bootstrap",
+          allowPlaceholders: true,
+          adminPassword: "pw",
+          adminPasswordHash: "",
+          tailscaleAuthKey: "",
+          secrets: { DISCORD_TOKEN: "secret" },
+        },
+      }),
     )
-    expect(res.ok).toBe(false)
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
+
+    expect(res.ok).toBe(true)
+    expect(res.queued).toBe(true)
+    expect(res.localSubmitRequired).toBe(true)
+    expect(res.jobId).toBe("job1")
+    expect(mutation).toHaveBeenCalledTimes(1)
   })
 })

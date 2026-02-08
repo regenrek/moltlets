@@ -7,13 +7,25 @@ import {
   parseProjectIdInput,
   parseProjectGatewayInput,
   parseProjectHostInput,
+  parseProjectHostScopeInput,
   parseProjectHostRequiredInput,
   parseProjectRunHostInput,
+  parseProjectRunHostConfirmInput,
+  parseProjectRunHostScopeInput,
+  parseProjectHostTargetInput,
+  parseServerAuditExecuteInput,
+  parseServerAuditStartInput,
   parseServerChannelsExecuteInput,
   parseServerChannelsStartInput,
+  parseServerStatusStartInput,
+  parseServerStatusExecuteInput,
+  parseServerLogsStartInput,
   parseServerLogsExecuteInput,
   parseServerRestartExecuteInput,
   parseServerRestartStartInput,
+  parseServerUpdateApplyStartInput,
+  parseServerUpdateStatusExecuteInput,
+  parseServerUpdateLogsStartInput,
   parseServerUpdateLogsExecuteInput,
   parseServerUpdateStatusStartInput,
   parseSecretsInitExecuteInput,
@@ -144,6 +156,20 @@ describe("serverfn validators", () => {
     expect(parseProjectHostInput({ projectId: "p1", host: "" })).toEqual({ projectId: "p1", host: "" })
   })
 
+  it("parses scoped project+host inputs", () => {
+    expect(parseProjectHostScopeInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      scope: "all",
+    })
+    expect(parseProjectHostScopeInput({ projectId: "p1", host: "alpha", scope: " bootstrap " })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      scope: "bootstrap",
+    })
+    expect(() => parseProjectHostScopeInput({ projectId: "p1", host: "alpha", scope: "nope" })).toThrow(/invalid scope/i)
+  })
+
   it("rejects invalid project ids", () => {
     expect(() => parseProjectIdInput({ projectId: "" })).toThrow()
     expect(() => parseProjectIdInput({ projectId: 123 })).toThrow()
@@ -195,6 +221,21 @@ describe("serverfn validators", () => {
     expect(() => parseProjectRunHostInput({ projectId: "p1", runId: "r1", host: "" })).toThrow()
   })
 
+  it("parses scoped project+run+host inputs", () => {
+    expect(parseProjectRunHostScopeInput({ projectId: "p1", runId: "r1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      scope: "all",
+    })
+    expect(parseProjectRunHostScopeInput({ projectId: "p1", runId: "r1", host: "alpha", scope: "openclaw" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      scope: "openclaw",
+    })
+  })
+
   it("parses server logs lines and validates digits", () => {
     expect(
       parseServerLogsExecuteInput({
@@ -216,23 +257,76 @@ describe("serverfn validators", () => {
     ).toThrow(/invalid lines/i)
   })
 
-  it("parses secrets init inputs with secret values", () => {
+  it("parses host/confirm/status/audit/log start validators", () => {
+    expect(parseProjectHostTargetInput({ projectId: "p1", host: "alpha", targetHost: "admin@1.2.3.4" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+    expect(parseProjectRunHostConfirmInput({ projectId: "p1", runId: "r1", host: "alpha", confirm: "yes" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      confirm: "yes",
+    })
+    expect(parseServerStatusStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+    expect(
+      parseServerStatusExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "admin@1.2.3.4",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+    expect(parseServerAuditStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+    expect(
+      parseServerAuditExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "",
+    })
+    expect(parseServerLogsStartInput({ projectId: "p1", host: "alpha", unit: "openclaw.service" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      unit: "openclaw.service",
+    })
+  })
+
+  it("parses secrets init inputs with secret names only", () => {
     expect(
       parseSecretsInitExecuteInput({
         projectId: "p1",
         runId: "r1",
         host: "alpha",
+        scope: "updates",
         allowPlaceholders: true,
-        adminPassword: "pw",
         secrets: { discord_token: "abc" },
       }),
     ).toMatchObject({
       projectId: "p1",
       runId: "r1",
       host: "alpha",
+      scope: "updates",
       allowPlaceholders: true,
-      adminPassword: "pw",
-      secrets: { discord_token: "abc" },
+      secretNames: ["discord_token"],
     })
   })
 
@@ -244,7 +338,7 @@ describe("serverfn validators", () => {
     expect(parseWriteHostSecretsInput({ projectId: "p1", host: "alpha", secrets: { discord_token: "abc" } })).toEqual({
       projectId: "p1",
       host: "alpha",
-      secrets: { discord_token: "abc" },
+      secretNames: ["discord_token"],
     })
   })
 
@@ -274,6 +368,25 @@ describe("serverfn validators", () => {
     })
 
     expect(
+      parseServerUpdateStatusExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "admin@1.2.3.4",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+
+    expect(parseServerUpdateLogsStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+
+    expect(
       parseServerUpdateLogsExecuteInput({
         projectId: "p1",
         runId: "r1",
@@ -282,6 +395,11 @@ describe("serverfn validators", () => {
         since: "",
       }),
     ).toMatchObject({ lines: "200", since: "", follow: false })
+
+    expect(parseServerUpdateApplyStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
   })
 
   it("rejects ssh key import file paths", () => {

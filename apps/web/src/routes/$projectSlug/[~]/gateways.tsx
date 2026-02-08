@@ -1,15 +1,16 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
 import { EntityRow } from "~/components/entity-row"
 import { Avatar, AvatarFallback } from "~/components/ui/avatar"
 import { PageHeader } from "~/components/ui/page-header"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
-import { formatChannelsLabel, getGatewayChannels } from "~/components/fleet/gateway/gateway-roster"
-import type { GatewayArchitecture } from "@clawlets/core/lib/config/clawlets-config"
+import { formatChannelsLabel } from "~/components/fleet/gateway/gateway-roster"
 
 type GatewayRow = {
   host: string
@@ -17,40 +18,49 @@ type GatewayRow = {
   channels: string[]
   personas: number
   enabled: boolean
+  architecture?: string
 }
 
-function listGatewaysForHost(hostCfg: any): string[] {
-  const ordered = Array.isArray(hostCfg?.gatewaysOrder) ? hostCfg.gatewaysOrder.map(String) : []
-  const defined = hostCfg?.gateways && typeof hostCfg.gateways === "object" ? Object.keys(hostCfg.gateways) : []
-  const extras = defined.filter((id) => !ordered.includes(id)).sort()
-  return [...ordered, ...extras].filter(Boolean)
+function sortedUnique(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  ).sort()
 }
 
-function collectGatewayRows(config: any): GatewayRow[] {
-  const hosts = (Object.entries(config?.hosts ?? {}) as Array<[string, any]>).sort(([a], [b]) =>
-    a.localeCompare(b),
-  )
-  const rows: GatewayRow[] = []
-  for (const [host, hostCfg] of hosts) {
-    const gateways = listGatewaysForHost(hostCfg)
-    for (const gatewayId of gateways) {
-      const gatewayCfg = (hostCfg as any)?.gateways?.[gatewayId] || {}
-      const personas = Array.isArray(gatewayCfg?.agents?.list) ? gatewayCfg.agents.list.length : 0
-      rows.push({
-        host,
-        gatewayId,
-        channels: getGatewayChannels({ config, host, gatewayId }),
-        personas,
-        enabled: hostCfg?.enable !== false,
-      })
+function collectGatewayRows(params: {
+  hosts: (typeof api.hosts.listByProject)["_returnType"]
+  gateways: (typeof api.gateways.listByProject)["_returnType"]
+}): GatewayRow[] {
+  const hostByName = new Map(params.hosts.map((row) => [row.hostName, row] as const))
+  return params.gateways.map((row) => {
+    const host = hostByName.get(row.hostName)
+    const desired = (row.desired ?? {}) as {
+      channels?: string[]
+      personaCount?: number
     }
-  }
-  return rows
+    const hostDesired = (host?.desired ?? {}) as {
+      enabled?: boolean
+      gatewayArchitecture?: string
+    }
+    return {
+      host: row.hostName,
+      gatewayId: row.gatewayId,
+      channels: sortedUnique(desired.channels),
+      personas: typeof desired.personaCount === "number" ? desired.personaCount : 0,
+      enabled: hostDesired.enabled !== false,
+      architecture: hostDesired.gatewayArchitecture,
+    }
+  })
 }
 
-function formatArchitectureLabel(architecture?: GatewayArchitecture): string {
+function formatArchitectureLabel(architecture?: string): string {
   if (!architecture) return "—"
-  return architecture === "single" ? "single" : "multi"
+  return architecture
 }
 
 export const Route = createFileRoute("/$projectSlug/~/gateways")({
@@ -60,7 +70,10 @@ export const Route = createFileRoute("/$projectSlug/~/gateways")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
+    await Promise.all([
+      context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId })),
+      context.queryClient.ensureQueryData(convexQuery(api.gateways.listByProject, { projectId })),
+    ])
   },
   component: GatewaysAggregate,
 })
@@ -72,14 +85,21 @@ function GatewaysAggregate() {
   const projectStatus = projectQuery.project?.status
   const isReady = projectStatus === "ready"
 
-  const cfg = useQuery({
-    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    enabled: Boolean(projectId && isReady),
+  })
+  const gatewaysQuery = useQuery({
+    ...convexQuery(api.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId && isReady),
   })
 
-  const config = cfg.data?.config as any
-  const gatewayArchitecture = (config?.fleet as { gatewayArchitecture?: GatewayArchitecture } | undefined)?.gatewayArchitecture
-  const rows = useMemo(() => (config ? collectGatewayRows(config) : []), [config])
+  const rows = useMemo(
+    () => collectGatewayRows({ hosts: hostsQuery.data || [], gateways: gatewaysQuery.data || [] }),
+    [gatewaysQuery.data, hostsQuery.data],
+  )
+  const loading = hostsQuery.isPending || gatewaysQuery.isPending
+  const error = hostsQuery.error || gatewaysQuery.error
 
   if (projectQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
@@ -104,14 +124,12 @@ function GatewaysAggregate() {
         description="Aggregated OpenClaw gateways across the fleet."
       />
 
-      {cfg.isPending ? (
+      {loading ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : error ? (
+        <div className="text-sm text-destructive">{String(error)}</div>
       ) : rows.length === 0 ? (
-        <div className="text-muted-foreground">No gateways configured yet.</div>
+        <div className="text-muted-foreground">No gateway metadata yet.</div>
       ) : (
         <div className="space-y-2">
           {rows.map((row) => {
@@ -132,7 +150,7 @@ function GatewaysAggregate() {
                   tone: row.enabled ? "positive" : "neutral",
                 }}
                 columns={[
-                  { label: "Architecture", value: formatArchitectureLabel(gatewayArchitecture) },
+                  { label: "Architecture", value: formatArchitectureLabel(row.architecture) },
                   { label: "Personas", value: String(row.personas) },
                   { label: "Channels", value: channelsLabel },
                 ]}

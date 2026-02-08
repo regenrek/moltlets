@@ -45,7 +45,6 @@ export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityP
         return
       }
       toast.success("targetHost updated")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))

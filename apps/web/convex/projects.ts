@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { ProjectDoc } from "./lib/validators";
-import { Role } from "./schema";
+import { ExecutionMode, Role, WorkspaceRef } from "./schema";
 import {
   requireAuthMutation,
   requireAuthQuery,
@@ -14,6 +14,7 @@ import {
 import { fail } from "./lib/errors";
 import { rateLimit } from "./lib/rateLimit";
 import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
+import { normalizeWorkspaceRef } from "./lib/workspaceRef";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 
@@ -54,7 +55,8 @@ export const list = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    const memberProjects = (await Promise.all(memberships.map(async (m) => await ctx.db.get(m.projectId)))).filter(
+    const memberProjectIds = Array.from(new Set(memberships.map((m) => m.projectId)));
+    const memberProjects = (await Promise.all(memberProjectIds.map(async (projectId) => await ctx.db.get(projectId)))).filter(
       (p): p is Doc<"projects"> => p !== null,
     );
 
@@ -77,7 +79,9 @@ export const get = query({
 export const create = mutation({
   args: {
     name: v.string(),
-    localPath: v.string(),
+    executionMode: ExecutionMode,
+    workspaceRef: WorkspaceRef,
+    localPath: v.optional(v.string()),
   },
   returns: v.object({ projectId: v.id("projects") }),
   handler: async (ctx, args) => {
@@ -86,9 +90,17 @@ export const create = mutation({
 
     const now = Date.now();
     const name = args.name.trim();
-    const localPath = args.localPath.trim();
+    const executionMode = args.executionMode;
+    const workspaceRef = normalizeWorkspaceRef(args.workspaceRef);
+    const localPath = typeof args.localPath === "string" ? args.localPath.trim() : "";
     if (!name) fail("conflict", "name required");
-    if (!localPath) fail("conflict", "localPath required");
+    if (executionMode === "local") {
+      if (!localPath) fail("conflict", "localPath required");
+      if (workspaceRef.kind !== "local") fail("conflict", "workspaceRef.kind must be local for local execution");
+    } else {
+      if (localPath) fail("conflict", "localPath forbidden for remote_runner execution mode");
+      if (workspaceRef.kind !== "git") fail("conflict", "workspaceRef.kind must be git for remote_runner execution");
+    }
 
     const existingByName = await ctx.db
       .query("projects")
@@ -96,21 +108,41 @@ export const create = mutation({
       .unique();
     if (existingByName) fail("conflict", "project name already exists");
 
-    const existingByPath = await ctx.db
+    const existingByWorkspaceRef = await ctx.db
       .query("projects")
-      .withIndex("by_owner_localPath", (q) => q.eq("ownerUserId", user._id).eq("localPath", localPath))
+      .withIndex("by_owner_workspaceRefKey", (q) => q.eq("ownerUserId", user._id).eq("workspaceRefKey", workspaceRef.key))
       .unique();
+    if (existingByWorkspaceRef) fail("conflict", "workspaceRef already exists");
+
+    const existingByPath = localPath
+      ? await ctx.db
+          .query("projects")
+          .withIndex("by_owner_localPath", (q) => q.eq("ownerUserId", user._id).eq("localPath", localPath))
+          .unique()
+      : null;
     if (existingByPath) fail("conflict", "project path already exists");
 
     const projectId = await ctx.db.insert("projects", {
       ownerUserId: user._id,
       name,
-      localPath,
+      executionMode,
+      workspaceRef: { kind: workspaceRef.kind, id: workspaceRef.id, relPath: workspaceRef.relPath },
+      workspaceRefKey: workspaceRef.key,
+      localPath: localPath || undefined,
       status: "creating",
       createdAt: now,
       updatedAt: now,
       lastSeenAt: now,
     });
+
+    await ctx.db.insert("projectPolicies", {
+      projectId,
+      retentionDays: 30,
+      gitWritePolicy: "pr_only",
+      createdAt: now,
+      updatedAt: now,
+    });
+
     return { projectId };
   },
 });
@@ -120,6 +152,7 @@ export const update = mutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     localPath: v.optional(v.string()),
+    workspaceRef: v.optional(WorkspaceRef),
     status: v.optional(v.union(v.literal("creating"), v.literal("ready"), v.literal("error"))),
   },
   returns: ProjectDoc,
@@ -130,9 +163,62 @@ export const update = mutation({
 
     const now = Date.now();
     const next: Record<string, unknown> = { updatedAt: now };
-    if (typeof patch.name === "string") next["name"] = patch.name.trim();
-    if (typeof patch.localPath === "string") next["localPath"] = patch.localPath.trim();
+      if (typeof patch.name === "string") {
+        const name = patch.name.trim();
+        if (!name) fail("conflict", "name required");
+        if (name !== access.project.name) {
+          const existing = await ctx.db
+            .query("projects")
+            .withIndex("by_owner_name", (q) => q.eq("ownerUserId", access.project.ownerUserId).eq("name", name))
+            .take(2);
+          if (existing.some((p) => p._id !== projectId)) {
+            fail("conflict", "project name already exists");
+          }
+        }
+        next["name"] = name;
+    }
     if (typeof patch.status === "string") next["status"] = patch.status;
+
+    if (patch.workspaceRef) {
+      const workspaceRef = normalizeWorkspaceRef(patch.workspaceRef);
+      if (access.project.executionMode === "local" && workspaceRef.kind !== "local") {
+        fail("conflict", "workspaceRef.kind must be local for local execution");
+      }
+      if (access.project.executionMode === "remote_runner" && workspaceRef.kind !== "git") {
+        fail("conflict", "workspaceRef.kind must be git for remote_runner execution");
+      }
+      if (workspaceRef.key !== access.project.workspaceRefKey) {
+        const existing = await ctx.db
+          .query("projects")
+          .withIndex("by_owner_workspaceRefKey", (q) =>
+            q.eq("ownerUserId", access.project.ownerUserId).eq("workspaceRefKey", workspaceRef.key),
+          )
+          .take(2);
+        if (existing.some((p) => p._id !== projectId)) {
+          fail("conflict", "workspaceRef already exists");
+        }
+      }
+      next["workspaceRef"] = { kind: workspaceRef.kind, id: workspaceRef.id, relPath: workspaceRef.relPath };
+      next["workspaceRefKey"] = workspaceRef.key;
+    }
+
+    if (typeof patch.localPath === "string") {
+      const localPath = patch.localPath.trim();
+      if (access.project.executionMode !== "local") fail("conflict", "localPath forbidden for remote_runner execution mode");
+      if (!localPath) fail("conflict", "localPath required");
+      if (localPath !== (access.project.localPath || "").trim()) {
+        const existing = await ctx.db
+          .query("projects")
+          .withIndex("by_owner_localPath", (q) =>
+            q.eq("ownerUserId", access.project.ownerUserId).eq("localPath", localPath),
+          )
+          .take(2);
+        if (existing.some((p) => p._id !== projectId)) {
+          fail("conflict", "project path already exists");
+        }
+      }
+      next["localPath"] = localPath;
+    }
 
     await ctx.db.patch(projectId, next);
     const updated = await ctx.db.get(projectId);
@@ -165,3 +251,11 @@ export const guardLiveSchemaFetch = mutation({
     return null;
   },
 });
+
+export function __test_normalizeWorkspaceRef(value: {
+  kind: "local" | "git";
+  id: string;
+  relPath?: string;
+}): { kind: "local" | "git"; id: string; relPath?: string; key: string } {
+  return normalizeWorkspaceRef(value);
+}

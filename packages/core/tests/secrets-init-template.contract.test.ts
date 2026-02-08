@@ -7,7 +7,7 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -43,7 +43,7 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -72,7 +72,7 @@ describe("secrets init template sets", () => {
     const { buildSecretsInitTemplateSets } = await import("../src/lib/secrets/secrets-init-template");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: { secretEnv: { ZAI_API_KEY: "z_ai_api_key" } },
       hosts: {
         "openclaw-fleet-host": {

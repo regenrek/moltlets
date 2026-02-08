@@ -1,4 +1,6 @@
 export * from "./binding"
 export * from "./issues"
+export * from "./queue"
+export * from "./runner-jobs"
 export * from "./runs"
 export * from "./validators"

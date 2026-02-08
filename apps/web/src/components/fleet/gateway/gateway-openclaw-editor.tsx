@@ -37,8 +37,19 @@ export function GatewayOpenclawEditor(props: {
   host: string
   initial: unknown
   canEdit: boolean
+  configQueryKey?: readonly unknown[]
+  metadataQueryKey?: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
+
+  const refreshQueries = () => {
+    if (props.configQueryKey) {
+      void queryClient.invalidateQueries({ queryKey: props.configQueryKey })
+    }
+    if (props.metadataQueryKey) {
+      void queryClient.invalidateQueries({ queryKey: props.metadataQueryKey })
+    }
+  }
 
   const initialText = useMemo(() => JSON.stringify(props.initial ?? {}, null, 2), [props.initial])
   const [text, setText] = useState(initialText)
@@ -120,7 +131,7 @@ export function GatewayOpenclawEditor(props: {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved OpenClaw config")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+        refreshQueries()
       } else {
         setServerIssues(
           (res.issues || []).map((i) => ({
@@ -148,7 +159,7 @@ export function GatewayOpenclawEditor(props: {
       if (res.ok) {
         const changes = Array.isArray((res as any).changes) ? (res as any).changes : []
         toast.success(changes.length > 0 ? "Applied security defaults" : "Already hardened")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+        refreshQueries()
         return
       }
       setServerIssues(

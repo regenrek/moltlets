@@ -1,11 +1,11 @@
 ---
-title: Config (fleet/clawlets.json)
-description: Schema and canonical config.
+title: Config (fleet/*.json)
+description: Schemas and canonical config files.
 ---
 
-`fleet/clawlets.json` is the single source of truth for fleet and host settings. The
-CLI and dashboard write to it; the Nix layer renders from it. Secrets do **not** live
-here (see [Secrets](/security/secrets)).
+`fleet/clawlets.json` + optional `fleet/openclaw.json` are the canonical config files.
+The CLI and dashboard write to them; the Nix layer renders from the merged config.
+Secrets do **not** live here (see [Secrets](/security/secrets)).
 
 <Callout type="warning" title="No secrets in config">
   Keep tokens and credentials in `secrets/` only. `fleet/clawlets.json` should contain
@@ -18,6 +18,7 @@ Configuration is split into a few predictable directories. The repo holds the de
 state; the local runtime dir holds generated artifacts and operator keys.
 
 - `fleet/clawlets.json`: canonical config (validated)
+- `fleet/openclaw.json`: OpenClaw config (optional; gateways + OpenClaw enable)
 - `secrets/`: canonical encrypted secrets (sops + age; intended to be committed)
 - `.clawlets/`: local runtime dir (gitignored)
   - operator age keys (`.clawlets/keys/operators/`)
@@ -29,7 +30,7 @@ state; the local runtime dir holds generated artifacts and operator keys.
 
 The top-level keys split global fleet settings, cattle, and per-host settings:
 
-- `schemaVersion`: currently `1`
+- `schemaVersion`: currently `2`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
 - `fleet.*`: global secrets + policy (shared across hosts)
@@ -67,7 +68,8 @@ also define which gateways run on this host.
   - `openclaw`: raw OpenClaw config passthrough (advanced/edge cases)
   - `clf`: clawlets/clf policy (gateway access to orchestrator/queue)
 
-- `enable`: whether fleet services should run
+- `enable`: whether infra services should run
+- `openclaw.enable`: whether OpenClaw fleet services should run (stored in `fleet/openclaw.json` as `hosts.<host>.enable`)
 - `diskDevice`: passed into the disko module (required for install)
 - `flakeHost` (optional): nixosConfiguration output name override
 - `targetHost` (optional): SSH target for server ops (ssh alias or `user@host`)
@@ -155,18 +157,20 @@ Strict mode turns warnings into failures so CI can gate on configuration quality
 
 ## Schema versioning
 
-The schema evolves. `schemaVersion` is currently `1`.
+Config is stored split by domain:
 
-Clawlets intentionally does not accept multiple schemas at runtime. To upgrade an existing
-repo, run:
+- Infra config: `fleet/clawlets.json` (`schemaVersion: 2`)
+- OpenClaw config: `fleet/openclaw.json` (`schemaVersion: 1`, optional)
 
-- `clawlets config migrate --write`
-- `clawlets config validate --host <host>`
+Clawlets does not auto-migrate config on read. `clawlets config migrate` is reserved for future shipped migrations and currently does not modify files.
+
 ## Example
+
+`fleet/clawlets.json` (infra):
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "defaultHost": "openclaw-fleet-host",
   "baseFlake": "",
   "fleet": {
@@ -174,57 +178,12 @@ repo, run:
     "secretFiles": {},
     "sshAuthorizedKeys": [],
     "sshKnownHosts": [],
-    "codex": { "enable": false, "gateways": [] },
     "backups": { "restic": { "enable": false, "repository": "" } }
   },
-  "cattle": {
-    "enabled": false,
-    "hetzner": {
-      "image": "",
-      "serverType": "cx22",
-      "location": "nbg1",
-      "maxInstances": 10,
-      "defaultTtl": "2h",
-      "labels": { "managed-by": "clawlets" }
-    },
-    "defaults": { "autoShutdown": true, "callbackUrl": "" }
-  },
+  "cattle": { "enabled": false },
   "hosts": {
     "openclaw-fleet-host": {
       "enable": false,
-      "gatewaysOrder": ["maren"],
-      "gateways": {
-        "maren": {
-          "profile": { "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" }, "secretFiles": {} },
-          "channels": {
-            "discord": {
-              "groupPolicy": "allowlist",
-              "enabled": true,
-              "token": "${DISCORD_BOT_TOKEN}"
-            }
-          },
-          "agents": {
-            "defaults": {
-              "model": { "primary": "zai/glm-4.7" },
-              "thinkingDefault": "low",
-              "maxConcurrent": 4
-            }
-          },
-          "hooks": {
-            "enabled": true,
-            "tokenSecret": "hooks_token"
-          },
-          "skills": {
-            "allowBundled": ["brave-search"],
-            "entries": {
-              "brave-search": { "apiKeySecret": "brave_api_key" }
-            }
-          },
-          "openclaw": {
-            "models": { "providers": { "moonshot": { "apiKey": "${MOONSHOT_API_KEY}" } } }
-          }
-        }
-      },
       "diskDevice": "/dev/sda",
       "flakeHost": "",
       "hetzner": {
@@ -244,7 +203,7 @@ repo, run:
       },
       "provisioning": {
         "provider": "hetzner",
-        "adminCidr": "",
+        "adminCidr": "203.0.113.10/32",
         "adminCidrAllowWorldOpen": false,
         "sshPubkeyFile": ""
       },
@@ -272,9 +231,30 @@ repo, run:
         "allowUnsigned": false,
         "allowRollback": false,
         "healthCheckUnit": ""
-      },
-      "agentModelPrimary": "zai/glm-4.7"
+      }
     }
+  }
+}
+```
+
+`fleet/openclaw.json` (OpenClaw, optional):
+
+```json
+{
+  "schemaVersion": 1,
+  "hosts": {
+    "openclaw-fleet-host": {
+      "enable": true,
+      "agentModelPrimary": "zai/glm-4.7",
+      "gatewaysOrder": ["maren"],
+      "gateways": { "maren": {} }
+    }
+  },
+  "fleet": {
+    "secretEnv": { "DISCORD_BOT_TOKEN": "discord_token_maren" },
+    "secretFiles": {},
+    "gatewayArchitecture": "multi",
+    "codex": { "enable": false, "gateways": [] }
   }
 }
 ```

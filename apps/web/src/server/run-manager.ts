@@ -12,7 +12,13 @@ export type RunManagerEvent = {
   ts: number;
   level: RunEventLevel;
   message: string;
-  data?: unknown;
+  meta?: {
+    kind: "phase";
+    phase: "command_start" | "command_end" | "post_run_cleanup" | "truncated";
+  } | {
+    kind: "exit";
+    code: number;
+  };
   redacted?: boolean;
 };
 
@@ -206,7 +212,7 @@ async function appendEvents(client: ConvexClient, runId: Id<"runs">, events: Run
       ts: e.ts,
       level: e.level,
       message: e.message,
-      data: e.data,
+      meta: e.meta,
       redacted: e.redacted,
     })),
   };
@@ -291,6 +297,7 @@ export async function runWithEvents(params: {
           ts,
           level: "warn",
           message: warning,
+          meta: { kind: "phase", phase: "truncated" },
         });
         totalEvents += 1;
         totalBytes += warningBytes;
@@ -303,7 +310,7 @@ export async function runWithEvents(params: {
       ts,
       level: e.level,
       message,
-      data: e.data,
+      meta: e.meta,
       redacted: alreadyRedacted ? true : message !== rawMessage || e.redacted,
     });
     totalEvents += 1;
@@ -381,7 +388,11 @@ async function spawnCommandCore(
       const output = createOutputQueue(emit);
       const outputDrain = output.drain();
       const cmd = resolveCommand(params.cmd);
-      await emit({ level: "info", message: `$ ${cmd.display} [${params.args.length} args]` });
+      await emit({
+        level: "info",
+        message: `$ ${cmd.display} [${params.args.length} args]`,
+        meta: { kind: "phase", phase: "command_start" },
+      });
 
       if (active.has(params.runId)) {
         throw new Error("run already active");
@@ -458,8 +469,17 @@ async function spawnCommandCore(
         throw new Error(`${params.cmd} exited with code ${exitCode}`);
       }
       if (exitCode !== 0 && params.allowNonZeroExit) {
-        await emit({ level: "warn", message: `${params.cmd} exited with code ${exitCode}` });
+        await emit({
+          level: "warn",
+          message: `${params.cmd} exited with code ${exitCode}`,
+          meta: { kind: "exit", code: exitCode },
+        });
       }
+      await emit({
+        level: "info",
+        message: `${params.cmd} completed`,
+        meta: { kind: "phase", phase: "command_end" },
+      });
     },
   });
 

@@ -1,12 +1,14 @@
 import type { ClawletsConfig } from "../config/index.js";
 import { buildFleetSecretsPlan } from "./plan.js";
+import type { SecretsPlanScope } from "./secrets-plan.js";
 
 export function buildManagedHostSecretNameAllowlist(params: {
   config: ClawletsConfig;
   host: string;
+  scope?: SecretsPlanScope | "all";
 }): Set<string> {
   const host = params.host.trim();
-  const secretsPlan = buildFleetSecretsPlan({ config: params.config, hostName: host });
+  const secretsPlan = buildFleetSecretsPlan({ config: params.config, hostName: host, scope: params.scope ?? "all" });
   const names = new Set<string>();
   for (const spec of secretsPlan.required || []) names.add(spec.name);
   for (const spec of secretsPlan.optional || []) names.add(spec.name);

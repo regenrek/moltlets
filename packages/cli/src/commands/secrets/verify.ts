@@ -59,8 +59,8 @@ export const secretsVerify = defineCommand({
     const nix = { nixBin: String(deployCreds.values.NIX_BIN || "nix").trim() || "nix", cwd: layout.repoRoot, dryRun: false } as const;
 
     const localDir = getHostSecretsDir(layout, hostName);
-    const secretsPlan = buildFleetSecretsPlan({ config, hostName });
     const scope = parseSecretsScope((args as any).scope);
+    const secretsPlan = buildFleetSecretsPlan({ config, hostName, scope });
     const scopeSummary =
       scope === "all"
         ? {

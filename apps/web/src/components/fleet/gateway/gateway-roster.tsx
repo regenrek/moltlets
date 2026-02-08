@@ -47,12 +47,18 @@ function getGatewayPort(params: { config: unknown; host: string; gatewayId: stri
   return null
 }
 
+export type GatewayRosterDetail = {
+  channels?: string[]
+  port?: number | null
+}
+
 export function GatewayRoster(props: {
   projectSlug: string
   host: string
   projectId: string
   gateways: string[]
-  config: any
+  config?: any
+  gatewayDetails?: Record<string, GatewayRosterDetail>
   canEdit: boolean
   emptyText?: string
 }) {
@@ -63,10 +69,19 @@ export function GatewayRoster(props: {
   const portByGateway = useMemo(() => {
     const next = new Map<string, number | null>()
     for (const gatewayId of props.gateways) {
-      next.set(gatewayId, getGatewayPort({ config: props.config, host: props.host, gatewayId }))
+      const detailedPort = props.gatewayDetails?.[gatewayId]?.port
+      if (typeof detailedPort === "number") {
+        next.set(gatewayId, detailedPort)
+        continue
+      }
+      if (props.config) {
+        next.set(gatewayId, getGatewayPort({ config: props.config, host: props.host, gatewayId }))
+        continue
+      }
+      next.set(gatewayId, null)
     }
     return next
-  }, [props.gateways, props.config])
+  }, [props.gateways, props.config, props.gatewayDetails])
 
   const portConflicts = useMemo(() => {
     const byPort = new Map<number, string[]>()
@@ -99,7 +114,9 @@ export function GatewayRoster(props: {
       <div className="w-full overflow-hidden rounded-lg border">
         <ItemGroup className="gap-0">
           {props.gateways.map((gatewayId) => {
-            const channels = getGatewayChannels({ config: props.config, host: props.host, gatewayId })
+            const channels = props.gatewayDetails?.[gatewayId]?.channels
+              ? Array.from(new Set((props.gatewayDetails[gatewayId]?.channels || []).map((entry) => String(entry || "").trim()).filter(Boolean))).sort()
+              : (props.config ? getGatewayChannels({ config: props.config, host: props.host, gatewayId }) : [])
             const channelsLabel = formatChannelsLabel(channels)
             const port = portByGateway.get(gatewayId)
             const portLabel = typeof port === "number" ? `port ${port}` : null

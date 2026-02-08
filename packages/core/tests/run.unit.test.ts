@@ -94,6 +94,18 @@ describe("run helpers", () => {
     ).rejects.toThrow(/timed out/);
   });
 
+  it("clears timeout handle when spawn errors before exit", async () => {
+    vi.useFakeTimers();
+    try {
+      await expect(
+        capture("__missing_command__", [], { timeoutMs: 10_000 }),
+      ).rejects.toThrow();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("throws when command exits non-zero", async () => {
     await expect(run(process.execPath, ["-e", "process.exit(2)"]))
       .rejects

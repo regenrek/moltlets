@@ -29,7 +29,14 @@ export async function runWithEventsAndStatus<T>(params: {
         try {
           await params.client.mutation(api.runEvents.appendBatch, {
             runId: params.runId,
-            events: [{ ts: Date.now(), level: "warn", message }],
+            events: [
+              {
+                ts: Date.now(),
+                level: "warn",
+                message,
+                meta: { kind: "phase", phase: "post_run_cleanup" },
+              },
+            ],
           })
         } catch {
           // ignore post-run event failures

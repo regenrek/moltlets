@@ -6,6 +6,8 @@ export const RUN_KINDS = [
   "doctor",
   "secrets_init",
   "secrets_verify",
+  "secrets_verify_bootstrap",
+  "secrets_verify_openclaw",
   "secrets_sync",
   "bootstrap",
   "lockdown",
@@ -17,6 +19,7 @@ export const RUN_KINDS = [
   "server_update_apply",
   "server_update_status",
   "server_update_logs",
+  "git_push",
   "deploy",
   "custom",
 ] as const;

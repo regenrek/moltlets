@@ -16,6 +16,8 @@ export function GatewayCapabilities(props: {
   host: string
   openclaw: unknown
   canEdit: boolean
+  configQueryKey?: readonly unknown[]
+  metadataQueryKey?: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
   const channels = useMemo(() => listPinnedChannels(), [])
@@ -67,7 +69,12 @@ export function GatewayCapabilities(props: {
         return
       }
       toast.success("Capability applied")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      if (props.configQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.configQueryKey })
+      }
+      if (props.metadataQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.metadataQueryKey })
+      }
       setSelected("")
       setUseLiveSchema(false)
     },

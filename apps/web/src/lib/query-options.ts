@@ -2,12 +2,10 @@ import { convexQuery } from "@convex-dev/react-query"
 import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
 import { getDashboardOverview } from "~/sdk/dashboard"
-import { getClawletsConfig } from "~/sdk/config"
 import { getDeployCredsStatus } from "~/sdk/infra"
 
 export const queryKeys = {
   dashboardOverview: ["dashboardOverview"] as const,
-  clawletsConfig: (projectId: Id<"projects"> | null) => ["clawletsConfig", projectId] as const,
   deployCreds: (projectId: Id<"projects"> | null) => ["deployCreds", projectId] as const,
 } as const
 
@@ -31,18 +29,9 @@ export function dashboardOverviewQueryOptions() {
   }
 }
 
-export function clawletsConfigQueryOptions(projectId: Id<"projects"> | null) {
-  return {
-    queryKey: queryKeys.clawletsConfig(projectId),
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
-  }
-}
-
 export function deployCredsQueryOptions(projectId: Id<"projects"> | null) {
   return {
     queryKey: queryKeys.deployCreds(projectId),
     queryFn: async () => await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
   }
 }
-

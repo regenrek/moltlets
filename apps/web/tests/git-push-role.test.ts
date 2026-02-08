@@ -38,7 +38,7 @@ async function loadGitServer(role: "admin" | "viewer") {
     if (payload?.kind) return { runId: "run1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { localPath: "/tmp" }, role }))
+  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role }))
 
   vi.doMock("@clawlets/core/lib/runtime/run", () => ({ capture }))
   vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))

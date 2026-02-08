@@ -1,38 +1,48 @@
-import fs from "node:fs";
 import path from "node:path";
+import type { ConfigStore } from "../lib/storage/config-store.js";
+import { FileSystemConfigStore } from "../lib/storage/fs-config-store.js";
 
-export function dirHasAnyFile(dirPath: string): boolean {
-  if (!fs.existsSync(dirPath)) return false;
-  const st = fs.statSync(dirPath);
-  if (st.isFile()) return true;
-  if (!st.isDirectory()) return true;
+const defaultStore = new FileSystemConfigStore();
 
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  for (const e of entries) {
-    const p0 = path.join(dirPath, e.name);
-    if (e.isFile()) return true;
-    if (e.isSymbolicLink()) return true;
-    if (e.isDirectory() && dirHasAnyFile(p0)) return true;
+function requireReadDir(store: ConfigStore): NonNullable<ConfigStore["readDir"]> {
+  if (!store.readDir) {
+    throw new Error("ConfigStore.readDir is required for doctor directory scans");
+  }
+  return store.readDir.bind(store);
+}
+
+export async function dirHasAnyFile(dirPath: string, store: ConfigStore = defaultStore): Promise<boolean> {
+  const st = await store.stat(dirPath);
+  if (!st) return false;
+  if (!st.isDirectory) return true;
+
+  const readDir = requireReadDir(store);
+  const entries = await readDir(dirPath);
+  for (const entry of entries) {
+    const p0 = path.join(dirPath, entry.name);
+    if (entry.isFile || entry.isSymbolicLink) return true;
+    if (entry.isDirectory && (await dirHasAnyFile(p0, store))) return true;
   }
   return false;
 }
 
-export function resolveTemplateRoot(repoRoot: string): string | null {
+export async function resolveTemplateRoot(repoRoot: string, store: ConfigStore = defaultStore): Promise<string | null> {
   const env = String(process.env["CLAWLETS_TEMPLATE_DIR"] || "").trim();
   if (env) {
     const resolved = path.resolve(env);
-    if (fs.existsSync(resolved)) return resolved;
+    if (await store.exists(resolved)) return resolved;
   }
 
   const local = path.join(repoRoot, "packages", "template", "dist", "template");
-  if (fs.existsSync(local)) return local;
+  if (await store.exists(local)) return local;
   return null;
 }
 
-export function loadKnownBundledSkills(
+export async function loadKnownBundledSkills(
   repoRoot: string,
   templateRoot?: string | null,
-): { ok: boolean; skills: string[]; errors: string[] } {
+  store: ConfigStore = defaultStore,
+): Promise<{ ok: boolean; skills: string[]; errors: string[] }> {
   const repoPath = path.join(repoRoot, "fleet", "bundled-skills.json");
   const tplPath = templateRoot ? path.join(templateRoot, "fleet", "bundled-skills.json") : null;
 
@@ -42,16 +52,16 @@ export function loadKnownBundledSkills(
   let tplText = "";
 
   try {
-    if (!fs.existsSync(repoPath)) throw new Error(`missing: ${repoPath}`);
-    repoText = fs.readFileSync(repoPath, "utf8");
+    if (!(await store.exists(repoPath))) throw new Error(`missing: ${repoPath}`);
+    repoText = await store.readText(repoPath);
   } catch (e) {
     errors.push(String((e as Error)?.message || e));
   }
 
   if (tplPath) {
     try {
-      if (!fs.existsSync(tplPath)) throw new Error(`missing: ${tplPath}`);
-      tplText = fs.readFileSync(tplPath, "utf8");
+      if (!(await store.exists(tplPath))) throw new Error(`missing: ${tplPath}`);
+      tplText = await store.readText(tplPath);
     } catch (e) {
       errors.push(String((e as Error)?.message || e));
     }

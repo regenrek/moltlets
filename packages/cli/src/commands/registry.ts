@@ -9,11 +9,13 @@ import { fleet } from "./config/fleet.js";
 import { image } from "./infra/image.js";
 import { infra } from "./infra/index.js";
 import { lockdown } from "./infra/lockdown.js";
+import { git } from "./git/index.js";
 import { plugin } from "./platform/plugin.js";
 import { project } from "./platform/project.js";
 import { release } from "./release/index.js";
 import { secrets } from "./secrets/index.js";
 import { server } from "./openclaw/server/index.js";
+import { runner } from "./runner/index.js";
 
 export const baseCommands = {
   gateway,
@@ -27,11 +29,13 @@ export const baseCommands = {
   image,
   infra,
   lockdown,
+  git,
   plugin,
   project,
   release,
   secrets,
   server,
+  runner,
 };
 
 export const baseCommandNames = Object.freeze(Object.keys(baseCommands));

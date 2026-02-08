@@ -113,7 +113,7 @@ export const secretsInit = defineCommand({
     const localSecretsDir = getHostSecretsDir(layout, hostName);
 
     const gateways = hostCfg.gatewaysOrder || [];
-    if (gateways.length === 0) {
+    if (scope !== "bootstrap" && gateways.length === 0) {
       throw new Error(`hosts.${hostName}.gatewaysOrder is empty (set gateways in fleet/clawlets.json)`);
     }
 
@@ -121,7 +121,7 @@ export const secretsInit = defineCommand({
     const cacheNetrcEnabled = Boolean(cacheNetrc?.enable);
     const cacheNetrcPath = cacheNetrcEnabled ? String(cacheNetrc?.path || "/etc/nix/netrc").trim() : "";
 
-    let secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
+    let secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName, scope });
     if (secretsPlan.missingSecretConfig.length > 0) {
       if (a.autowire) {
         const plan = planSecretsAutowire({ config: clawletsConfig, hostName });
@@ -136,7 +136,7 @@ export const secretsInit = defineCommand({
         const nextConfig = applySecretsAutowire({ config: clawletsConfig, plan, hostName });
         await writeClawletsConfig({ configPath: layout.clawletsConfigPath, config: nextConfig });
         clawletsConfig = nextConfig;
-        secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
+        secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName, scope });
       } else {
         const first = secretsPlan.missingSecretConfig[0]!;
         if (first.kind === "envVar") {
@@ -431,7 +431,7 @@ export const secretsInit = defineCommand({
       values.secrets = input.secrets || {};
     }
 
-    const allowlist = buildManagedHostSecretNameAllowlist({ config: clawletsConfig, host: hostName });
+    const allowlist = buildManagedHostSecretNameAllowlist({ config: clawletsConfig, host: hostName, scope });
     assertSecretsAreManaged({ allowlist, secrets: values.secrets });
 
     const secretsToWrite = Array.from(new Set([

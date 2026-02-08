@@ -1,15 +1,89 @@
 import { createServerFn } from "@tanstack/react-start"
-import { executeGitPush, fetchGitRepoStatus } from "~/server/git.server"
-import { parseProjectIdInput } from "~/sdk/runtime"
+import { createConvexClient } from "~/server/convex"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  parseProjectIdInput,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
+
+type GitRepoStatus = {
+  branch: string | null
+  upstream: string | null
+  localHead: string | null
+  originDefaultRef: string | null
+  originHead: string | null
+  dirty: boolean
+  ahead: number | null
+  behind: number | null
+  detached: boolean
+  needsPush: boolean
+  canPush: boolean
+  pushBlockedReason?: string
+}
 
 export const gitRepoStatus = createServerFn({ method: "POST" })
   .inputValidator(parseProjectIdInput)
   .handler(async ({ data }) => {
-    return await fetchGitRepoStatus({ projectId: data.projectId })
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "custom",
+      title: "Git status",
+      args: ["git", "status", "--json"],
+      note: "control-plane git status read",
+    })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 25_000,
+    })
+    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    if (terminal.status !== "succeeded") {
+      throw new Error(terminal.errorMessage || lastErrorMessage(messages, "git status failed"))
+    }
+    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    if (!parsed) throw new Error(lastErrorMessage(messages, "git status output missing JSON payload"))
+
+    const aheadRaw = parsed.ahead
+    const behindRaw = parsed.behind
+    const ahead = typeof aheadRaw === "number" ? Math.max(0, Math.trunc(aheadRaw)) : null
+    const behind = typeof behindRaw === "number" ? Math.max(0, Math.trunc(behindRaw)) : null
+
+    return {
+      branch: typeof parsed.branch === "string" ? parsed.branch : null,
+      upstream: typeof parsed.upstream === "string" ? parsed.upstream : null,
+      localHead: typeof parsed.localHead === "string" ? parsed.localHead : null,
+      originDefaultRef: typeof parsed.originDefaultRef === "string" ? parsed.originDefaultRef : null,
+      originHead: typeof parsed.originHead === "string" ? parsed.originHead : null,
+      dirty: Boolean(parsed.dirty),
+      ahead,
+      behind,
+      detached: Boolean(parsed.detached),
+      needsPush: Boolean(parsed.needsPush),
+      canPush: Boolean(parsed.canPush),
+      pushBlockedReason: typeof parsed.pushBlockedReason === "string" ? parsed.pushBlockedReason : undefined,
+    } satisfies GitRepoStatus
   })
 
 export const gitPushExecute = createServerFn({ method: "POST" })
   .inputValidator(parseProjectIdInput)
   .handler(async ({ data }) => {
-    return await executeGitPush({ projectId: data.projectId })
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "git_push",
+      title: "Git push",
+      args: ["git", "push"],
+      note: "control-plane git push request",
+    })
+    return { ok: true as const, queued: true as const, runId: queued.runId, jobId: queued.jobId }
   })

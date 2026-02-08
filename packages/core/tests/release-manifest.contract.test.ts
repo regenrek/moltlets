@@ -96,4 +96,3 @@ describe("release manifest", () => {
     expect(a).toBe(b);
   });
 });
-

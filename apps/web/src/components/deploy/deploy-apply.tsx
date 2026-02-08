@@ -1,7 +1,9 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { PageHeader } from "~/components/ui/page-header"
 import { Button } from "~/components/ui/button"
@@ -10,7 +12,6 @@ import { Label } from "~/components/ui/label"
 import { Switch } from "~/components/ui/switch"
 import { Textarea } from "~/components/ui/textarea"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawletsConfig } from "~/sdk/config"
 import {
   serverUpdateApplyExecute,
   serverUpdateApplyStart,
@@ -29,13 +30,12 @@ type DeployApplyChangesProps = {
 export function DeployApplyChanges({ projectSlug, host, variant = "page" }: DeployApplyChangesProps) {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
+    gcTime: 5_000,
   })
-  const config = cfg.data?.config as any
+  const hostExists = Boolean(hostsQuery.data?.some((row) => row.hostName === host))
 
   const [targetHost, setTargetHost] = useState("")
   const expectedApplyConfirm = `apply updates ${host}`.trim()
@@ -109,12 +109,12 @@ export function DeployApplyChanges({ projectSlug, host, variant = "page" }: Depl
         <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
       ) : !projectId ? (
         <div className="text-muted-foreground">Project not found.</div>
-      ) : cfg.isPending ? (
+      ) : hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
+      ) : !hostExists ? (
+        <div className="text-muted-foreground">Host not found in control-plane metadata.</div>
       ) : (
         <div className="space-y-6">
           <div className="rounded-lg border bg-card p-6 space-y-4">
@@ -229,4 +229,3 @@ export function DeployApplyChanges({ projectSlug, host, variant = "page" }: Depl
     </div>
   )
 }
-

@@ -14,7 +14,6 @@ import { setupFieldHelp } from "~/lib/setup-field-help"
 import {
   configDotGet,
   configDotSet,
-  getClawletsConfig,
   writeClawletsConfigFile,
 } from "~/sdk/config"
 
@@ -27,16 +26,40 @@ function FleetSetup() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
+  const configQueryKey = ["fleetSetupConfig", projectId] as const
 
   const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+    queryKey: configQueryKey,
     enabled: Boolean(projectId),
+    queryFn: async () => {
+      const [schemaVersionNode, defaultHostNode, baseFlakeNode, fleetNode, cattleNode, hostsNode] = await Promise.all([
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "schemaVersion" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "defaultHost" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "baseFlake" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "cattle" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "hosts" } }),
+      ])
+      const schemaVersion = typeof schemaVersionNode.value === "string" ? schemaVersionNode.value : "v1"
+      const defaultHost = typeof defaultHostNode.value === "string" ? defaultHostNode.value : undefined
+      const baseFlake = typeof baseFlakeNode.value === "string" ? baseFlakeNode.value : ""
+      const config = {
+        schemaVersion,
+        defaultHost,
+        baseFlake,
+        fleet: fleetNode.value && typeof fleetNode.value === "object" && !Array.isArray(fleetNode.value) ? fleetNode.value : {},
+        cattle: cattleNode.value && typeof cattleNode.value === "object" && !Array.isArray(cattleNode.value) ? cattleNode.value : {},
+        hosts: hostsNode.value && typeof hostsNode.value === "object" && !Array.isArray(hostsNode.value) ? hostsNode.value : {},
+      }
+      return {
+        configPath: "fleet/clawlets.json",
+        config,
+        json: JSON.stringify(config, null, 2),
+      }
+    },
   })
 
   const config = cfg.data?.config
-  const repoRoot = cfg.data?.repoRoot
 
   const [codexEnable, setCodexEnable] = useState(false)
   const [resticEnable, setResticEnable] = useState(false)
@@ -81,7 +104,7 @@ function FleetSetup() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: configQueryKey })
       } else {
         toast.error("Validation failed")
       }
@@ -103,7 +126,7 @@ function FleetSetup() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: configQueryKey })
       } else {
         toast.error("Validation failed")
       }
@@ -137,7 +160,7 @@ function FleetSetup() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Updated")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: configQueryKey })
       } else toast.error("Validation failed")
     },
   })
@@ -180,7 +203,7 @@ function FleetSetup() {
           <TabsContent value="visual">
             <div className="rounded-lg border bg-card p-6 space-y-6">
               <div className="text-xs text-muted-foreground">
-                {repoRoot ? repoRoot : ""} · fleet/clawlets.json
+                fleet/clawlets.json
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
@@ -253,7 +276,7 @@ function FleetSetup() {
                   type="button"
                   variant="outline"
                   disabled={cfg.isPending}
-                  onClick={() => void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })}
+                  onClick={() => void queryClient.invalidateQueries({ queryKey: configQueryKey })}
                 >
                   Reload
                 </Button>

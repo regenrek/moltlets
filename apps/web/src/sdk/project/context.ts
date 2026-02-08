@@ -1,49 +1,28 @@
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import type { ConvexClient } from "~/server/convex"
-import { assertRepoRootPath } from "~/server/paths"
-
-export type ProjectContext = {
-  project: { localPath: string }
+export type ProjectAccess = {
+  project: {
+    executionMode: "local" | "remote_runner"
+    localPath?: string
+    workspaceRef: { kind: "local" | "git"; id: string; relPath?: string }
+  }
   role: "admin" | "viewer"
-  repoRoot: string
 }
 
-type RepoRootOptions = {
-  allowMissing?: boolean
-  requireRepoLayout?: boolean
-}
-
-export async function getProjectContext(
+export async function getProjectAccess(
   client: ConvexClient,
   projectId: Id<"projects">,
-  options: RepoRootOptions = {},
-): Promise<ProjectContext> {
+): Promise<ProjectAccess> {
   const result = await client.query(api.projects.get, { projectId })
-  const repoRoot = assertRepoRootPath(result.project.localPath, {
-    allowMissing: options.allowMissing === true,
-    requireRepoLayout: options.requireRepoLayout === true,
-  })
-  return { ...result, repoRoot }
+  return result
 }
 
-export async function getRepoRoot(
+export async function requireAdminProjectAccess(
   client: ConvexClient,
   projectId: Id<"projects">,
-): Promise<string> {
-  const { repoRoot } = await getProjectContext(client, projectId, {
-    allowMissing: false,
-    requireRepoLayout: true,
-  })
-  return repoRoot
-}
-
-export async function getAdminProjectContext(
-  client: ConvexClient,
-  projectId: Id<"projects">,
-  options: RepoRootOptions = {},
-): Promise<ProjectContext> {
-  const context = await getProjectContext(client, projectId, options)
-  if (context.role !== "admin") throw new Error("admin required")
-  return context
+): Promise<ProjectAccess> {
+  const result = await getProjectAccess(client, projectId)
+  if (result.role !== "admin") throw new Error("admin required")
+  return result
 }

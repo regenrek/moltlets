@@ -6,7 +6,7 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: {},
       },
@@ -41,7 +41,7 @@ describe("secrets autowire", () => {
     const { planSecretsAutowire } = await import("../src/lib/secrets/secrets-autowire");
 
     const cfg = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       fleet: {
         secretEnv: { OPENAI_API_KEY: "openai_api_key" },
       },

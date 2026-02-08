@@ -1,5 +1,7 @@
+export * from "./config-store.js";
 export * from "./dot-path.js";
 export * from "./dotenv-file.js";
+export * from "./fs-config-store.js";
 export * from "./fs-safe.js";
 export * from "./fs-trash.js";
 export * from "./object-path.js";

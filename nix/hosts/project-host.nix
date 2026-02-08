@@ -1,9 +1,11 @@
 { config, lib, project, ... }:
 
 let
-  cfg = project.config;
-  fleetCfg = (cfg.fleet or { });
-  hostCfg = (cfg.hosts.${config.clawlets.hostName} or { });
+  infraCfg = project.infraConfig or project.config or { };
+  openclawCfg = project.openclawConfig or { hosts = { }; fleet = { }; };
+  fleetCfg = (infraCfg.fleet or { });
+  hostCfg = (infraCfg.hosts.${config.clawlets.hostName} or { });
+  openclawHostCfg = (openclawCfg.hosts.${config.clawlets.hostName} or { });
   tailnet = (hostCfg.tailnet or { });
   tailnetMode = tailnet.mode or "none";
   sshExposureMode = ((hostCfg.sshExposure or { }).mode or "tailnet");
@@ -202,7 +204,7 @@ in {
   '';
 
   services.openclawFleet = {
-    enable = hostCfg.enable or false;
+    enable = openclawHostCfg.enable or false;
     gateways = fleet.gateways;
     secretEnv = fleet.secretEnv;
     secretFiles = fleet.secretFiles;
@@ -212,6 +214,6 @@ in {
     codex = fleet.codex;
     opsSnapshot.enable = true;
     disableBonjour = true;
-    agentModelPrimary = hostCfg.agentModelPrimary or "zai/glm-4.7";
+    agentModelPrimary = openclawHostCfg.agentModelPrimary or "zai/glm-4.7";
   };
 }

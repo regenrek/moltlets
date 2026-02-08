@@ -18,7 +18,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "../pwn": {
             enable: false,
@@ -38,7 +38,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -58,7 +58,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -78,7 +78,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -98,7 +98,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -118,7 +118,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -139,7 +139,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         fleet: { botOrder: ["maren"], bots: { maren: {} } },
         hosts: {
           "openclaw-fleet-host": {
@@ -156,46 +156,11 @@ describe("clawlets config schema", () => {
     ).toThrow(/fleet\.bots/i);
   });
 
-  it("hard rejects legacy hosts.<host>.bots and hosts.<host>.botsOrder (schema v1)", async () => {
-    const { loadClawletsConfigRaw } = await import("../src/lib/config/clawlets-config");
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-legacy-host-"));
-    try {
-      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-      await writeFile(
-        path.join(repoRoot, "fleet", "clawlets.json"),
-        `${JSON.stringify(
-          {
-            schemaVersion: 1,
-            hosts: {
-              alpha: {
-                enable: false,
-                botsOrder: ["maren"],
-                bots: { maren: {} },
-                diskDevice: "/dev/sda",
-                sshExposure: { mode: "bootstrap" },
-                tailnet: { mode: "none" },
-                agentModelPrimary: "zai/glm-4.7",
-              },
-            },
-          },
-          null,
-          2,
-        )}\n`,
-      );
-
-      expect(() => loadClawletsConfigRaw({ repoRoot })).toThrow(
-        /hosts\.alpha\.bots\/botsOrder were renamed to hosts\.alpha\.gateways\/gatewaysOrder \(schema v1\)/i,
-      );
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
   it("rejects invalid adminCidr values", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -214,7 +179,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -233,7 +198,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -256,7 +221,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -275,7 +240,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -302,7 +267,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -329,7 +294,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         hosts: {
           "openclaw-fleet-host": {
             enable: false,
@@ -388,7 +353,7 @@ describe("clawlets config schema", () => {
     } as const;
 
     const cfgA = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
@@ -396,7 +361,7 @@ describe("clawlets config schema", () => {
     cfgA.hosts["openclaw-fleet-host"].gateways.maren.profile.secretEnv.LOCAL_ENV_VAR = "local_secret";
 
     const cfgB = ClawletsConfigSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       hosts: { "openclaw-fleet-host": baseHost },
     }) as any;
 
@@ -408,7 +373,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         defaultHost: "missing-host",
         hosts: {
           "openclaw-fleet-host": {
@@ -503,76 +468,17 @@ describe("clawlets config schema", () => {
     }
   });
 
-  it("loadClawletsConfig rejects legacy publicSsh key", async () => {
+  it("loadClawletsConfig rejects schemaVersion v1 (pre-release)", async () => {
     const { loadClawletsConfig } = await import("../src/lib/config/clawlets-config");
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-legacy-"));
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-v1-"));
     try {
       await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
       const legacy = {
         schemaVersion: 1,
-        fleet: { secretEnv: {}, secretFiles: {} },
-        hosts: {
-          "openclaw-fleet-host": {
-            enable: false,
-            diskDevice: "/dev/sda",
-            publicSsh: { enable: false },
-            tailnet: { mode: "none" },
-            agentModelPrimary: "zai/glm-4.7",
-          },
-        },
+        hosts: { "openclaw-fleet-host": { enable: false } },
       };
       await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), JSON.stringify(legacy, null, 2), "utf8");
-      expect(() => loadClawletsConfig({ repoRoot })).toThrow(/legacy host config key publicSsh/i);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("loadClawletsConfig rejects legacy opentofu key", async () => {
-    const { loadClawletsConfig } = await import("../src/lib/config/clawlets-config");
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-legacy-"));
-    try {
-      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-      const legacy = {
-        schemaVersion: 1,
-        fleet: { secretEnv: {}, secretFiles: {} },
-        hosts: {
-          "openclaw-fleet-host": {
-            enable: false,
-            diskDevice: "/dev/sda",
-            opentofu: {},
-            tailnet: { mode: "none" },
-            agentModelPrimary: "zai/glm-4.7",
-          },
-        },
-      };
-      await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), JSON.stringify(legacy, null, 2), "utf8");
-      expect(() => loadClawletsConfig({ repoRoot })).toThrow(/legacy host config key opentofu/i);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("loadClawletsConfig rejects legacy host ssh keys", async () => {
-    const { loadClawletsConfig } = await import("../src/lib/config/clawlets-config");
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-legacy-"));
-    try {
-      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-      const legacy = {
-        schemaVersion: 1,
-        fleet: { secretEnv: {}, secretFiles: {} },
-        hosts: {
-          "openclaw-fleet-host": {
-            enable: false,
-            diskDevice: "/dev/sda",
-            sshAuthorizedKeys: ["ssh-ed25519 AAAATEST legacy"],
-            tailnet: { mode: "none" },
-            agentModelPrimary: "zai/glm-4.7",
-          },
-        },
-      };
-      await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), JSON.stringify(legacy, null, 2), "utf8");
-      expect(() => loadClawletsConfig({ repoRoot })).toThrow(/host SSH keys are now project-scoped/i);
+      expect(() => loadClawletsConfig({ repoRoot })).toThrow(/schemaVersion/i);
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
@@ -582,7 +488,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         fleet: {
           secretEnv: { "bad-key": "../pwn" },
         },
@@ -593,37 +499,11 @@ describe("clawlets config schema", () => {
     ).toThrow(/invalid (env var name|secret name)/i);
   });
 
-  it("loadClawletsConfig rejects legacy envSecrets keys", async () => {
-    const { loadClawletsConfig } = await import("../src/lib/config/clawlets-config");
-    const repoRoot = await mkdtemp(path.join(tmpdir(), "clawlets-config-envsecrets-"));
-    try {
-      await mkdir(path.join(repoRoot, "fleet"), { recursive: true });
-      const legacy = {
-        schemaVersion: 1,
-        fleet: { secretEnv: {}, secretFiles: {} },
-        hosts: {
-          "openclaw-fleet-host": {
-            enable: false,
-            gatewaysOrder: ["maren"],
-            gateways: { maren: { profile: { envSecrets: { DISCORD_BOT_TOKEN: "discord_token_maren" } } } },
-            diskDevice: "/dev/sda",
-            tailnet: { mode: "none" },
-            agentModelPrimary: "zai/glm-4.7",
-          },
-        },
-      };
-      await writeFile(path.join(repoRoot, "fleet", "clawlets.json"), JSON.stringify(legacy, null, 2), "utf8");
-      expect(() => loadClawletsConfig({ repoRoot })).toThrow(/envSecrets was removed/i);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
   it("rejects invalid cattle ttl strings", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         cattle: { enabled: true, hetzner: { image: "img-1", defaultTtl: "2 hours" } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
@@ -636,7 +516,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         cattle: { enabled: true, hetzner: { image: "" } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
@@ -649,7 +529,7 @@ describe("clawlets config schema", () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
-        schemaVersion: 1,
+        schemaVersion: 2,
         cattle: { enabled: false, hetzner: { labels: { "bad key": "x" } } },
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },

@@ -18,7 +18,7 @@ async function loadCancelRun(options: { role: "admin" | "viewer"; status: string
   const query = vi.fn(async () => ({
     run: { projectId: "p1", status: options.status },
     role: options.role,
-    project: { localPath: "/tmp" },
+    project: { executionMode: "local", localPath: "/tmp" },
   }))
 
   vi.doMock("~/server/run-manager", () => ({ cancelActiveRun, runWithEvents }))

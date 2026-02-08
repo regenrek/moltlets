@@ -7,7 +7,6 @@ import { api } from "../../../../../../../convex/_generated/api"
 import { GatewayPersonas } from "~/components/fleet/gateway/gateway-personas"
 import { authClient } from "~/lib/auth-client"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawletsConfig } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/gateways/$gatewayId/personas")({
   component: GatewayPersonasRoute,
@@ -28,24 +27,28 @@ function GatewayPersonasRoute() {
   })
   const canEdit = project.data?.role === "admin"
 
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const gatewaysQuerySpec = convexQuery(api.gateways.listByProjectHost, {
+    projectId: projectId as Id<"projects">,
+    hostName: host,
+  })
+  const gatewaysQuery = useQuery({
+    ...gatewaysQuerySpec,
     enabled: Boolean(projectId) && canQuery,
+    gcTime: 5_000,
   })
 
-  const config = cfg.data?.config
-  const gatewayCfg = (config as any)?.hosts?.[host]?.gateways?.[gatewayId] as any
-  const agentsCfg = gatewayCfg?.agents ?? {}
+  const gatewaySummary = gatewaysQuery.data?.find((row) => row.gatewayId === gatewayId)
+  const personaIds = (gatewaySummary?.desired?.personaIds || [])
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean)
+  const agentsCfg = { list: personaIds.map((id) => ({ id })) }
 
   if (projectQuery.isPending) return <div className="text-muted-foreground">Loading…</div>
   if (projectQuery.error) return <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
   if (!projectId) return <div className="text-muted-foreground">Project not found.</div>
-  if (cfg.isPending) return <div className="text-muted-foreground">Loading…</div>
-  if (cfg.error) return <div className="text-sm text-destructive">{String(cfg.error)}</div>
-  if (!config) return <div className="text-muted-foreground">Missing config.</div>
-  if (!gatewayCfg) return <div className="text-muted-foreground">Gateway not found.</div>
+  if (gatewaysQuery.isPending) return <div className="text-muted-foreground">Loading…</div>
+  if (gatewaysQuery.error) return <div className="text-sm text-destructive">{String(gatewaysQuery.error)}</div>
+  if (!gatewaySummary) return <div className="text-muted-foreground">Gateway not found in control-plane metadata.</div>
 
   return (
     <GatewayPersonas
@@ -54,7 +57,7 @@ function GatewayPersonasRoute() {
       gatewayId={gatewayId}
       agents={agentsCfg}
       canEdit={canEdit}
+      metadataQueryKey={gatewaysQuerySpec.queryKey}
     />
   )
 }
-

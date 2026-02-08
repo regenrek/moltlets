@@ -18,8 +18,8 @@ import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
 import { StackedField } from "~/components/ui/stacked-field"
 import { useProjectBySlug } from "~/lib/project-data"
-import { GatewayRoster, getGatewayChannels } from "~/components/fleet/gateway/gateway-roster"
-import { addGateway, getClawletsConfig, setGatewayArchitecture } from "~/sdk/config"
+import { GatewayRoster, type GatewayRosterDetail } from "~/components/fleet/gateway/gateway-roster"
+import { addGateway, setGatewayArchitecture } from "~/sdk/config"
 import { authClient } from "~/lib/auth-client"
 import type { GatewayArchitecture } from "@clawlets/core/lib/config/clawlets-config"
 
@@ -70,16 +70,26 @@ function GatewaysSetup() {
   })
   const canEdit = project.data?.role === "admin"
 
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const hostsQuerySpec = convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> })
+  const hostsQuery = useQuery({
+    ...hostsQuerySpec,
     enabled: Boolean(projectId) && canQuery,
+    gcTime: 5_000,
   })
-  const config = cfg.data?.config
-  const hostCfg = (config as any)?.hosts?.[host]
-  const gateways = useMemo(() => (hostCfg?.gatewaysOrder as string[]) || [], [hostCfg])
-  const gatewayArchitecture = (config?.fleet as { gatewayArchitecture?: GatewayArchitecture } | undefined)
+  const hostSummary = hostsQuery.data?.find((row) => row.hostName === host)
+
+  const gatewaysQuerySpec = convexQuery(api.gateways.listByProjectHost, {
+    projectId: projectId as Id<"projects">,
+    hostName: host,
+  })
+  const gatewaysQuery = useQuery({
+    ...gatewaysQuerySpec,
+    enabled: Boolean(projectId) && canQuery && Boolean(hostSummary),
+    gcTime: 5_000,
+  })
+  const gatewayRows = gatewaysQuery.data || []
+  const gateways = useMemo(() => gatewayRows.map((row) => row.gatewayId), [gatewayRows])
+  const gatewayArchitecture = (hostSummary?.desired as { gatewayArchitecture?: GatewayArchitecture } | undefined)
     ?.gatewayArchitecture
   const hasGateways = gateways.length > 0
   const isSingleArchitecture = gatewayArchitecture === "single"
@@ -96,16 +106,32 @@ function GatewaysSetup() {
   const normalizedQuery = rosterQuery.trim().toLowerCase()
   const hasRosterQuery = Boolean(normalizedQuery)
 
+  const gatewayDetailsById = useMemo<Record<string, GatewayRosterDetail>>(() => {
+    const byId: Record<string, GatewayRosterDetail> = {}
+    for (const row of gatewayRows) {
+      const details = (row.desired || {}) as {
+        channels?: string[]
+        port?: number
+      }
+      byId[row.gatewayId] = {
+        channels: Array.isArray(details.channels) ? details.channels.map((entry) => String(entry)).filter(Boolean) : [],
+        port: typeof details.port === "number" && Number.isFinite(details.port) ? Math.trunc(details.port) : null,
+      }
+    }
+    return byId
+  }, [gatewayRows])
+
   const allChannels = useMemo(() => {
-    if (!config) return []
     const found = new Set<string>()
     for (const gatewayId of gateways) {
-      for (const channel of getGatewayChannels({ config, host, gatewayId })) {
-        found.add(channel)
+      const channels = gatewayDetailsById[gatewayId]?.channels || []
+      for (const channel of channels) {
+        const normalized = String(channel || "").trim()
+        if (normalized) found.add(normalized)
       }
     }
     return Array.from(found).sort()
-  }, [gateways, config])
+  }, [gateways, gatewayDetailsById])
 
   const filteredGateways = useMemo(() => {
     const query = normalizedQuery
@@ -114,10 +140,9 @@ function GatewaysSetup() {
     return gateways.filter((gatewayId) => {
       if (query && !gatewayId.toLowerCase().includes(query)) return false
       if (filter === "all") return true
-      if (!config) return false
-      return getGatewayChannels({ config, host, gatewayId }).includes(filter)
+      return (gatewayDetailsById[gatewayId]?.channels || []).includes(filter)
     })
-  }, [gateways, channelFilter, config, normalizedQuery])
+  }, [gateways, channelFilter, gatewayDetailsById, normalizedQuery])
 
   const [addOpen, setAddOpen] = useState(false)
   const [displayName, setDisplayName] = useState("")
@@ -149,7 +174,8 @@ function GatewaysSetup() {
       setDisplayName("")
       setGatewayIdOverride("")
       setGatewayIdOverrideEnabled(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: hostsQuerySpec.queryKey })
+      void queryClient.invalidateQueries({ queryKey: gatewaysQuerySpec.queryKey })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -163,7 +189,8 @@ function GatewaysSetup() {
       }),
     onSuccess: () => {
       toast.success("Gateway architecture updated")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+      void queryClient.invalidateQueries({ queryKey: hostsQuerySpec.queryKey })
+      void queryClient.invalidateQueries({ queryKey: gatewaysQuerySpec.queryKey })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -362,12 +389,16 @@ function GatewaysSetup() {
         <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
       ) : !projectId ? (
         <div className="text-muted-foreground">Project not found.</div>
-      ) : cfg.isPending ? (
+      ) : hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
+      ) : !hostSummary ? (
+        <div className="text-muted-foreground">Host not found in control-plane metadata.</div>
+      ) : gatewaysQuery.isPending ? (
+        <div className="text-muted-foreground">Loading…</div>
+      ) : gatewaysQuery.error ? (
+        <div className="text-sm text-destructive">{String(gatewaysQuery.error)}</div>
       ) : (
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -417,7 +448,7 @@ function GatewaysSetup() {
             host={host}
             projectId={projectId}
             gateways={filteredGateways}
-            config={config}
+            gatewayDetails={gatewayDetailsById}
             canEdit={canEdit}
             emptyText={hasRosterQuery || channelFilter !== "all" ? "No matches." : "No gateways yet."}
           />
@@ -426,4 +457,3 @@ function GatewaysSetup() {
     </div>
   )
 }
-

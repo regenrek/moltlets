@@ -1,8 +1,10 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { BootstrapChecklist } from "~/components/hosts/bootstrap-checklist"
 import { BootstrapDeploySourceSection } from "~/components/hosts/bootstrap-deploy-source"
@@ -25,7 +27,6 @@ import {
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawletsConfig } from "~/sdk/config"
 import { getDeployCredsStatus } from "~/sdk/infra"
 import { gitPushExecute, gitRepoStatus } from "~/sdk/vcs"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
@@ -46,11 +47,10 @@ export function DeployInitialInstall({
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
+    gcTime: 5_000,
   })
   const creds = useQuery({
     queryKey: ["deployCreds", projectId],
@@ -58,9 +58,8 @@ export function DeployInitialInstall({
       await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
     enabled: Boolean(projectId),
   })
-  const config = cfg.data?.config as any
-  const hostCfg = host && config?.hosts ? config.hosts[host] : null
-  const tailnetMode = String(hostCfg?.tailnet?.mode || "none")
+  const hostSummary = hostsQuery.data?.find((row) => row.hostName === host) ?? null
+  const tailnetMode = String(hostSummary?.desired?.tailnetMode || "none")
   const [mode, setMode] = useState<"nixos-anywhere" | "image">("nixos-anywhere")
   const [force, setForce] = useState(false)
   const [dryRun, setDryRun] = useState(false)
@@ -83,7 +82,7 @@ export function DeployInitialInstall({
       await gitPushExecute({ data: { projectId: projectId as Id<"projects"> } }),
     onSuccess: (res) => {
       if (res.ok) {
-        toast.info("Pushed to origin")
+        toast.info("Git push queued")
         void repoStatus.refetch()
       } else {
         toast.error("git push failed (see Runs for logs)")
@@ -167,14 +166,17 @@ export function DeployInitialInstall({
         <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
       ) : !projectId ? (
         <div className="text-muted-foreground">Project not found.</div>
-      ) : cfg.isPending ? (
+      ) : hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
       ) : (
         <div className="space-y-6">
+          {!hostSummary ? (
+            <div className="rounded-md border border-amber-300/40 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+              Host metadata not synced yet. Showing defaults until runner sync.
+            </div>
+          ) : null}
           <div className="rounded-lg border bg-card p-6 space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -389,7 +391,6 @@ export function DeployInitialInstall({
             <RunLogTail
               runId={runId}
               onDone={(status) => {
-                void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
                 if (status === "succeeded") onBootstrapped?.()
               }}
             />
@@ -397,7 +398,11 @@ export function DeployInitialInstall({
 
           {host ? (
             <div id="lockdown">
-              <BootstrapChecklist projectId={projectId as Id<"projects">} host={host} config={config} />
+              <BootstrapChecklist
+                projectId={projectId as Id<"projects">}
+                host={host}
+                hostDesired={hostSummary?.desired ?? null}
+              />
             </div>
           ) : null}
         </div>
@@ -430,4 +435,3 @@ export function DeployInitialInstall({
     </div>
   )
 }
-

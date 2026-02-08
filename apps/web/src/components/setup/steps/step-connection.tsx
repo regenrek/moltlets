@@ -89,7 +89,6 @@ function SetupStepConnectionForm(props: {
       if (res.ok) {
         toast.success("Saved")
         setKeyText("")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
         props.onContinue()
         return
       }

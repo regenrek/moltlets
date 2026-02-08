@@ -35,7 +35,6 @@ export function SetupStepHost(props: {
       toast.success("Host added")
       const nextHost = newHost.trim()
       setNewHost("")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
       if (nextHost) props.onSelectHost(nextHost)
     },
     onError: (err) => {

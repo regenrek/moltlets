@@ -7,7 +7,7 @@ import { DeployApplyChanges } from "~/components/deploy/deploy-apply"
 import { DeployInitialInstall } from "~/components/deploy/deploy-initial"
 import { Button } from "~/components/ui/button"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/deploy")({
@@ -17,7 +17,6 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/deploy")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: DeployHost,
 })
@@ -68,7 +67,7 @@ function DeployHost() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link to="/$projectSlug/setup" params={{ projectSlug }} search={{ host }} />}
+            render={<Link to="/$projectSlug/hosts/$host/setup" params={{ projectSlug, host }} />}
           >
             Open Setup
           </Button>

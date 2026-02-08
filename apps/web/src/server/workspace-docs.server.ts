@@ -181,10 +181,19 @@ export async function writeWorkspaceDocServer(params: {
       await emit({ level: "info", message: "Done." })
     },
     onAfterEvents: async () => {
+      if (params.scope === "common") {
+        await client.mutation(api.auditLogs.append, {
+          projectId: params.projectId,
+          action: "workspace.common.write",
+          target: { doc: params.name },
+          data: { runId },
+        })
+        return
+      }
       await client.mutation(api.auditLogs.append, {
         projectId: params.projectId,
-        action: params.scope === "common" ? "workspace.common.write" : "workspace.gateway.write",
-        target: params.scope === "common" ? { doc: params.name } : { gatewayId: params.gatewayId, doc: params.name },
+        action: "workspace.gateway.write",
+        target: { gatewayId: params.gatewayId, doc: params.name },
         data: { runId },
       })
     },

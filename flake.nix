@@ -237,13 +237,13 @@
         '';
 
         nix-module-eval = let
-          projectConfig = {
+          infraConfig = {
+            schemaVersion = 2;
             fleet = {
               secretEnv = { };
               secretFiles = { };
               sshAuthorizedKeys = [ ];
               sshKnownHosts = [ ];
-              codex = { enable = false; gateways = [ ]; };
               backups = { restic = { enable = false; repository = ""; }; };
             };
             cattle = {
@@ -261,15 +261,36 @@
             hosts = {
               "openclaw-fleet-host" = {
                 enable = false;
-                gatewaysOrder = [ "maren" ];
-                gateways = { maren = { }; };
-                openclaw = { enable = false; };
+                diskDevice = "/dev/sda";
+                flakeHost = "";
+                targetHost = "admin@127.0.0.1";
                 tailnet = { mode = "none"; };
-                agentModelPrimary = "zai/glm-4.7";
               };
             };
           };
-          project = { root = toString ./.; config = projectConfig; };
+          openclawConfig = {
+            schemaVersion = 1;
+            hosts = {
+              "openclaw-fleet-host" = {
+                enable = false;
+                gatewaysOrder = [ "maren" ];
+                gateways = { maren = { }; };
+                agentModelPrimary = "zai/glm-4.7";
+              };
+            };
+            fleet = {
+              secretEnv = { };
+              secretFiles = { };
+              gatewayArchitecture = "multi";
+              codex = { enable = false; gateways = [ ]; };
+            };
+          };
+          project = {
+            root = toString ./.;
+            infraConfig = infraConfig;
+            openclawConfig = openclawConfig;
+            config = infraConfig;
+          };
           flakeInfo = { project = { rev = "eval"; }; };
           evalSystem = nixpkgs.lib.nixosSystem {
             system = systemLinux;

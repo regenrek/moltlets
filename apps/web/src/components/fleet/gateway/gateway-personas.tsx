@@ -60,6 +60,8 @@ export function GatewayPersonas(props: {
   gatewayId: string
   agents: unknown
   canEdit: boolean
+  configQueryKey?: readonly unknown[]
+  metadataQueryKey?: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
   const [addOpen, setAddOpen] = useState(false)
@@ -104,7 +106,12 @@ export function GatewayPersonas(props: {
       setAgentIdOverride("")
       setAgentIdOverrideEnabled(false)
       setMakeDefault(false)
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      if (props.configQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.configQueryKey })
+      }
+      if (props.metadataQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.metadataQueryKey })
+      }
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -116,7 +123,12 @@ export function GatewayPersonas(props: {
       }),
     onSuccess: () => {
       toast.success("Agent removed")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      if (props.configQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.configQueryKey })
+      }
+      if (props.metadataQueryKey) {
+        void queryClient.invalidateQueries({ queryKey: props.metadataQueryKey })
+      }
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })

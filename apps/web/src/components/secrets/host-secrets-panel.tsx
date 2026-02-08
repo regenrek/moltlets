@@ -13,7 +13,6 @@ import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawletsConfig } from "~/sdk/config"
 import {
   getSecretsTemplate,
   secretsInitExecute,
@@ -29,19 +28,13 @@ import { MissingEnvWiringPanel } from "~/components/secrets/missing-env-wiring"
 type HostSecretsPanelProps = {
   projectId: Id<"projects">
   host: string
+  scope?: "bootstrap" | "updates" | "openclaw" | "all"
 }
 
-export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () => await getClawletsConfig({ data: { projectId } }),
-  })
-
-  const config = cfg.data?.config as any
-
+export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecretsPanelProps) {
   const template = useQuery({
-    queryKey: ["secretsTemplate", projectId, host],
-    queryFn: async () => await getSecretsTemplate({ data: { projectId, host } }),
+    queryKey: ["secretsTemplate", projectId, host, scope],
+    queryFn: async () => await getSecretsTemplate({ data: { projectId, host, scope } }),
     enabled: Boolean(host),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -105,7 +98,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
   const initStart = useMutation({
-    mutationFn: async () => await secretsInitStart({ data: { projectId, host } }),
+    mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope } }),
     onSuccess: (res) => {
       setInitRunId(res.runId)
       const secretsPayload = Object.fromEntries(
@@ -118,6 +111,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
           projectId,
           runId: res.runId,
           host,
+          scope,
           allowPlaceholders: false,
           adminPassword,
           tailscaleAuthKey,
@@ -129,12 +123,12 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
   })
 
   const verifyQuery = useQuery({
-    queryKey: ["secretsVerify", projectId, host],
+    queryKey: ["secretsVerify", projectId, host, scope],
     queryFn: async () => {
       if (!host) throw new Error("missing host")
-      const res = await secretsVerifyStart({ data: { projectId, host } })
+      const res = await secretsVerifyStart({ data: { projectId, host, scope } })
       const result = await secretsVerifyExecute({
-        data: { projectId, runId: res.runId, host },
+        data: { projectId, runId: res.runId, host, scope },
       })
       return { runId: res.runId, result }
     },
@@ -171,10 +165,7 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
     setTailscaleUnlocked(false)
   }, [host])
 
-  const verifyResults = useMemo(() => {
-    const results = verifyResult?.result?.results
-    return Array.isArray(results) ? results : []
-  }, [verifyResult])
+  const verifyResults = useMemo<any[]>(() => [], [])
 
   const verifySummary = useMemo(() => {
     if (verifyResults.length === 0) return null
@@ -206,15 +197,8 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
 
   return (
     <div className="space-y-6">
-      {cfg.isPending ? (
-        <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
-      ) : (
-        <div className="space-y-6">
-          <Tabs defaultValue="init">
+      <div className="space-y-6">
+        <Tabs defaultValue="init">
             <TabsList>
               <TabsTrigger value="init">Init</TabsTrigger>
               <TabsTrigger value="verify">Verify</TabsTrigger>
@@ -402,13 +386,17 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
               <div className="rounded-lg border bg-card p-6 space-y-4">
                 <div className="font-medium">Secrets verify</div>
                 <div className="text-xs text-muted-foreground">
-                  Runs <code>clawlets secrets verify --json</code> and summarizes missing secrets.
+                  Runs <code>{`clawlets secrets verify --scope ${scope} --json`}</code> and summarizes missing secrets.
                 </div>
                 <Button type="button" disabled={verifyQuery.isFetching || !host} onClick={() => void verifyQuery.refetch()}>
                   {verifyQuery.isFetching ? "Checking…" : "Run verify"}
                 </Button>
-                {verifyResult?.result ? (
-                  <Textarea readOnly className="font-mono min-h-[200px]" value={JSON.stringify(verifyResult.result, null, 2)} />
+                {verifyResult ? (
+                  <Textarea
+                    readOnly
+                    className="font-mono min-h-[120px]"
+                    value={JSON.stringify({ queued: true, message: "Verify job queued. Follow run logs for progress." }, null, 2)}
+                  />
                 ) : null}
                 {verifyRunId ? <RunLogTail runId={verifyRunId} /> : null}
               </div>
@@ -450,9 +438,8 @@ export function HostSecretsPanel({ projectId, host }: HostSecretsPanelProps) {
                 {syncRunId ? <RunLogTail runId={syncRunId} /> : null}
               </div>
             </TabsContent>
-          </Tabs>
-        </div>
-      )}
+        </Tabs>
+      </div>
     </div>
   )
 }

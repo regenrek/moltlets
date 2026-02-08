@@ -25,7 +25,7 @@ async function loadProjects(
   })
   const query = vi.fn(async (_query: unknown, args?: { runId?: string }) => {
     if (args?.runId) return { run: { projectId: options.runProjectId ?? "p1" } }
-    return { project: { localPath: "/tmp" }, role }
+    return { project: { executionMode: "local", localPath: "/tmp" }, role }
   })
 
   vi.doMock("@clawlets/core/lib/project/project-init", () => ({

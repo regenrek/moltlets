@@ -23,16 +23,20 @@ describe("fleet nix eval", () => {
   const testIt = hasNix() && fs.existsSync(resolveRepoRoot()) ? it : it.skip;
 
   testIt(
-    "fails when no gateways are configured",
+    "returns empty gateways when openclaw is disabled/missing",
     async () => {
       const repoRoot = resolveRepoRoot();
       const expr = [
         "let",
         "  flake = builtins.getFlake (toString ./.);",
         "  lib = flake.inputs.nixpkgs.lib;",
+        "  infraConfig = { schemaVersion = 2; hosts = { alpha = { enable = true; }; }; fleet = { secretEnv = {}; secretFiles = {}; sshAuthorizedKeys = []; sshKnownHosts = []; backups = { restic = { enable = false; repository = \"\"; }; }; }; cattle = { enabled = false; }; };",
+        "  openclawConfig = { schemaVersion = 1; hosts = {}; fleet = { secretEnv = {}; secretFiles = {}; gatewayArchitecture = \"multi\"; codex = { enable = false; gateways = []; }; }; };",
         "  project = {",
         "    root = flake.outPath;",
-        "    config = { hosts = { alpha = { gatewaysOrder = []; gateways = {}; }; }; };",
+        "    infraConfig = infraConfig;",
+        "    openclawConfig = openclawConfig;",
+        "    config = infraConfig;",
         "  };",
         "  hostName = \"alpha\";",
         "  fleetConfigPath =",
@@ -48,13 +52,12 @@ describe("fleet nix eval", () => {
         "in fleet.gateways",
       ].join("\n");
 
-      expect(() =>
-        execFileSync("nix", ["eval", "--impure", "--json", "--expr", expr], {
-          cwd: repoRoot,
-          env: withFlakesEnv(process.env),
-          stdio: "pipe",
-        }),
-      ).toThrow();
+      const out = execFileSync("nix", ["eval", "--impure", "--json", "--expr", expr], {
+        cwd: repoRoot,
+        env: withFlakesEnv(process.env),
+        stdio: "pipe",
+      }).toString("utf8");
+      expect(JSON.parse(out)).toEqual([]);
     },
     NIX_EVAL_TIMEOUT_MS,
   );

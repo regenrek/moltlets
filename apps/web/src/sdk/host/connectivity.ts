@@ -1,24 +1,17 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
-import { getRepoLayout, getHostOpenTofuDir } from "@clawlets/core/repo-layout"
-import { loadDeployCreds } from "@clawlets/core/lib/infra/deploy-creds"
-import { capture } from "@clawlets/core/lib/runtime/run"
-import { sshCapture, validateTargetHost } from "@clawlets/core/lib/security/ssh-remote"
+import { validateTargetHost } from "@clawlets/core/lib/security/ssh-remote"
 import {
-  extractFirstIpv4,
-  isTailscaleIpv4,
-  normalizeSingleLineOutput,
   parseBootstrapIpv4FromLogs,
 } from "@clawlets/core/lib/host/host-connectivity"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { getRepoRoot } from "~/sdk/project"
+import { enqueueRunnerJobForRun } from "~/sdk/runtime"
 import { parseProjectHostRequiredInput, parseProjectHostTargetInput } from "~/sdk/runtime"
 
 export type PublicIpv4Result =
-  | { ok: true; ipv4: string; source: "opentofu" | "bootstrap_logs" }
-  | { ok: false; error: string; source: "opentofu" | "bootstrap_logs" | "none" }
+  | { ok: true; ipv4: string; source: "bootstrap_logs" }
+  | { ok: false; error: string; source: "bootstrap_logs" | "none" }
 
 export type TailscaleIpv4Result =
   | { ok: true; ipv4: string }
@@ -27,6 +20,114 @@ export type TailscaleIpv4Result =
 export type SshReachabilityResult =
   | { ok: true; hostname?: string }
   | { ok: false; error: string }
+
+type MinimalRunStatus = "queued" | "running" | "succeeded" | "failed" | "canceled"
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function assertKnownHost(params: {
+  projectId: Id<"projects">
+  host: string
+}): Promise<void> {
+  const client = createConvexClient()
+  const hosts = await client.query(api.hosts.listByProject, { projectId: params.projectId })
+  if (!hosts.some((row) => row.hostName === params.host)) {
+    throw new Error(`unknown host: ${params.host}`)
+  }
+}
+
+async function enqueueCustomProbe(params: {
+  projectId: Id<"projects">
+  host: string
+  title: string
+  args: string[]
+}): Promise<{ runId: Id<"runs"> }> {
+  const client = createConvexClient()
+  const { runId } = await client.mutation(api.runs.create, {
+    projectId: params.projectId,
+    kind: "custom",
+    title: params.title,
+    host: params.host,
+  })
+  await enqueueRunnerJobForRun({
+    client,
+    projectId: params.projectId,
+    runId,
+    expectedKind: "custom",
+    jobKind: "custom",
+    host: params.host,
+    payloadMeta: {
+      hostName: params.host,
+      args: params.args,
+      note: "web connectivity probe",
+    },
+  })
+  return { runId }
+}
+
+async function waitForRunTerminal(params: {
+  projectId: Id<"projects">
+  runId: Id<"runs">
+  timeoutMs?: number
+  pollMs?: number
+}): Promise<{ status: MinimalRunStatus; errorMessage?: string }> {
+  const client = createConvexClient()
+  const timeoutMs = params.timeoutMs ?? 20_000
+  const pollMs = params.pollMs ?? 700
+  const startedAt = Date.now()
+  let lastStatus: MinimalRunStatus = "running"
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const runGet = await client.query(api.runs.get, { runId: params.runId })
+    if (!runGet.run || runGet.run.projectId !== params.projectId) {
+      throw new Error("run not found")
+    }
+    const status = runGet.run.status as MinimalRunStatus
+    lastStatus = status
+    if (status === "succeeded" || status === "failed" || status === "canceled") {
+      return { status, errorMessage: runGet.run.errorMessage || undefined }
+    }
+    await sleep(pollMs)
+  }
+
+  return { status: lastStatus, errorMessage: "runner timeout waiting for probe completion" }
+}
+
+async function listRunMessages(runId: Id<"runs">): Promise<string[]> {
+  const client = createConvexClient()
+  const page = await client.query(api.runEvents.pageByRun, {
+    runId,
+    paginationOpts: { numItems: 200, cursor: null },
+  })
+  return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).reverse()
+}
+
+function parseLastJsonMessage<T extends Record<string, unknown>>(messages: string[]): T | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]?.trim() || ""
+    if (!message || !message.startsWith("{") || !message.endsWith("}")) continue
+    try {
+      const parsed = JSON.parse(message) as unknown
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as T
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+function lastErrorMessage(messages: string[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = (messages[i] || "").trim()
+    if (!message) continue
+    if (/error|failed|timeout/i.test(message)) return message
+  }
+  return "probe failed"
+}
 
 async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: string }): Promise<PublicIpv4Result> {
   const client = createConvexClient()
@@ -51,78 +152,74 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
 export const getHostPublicIpv4 = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostRequiredInput)
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
-
-    const layout = getRepoLayout(repoRoot)
-    const opentofuDir = getHostOpenTofuDir(layout, data.host)
-    const deployCreds = loadDeployCreds({ cwd: repoRoot })
-    const nixBin = String(deployCreds.values.NIX_BIN || "nix").trim() || "nix"
-
-    try {
-      const raw = await capture(
-        nixBin,
-        ["run", "--impure", "nixpkgs#opentofu", "--", "output", "-raw", "ipv4"],
-        { cwd: opentofuDir, timeoutMs: 30_000, maxOutputBytes: 4096 },
-      )
-      const ipv4 = extractFirstIpv4(raw || "")
-      if (!ipv4) return { ok: false as const, error: "opentofu output missing ipv4", source: "opentofu" }
-      return { ok: true as const, ipv4, source: "opentofu" }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const fallback = await resolveBootstrapIpv4({ projectId: data.projectId, host: data.host })
-      if (fallback.ok) return fallback
-      return { ok: false as const, error: msg, source: "opentofu" }
-    }
+    await assertKnownHost({ projectId: data.projectId, host: data.host })
+    const fallback = await resolveBootstrapIpv4({ projectId: data.projectId, host: data.host })
+    if (fallback.ok) return fallback
+    return { ok: false as const, error: fallback.error, source: "none" }
   })
 
 export const probeHostTailscaleIpv4 = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostTargetInput)
-  .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
+  .handler(async ({ data }): Promise<TailscaleIpv4Result> => {
+    await assertKnownHost({ projectId: data.projectId, host: data.host })
     const targetHost = validateTargetHost(data.targetHost)
 
-    try {
-      const raw = await sshCapture(targetHost, "tailscale ip -4", {
-        cwd: repoRoot,
-        timeoutMs: 10_000,
-        maxOutputBytes: 8 * 1024,
-      })
-      const normalized = normalizeSingleLineOutput(raw || "")
-      const ipv4 = extractFirstIpv4(normalized || raw || "")
-      if (!ipv4) return { ok: false as const, error: "tailscale ip missing", raw }
-      if (!isTailscaleIpv4(ipv4)) return { ok: false as const, error: `unexpected IPv4 ${ipv4}`, raw }
-      return { ok: true as const, ipv4 }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return { ok: false as const, error: msg }
+    const queued = await enqueueCustomProbe({
+      projectId: data.projectId,
+      host: data.host,
+      title: `Probe tailscale IPv4 (${data.host})`,
+      args: [
+        "server",
+        "tailscale-ipv4",
+        "--host",
+        data.host,
+        "--target-host",
+        targetHost,
+        "--json",
+        "--ssh-tty=false",
+      ],
+    })
+    const terminal = await waitForRunTerminal({ projectId: data.projectId, runId: queued.runId })
+    const messages = await listRunMessages(queued.runId)
+    if (terminal.status !== "succeeded") {
+      return { ok: false as const, error: terminal.errorMessage || lastErrorMessage(messages) }
     }
+    const parsed = parseLastJsonMessage<{ ok?: boolean; ipv4?: string; error?: string }>(messages)
+    if (parsed?.ok && typeof parsed.ipv4 === "string" && parsed.ipv4.trim()) {
+      return { ok: true as const, ipv4: parsed.ipv4.trim() }
+    }
+    return { ok: false as const, error: parsed?.error || "tailscale probe output missing ipv4" }
   })
 
 export const probeSshReachability = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostTargetInput)
-  .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
+  .handler(async ({ data }): Promise<SshReachabilityResult> => {
+    await assertKnownHost({ projectId: data.projectId, host: data.host })
     const targetHost = validateTargetHost(data.targetHost)
 
-    try {
-      const raw = await sshCapture(targetHost, "hostname", {
-        cwd: repoRoot,
-        timeoutMs: 8_000,
-        maxOutputBytes: 2 * 1024,
-      })
-      const hostname = normalizeSingleLineOutput(raw || "")
-      return { ok: true as const, hostname: hostname || undefined }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return { ok: false as const, error: msg }
+    const queued = await enqueueCustomProbe({
+      projectId: data.projectId,
+      host: data.host,
+      title: `Probe SSH reachability (${data.host})`,
+      args: [
+        "server",
+        "ssh-check",
+        "--host",
+        data.host,
+        "--target-host",
+        targetHost,
+        "--json",
+        "--ssh-tty=false",
+      ],
+    })
+    const terminal = await waitForRunTerminal({ projectId: data.projectId, runId: queued.runId })
+    const messages = await listRunMessages(queued.runId)
+    if (terminal.status !== "succeeded") {
+      return { ok: false as const, error: terminal.errorMessage || lastErrorMessage(messages) }
     }
+    const parsed = parseLastJsonMessage<{ ok?: boolean; hostname?: string | null; error?: string }>(messages)
+    if (parsed?.ok) {
+      return { ok: true as const, hostname: typeof parsed.hostname === "string" ? parsed.hostname : undefined }
+    }
+    return { ok: false as const, error: parsed?.error || "ssh probe output missing" }
   })

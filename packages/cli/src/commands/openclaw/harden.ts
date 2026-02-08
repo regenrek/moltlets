@@ -3,24 +3,25 @@ import path from "node:path";
 import { defineCommand } from "citty";
 import { applySecurityDefaults } from "@clawlets/core/lib/config/config-patch";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
-import { ClawletsConfigSchema, loadClawletsConfigRaw, resolveHostName, writeClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
+import { ClawletsConfigSchema, loadFullConfig, resolveHostName, writeClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 
 export const openclawHarden = defineCommand({
   meta: {
     name: "harden",
-    description: "Apply safe OpenClaw security defaults to fleet/clawlets.json (opt-in).",
+    description: "Apply safe OpenClaw security defaults to fleet/openclaw.json (opt-in).",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
     host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
     gateway: { type: "string", description: "Only apply hardening to this gateway id." },
-    write: { type: "boolean", description: "Apply changes to fleet/clawlets.json.", default: false },
+    write: { type: "boolean", description: "Apply changes to fleet/clawlets.json + fleet/openclaw.json.", default: false },
     json: { type: "boolean", description: "Output JSON summary.", default: false },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const { configPath, config: raw } = loadClawletsConfigRaw({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const validated = ClawletsConfigSchema.parse(raw);
+    const { infraConfigPath, openclawConfigPath, config } = loadFullConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+    const writeTargets = `${path.relative(repoRoot, infraConfigPath)} + ${path.relative(repoRoot, openclawConfigPath)}`;
+    const validated = ClawletsConfigSchema.parse(config);
 
     const resolved = resolveHostName({ config: validated, host: args.host });
     if (!resolved.ok) {
@@ -33,7 +34,7 @@ export const openclawHarden = defineCommand({
     const gatewayArg = String(args.gateway || "").trim();
     const gateways = gatewayArg ? [gatewayArg] : hostCfg.gatewaysOrder || [];
     if (gateways.length === 0) {
-      throw new Error(`hosts.${resolved.host}.gatewaysOrder is empty (set gateways in fleet/clawlets.json)`);
+      throw new Error(`hosts.${resolved.host}.gatewaysOrder is empty (set gateways in fleet/openclaw.json)`);
     }
 
     const next = structuredClone(validated) as any;
@@ -80,7 +81,7 @@ export const openclawHarden = defineCommand({
         console.log(JSON.stringify({ ok: true, write: false, updates }, null, 2));
         return;
       }
-      console.log(`planned: update ${path.relative(repoRoot, configPath)}`);
+      console.log(`planned: update ${writeTargets}`);
       for (const u of updates) {
         for (const c of u.changes) console.log(`- hosts.${resolved.host}.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
       }
@@ -89,14 +90,14 @@ export const openclawHarden = defineCommand({
     }
 
     const finalConfig = ClawletsConfigSchema.parse(next);
-    await writeClawletsConfig({ configPath, config: finalConfig });
+    await writeClawletsConfig({ configPath: infraConfigPath, config: finalConfig });
 
     if (args.json) {
       console.log(JSON.stringify({ ok: true, write: true, updates }, null, 2));
       return;
     }
 
-    console.log(`ok: updated ${path.relative(repoRoot, configPath)}`);
+    console.log(`ok: updated ${writeTargets}`);
     for (const u of updates) {
       for (const c of u.changes) console.log(`- hosts.${resolved.host}.gateways.${u.gatewayId}.${c.scope}.${c.path}`);
     }

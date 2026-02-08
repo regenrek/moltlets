@@ -1,15 +1,15 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import type { Id } from "../../convex/_generated/dataModel"
+import { api } from "../../convex/_generated/api"
 import { EntityRow } from "~/components/entity-row"
-import { Badge } from "~/components/ui/badge"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { PageHeader } from "~/components/ui/page-header"
 import { HostThemeBadge } from "~/components/hosts/host-theme"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions } from "~/lib/query-options"
 
 type HostScopeChooserProps = {
   projectSlug: string
@@ -34,13 +34,18 @@ function HostScopeChooser({
   const isReady = projectStatus === "ready"
   const [query, setQuery] = useState("")
 
-  const cfg = useQuery({
-    ...clawletsConfigQueryOptions(projectId as Id<"projects"> | null),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    gcTime: 5_000,
     enabled: Boolean(projectId && isReady),
   })
 
-  const config = cfg.data?.config as any
-  const hosts = useMemo(() => Object.keys(config?.hosts || {}).sort(), [config])
+  const hostRows = hostsQuery.data ?? []
+  const hostByName = useMemo(
+    () => new Map(hostRows.map((row) => [row.hostName, row] as const)),
+    [hostRows],
+  )
+  const hosts = useMemo(() => hostRows.map((row) => row.hostName).sort(), [hostRows])
   const normalizedQuery = query.trim().toLowerCase()
   const filteredHosts = useMemo(
     () => (normalizedQuery
@@ -69,12 +74,12 @@ function HostScopeChooser({
     <div className="space-y-6">
       <PageHeader title={title} description={description} />
 
-      {cfg.isPending ? (
+      {hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
+      ) : hostRows.length === 0 ? (
+        <div className="text-muted-foreground">No host metadata yet.</div>
       ) : (
         <div className="space-y-4">
           <div className="max-w-sm">
@@ -98,21 +103,20 @@ function HostScopeChooser({
           ) : (
             <div className="space-y-2">
               {filteredHosts.map((host) => {
-                const hostCfg = (config?.hosts as any)?.[host] || {}
-                const enabled = hostCfg?.enable !== false
-                const updateRing = String(hostCfg?.selfUpdate?.channel || "prod")
-                const targetHost = hostCfg?.targetHost ? String(hostCfg.targetHost) : ""
-                const gatewaysOrder = Array.isArray(hostCfg?.gatewaysOrder) ? hostCfg.gatewaysOrder : []
-                const gatewayIds = Object.keys(hostCfg?.gateways || {})
-                const gatewayCount = new Set([...gatewaysOrder, ...gatewayIds]).size
-                const isDefault = config?.defaultHost === host
+                const row = hostByName.get(host)
+                const desired = row?.desired
+                const enabled = desired?.enabled !== false
+                const updateRing = String(desired?.selfUpdateChannel || "prod")
+                const targetHost = desired?.targetHost ? String(desired.targetHost) : ""
+                const gatewayCount = typeof desired?.gatewayCount === "number" ? desired.gatewayCount : 0
+                const theme = desired?.theme ? { color: desired.theme as any } : undefined
 
                 return (
                   <EntityRow
                     key={host}
                     href={buildHref(host)}
                     leading={
-                      <HostThemeBadge theme={hostCfg?.theme} size="sm" />
+                      <HostThemeBadge theme={theme} size="sm" />
                     }
                     title={host}
                     subtitle={targetHost ? `Target: ${targetHost}` : "Target host not set"}
@@ -124,11 +128,7 @@ function HostScopeChooser({
                       { label: "Update ring", value: updateRing },
                       { label: "Gateways", value: String(gatewayCount) },
                     ]}
-                    trailing={
-                      isDefault ? (
-                        <Badge variant="secondary">default</Badge>
-                      ) : null
-                    }
+                    trailing={null}
                   />
                 )
               })}

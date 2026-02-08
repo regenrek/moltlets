@@ -19,12 +19,13 @@ let
     then clawlets.packages.${system}.clf or null
     else null;
 
-  fleetCfg = project.config;
-  cattleCfg = fleetCfg.cattle or { };
+  infraCfg = project.infraConfig or project.config or { };
+  openclawCfg = project.openclawConfig or { fleet = { }; hosts = { }; };
+  cattleCfg = infraCfg.cattle or { };
   cattleHetzner = cattleCfg.hetzner or { };
   cattleDefaults = cattleCfg.defaults or { };
 
-  secretEnv = fleetCfg.fleet.secretEnv or { };
+  secretEnv = (openclawCfg.fleet or { }).secretEnv or { };
   secretEnvSecretNames =
     lib.unique (builtins.filter (s: s != null && s != "") (builtins.attrValues secretEnv));
 
