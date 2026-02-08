@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureHcloudSshKeyId } from "@clawlets/cattle-core/lib/hcloud";
+import { ensureHcloudSshKeyId } from "./hcloud.js";
 import type { HetznerProvisionSpec, ProvisionerRuntime } from "../../types.js";
 import { capture, run } from "../../../runtime/run.js";
 import { withFlakesEnv } from "../../../nix/nix-flakes.js";

@@ -59,3 +59,12 @@ export {
 export { migrateClawletsConfigToLatest, type MigrateToLatestResult } from "./migrate.js";
 export { HostNameSchema as SafeHostNameSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 export type { ClawletsCattleConfig } from "./schema-cattle.js";
+export { TtlStringSchema, parseTtlToSeconds } from "./ttl.js";
+export {
+  HCLOUD_LABEL_VALUE_MAX_LEN,
+  HcloudLabelsSchema,
+  isValidHcloudLabelKey,
+  isValidHcloudLabelValue,
+  toHcloudLabelValueSlug,
+  validateHcloudLabelsAtPath,
+} from "./hcloud-labels.js";

@@ -26,18 +26,6 @@ export function parseTtlToSeconds(raw: string): ParsedTtl | null {
   return { raw: s, seconds };
 }
 
-export function parseTtlToMs(raw: string): { raw: string; ms: number } | null {
-  const parsed = parseTtlToSeconds(raw);
-  if (!parsed) return null;
-  const ms = parsed.seconds * 1000;
-  if (!Number.isFinite(ms) || ms <= 0) return null;
-  return { raw: parsed.raw, ms };
-}
-
-export function assertValidTtlString(raw: string): void {
-  if (!parseTtlToSeconds(raw)) throw new Error(`invalid ttl: ${String(raw || "").trim()} (expected <n><s|m|h|d>, e.g. 30m, 2h)`);
-}
-
 export const TtlStringSchema = z
   .string()
   .trim()

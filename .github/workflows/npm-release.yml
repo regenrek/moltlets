@@ -91,24 +91,3 @@ jobs:
             exit 0
           fi
           npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}
-
-      - name: Prepare plugin publish dir (cattle)
-        run: node scripts/prepare-package.mjs --pkg packages/plugins/cattle --out dist/npm/clawlets-plugin-cattle
-
-      - name: Verify prepared plugin package has no local protocol deps
-        working-directory: dist/npm/clawlets-plugin-cattle
-        run: |
-          set -euo pipefail
-          node -e 'const pkg=require("./package.json");const sections=["dependencies","devDependencies","optionalDependencies","peerDependencies"];for(const s of sections){const deps=pkg[s]||{};for(const [name,raw] of Object.entries(deps)){const spec=String(raw||"");if(spec.startsWith("workspace:")||spec.startsWith("file:")||spec.startsWith("link:")){throw new Error("unsupported dependency protocol: "+s+"."+name+"="+spec);}}}console.log("ok: no local-protocol deps");'
-
-      - name: Publish plugin to npm (OIDC)
-        working-directory: dist/npm/clawlets-plugin-cattle
-        run: |
-          set -euo pipefail
-          pkg="$(node -p "require('./package.json').name")"
-          ver="$(node -p "require('./package.json').version")"
-          if npm view "${pkg}@${ver}" version >/dev/null 2>&1; then
-            echo "skip: already published ${pkg}@${ver}"
-            exit 0
-          fi
-          npm publish --access public --provenance --tag ${{ steps.release.outputs.dist }}

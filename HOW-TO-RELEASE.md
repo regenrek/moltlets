@@ -4,13 +4,13 @@ This repo publishes `clawlets` to npm via GitHub Actions using npm Trusted Publi
 
 ## About internal workspace packages (important)
 
-This repo uses workspace packages for code boundaries (`packages/core`, `packages/shared`, `packages/cattle-core`, `packages/clf/queue`), but we intentionally **do not publish them to npm**.
+This repo uses workspace packages for code boundaries (`packages/core`, `packages/shared`), but we intentionally **do not publish them to npm**.
 
 Instead:
-- `clawlets` and `@clawlets/plugin-cattle` are bundled (tsdown bundles workspace deps into `dist/`)
+- `clawlets` is bundled (tsdown bundles workspace deps into `dist/`)
 - `scripts/prepare-package.mjs` drops all `workspace:*` deps and fails if any local protocol deps remain
 
-This keeps npm surface area small (only 2 packages) and avoids broken installs across package managers.
+This keeps npm surface area small and avoids broken installs across package managers.
 
 The publish workflow uses `scripts/prepare-package.mjs` to:
 - drop `workspace:*` deps (workspace code is bundled into `dist/`)
