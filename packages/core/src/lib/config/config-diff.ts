@@ -1,3 +1,5 @@
+import { formatUnknown } from "@clawlets/shared/lib/strings";
+
 export type ConfigDiffEntry = {
   path: string;
   before: JsonValue;
@@ -32,7 +34,7 @@ function toJsonValue(value: unknown): JsonValue {
     return out;
   }
   // Fallback for non-JSON values (functions, symbols, etc).
-  return String(value);
+  return formatUnknown(value, typeof value);
 }
 
 function valuesEqual(a: unknown, b: unknown): boolean {
@@ -62,7 +64,7 @@ function diffValues(before: unknown, after: unknown, path: string, out: ConfigDi
 
   if (isPlainObject(before) && isPlainObject(after)) {
     const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
-    for (const key of Array.from(keys).sort()) {
+    for (const key of Array.from(keys).toSorted()) {
       const nextPath = path ? `${path}.${key}` : key;
       diffValues(before[key], after[key], nextPath, out);
     }

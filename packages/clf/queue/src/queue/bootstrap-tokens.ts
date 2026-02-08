@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { ClfCattleBootstrapToken, ClfQueue } from "./types.js";
 import { isSafeEnvVarName, safeParseJson, sha256Hex } from "./util.js";
+import { coerceTrimmedString, coerceString } from "@clawlets/shared/lib/strings";
 
 type BootstrapTokenRow = {
   token_hash: string;
@@ -103,7 +104,7 @@ export function createBootstrapTokenOps(db: import("better-sqlite3").Database): 
       jobId: row.job_id,
       requester: row.requester,
       cattleName: row.cattle_name,
-      envKeys: Array.isArray(envKeys) ? (envKeys as unknown[]).map((v) => String(v || "").trim()).filter(Boolean) : [],
+      envKeys: Array.isArray(envKeys) ? (envKeys as unknown[]).map((v) => coerceTrimmedString(v)).filter(Boolean) : [],
       publicEnv: publicEnv && typeof publicEnv === "object" && !Array.isArray(publicEnv) ? (publicEnv as Record<string, string>) : {},
       createdAt: row.created_at,
       expiresAt: row.expires_at,
@@ -120,19 +121,19 @@ export function createBootstrapTokenOps(db: import("better-sqlite3").Database): 
       const cattleName = String(params.cattleName || "").trim();
       if (!cattleName) throw new Error("createCattleBootstrapToken.cattleName missing");
 
-      const envKeys = Array.from(new Set((params.envKeys || []).map((k) => String(k || "").trim()).filter(Boolean)));
+      const envKeys = Array.from(new Set((params.envKeys || []).map((k) => coerceTrimmedString(k)).filter(Boolean)));
       for (const k of envKeys) {
         if (!isSafeEnvVarName(k)) throw new Error(`createCattleBootstrapToken.envKeys contains invalid env var name: ${k}`);
       }
       const publicEnv: Record<string, string> = {};
       for (const [k, v] of Object.entries(params.publicEnv || {})) {
-        const key = String(k || "").trim();
+        const key = coerceTrimmedString(k);
         if (!key) continue;
         if (!isSafeEnvVarName(key)) throw new Error(`createCattleBootstrapToken.publicEnv contains invalid env var name: ${key}`);
         if (!key.startsWith("CLAWLETS_")) {
           throw new Error(`createCattleBootstrapToken.publicEnv not allowed: ${key} (public env must use CLAWLETS_*)`);
         }
-        publicEnv[key] = String(v ?? "");
+        publicEnv[key] = coerceString(v);
       }
 
       const now = params.now ?? Date.now();

@@ -1,4 +1,5 @@
 import { listPinnedChannels } from "../openclaw/channel-registry.js";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 export type BotSecurityDefaultsChange = {
   scope: "openclaw" | "channels";
@@ -126,7 +127,7 @@ export function applySecurityDefaults(params: {
     }
 
     const allowFrom = Array.isArray(chan[params.allowFromKey]) ? (chan[params.allowFromKey] as unknown[]) : [];
-    const hasWildcard = allowFrom.some((v) => String(v ?? "").trim() === "*");
+    const hasWildcard = allowFrom.some((v) => coerceTrimmedString(v) === "*");
     if (hasWildcard && policyNext !== "open") {
       warnings.push(`${params.label}: allowFrom contains "*" (anyone) while dmPolicy is not "open". Review allowlist.`);
     }
@@ -148,7 +149,7 @@ export function applySecurityDefaults(params: {
     const chan = cfg as Record<string, unknown>;
     const policyRaw = typeof chan["groupPolicy"] === "string" ? String(chan["groupPolicy"]).trim() : "";
     const allowFrom = Array.isArray(chan["groupAllowFrom"]) ? (chan["groupAllowFrom"] as unknown[]) : [];
-    const hasWildcard = allowFrom.some((v) => String(v ?? "").trim() === "*");
+    const hasWildcard = allowFrom.some((v) => coerceTrimmedString(v) === "*");
 
     if (!policyRaw || policyRaw === "open") {
       setValue({
@@ -195,7 +196,7 @@ export function applySecurityDefaults(params: {
         policyNext = policyRaw;
       }
       const allowFrom = Array.isArray(dm["allowFrom"]) ? (dm["allowFrom"] as unknown[]) : [];
-      const hasWildcard = allowFrom.some((v) => String(v ?? "").trim() === "*");
+      const hasWildcard = allowFrom.some((v) => coerceTrimmedString(v) === "*");
       if (hasWildcard && policyNext !== "open")
         warnings.push(`${getLabel("discord")}: dm.allowFrom contains "*" (anyone). Review allowlist.`);
     }
@@ -225,7 +226,7 @@ export function applySecurityDefaults(params: {
         policyNext = policyRaw;
       }
       const allowFrom = Array.isArray(dm["allowFrom"]) ? (dm["allowFrom"] as unknown[]) : [];
-      const hasWildcard = allowFrom.some((v) => String(v ?? "").trim() === "*");
+      const hasWildcard = allowFrom.some((v) => coerceTrimmedString(v) === "*");
       if (hasWildcard && policyNext !== "open")
         warnings.push(`${getLabel("slack")}: dm.allowFrom contains "*" (anyone). Review allowlist.`);
     }

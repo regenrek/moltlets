@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { run } from "@clawlets/core/lib/runtime/run";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import { baseCommandNames } from "../commands/registry.js";
 
 const PLUGIN_MANIFEST = "clawlets-plugin.json";
@@ -75,8 +76,8 @@ function readPluginPackageMeta(packageDir: string): { command: string; entry: st
     throw new Error(`plugin package.json missing: ${pkgPath}`);
   }
   const pkg = readJsonFile<{ clawlets?: { command?: unknown; entry?: unknown } }>(pkgPath);
-  const command = String(pkg?.clawlets?.command || "").trim();
-  const entry = String(pkg?.clawlets?.entry || "").trim();
+  const command = coerceTrimmedString(pkg?.clawlets?.command);
+  const entry = coerceTrimmedString(pkg?.clawlets?.entry);
   if (!command) throw new Error(`plugin missing clawlets.command in ${pkgPath}`);
   if (!entry) throw new Error(`plugin missing clawlets.entry in ${pkgPath}`);
   assertCommandName(command);
@@ -146,7 +147,7 @@ function deriveManifestFromInstall(installDir: string, slug: string): Omit<Insta
   }
   const pluginPkgPath = path.join(packageDir, "package.json");
   const pluginPkg = readJsonFile<{ version?: unknown }>(pluginPkgPath);
-  const version = String(pluginPkg.version || "").trim();
+  const version = coerceTrimmedString(pluginPkg.version);
   if (!version) throw new Error(`plugin version missing in ${pluginPkgPath}`);
   return {
     slug,
@@ -187,7 +188,7 @@ export function listInstalledPlugins(params: {
       continue;
     }
   }
-  return out.sort((a, b) => a.command.localeCompare(b.command));
+  return out.toSorted((a, b) => a.command.localeCompare(b.command));
 }
 
 export function findPluginByCommand(params: { cwd: string; runtimeDir?: string; command: string }): InstalledPlugin | null {
@@ -289,5 +290,5 @@ export function removePlugin(params: { cwd: string; runtimeDir?: string; slug: s
 }
 
 export function listReservedCommands(): string[] {
-  return [...baseCommandNames].sort();
+  return [...baseCommandNames].toSorted();
 }

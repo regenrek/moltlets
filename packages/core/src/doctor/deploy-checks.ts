@@ -13,7 +13,7 @@ import { getHostAgeKeySopsCreationRulePathRegex, getHostAgeKeySopsCreationRulePa
 import { validateHostSecretsYamlFiles } from "../lib/secrets/secrets-policy.js";
 import { buildFleetSecretsPlan } from "../lib/secrets/plan.js";
 import { capture } from "../lib/runtime/run.js";
-import { looksLikeSshKeyContents, normalizeSshPublicKey } from "../lib/security/ssh.js";
+import { looksLikeSshKeyContents } from "../lib/security/ssh.js";
 import type { DoctorCheck } from "./types.js";
 import {
   getSshExposureMode,
@@ -33,6 +33,7 @@ import { getSopsCreationRuleAgeRecipients } from "../lib/security/sops-config.js
 import { readYamlScalarFromMapping } from "../lib/storage/yaml-scalar.js";
 import { mapWithConcurrency } from "../lib/runtime/concurrency.js";
 import type { DoctorPush } from "./types.js";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 export async function addDeployChecks(params: {
   cwd: string;
@@ -355,7 +356,7 @@ export async function addDeployChecks(params: {
       const gatewaysOrder = Array.isArray(cfg.gatewaysOrder) ? cfg.gatewaysOrder : [];
       const gatewaysKeys = Object.keys(cfg.gateways || {});
       return (gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys)
-        .map((id: unknown) => String(id || "").trim())
+        .map((id: unknown) => coerceTrimmedString(id))
         .filter(Boolean);
     })();
 
@@ -478,7 +479,7 @@ export async function addDeployChecks(params: {
         }
 
         const checkRule = (label: string, expected: string, detail: string) => {
-          const hasRule = rules.some((r) => String(r?.path_regex || "") === expected);
+          const hasRule = rules.some((r) => coerceTrimmedString(r?.path_regex) === expected);
           push({
             status: hasRule ? "ok" : "missing",
             label,

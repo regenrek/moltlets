@@ -105,7 +105,7 @@ function hashValue(value: unknown, hash: ReturnType<typeof createHash>, stack: W
     stack.add(obj);
     const entries = Object.entries(obj)
       .filter(([, v]) => v !== undefined && typeof v !== "function")
-      .sort(([a], [b]) => a.localeCompare(b));
+      .toSorted(([a], [b]) => a.localeCompare(b));
     hash.update("{");
     for (let i = 0; i < entries.length; i += 1) {
       const [key, val] = entries[i]!;
@@ -118,7 +118,7 @@ function hashValue(value: unknown, hash: ReturnType<typeof createHash>, stack: W
     stack.delete(obj);
     return;
   }
-  hash.update(JSON.stringify(String(value)));
+  hash.update(JSON.stringify(typeof value));
 }
 
 function fingerprintSchema(schema: Record<string, unknown>): string | null {

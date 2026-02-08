@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { coerceString } from "@clawlets/shared/lib/strings";
 
 export const HCLOUD_LABEL_VALUE_MAX_LEN = 63;
 
@@ -96,7 +97,7 @@ export function validateHcloudLabelsAtPath(params: { value: unknown; ctx: z.Refi
 
   for (const [rawK, rawV] of Object.entries(params.value as Record<string, unknown>)) {
     const k = String(rawK ?? "").trim();
-    const v = rawV == null ? "" : String(rawV);
+    const v = coerceString(rawV);
 
     if (!isValidHcloudLabelKey(k)) {
       params.ctx.addIssue({

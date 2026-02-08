@@ -16,6 +16,7 @@ import type { DoctorPush } from "./types.js";
 import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./util.js";
 import type { ConfigStore } from "../lib/storage/config-store.js";
 import { FileSystemConfigStore } from "../lib/storage/fs-config-store.js";
+import { coerceTrimmedString, formatUnknown } from "@clawlets/shared/lib/strings";
 
 export type RepoDoctorResult = {
   bundledSkills: string[];
@@ -468,7 +469,7 @@ export async function addRepoChecks(params: {
             scope: "repo",
             status: "missing",
             label: "template clawlets config",
-            detail: String((e as Error)?.message || e),
+            detail: formatUnknown(e),
           });
         }
       }
@@ -484,7 +485,7 @@ export async function addRepoChecks(params: {
       const gatewaysOrder = Array.isArray(hostCfg.gatewaysOrder) ? hostCfg.gatewaysOrder : [];
       const gatewaysKeys = Object.keys(hostCfg.gateways || {});
       fleetGateways = (gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys)
-        .map((id: unknown) => String(id || "").trim())
+        .map((id: unknown) => coerceTrimmedString(id))
         .filter(Boolean);
     }
 
@@ -494,7 +495,7 @@ export async function addRepoChecks(params: {
       const gatewaysKeys = Object.keys(hostCfg.gateways || {});
       const gateways = gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys;
       for (const gatewayRaw of gateways) {
-        const gatewayId = String(gatewayRaw || "").trim();
+        const gatewayId = coerceTrimmedString(gatewayRaw);
         if (!gatewayId) continue;
         try {
           const merged = buildOpenClawGatewayConfig({ config: clawletsConfig, hostName, gatewayId }).merged;
@@ -517,7 +518,7 @@ export async function addRepoChecks(params: {
             scope: "repo",
             status: "warn",
             label: `openclaw security (${hostName}/${gatewayId})`,
-            detail: `unable to lint: ${String((e as Error)?.message || e)}`,
+            detail: `unable to lint: ${formatUnknown(e)}`,
           });
         }
       }

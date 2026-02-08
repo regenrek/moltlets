@@ -13,6 +13,7 @@ import { withFlakesEnv } from "@clawlets/core/lib/nix/nix-flakes";
 import { ClawletsConfigSchema, loadClawletsConfig, writeClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 import { resolveBaseFlake } from "@clawlets/core/lib/nix/base-flake";
 import { getHostExtraFilesDir, getHostExtraFilesKeyPath, getHostExtraFilesSecretsDir, getHostOpenTofuDir } from "@clawlets/core/repo-layout";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host/host-resolve";
 import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host/host-connectivity";
@@ -143,7 +144,7 @@ export const bootstrap = defineCommand({
 	      throw new Error(`--lockdown-after requires tailnet.mode=tailscale (current: ${tailnetMode})`);
 	    }
 
-	    if (Boolean((args as any).force)) {
+	    if ((args as any).force) {
 	      console.error("warn: skipping doctor gate (--force)");
 	    } else {
 	      if (mode === "nixos-anywhere") {
@@ -250,7 +251,9 @@ export const bootstrap = defineCommand({
 
     const secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
 
-    const requiredSecrets = secretsPlan.scopes.bootstrapRequired;
+    const requiredSecrets = secretsPlan.scopes.bootstrapRequired
+      .map((spec) => coerceTrimmedString(spec?.name))
+      .filter(Boolean);
 
 	    const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, hostName);
 	    if (!fs.existsSync(extraFilesSecretsDir)) {
@@ -350,8 +353,8 @@ export const bootstrap = defineCommand({
 
         const nextHostCfg = structuredClone(hostCfg) as any;
         nextHostCfg.targetHost = `admin@${tailscaleIpv4}`;
-        nextHostCfg.sshExposure = { ...(nextHostCfg.sshExposure || {}), mode: "tailnet" };
-        nextHostCfg.tailnet = { ...(nextHostCfg.tailnet || {}), mode: "tailscale" };
+        nextHostCfg.sshExposure = { ...nextHostCfg.sshExposure, mode: "tailnet" };
+        nextHostCfg.tailnet = { ...nextHostCfg.tailnet, mode: "tailscale" };
         const nextConfig = ClawletsConfigSchema.parse({
           ...clawletsConfig,
           hosts: { ...clawletsConfig.hosts, [hostName]: nextHostCfg },

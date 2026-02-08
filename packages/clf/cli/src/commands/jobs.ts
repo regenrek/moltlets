@@ -9,11 +9,12 @@ import {
   type ClfJobKind,
 } from "@clawlets/clf-queue";
 import { CattleTaskSchema, CATTLE_TASK_SCHEMA_VERSION, type CattleTask } from "@clawlets/cattle-core/lib/cattle-task";
+import { coerceTrimmedString, formatUnknown } from "@clawlets/shared/lib/strings";
 import { formatTable, printJson } from "../lib/output.js";
 import { classifyError, exitCodeFor } from "../lib/errors.js";
 
 function requireString(value: unknown, label: string): string {
-  const v = String(value ?? "").trim();
+  const v = coerceTrimmedString(value);
   if (!v) throw new Error(`${label} missing`);
   return v;
 }
@@ -23,7 +24,7 @@ function readJsonFile(filePath: string): unknown {
   try {
     return JSON.parse(raw);
   } catch (e) {
-    throw new Error(`invalid JSON: ${filePath} (${String((e as Error)?.message || e)})`);
+    throw new Error(`invalid JSON: ${filePath} (${formatUnknown(e)})`, { cause: e });
   }
 }
 
@@ -44,7 +45,7 @@ function parseCattleTask(params: {
   message?: unknown;
   callbackUrl?: unknown;
 }): CattleTask {
-  const taskFileRaw = String(params.taskFile || "").trim();
+  const taskFileRaw = coerceTrimmedString(params.taskFile);
   if (taskFileRaw) {
     const filePath = path.isAbsolute(taskFileRaw) ? taskFileRaw : path.resolve(params.cwd, taskFileRaw);
     if (!fs.existsSync(filePath)) throw new Error(`task file missing: ${filePath}`);
@@ -56,7 +57,7 @@ function parseCattleTask(params: {
 
   const taskId = requireString(params.taskId, "--task-id");
   const message = requireString(params.message, "--message");
-  const callbackUrl = String(params.callbackUrl || "").trim();
+  const callbackUrl = coerceTrimmedString(params.callbackUrl);
   return CattleTaskSchema.parse({
     schemaVersion: CATTLE_TASK_SCHEMA_VERSION,
     taskId,

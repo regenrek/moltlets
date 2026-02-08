@@ -20,6 +20,7 @@
   "dependencies": {
     "@clawlets/cattle-core": "workspace:*",
     "@clawlets/clf-queue": "workspace:*",
+    "@clawlets/shared": "workspace:*",
     "citty": "^0.2.0"
   },
   "devDependencies": {

@@ -7,6 +7,7 @@ import { defineCommand } from "citty";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import { classifyRunnerHttpError, RunnerApiClient, type RunnerLeaseJob } from "./client.js";
 import { buildMetadataSnapshot } from "./metadata.js";
 import { LocalSecretsBuffer } from "./secrets-local.js";
@@ -23,11 +24,11 @@ function toInt(value: unknown, fallback: number, min: number, max: number): numb
 }
 
 function normalizeBaseUrl(value: string): string {
-  return String(value || "").trim().replace(/\/+$/, "");
+  return coerceTrimmedString(value).replace(/\/+$/, "");
 }
 
 function resolveControlPlaneUrl(raw: unknown): string {
-  const arg = String(raw || "").trim();
+  const arg = coerceTrimmedString(raw);
   if (arg) return normalizeBaseUrl(arg);
   const env =
     String(process.env["CLAWLETS_CONTROL_PLANE_URL"] || "").trim() ||

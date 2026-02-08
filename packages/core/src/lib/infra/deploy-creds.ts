@@ -12,6 +12,7 @@ import { findRepoRoot } from "../project/repo.js";
 import { writeFileAtomic } from "../storage/fs-safe.js";
 import { formatDotenvValue } from "../storage/dotenv-file.js";
 import { expandPath } from "../storage/path-expand.js";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 const BASE_DEPLOY_CREDS_KEY_SPECS = [
   { key: "NIX_BIN", secret: false, defaultValue: "nix" },
@@ -85,7 +86,7 @@ const DEPLOY_CREDS_ENV_DEFAULTS = Object.fromEntries(
 ) as Record<DeployCredsKey, string>;
 
 function normalizeDeployCredsValue(key: DeployCredsKey, value: unknown): string {
-  const trimmed = String(value ?? "").trim();
+  const trimmed = coerceTrimmedString(value);
   const defaultValue = DEPLOY_CREDS_ENV_DEFAULTS[key];
   if (trimmed === "" && defaultValue !== "") return defaultValue;
   return trimmed;
@@ -114,7 +115,7 @@ export function renderDeployCredsEnvFile(keys: DeployCredsEnvFileKeys): string {
 }
 
 function trimEnv(v: unknown): string | undefined {
-  const trimmed = String(v ?? "").trim();
+  const trimmed = coerceTrimmedString(v);
   return trimmed ? trimmed : undefined;
 }
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadFullConfig, type ClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 import { getRepoLayout, getHostSecretsDir } from "@clawlets/core/repo-layout";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import type { RunnerMetadataSyncPayload } from "./client.js";
 
 function sha256Hex(input: string): string {
@@ -14,7 +15,7 @@ function listGatewayIds(hostCfg: any): string[] {
   const order = Array.isArray(hostCfg?.gatewaysOrder) ? hostCfg.gatewaysOrder : [];
   const keys = Object.keys(hostCfg?.gateways || {});
   const source = order.length > 0 ? order : keys;
-  return source.map((value: unknown) => String(value || "").trim()).filter(Boolean);
+  return source.map((value: unknown) => coerceTrimmedString(value)).filter(Boolean);
 }
 
 function bool(value: unknown): boolean | undefined {
@@ -33,7 +34,7 @@ function countAny(value: unknown): number | undefined {
 }
 
 function sortedUnique(values: Iterable<string>): string[] {
-  return Array.from(new Set(Array.from(values).map((entry) => String(entry || "").trim()).filter(Boolean))).sort();
+  return Array.from(new Set(Array.from(values).map((entry) => String(entry || "").trim()).filter(Boolean))).toSorted();
 }
 
 function objectKeys(value: unknown): string[] {
@@ -48,7 +49,7 @@ function agentIds(value: unknown): string[] {
   return sortedUnique(
     list.map((entry) =>
       entry && typeof entry === "object" && !Array.isArray(entry)
-        ? String((entry as Record<string, unknown>)["id"] || "")
+        ? coerceTrimmedString((entry as Record<string, unknown>)["id"])
         : "",
     ),
   );
@@ -129,7 +130,7 @@ export async function buildMetadataSnapshot(params: {
   try {
     const loaded = loadFullConfig({ repoRoot: params.repoRoot });
     const config = loaded.config;
-    const hostNames = Object.keys(config.hosts || {}).sort();
+    const hostNames = Object.keys(config.hosts || {}).toSorted();
     const now = Date.now();
 
     for (const hostName of hostNames) {
