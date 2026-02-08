@@ -1,5 +1,5 @@
 {
-  "openclawRev": "28e1a65ebc580f07533966f5693f4df0a18d7085",
+  "openclawRev": "7f7d49aef0e87bf49ac1b945ec4046f0918f9c22",
   "schema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
@@ -13959,6 +13959,27 @@
                 },
                 "type": "object"
               },
+              "device-pair": {
+                "additionalProperties": false,
+                "properties": {
+                  "config": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "publicUrl": {
+                        "type": "string"
+                      }
+                    },
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
               "diagnostics-otel": {
                 "additionalProperties": false,
                 "properties": {
@@ -14337,6 +14358,23 @@
                 },
                 "type": "object"
               },
+              "phone-control": {
+                "additionalProperties": false,
+                "properties": {
+                  "config": {
+                    "additionalProperties": false,
+                    "properties": {},
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
               "qwen-portal-auth": {
                 "additionalProperties": false,
                 "properties": {
@@ -14372,6 +14410,23 @@
                 "type": "object"
               },
               "slack": {
+                "additionalProperties": false,
+                "properties": {
+                  "config": {
+                    "additionalProperties": false,
+                    "properties": {},
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
+              "talk-voice": {
                 "additionalProperties": false,
                 "properties": {
                   "config": {
@@ -18273,6 +18328,21 @@
     "plugins.entries.copilot-proxy.enabled": {
       "label": "Enable @openclaw/copilot-proxy"
     },
+    "plugins.entries.device-pair": {
+      "help": "Generate setup codes and approve device pairing requests. (plugin: device-pair)",
+      "label": "Device Pairing"
+    },
+    "plugins.entries.device-pair.config": {
+      "help": "Plugin-defined config payload for device-pair.",
+      "label": "Device Pairing Config"
+    },
+    "plugins.entries.device-pair.config.publicUrl": {
+      "help": "Public WebSocket URL used for /pair setup codes (ws/wss or http/https).",
+      "label": "Gateway URL"
+    },
+    "plugins.entries.device-pair.enabled": {
+      "label": "Enable Device Pairing"
+    },
     "plugins.entries.diagnostics-otel": {
       "help": "OpenClaw diagnostics OpenTelemetry exporter (plugin: diagnostics-otel)",
       "label": "@openclaw/diagnostics-otel"
@@ -18506,6 +18576,17 @@
     "plugins.entries.open-prose.enabled": {
       "label": "Enable OpenProse"
     },
+    "plugins.entries.phone-control": {
+      "help": "Arm/disarm high-risk phone node commands (camera/screen/writes) with an optional auto-expiry. (plugin: phone-control)",
+      "label": "Phone Control"
+    },
+    "plugins.entries.phone-control.config": {
+      "help": "Plugin-defined config payload for phone-control.",
+      "label": "Phone Control Config"
+    },
+    "plugins.entries.phone-control.enabled": {
+      "label": "Enable Phone Control"
+    },
     "plugins.entries.qwen-portal-auth": {
       "help": "Plugin entry for qwen-portal-auth.",
       "label": "qwen-portal-auth"
@@ -18538,6 +18619,17 @@
     },
     "plugins.entries.slack.enabled": {
       "label": "Enable @openclaw/slack"
+    },
+    "plugins.entries.talk-voice": {
+      "help": "Manage Talk voice selection (list/set). (plugin: talk-voice)",
+      "label": "Talk Voice"
+    },
+    "plugins.entries.talk-voice.config": {
+      "help": "Plugin-defined config payload for talk-voice.",
+      "label": "Talk Voice Config"
+    },
+    "plugins.entries.talk-voice.enabled": {
+      "label": "Enable Talk Voice"
     },
     "plugins.entries.telegram": {
       "help": "OpenClaw Telegram channel plugin (plugin: telegram)",

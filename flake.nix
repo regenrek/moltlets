@@ -55,7 +55,7 @@
             fetcherVersion = 3;
             pnpmWorkspaces = pnpmWorkspacesCli;
             # Update this when pnpm-lock.yaml changes
-            hash = "sha256-9/nBsn2bsJvvJfyHLS3LdEZVgbt7Y3P8L3g0dV8y0fw=";
+            hash = "sha256-mjjplJilGcKWM5fCsCsotnAATcJB8LDxeN1gUyaaO18=";
           };
 
           pnpmWorkspacesOpenclaw = [ "openclaw" ];
