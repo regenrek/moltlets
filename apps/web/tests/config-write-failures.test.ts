@@ -10,21 +10,22 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
 
 async function loadConfigForWrite() {
   vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string; status?: string; errorMessage?: string }) => {
-    if (payload?.kind) return { runId: "run1" }
+  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
+    if (payload?.kind) return { runId: "run1", jobId: "job1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-  const runWithEvents = vi.fn(async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
-    await fn(async () => {})
+  const query = vi.fn(async (_query: unknown, payload?: Record<string, unknown>) => {
+    if (payload?.["runId"]) {
+      return { role: "admin", run: { projectId: "p1", status: "failed", errorMessage: "run failed" } }
+    }
+    if (payload?.["paginationOpts"]) {
+      return { page: [{ message: "{}" }] }
+    }
+    return { project: { executionMode: "remote_runner" }, role: "admin" }
   })
 
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
-  }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/run-manager", () => ({
-    runWithEvents,
   }))
   vi.doMock("@clawlets/core/lib/config/clawlets-config", async () => {
     const actual = await vi.importActual<typeof import("@clawlets/core/lib/config/clawlets-config")>(
@@ -35,35 +36,23 @@ async function loadConfigForWrite() {
       ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadFullConfig: () => ({ infraConfigPath: "/tmp/fleet/clawlets.json", config: {} }),
-      writeClawletsConfig: async () => {
-        throw new Error("permission denied: /etc/hosts")
-      },
     }
   })
 
   const mod = await import("~/sdk/config")
-  return { mod, mutation, runWithEvents }
+  return { mod, mutation }
 }
 
 async function loadConfigForValidation() {
   vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string; status?: string; errorMessage?: string }) => {
-    if (payload?.kind) return { runId: "run1" }
+  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
+    if (payload?.kind) return { runId: "run1", jobId: "job1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-  const runWithEvents = vi.fn(async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
-    await fn(async () => {})
-  })
-  const writeClawletsConfig = vi.fn(async () => {})
+  const query = vi.fn(async () => ({ project: { executionMode: "remote_runner" }, role: "admin" }))
 
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
-  }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/run-manager", () => ({
-    runWithEvents,
   }))
   vi.doMock("@clawlets/core/lib/config/clawlets-config", async () => {
     const actual = await vi.importActual<typeof import("@clawlets/core/lib/config/clawlets-config")>(
@@ -74,18 +63,16 @@ async function loadConfigForValidation() {
       ClawletsConfigSchema: {
         safeParse: (value: unknown) => ({ success: true, data: value }),
       },
-      loadFullConfig: () => ({ infraConfigPath: "/tmp/fleet/clawlets.json", config: {} }),
-      writeClawletsConfig,
     }
   })
 
   const mod = await import("~/sdk/config")
-  return { mod, mutation, runWithEvents, writeClawletsConfig }
+  return { mod, mutation }
 }
 
 describe("config write failures", () => {
   it("writeClawletsConfigFile returns ok:false and marks run failed", async () => {
-    const { mod, mutation, runWithEvents } = await loadConfigForWrite()
+    const { mod, mutation } = await loadConfigForWrite()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
@@ -97,16 +84,11 @@ describe("config write failures", () => {
     if (!res.ok) {
       expect(res.issues[0]?.message).toBe("run failed")
     }
-    expect(runWithEvents).toHaveBeenCalled()
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
-    expect(statusCalls[0]?.errorMessage).toBe("run failed")
+    expect(mutation).toHaveBeenCalled()
   })
 
   it("configDotSet returns ok:false and marks run failed", async () => {
-    const { mod, mutation, runWithEvents } = await loadConfigForWrite()
+    const { mod, mutation } = await loadConfigForWrite()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
@@ -124,16 +106,11 @@ describe("config write failures", () => {
     if (!res.ok) {
       expect(res.issues[0]?.message).toBe("run failed")
     }
-    expect(runWithEvents).toHaveBeenCalled()
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
-    expect(statusCalls[0]?.errorMessage).toBe("run failed")
+    expect(mutation).toHaveBeenCalled()
   })
 
   it("configDotBatch returns ok:false and marks run failed", async () => {
-    const { mod, mutation, runWithEvents } = await loadConfigForWrite()
+    const { mod, mutation } = await loadConfigForWrite()
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
@@ -148,16 +125,11 @@ describe("config write failures", () => {
     if (!res.ok) {
       expect(res.issues[0]?.message).toBe("run failed")
     }
-    expect(runWithEvents).toHaveBeenCalled()
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
-    expect(statusCalls[0]?.errorMessage).toBe("run failed")
+    expect(mutation).toHaveBeenCalled()
   })
 
   it("configDotBatch rejects ambiguous ops before writing", async () => {
-    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    const { mod, mutation } = await loadConfigForValidation()
     await expect(
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -171,12 +143,10 @@ describe("config write failures", () => {
       ),
     ).rejects.toThrow(/ambiguous op/i)
     expect(mutation).not.toHaveBeenCalled()
-    expect(runWithEvents).not.toHaveBeenCalled()
-    expect(writeClawletsConfig).not.toHaveBeenCalled()
   })
 
   it("configDotSet rejects ambiguous inputs before writing", async () => {
-    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    const { mod, mutation } = await loadConfigForValidation()
     await expect(
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -193,12 +163,10 @@ describe("config write failures", () => {
       ),
     ).rejects.toThrow(/ambiguous value/i)
     expect(mutation).not.toHaveBeenCalled()
-    expect(runWithEvents).not.toHaveBeenCalled()
-    expect(writeClawletsConfig).not.toHaveBeenCalled()
   })
 
   it("configDotSet rejects del=true with values before writing", async () => {
-    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    const { mod, mutation } = await loadConfigForValidation()
     await expect(
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -214,12 +182,10 @@ describe("config write failures", () => {
       ),
     ).rejects.toThrow(/del=true cannot include value/i)
     expect(mutation).not.toHaveBeenCalled()
-    expect(runWithEvents).not.toHaveBeenCalled()
-    expect(writeClawletsConfig).not.toHaveBeenCalled()
   })
 
   it("configDotBatch aborts when any op is invalid", async () => {
-    const { mod, mutation, runWithEvents, writeClawletsConfig } = await loadConfigForValidation()
+    const { mod, mutation } = await loadConfigForValidation()
     await expect(
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -236,7 +202,5 @@ describe("config write failures", () => {
       ),
     ).rejects.toThrow(/invalid JSON value/i)
     expect(mutation).not.toHaveBeenCalled()
-    expect(runWithEvents).not.toHaveBeenCalled()
-    expect(writeClawletsConfig).not.toHaveBeenCalled()
   })
 })

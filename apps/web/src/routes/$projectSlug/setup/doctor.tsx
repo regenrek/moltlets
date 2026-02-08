@@ -1,8 +1,10 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
@@ -10,7 +12,6 @@ import { LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getClawletsConfig } from "~/sdk/config"
 import { runDoctor } from "~/sdk/infra"
 
 export const Route = createFileRoute("/$projectSlug/setup/doctor")({
@@ -72,23 +73,23 @@ function DoctorSetup() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
+    gcTime: 5_000,
   })
-  const config = cfg.data?.config as any
-  const hosts = useMemo(() => Object.keys(config?.hosts || {}).sort(), [config])
+  const hosts = useMemo(
+    () => (hostsQuery.data || []).map((row) => row.hostName).sort((a, b) => a.localeCompare(b)),
+    [hostsQuery.data],
+  )
   const [host, setHost] = useState("")
   useEffect(() => {
     if (hosts.length === 0) return
     setHost((prev) => {
       if (prev && hosts.includes(prev)) return prev
-      if (config?.defaultHost && hosts.includes(config.defaultHost)) return config.defaultHost
       return hosts[0] || ""
     })
-  }, [config?.defaultHost, hosts])
+  }, [hosts])
   const [scope, setScope] = useState<"repo" | "bootstrap" | "updates" | "cattle" | "all">("all")
   const [result, setResult] = useState<null | { runId: Id<"runs">; checks: any[]; ok: boolean }>(null)
 
@@ -133,12 +134,10 @@ function DoctorSetup() {
         <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
       ) : !projectId ? (
         <div className="text-muted-foreground">Project not found.</div>
-      ) : cfg.isPending ? (
+      ) : hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
       ) : (
         <div className="space-y-6">
           <div className="rounded-lg border bg-card p-6 space-y-4">
@@ -178,7 +177,7 @@ function DoctorSetup() {
                 </NativeSelect>
               </div>
             </div>
-            <Button type="button" disabled={run.isPending} onClick={() => run.mutate()}>
+            <Button type="button" disabled={run.isPending || !host} onClick={() => run.mutate()}>
               Run doctor
             </Button>
           </div>

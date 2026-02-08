@@ -72,7 +72,6 @@ export function SecretWiringDetails(props: {
         delete next[vars.envVar]
         return next
       })
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -105,7 +104,6 @@ export function SecretWiringDetails(props: {
     },
     onSuccess: () => {
       toast.success("Promoted to fleet")
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })

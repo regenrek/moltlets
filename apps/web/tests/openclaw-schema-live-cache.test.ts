@@ -1,310 +1,194 @@
 import { describe, expect, it, vi } from "vitest"
 
+const VALID_SCHEMA = {
+  schema: { type: "object" },
+  uiHints: {},
+  version: "1.0.0",
+  generatedAt: "x",
+  openclawRev: "rev",
+}
+
+function setupLiveMocks(params?: {
+  adminMode?: "always" | "once-then-deny" | "deny"
+  guardError?: Error | null
+  terminal?: { status: "succeeded" | "failed" | "canceled"; errorMessage?: string }
+  messages?: string[]
+  delayedTerminalMs?: number
+}) {
+  const mutation = vi.fn(async () => {
+    if (params?.guardError) throw params.guardError
+    return null
+  })
+
+  let adminCalls = 0
+  const requireAdminProjectAccess = vi.fn(async () => {
+    adminCalls += 1
+    if (params?.adminMode === "deny") throw new Error("admin required")
+    if (params?.adminMode === "once-then-deny" && adminCalls > 1) throw new Error("admin required")
+    return { role: "admin" }
+  })
+
+  const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run-1" as any, jobId: "job-1" as any }))
+  const waitForRunTerminal = vi.fn(async () => {
+    if (params?.delayedTerminalMs) {
+      await new Promise((resolve) => setTimeout(resolve, params.delayedTerminalMs))
+    }
+    return params?.terminal || ({ status: "succeeded" } as const)
+  })
+  const listRunMessages = vi.fn(async () => params?.messages || [JSON.stringify(VALID_SCHEMA)])
+  const parseLastJsonMessage = vi.fn((messages: string[]) => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const raw = String(messages[i] || "").trim()
+      if (!raw.startsWith("{") || !raw.endsWith("}")) continue
+      try {
+        return JSON.parse(raw)
+      } catch {
+        continue
+      }
+    }
+    return null
+  })
+  const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
+
+  vi.doMock("~/server/convex", () => ({
+    createConvexClient: () => ({ mutation }) as any,
+  }))
+  vi.doMock("~/sdk/project", () => ({
+    requireAdminProjectAccess,
+  }))
+  vi.doMock("~/sdk/runtime", () => ({
+    enqueueRunnerCommand,
+    waitForRunTerminal,
+    listRunMessages,
+    parseLastJsonMessage,
+    lastErrorMessage,
+  }))
+
+  return {
+    mutation,
+    requireAdminProjectAccess,
+    enqueueRunnerCommand,
+    waitForRunTerminal,
+    listRunMessages,
+  }
+}
+
 describe("openclaw live schema cache", () => {
   it("caches live schema per host/gateway", async () => {
-    vi.useFakeTimers()
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce12", "utf8"),
-    }))
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) =>
-      [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653132__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653132__",
-      ].join("\n"),
-    )
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    const mocks = setupLiveMocks()
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const first = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     const second = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
+
     expect(first).toEqual(second)
-    expect(query).toHaveBeenCalledTimes(2)
-    expect(mutation).toHaveBeenCalledTimes(1)
-    expect(mutation.mock.calls[0]?.[1]).toMatchObject({ projectId: "p1", host: "h1", gatewayId: "bot1" })
-    expect(sshCapture).toHaveBeenCalledTimes(1)
-    expect(sshCapture.mock.calls[0]?.[0]).toBe("root@127.0.0.1")
-    expect(sshCapture.mock.calls[0]?.[2]).toMatchObject({
-      cwd: expect.stringMatching(/\/tmp$/),
-      timeoutMs: 15_000,
-      maxOutputBytes: 5 * 1024 * 1024,
-    })
-    vi.useRealTimers()
+    expect(first.ok).toBe(true)
+    expect(mocks.requireAdminProjectAccess).toHaveBeenCalledTimes(2)
+    expect(mocks.mutation).toHaveBeenCalledTimes(1)
+    expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
+    expect(mocks.waitForRunTerminal).toHaveBeenCalledTimes(1)
+    expect(mocks.listRunMessages).toHaveBeenCalledTimes(1)
   })
 
   it("dedupes in-flight live schema fetches", async () => {
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce34", "utf8"),
-    }))
-    let resolveGate: () => void
-    const gate = new Promise<void>((resolve) => {
-      resolveGate = resolve
+    const gate = (() => {
+      let release = () => {}
+      const wait = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return { wait, release }
+    })()
+    const mocks = setupLiveMocks({ delayedTerminalMs: 0 })
+    mocks.waitForRunTerminal.mockImplementationOnce(async () => {
+      await gate.wait
+      return { status: "succeeded" as const }
     })
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => {
-      await gate
-      return [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653334__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653334__",
-      ].join("\n")
-    })
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const firstPromise = fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     const secondPromise = fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     await new Promise((resolve) => setImmediate(resolve))
-    expect(sshCapture).toHaveBeenCalledTimes(1)
-    resolveGate!()
+    expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
+    gate.release()
     const [first, second] = await Promise.all([firstPromise, secondPromise])
     expect(first).toEqual(second)
-    expect(mutation).toHaveBeenCalledTimes(1)
+    expect(first.ok).toBe(true)
   })
 
   it("anchors TTL to completion time", async () => {
     vi.useFakeTimers()
-    vi.resetModules()
     vi.setSystemTime(1_000_000)
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce66", "utf8"),
-    }))
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => {
-      await new Promise((resolve) => setTimeout(resolve, 5_000))
-      return [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653636__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653636__",
-      ].join("\n")
-    })
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    vi.resetModules()
+    const mocks = setupLiveMocks({ delayedTerminalMs: 5_000 })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const firstPromise = fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     await vi.advanceTimersByTimeAsync(5_000)
     const first = await firstPromise
     await vi.advanceTimersByTimeAsync(14_999)
     const second = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
+
     expect(first).toEqual(second)
-    expect(sshCapture).toHaveBeenCalledTimes(1)
+    expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
   })
 
   it("does not leak cached schema across roles", async () => {
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce55", "utf8"),
-    }))
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) =>
-      [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653535__",
-        "{\"schema\":{\"type\":\"object\"},\"uiHints\":{},\"version\":\"1.0.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653535__",
-      ].join("\n"),
-    )
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
-      .mockResolvedValueOnce({ project: { executionMode: "local", localPath: "/tmp" }, role: "viewer" })
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    const mocks = setupLiveMocks({ adminMode: "once-then-deny" })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const adminResult = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     const viewerResult = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
+
     expect(adminResult.ok).toBe(true)
     expect(viewerResult.ok).toBe(false)
     if (!viewerResult.ok) expect(viewerResult.message).toBe("admin required")
-    expect(sshCapture).toHaveBeenCalledTimes(1)
-    expect(mutation).toHaveBeenCalledTimes(1)
+    expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
   })
 
-  it("rejects non-admin before SSH", async () => {
-    vi.useFakeTimers()
+  it("rejects non-admin before runner execution", async () => {
     vi.resetModules()
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => "")
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "viewer" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    const mocks = setupLiveMocks({ adminMode: "deny" })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.message).toBe("admin required")
-    expect(mutation).not.toHaveBeenCalled()
-    expect(sshCapture).not.toHaveBeenCalled()
-    vi.useRealTimers()
+    expect(mocks.mutation).not.toHaveBeenCalled()
+    expect(mocks.enqueueRunnerCommand).not.toHaveBeenCalled()
   })
 
-  it("rate-limit blocks SSH", async () => {
-    vi.useFakeTimers()
+  it("rate-limit blocks runner execution", async () => {
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce99", "utf8"),
-    }))
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => "")
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => {
-      const err: any = new Error("ConvexError")
-      err.data = { code: "rate_limited", message: "too many requests" }
-      throw err
-    })
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    const rateError: any = new Error("ConvexError")
+    rateError.data = { code: "rate_limited", message: "too many requests" }
+    const mocks = setupLiveMocks({ guardError: rateError })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.message).toBe("too many requests")
-    expect(sshCapture).not.toHaveBeenCalled()
-    vi.useRealTimers()
+    expect(mocks.enqueueRunnerCommand).not.toHaveBeenCalled()
   })
 
-  it("caches failures briefly to avoid SSH retries", async () => {
+  it("caches failures briefly to avoid retries", async () => {
     vi.useFakeTimers()
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce00", "utf8"),
-    }))
-    const sshCapture = vi.fn(async (_target: string, _cmd: string, _opts?: unknown) => {
-      throw new Error("boom")
+    const mocks = setupLiveMocks({
+      terminal: { status: "failed", errorMessage: "runner failed" },
+      messages: [],
     })
-    const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
-    const mutation = vi.fn(async (_mutation?: unknown, _payload?: unknown) => null)
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["bot1"], gateways: { bot1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+
     const first = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
     const second = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "bot1" })
+
     expect(first).toEqual(second)
     expect(first.ok).toBe(false)
-    expect(sshCapture).toHaveBeenCalledTimes(1)
+    expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
   })
 })

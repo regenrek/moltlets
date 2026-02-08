@@ -1,41 +1,21 @@
-import path from "node:path"
-import fs from "node:fs"
-import crypto from "node:crypto"
-
 import { createServerFn } from "@tanstack/react-start"
 import {
-  loadDeployCreds,
   DEPLOY_CREDS_KEYS,
-  isDeployCredsSecretKey,
-  renderDeployCredsEnvTemplate,
-  updateDeployCredsEnvFile,
-  type DeployCredsEnvFileKeys,
 } from "@clawlets/core/lib/infra/deploy-creds"
-import { getRepoLayout } from "@clawlets/core/repo-layout"
-import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe"
-import { ageKeygen } from "@clawlets/core/lib/security/age-keygen"
-import { parseAgeKeyFile } from "@clawlets/core/lib/security/age"
-import { getLocalOperatorAgeKeyPath } from "@clawlets/core/repo-layout"
-import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers"
-import os from "node:os"
+import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
 
 import { api } from "../../../convex/_generated/api"
+import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { getRepoRoot } from "~/sdk/project"
-import { parseProjectIdInput } from "~/sdk/runtime"
-
-function sha256Hex(input: string): string {
-  return crypto.createHash("sha256").update(input).digest("hex")
-}
-
-function toAuditDocPath(repoRoot: string, absPath: string, fallback: string): string {
-  const rel = path.relative(repoRoot, absPath)
-  const normalized = rel.split(path.sep).join("/")
-  if (!normalized || normalized === "." || normalized === "..") return fallback
-  if (normalized.startsWith("../") || normalized.includes("/../") || normalized.endsWith("/..")) return fallback
-  if (path.isAbsolute(normalized)) return fallback
-  return normalized
-}
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  parseProjectIdInput,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
 
 export type DeployCredsStatusKey = {
   key: string
@@ -60,74 +40,6 @@ export type DeployCredsStatus = {
   template: string
 }
 
-export const getDeployCredsStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    return parseProjectIdInput(data)
-  })
-  .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const layout = getRepoLayout(repoRoot)
-    const loaded = loadDeployCreds({ cwd: repoRoot })
-    const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"))
-    const defaultSopsAgeKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId)
-
-    const keys: DeployCredsStatusKey[] = DEPLOY_CREDS_KEYS.map((key) => {
-      const source = loaded.sources[key]
-      const value = loaded.values[key]
-      const isSecret = isDeployCredsSecretKey(key)
-      const status = value ? "set" : "unset"
-      if (isSecret) return { key, source, status }
-      return { key, source, status, value: value ? String(value) : undefined }
-    })
-
-    return {
-      repoRoot,
-      envFile: loaded.envFile ? { ...loaded.envFile } : null,
-      defaultEnvPath: layout.envFilePath,
-      defaultSopsAgeKeyPath,
-      keys,
-      template: renderDeployCredsEnvTemplate({ defaultEnvPath: layout.envFilePath, cwd: repoRoot }),
-    } satisfies DeployCredsStatus
-  })
-
-export const updateDeployCreds = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    const updatesRaw = d["updates"]
-    const updates = (!updatesRaw || typeof updatesRaw !== "object" || Array.isArray(updatesRaw))
-      ? {}
-      : (updatesRaw as Record<string, unknown>)
-
-    const out: Partial<DeployCredsEnvFileKeys> = {}
-    for (const k of DEPLOY_CREDS_KEYS) {
-      if (!(k in updates)) continue
-      const v = updates[k]
-      if (typeof v !== "string") throw new Error(`invalid updates.${k}`)
-      out[k] = v
-    }
-
-    return { ...base, updates: out }
-  })
-  .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const writeResult = await updateDeployCredsEnvFile({ repoRoot, updates: data.updates })
-
-    const envDoc = toAuditDocPath(repoRoot, writeResult.envPath, ".clawlets/env")
-    await client.mutation(api.auditLogs.append, {
-      projectId: data.projectId,
-      action: "deployCreds.update",
-      target: { doc: envDoc },
-      data: {
-        updatedKeys: writeResult.updatedKeys,
-      },
-    })
-
-    return { ok: true as const }
-  })
-
 type KeyCandidate = {
   path: string
   exists: boolean
@@ -135,73 +47,207 @@ type KeyCandidate = {
   reason?: string
 }
 
+type LocalSubmitConfig = {
+  port: number
+  nonce: string
+}
+
+function parseRunnerJson(messages: string[]): Record<string, unknown> | null {
+  const direct = parseLastJsonMessage<Record<string, unknown>>(messages)
+  if (direct) return direct
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const raw = String(messages[i] || "").trim()
+    if (!raw) continue
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+async function runRunnerJsonCommand(params: {
+  projectId: Id<"projects">
+  title: string
+  args: string[]
+  timeoutMs: number
+}): Promise<{ runId: Id<"runs">; jobId: Id<"jobs">; json: Record<string, unknown> }> {
+  const client = createConvexClient()
+  await requireAdminProjectAccess(client, params.projectId)
+  const queued = await enqueueRunnerCommand({
+    client,
+    projectId: params.projectId,
+    runKind: "custom",
+    title: params.title,
+    args: params.args,
+    note: "runner queued from deploy-creds endpoint",
+  })
+  const terminal = await waitForRunTerminal({
+    client,
+    projectId: params.projectId,
+    runId: queued.runId,
+    timeoutMs: params.timeoutMs,
+    pollMs: 700,
+  })
+  const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+  if (terminal.status !== "succeeded") {
+    throw new Error(terminal.errorMessage || lastErrorMessage(messages, "runner command failed"))
+  }
+  const parsed = parseRunnerJson(messages)
+  if (!parsed) throw new Error("runner output missing JSON payload")
+  return { runId: queued.runId, jobId: queued.jobId, json: parsed }
+}
+
+export const getDeployCredsStatus = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    return parseProjectIdInput(data)
+  })
+  .handler(async ({ data }) => {
+    try {
+      const result = await runRunnerJsonCommand({
+        projectId: data.projectId,
+        title: "Deploy creds status",
+        args: ["env", "show", "--json"],
+        timeoutMs: 20_000,
+      })
+      const row = result.json
+      const keys: DeployCredsStatusKey[] = Array.isArray(row.keys)
+        ? row.keys
+            .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+            .map((entry) => {
+              const key = String(entry.key || "").trim()
+              const source = (String(entry.source || "unset").trim() || "unset") as DeployCredsStatusKey["source"]
+              const status = (String(entry.status || "unset").trim() || "unset") as DeployCredsStatusKey["status"]
+              const value = typeof entry.value === "string" ? entry.value : undefined
+              return { key, source, status, ...(value ? { value } : {}) }
+            })
+            .filter((entry) => entry.key.length > 0)
+        : []
+
+      return {
+        repoRoot: typeof row.repoRoot === "string" ? row.repoRoot : "",
+        envFile:
+          row.envFile && typeof row.envFile === "object" && !Array.isArray(row.envFile)
+            ? {
+                origin: String((row.envFile as any).origin || "default") as "default" | "explicit",
+                status: String((row.envFile as any).status || "missing") as "ok" | "missing" | "invalid",
+                path: String((row.envFile as any).path || ""),
+                error: typeof (row.envFile as any).error === "string" ? (row.envFile as any).error : undefined,
+              }
+            : null,
+        defaultEnvPath: typeof row.defaultEnvPath === "string" ? row.defaultEnvPath : "",
+        defaultSopsAgeKeyPath: typeof row.defaultSopsAgeKeyPath === "string" ? row.defaultSopsAgeKeyPath : "",
+        keys,
+        template: typeof row.template === "string" ? row.template : "",
+      } satisfies DeployCredsStatus
+    } catch (err) {
+      throw new Error(sanitizeErrorMessage(err, "Unable to read deploy creds status. Check runner."))
+    }
+  })
+
+export const updateDeployCreds = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    const base = parseProjectIdInput(data)
+    const d = data as Record<string, unknown>
+    const updatedKeysRaw = Array.isArray(d["updatedKeys"]) ? (d["updatedKeys"] as unknown[]) : []
+    const allowedKeys = new Set<string>(DEPLOY_CREDS_KEYS)
+    const out: string[] = []
+    for (const row of updatedKeysRaw) {
+      if (typeof row !== "string") throw new Error("invalid updatedKeys")
+      const key = row.trim()
+      if (!key) continue
+      if (!allowedKeys.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`)
+      out.push(key)
+    }
+    if (out.length === 0) throw new Error("updatedKeys required")
+    return { ...base, updatedKeys: Array.from(new Set(out)) }
+  })
+  .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
+    const runners = await client.query(api.runners.listByProject, { projectId: data.projectId })
+    const localSubmit = (runners || [])
+      .filter((runner) =>
+        runner.lastStatus === "online"
+        && runner.capabilities?.supportsLocalSecretsSubmit
+        && typeof runner.capabilities?.localSecretsPort === "number"
+        && typeof runner.capabilities?.localSecretsNonce === "string"
+        && runner.capabilities.localSecretsNonce.trim().length > 0,
+      )
+      .sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0))
+      .map((runner) => ({
+        port: Math.trunc(Number(runner.capabilities?.localSecretsPort || 0)),
+        nonce: String(runner.capabilities?.localSecretsNonce || "").trim(),
+      }))
+      .find((row) => row.port >= 1024 && row.port <= 65535 && row.nonce.length > 0) || null
+
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "custom",
+      title: "Deploy creds update",
+      args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+      note: "deploy creds values supplied directly to local runner submit endpoint or runner prompt",
+    })
+
+    await client.mutation(api.auditLogs.append, {
+      projectId: data.projectId,
+      action: "deployCreds.update",
+      target: { doc: ".clawlets/env" },
+      data: {
+        runId: queued.runId,
+        updatedKeys: data.updatedKeys,
+      },
+    })
+
+    return {
+      ok: true as const,
+      queued: true as const,
+      runId: queued.runId,
+      jobId: queued.jobId,
+      updatedKeys: data.updatedKeys,
+      localSubmitRequired: true as const,
+      localSubmit: localSubmit as LocalSubmitConfig | null,
+    }
+  })
+
 export const detectSopsAgeKey = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     return parseProjectIdInput(data)
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const layout = getRepoLayout(repoRoot)
-    const loaded = loadDeployCreds({ cwd: repoRoot })
-
-    const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"))
-    const defaultOperatorPath = getLocalOperatorAgeKeyPath(layout, operatorId)
-    const home = os.homedir()
-    const homePaths = [
-      path.join(home, ".config", "sops", "age", "keys.txt"),
-      path.join(home, ".sops", "age", "keys.txt"),
-    ]
-
-    const candidates: string[] = []
-    if (loaded.values.SOPS_AGE_KEY_FILE) candidates.push(String(loaded.values.SOPS_AGE_KEY_FILE))
-    candidates.push(defaultOperatorPath)
-    if (fs.existsSync(layout.localOperatorKeysDir)) {
-      for (const entry of fs.readdirSync(layout.localOperatorKeysDir)) {
-        if (!entry.endsWith(".agekey")) continue
-        candidates.push(path.join(layout.localOperatorKeysDir, entry))
+    try {
+      const result = await runRunnerJsonCommand({
+        projectId: data.projectId,
+        title: "Detect SOPS age key",
+        args: ["env", "detect-age-key", "--json"],
+        timeoutMs: 20_000,
+      })
+      const row = result.json
+      const candidates: KeyCandidate[] = Array.isArray(row.candidates)
+        ? row.candidates
+            .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+            .map((entry) => ({
+              path: String(entry.path || ""),
+              exists: Boolean(entry.exists),
+              valid: Boolean(entry.valid),
+              reason: typeof entry.reason === "string" ? entry.reason : undefined,
+            }))
+            .filter((entry) => entry.path.length > 0)
+        : []
+      return {
+        operatorId: typeof row.operatorId === "string" ? row.operatorId : "operator",
+        defaultOperatorPath: typeof row.defaultOperatorPath === "string" ? row.defaultOperatorPath : "",
+        candidates,
+        recommendedPath: typeof row.recommendedPath === "string" ? row.recommendedPath : null,
       }
-    }
-    for (const p of homePaths) candidates.push(p)
-
-    const seen = new Set<string>()
-    const results: KeyCandidate[] = []
-    for (const candidate of candidates) {
-      const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(repoRoot, candidate)
-      if (seen.has(resolved)) continue
-      seen.add(resolved)
-      if (!fs.existsSync(resolved)) {
-        results.push({ path: resolved, exists: false, valid: false, reason: "missing" })
-        continue
-      }
-      const st = fs.lstatSync(resolved)
-      if (st.isSymbolicLink()) {
-        results.push({ path: resolved, exists: true, valid: false, reason: "symlink blocked" })
-        continue
-      }
-      if (!st.isFile()) {
-        results.push({ path: resolved, exists: true, valid: false, reason: "not a file" })
-        continue
-      }
-      const parsed = parseAgeKeyFile(fs.readFileSync(resolved, "utf8"))
-      if (!parsed.secretKey) {
-        results.push({ path: resolved, exists: true, valid: false, reason: "invalid key file" })
-        continue
-      }
-      results.push({ path: resolved, exists: true, valid: true })
-    }
-
-    const preferred =
-      results.find((r) => r.valid && r.path === String(loaded.values.SOPS_AGE_KEY_FILE || "")) ||
-      results.find((r) => r.valid && r.path === defaultOperatorPath) ||
-      results.find((r) => r.valid) ||
-      null
-
-    return {
-      operatorId,
-      defaultOperatorPath,
-      candidates: results,
-      recommendedPath: preferred?.path || null,
+    } catch (err) {
+      throw new Error(sanitizeErrorMessage(err, "Unable to detect age keys. Check runner."))
     }
   })
 
@@ -211,45 +257,33 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const layout = getRepoLayout(repoRoot)
-    const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"))
-    const keyPath = getLocalOperatorAgeKeyPath(layout, operatorId)
-    const pubPath = `${keyPath}.pub`
-
-    if (fs.existsSync(keyPath)) {
-      return { ok: false as const, message: `key already exists: ${keyPath}` }
-    }
-
-    await ensureDir(layout.localOperatorKeysDir)
     try {
-      fs.chmodSync(layout.localOperatorKeysDir, 0o700)
-    } catch {
-      // best-effort
+      const result = await runRunnerJsonCommand({
+        projectId: data.projectId,
+        title: "Generate SOPS age key",
+        args: ["env", "generate-age-key", "--json"],
+        timeoutMs: 40_000,
+      })
+      const row = result.json
+      const ok = row.ok === true
+      const keyPath = typeof row.keyPath === "string" ? row.keyPath : ""
+      const publicKey = typeof row.publicKey === "string" ? row.publicKey : ""
+      if (ok && keyPath) {
+        await client.mutation(api.auditLogs.append, {
+          projectId: data.projectId,
+          action: "sops.operatorKey.generate",
+          target: { doc: ".clawlets/keys/operators" },
+          data: { runId: result.runId },
+        })
+      }
+      if (!ok) {
+        return {
+          ok: false as const,
+          message: typeof row.message === "string" ? row.message : "Unable to generate key.",
+        }
+      }
+      return { ok: true as const, keyPath, publicKey }
+    } catch (err) {
+      throw new Error(sanitizeErrorMessage(err, "Unable to generate age key. Check runner."))
     }
-
-    const loaded = loadDeployCreds({ cwd: repoRoot })
-    const nixBin = String(loaded.values.NIX_BIN || "nix").trim() || "nix"
-    const keypair = await ageKeygen({ nixBin, cwd: repoRoot })
-
-    await writeFileAtomic(keyPath, keypair.fileText, { mode: 0o600 })
-    await writeFileAtomic(pubPath, `${keypair.publicKey}\n`, { mode: 0o600 })
-
-    await updateDeployCredsEnvFile({
-      repoRoot,
-      updates: {
-        SOPS_AGE_KEY_FILE: keyPath,
-      },
-    })
-
-    const operatorKeysDoc = toAuditDocPath(repoRoot, layout.localOperatorKeysDir, ".clawlets/keys/operators")
-    const operatorIdHash = `sha256:${sha256Hex(`${data.projectId}:${operatorId}`)}`
-    await client.mutation(api.auditLogs.append, {
-      projectId: data.projectId,
-      action: "sops.operatorKey.generate",
-      target: { doc: operatorKeysDoc },
-      data: { operatorIdHash },
-    })
-
-    return { ok: true as const, keyPath, publicKey: keypair.publicKey }
   })

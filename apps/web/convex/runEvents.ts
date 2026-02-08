@@ -2,7 +2,7 @@ import { RUN_EVENT_LEVELS } from "@clawlets/core/lib/runtime/run-constants";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
 import { rateLimit } from "./lib/rateLimit";
 import { RunEventDoc } from "./lib/validators";
@@ -91,6 +91,41 @@ export const appendBatch = mutation({
 
     await rateLimit({ ctx, key: `runEvents.append:${access.authed.user._id}`, limit: 240, windowMs: 60_000 });
 
+    const safeEvents = events.slice(0, 200);
+    for (const ev of safeEvents) {
+      const message = ev.message.trim();
+      if (!message) continue;
+      await ctx.db.insert("runEvents", {
+        projectId: run.projectId,
+        runId,
+        ts: ev.ts,
+        level: ev.level,
+        message: message.length > 4000 ? `${message.slice(0, 3997)}...` : message,
+        meta: sanitizeMeta(ev.meta),
+        redacted: ev.redacted,
+      });
+    }
+    return null;
+  },
+});
+
+export const appendBatchInternal = internalMutation({
+  args: {
+    runId: v.id("runs"),
+    events: v.array(
+      v.object({
+        ts: v.number(),
+        level: RunEventLevel,
+        message: v.string(),
+        meta: v.optional(RunEventMeta),
+        redacted: v.optional(v.boolean()),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, { runId, events }) => {
+    const run = await ctx.db.get(runId);
+    if (!run) return null;
     const safeEvents = events.slice(0, 200);
     for (const ev of safeEvents) {
       const message = ev.message.trim();

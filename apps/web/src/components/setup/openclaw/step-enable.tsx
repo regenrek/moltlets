@@ -23,7 +23,6 @@ export function OpenClawSetupStepEnable(props: {
       })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
     },
   })
 

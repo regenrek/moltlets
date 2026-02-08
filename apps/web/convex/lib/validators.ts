@@ -4,18 +4,28 @@ import {
   AuditAction,
   AuditData,
   AuditTarget,
+  DesiredGatewaySummary,
+  DesiredHostSummary,
   ExecutionMode,
   GitWritePolicy,
+  HostStatus,
+  JobPayloadMeta,
+  JobStatus,
   ProjectConfigType,
   ProjectDeletionStage,
   ProjectDeletionStatus,
   ProjectStatus,
+  ProviderConfigSummary,
   ProviderType,
+  RunnerCapabilities,
+  RunnerStatus,
   Role,
   RunEventLevel,
   RunEventMeta,
   RunKind,
   RunStatus,
+  SecretWiringScope,
+  SecretWiringStatus,
   WorkspaceRef,
 } from "../schema";
 
@@ -99,9 +109,89 @@ export const ProviderDoc = v.object({
   projectId: v.id("projects"),
   type: ProviderType,
   enabled: v.boolean(),
-  config: v.optional(v.any()),
+  config: v.optional(ProviderConfigSummary),
   createdAt: v.number(),
   updatedAt: v.number(),
+});
+
+export const HostDoc = v.object({
+  _id: v.id("hosts"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  hostName: v.string(),
+  provider: v.optional(v.string()),
+  region: v.optional(v.string()),
+  lastSeenAt: v.optional(v.number()),
+  lastStatus: v.optional(HostStatus),
+  lastRunId: v.optional(v.id("runs")),
+  lastRunStatus: v.optional(RunStatus),
+  desired: v.optional(DesiredHostSummary),
+});
+
+export const GatewayDoc = v.object({
+  _id: v.id("gateways"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  hostName: v.string(),
+  gatewayId: v.string(),
+  lastSeenAt: v.optional(v.number()),
+  lastStatus: v.optional(HostStatus),
+  desired: v.optional(DesiredGatewaySummary),
+});
+
+export const SecretWiringDoc = v.object({
+  _id: v.id("secretWiring"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  hostName: v.string(),
+  secretName: v.string(),
+  scope: SecretWiringScope,
+  status: SecretWiringStatus,
+  required: v.boolean(),
+  lastVerifiedAt: v.optional(v.number()),
+});
+
+export const RunnerDoc = v.object({
+  _id: v.id("runners"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  runnerName: v.string(),
+  lastSeenAt: v.number(),
+  lastStatus: RunnerStatus,
+  version: v.optional(v.string()),
+  capabilities: v.optional(RunnerCapabilities),
+});
+
+export const RunnerTokenDoc = v.object({
+  _id: v.id("runnerTokens"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  runnerId: v.id("runners"),
+  tokenHash: v.string(),
+  createdByUserId: v.id("users"),
+  createdAt: v.number(),
+  expiresAt: v.optional(v.number()),
+  revokedAt: v.optional(v.number()),
+  lastUsedAt: v.optional(v.number()),
+});
+
+export const JobDoc = v.object({
+  _id: v.id("jobs"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  runId: v.id("runs"),
+  kind: v.string(),
+  status: JobStatus,
+  payload: v.optional(JobPayloadMeta),
+  payloadHash: v.optional(v.string()),
+  leaseId: v.optional(v.string()),
+  leasedByRunnerId: v.optional(v.id("runners")),
+  leaseExpiresAt: v.optional(v.number()),
+  attempt: v.number(),
+  createdAt: v.number(),
+  startedAt: v.optional(v.number()),
+  finishedAt: v.optional(v.number()),
+  errorMessage: v.optional(v.string()),
 });
 
 export const AuditLogDoc = v.object({

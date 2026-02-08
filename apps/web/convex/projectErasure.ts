@@ -1,29 +1,20 @@
 import { Base64, v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
+import { requireAuthQuery, requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
 import { fail } from "./lib/errors";
 import { rateLimit } from "./lib/rateLimit";
+import { PROJECT_DELETION_STAGES } from "./lib/project-erasure-stages";
+import { ProjectDeletionStage } from "./schema";
 
 const DELETE_BATCH_SIZE = 200;
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 const LEASE_TTL_MS = 60 * 1000;
 const JOB_STEP_DELAY_MS = 500;
-const DELETE_STAGES = [
-  "runEvents",
-  "runs",
-  "providers",
-  "projectConfigs",
-  "projectMembers",
-  "auditLogs",
-  "projectPolicies",
-  "projectDeletionTokens",
-  "project",
-  "done",
-] as const;
+const DELETE_STAGES = PROJECT_DELETION_STAGES;
 
 type DeleteStage = (typeof DELETE_STAGES)[number];
 
@@ -31,6 +22,14 @@ function nextStage(stage: DeleteStage): DeleteStage {
   const idx = DELETE_STAGES.indexOf(stage);
   if (idx < 0) return "done";
   return DELETE_STAGES[Math.min(idx + 1, DELETE_STAGES.length - 1)] as DeleteStage;
+}
+
+function canReadDeleteStatusAfterProjectRemoval(params: {
+  authedUserId: string;
+  authedRole: "admin" | "viewer";
+  requestedByUserId: string;
+}): boolean {
+  return params.authedRole === "admin" || params.authedUserId === params.requestedByUserId;
 }
 
 function randomToken(): string {
@@ -97,7 +96,16 @@ async function deleteBatchFromProjectIndex(params: {
 
 async function deleteBatchByProject(params: {
   ctx: MutationCtx;
-  table: "providers" | "projectPolicies" | "projectDeletionTokens";
+  table:
+    | "providers"
+    | "projectPolicies"
+    | "projectDeletionTokens"
+    | "hosts"
+    | "gateways"
+    | "secretWiring"
+    | "jobs"
+    | "runnerTokens"
+    | "runners";
   projectId: Id<"projects">;
 }): Promise<{ deleted: number; complete: boolean }> {
   const docs = await params.ctx.db
@@ -176,6 +184,18 @@ async function deleteStageBatch(params: {
       return await deleteBatchByProject({ ctx: params.ctx, table: "providers", projectId: params.projectId });
     case "projectConfigs":
       return await deleteBatchProjectConfigs(params);
+    case "hosts":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "hosts", projectId: params.projectId });
+    case "gateways":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "gateways", projectId: params.projectId });
+    case "secretWiring":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "secretWiring", projectId: params.projectId });
+    case "jobs":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "jobs", projectId: params.projectId });
+    case "runnerTokens":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "runnerTokens", projectId: params.projectId });
+    case "runners":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "runners", projectId: params.projectId });
     case "projectMembers":
       return await deleteBatchProjectMembers(params);
     case "auditLogs":
@@ -315,18 +335,7 @@ export const deleteStatus = query({
       jobId: v.id("projectDeletionJobs"),
       projectId: v.id("projects"),
       status: v.union(v.literal("pending"), v.literal("running"), v.literal("completed"), v.literal("failed")),
-      stage: v.union(
-        v.literal("runEvents"),
-        v.literal("runs"),
-        v.literal("providers"),
-        v.literal("projectConfigs"),
-        v.literal("projectMembers"),
-        v.literal("auditLogs"),
-        v.literal("projectPolicies"),
-        v.literal("projectDeletionTokens"),
-        v.literal("project"),
-        v.literal("done"),
-      ),
+      stage: ProjectDeletionStage,
       processed: v.number(),
       updatedAt: v.number(),
       completedAt: v.optional(v.number()),
@@ -337,7 +346,20 @@ export const deleteStatus = query({
   handler: async (ctx, { jobId }) => {
     const job = await ctx.db.get(jobId);
     if (!job) return null;
-    await requireProjectAccessQuery(ctx, job.projectId);
+    try {
+      await requireProjectAccessQuery(ctx, job.projectId);
+    } catch {
+      const authed = await requireAuthQuery(ctx);
+      if (
+        !canReadDeleteStatusAfterProjectRemoval({
+          authedRole: authed.user.role,
+          authedUserId: String(authed.user._id),
+          requestedByUserId: String(job.requestedByUserId),
+        })
+      ) {
+        fail("forbidden", "project access denied");
+      }
+    }
     return {
       jobId: job._id,
       projectId: job.projectId,
@@ -351,22 +373,28 @@ export const deleteStatus = query({
   },
 });
 
+export const isDeletionInProgressInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.object({ active: v.boolean() }),
+  handler: async (ctx, { projectId }) => {
+    const running = await ctx.db
+      .query("projectDeletionJobs")
+      .withIndex("by_project_status", (q) => q.eq("projectId", projectId).eq("status", "running"))
+      .take(1);
+    if (running.length > 0) return { active: true };
+    const pending = await ctx.db
+      .query("projectDeletionJobs")
+      .withIndex("by_project_status", (q) => q.eq("projectId", projectId).eq("status", "pending"))
+      .take(1);
+    return { active: pending.length > 0 };
+  },
+});
+
 export const runDeletionJobStep = internalMutation({
   args: { jobId: v.id("projectDeletionJobs") },
   returns: v.object({
     status: v.union(v.literal("pending"), v.literal("running"), v.literal("completed"), v.literal("failed")),
-    stage: v.union(
-      v.literal("runEvents"),
-      v.literal("runs"),
-      v.literal("providers"),
-      v.literal("projectConfigs"),
-      v.literal("projectMembers"),
-      v.literal("auditLogs"),
-      v.literal("projectPolicies"),
-      v.literal("projectDeletionTokens"),
-      v.literal("project"),
-      v.literal("done"),
-    ),
+    stage: ProjectDeletionStage,
     deleted: v.number(),
     processed: v.number(),
   }),
@@ -453,6 +481,14 @@ export function __test_randomToken(): string {
   return randomToken();
 }
 
+export function __test_canReadDeleteStatusAfterProjectRemoval(params: {
+  authedUserId: string;
+  authedRole: "admin" | "viewer";
+  requestedByUserId: string;
+}): boolean {
+  return canReadDeleteStatusAfterProjectRemoval(params);
+}
+
 export function __test_constantTimeEqual(a: string, b: string): boolean {
   return constantTimeEqual(a, b);
 }
@@ -467,4 +503,8 @@ export function __test_isDeleteTokenValid(params: {
   tokenHash: string;
 }): boolean {
   return isDeleteTokenValid(params);
+}
+
+export function __test_nextStage(stage: DeleteStage): DeleteStage {
+  return nextStage(stage);
 }

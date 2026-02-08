@@ -1,7 +1,9 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { api } from "../../../../convex/_generated/api"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { HostScopeChooser } from "~/components/host-scope-chooser"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/~/secrets")({
@@ -11,7 +13,7 @@ export const Route = createFileRoute("/$projectSlug/~/secrets")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
+    await context.queryClient.ensureQueryData(convexQuery(api.hosts.listByProject, { projectId }))
   },
   component: SecretsChooser,
 })

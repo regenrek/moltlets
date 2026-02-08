@@ -295,7 +295,7 @@ export async function executeGitPush(params: { projectId: Id<"projects"> }) {
 
       const run = await client.mutation(api.runs.create, {
         projectId: params.projectId,
-        kind: "custom",
+        kind: "git_push",
         title: `Git push (${status.branch})`,
       })
       runId = run.runId

@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import type { RepoLayout } from "../repo-layout.js";
 import { capture } from "../lib/runtime/run.js";
@@ -6,7 +5,7 @@ import { findInlineScriptingViolations } from "../lib/security/inline-script-ban
 import { validateDocsIndexIntegrity } from "../lib/project/docs-index.js";
 import { validateFleetPolicy, type FleetConfig } from "../lib/config/fleet-policy.js";
 import { evalFleetConfig } from "../lib/nix/fleet-nix-eval.js";
-import { loadInfraConfig, InfraConfigSchema, OpenClawConfigSchema, type ClawletsConfig } from "../lib/config/clawlets-config.js";
+import { loadInfraConfigAsync, InfraConfigSchema, OpenClawConfigSchema, type ClawletsConfig } from "../lib/config/clawlets-config.js";
 import { mergeSplitConfigs } from "../lib/config/split.js";
 import { buildOpenClawGatewayConfig } from "../lib/openclaw/config-invariants.js";
 import { lintOpenclawSecurityConfig } from "../lib/openclaw/security-lint.js";
@@ -15,6 +14,8 @@ import { findOpenclawSecretViolations, findFleetSecretViolations } from "./repo-
 import { evalWheelAccess, getClawletsRevFromFlakeLock } from "./repo-checks-nix.js";
 import type { DoctorPush } from "./types.js";
 import { dirHasAnyFile, loadKnownBundledSkills, resolveTemplateRoot } from "./util.js";
+import type { ConfigStore } from "../lib/storage/config-store.js";
+import { FileSystemConfigStore } from "../lib/storage/fs-config-store.js";
 
 export type RepoDoctorResult = {
   bundledSkills: string[];
@@ -22,8 +23,9 @@ export type RepoDoctorResult = {
   fleetGateways: string[] | null;
 };
 
-function allExist(paths: string[]): { ok: boolean; missing: string[] } {
-  const missing = paths.filter((p) => !fs.existsSync(p));
+async function allExist(paths: string[], store: ConfigStore): Promise<{ ok: boolean; missing: string[] }> {
+  const checks = await Promise.all(paths.map(async (p) => ({ path: p, ok: await store.exists(p) })));
+  const missing = checks.filter((row) => !row.ok).map((row) => row.path);
   return { ok: missing.length === 0, missing };
 }
 
@@ -33,8 +35,10 @@ export async function addRepoChecks(params: {
   host: string;
   nixBin: string;
   push: DoctorPush;
+  store?: ConfigStore;
 }): Promise<RepoDoctorResult> {
   const { repoRoot, layout } = params;
+  const store = params.store ?? new FileSystemConfigStore();
 
   let fleet: FleetConfig | null = null;
   let fleetGateways: string[] | null = null;
@@ -44,7 +48,7 @@ export async function addRepoChecks(params: {
 
   params.push({
     scope: "repo",
-    status: fs.existsSync(path.join(repoRoot, "flake.nix")) ? "ok" : "missing",
+    status: (await store.exists(path.join(repoRoot, "flake.nix"))) ? "ok" : "missing",
     label: "repo root",
     detail: repoRoot,
   });
@@ -60,7 +64,7 @@ export async function addRepoChecks(params: {
         detail: `rev: ${flakeRev.slice(0, 12)}...`,
       });
     } else {
-      const flakeLockExists = fs.existsSync(path.join(repoRoot, "flake.lock"));
+      const flakeLockExists = await store.exists(path.join(repoRoot, "flake.lock"));
       if (flakeLockExists) {
         // flake.lock exists but no clawlets input - might be a different project type
         params.push({
@@ -81,13 +85,13 @@ export async function addRepoChecks(params: {
 
   params.push({
     scope: "repo",
-    status: fs.existsSync(layout.opentofuDir) ? "ok" : "warn",
+    status: (await store.exists(layout.opentofuDir)) ? "ok" : "warn",
     label: "provisioning state dir",
     detail: layout.opentofuDir,
   });
 
-  const templateRoot = resolveTemplateRoot(repoRoot);
-  const bundledSkills = loadKnownBundledSkills(repoRoot, templateRoot);
+  const templateRoot = await resolveTemplateRoot(repoRoot, store);
+  const bundledSkills = await loadKnownBundledSkills(repoRoot, templateRoot, store);
   if (!bundledSkills.ok) {
     params.push({
       scope: "repo",
@@ -107,7 +111,7 @@ export async function addRepoChecks(params: {
   {
     const legacyRepoSecretsDir = path.join(repoRoot, "infra", "secrets");
 
-    if (dirHasAnyFile(legacyRepoSecretsDir)) {
+    if (await dirHasAnyFile(legacyRepoSecretsDir, store)) {
       params.push({
         scope: "repo",
         status: "missing",
@@ -194,7 +198,7 @@ export async function addRepoChecks(params: {
       path.join(commonDir, "HEARTBEAT.md"),
     ];
 
-    const r = allExist(required);
+    const r = await allExist(required, store);
     params.push({
       scope: "repo",
       status: r.ok ? "ok" : "missing",
@@ -205,7 +209,7 @@ export async function addRepoChecks(params: {
     if (templateRoot) {
       const templateCommonDir = path.join(templateRoot, "fleet", "workspaces", "common");
       const templateRequired = required.map((p) => path.join(templateCommonDir, path.basename(p)));
-      const rt = allExist(templateRequired);
+      const rt = await allExist(templateRequired, store);
       params.push({
         scope: "repo",
         status: rt.ok ? "ok" : "missing",
@@ -301,11 +305,11 @@ export async function addRepoChecks(params: {
 	    const infraConfigPath = layout.clawletsConfigPath;
 	    const openclawConfigPath = layout.openclawConfigPath;
 
-	    if (!fs.existsSync(infraConfigPath)) {
+	    if (!(await store.exists(infraConfigPath))) {
 	      params.push({ scope: "repo", status: "missing", label: "clawlets config", detail: infraConfigPath });
 	    } else {
 	      try {
-	        const raw = fs.readFileSync(infraConfigPath, "utf8");
+	        const raw = await store.readText(infraConfigPath);
 	        const parsed = JSON.parse(raw);
 	        const schemaVersion = Number((parsed as any)?.schemaVersion ?? 0);
 	        if (schemaVersion === 1) {
@@ -317,7 +321,7 @@ export async function addRepoChecks(params: {
 	          });
 	        }
 
-	        const loadedInfra = loadInfraConfig({ repoRoot });
+	        const loadedInfra = await loadInfraConfigAsync({ repoRoot, store });
 	        const infraConfig = loadedInfra.config;
 	        clawletsConfig = mergeSplitConfigs({ infra: infraConfig, openclaw: null });
 
@@ -328,7 +332,7 @@ export async function addRepoChecks(params: {
 	          detail: path.relative(repoRoot, infraConfigPath),
 	        });
 
-	        if (!fs.existsSync(openclawConfigPath)) {
+	        if (!(await store.exists(openclawConfigPath))) {
 	          params.push({
 	            scope: "repo",
 	            status: "warn",
@@ -338,7 +342,7 @@ export async function addRepoChecks(params: {
 	        } else {
 	          let openclawParsed: ReturnType<typeof OpenClawConfigSchema.parse> | null = null;
 	          try {
-	            openclawParsed = OpenClawConfigSchema.parse(JSON.parse(fs.readFileSync(openclawConfigPath, "utf8")));
+	            openclawParsed = OpenClawConfigSchema.parse(JSON.parse(await store.readText(openclawConfigPath)));
 	            params.push({
 	              scope: "repo",
 	              status: "ok",
@@ -401,11 +405,11 @@ export async function addRepoChecks(params: {
     if (templateRoot) {
       const templateInfraPath = path.join(templateRoot, "fleet", "clawlets.json");
       const templateOpenclawPath = path.join(templateRoot, "fleet", "openclaw.json");
-      if (!fs.existsSync(templateInfraPath)) {
+      if (!(await store.exists(templateInfraPath))) {
         params.push({ scope: "repo", status: "missing", label: "template clawlets config", detail: templateInfraPath });
       } else {
         try {
-          const raw = fs.readFileSync(templateInfraPath, "utf8");
+          const raw = await store.readText(templateInfraPath);
           const parsed = JSON.parse(raw);
           let parsedConfig: ReturnType<typeof InfraConfigSchema.parse> | null = null;
           try {
@@ -423,7 +427,7 @@ export async function addRepoChecks(params: {
               detail: path.relative(repoRoot, templateInfraPath),
             });
 
-            if (!fs.existsSync(templateOpenclawPath)) {
+            if (!(await store.exists(templateOpenclawPath))) {
               templateOpenclawConfig = null;
               params.push({
                 scope: "repo",
@@ -432,7 +436,7 @@ export async function addRepoChecks(params: {
                 detail: "(optional) fleet/openclaw.json missing",
               });
             } else {
-              const parsedOpenclaw = OpenClawConfigSchema.parse(JSON.parse(fs.readFileSync(templateOpenclawPath, "utf8")));
+              const parsedOpenclaw = OpenClawConfigSchema.parse(JSON.parse(await store.readText(templateOpenclawPath)));
               templateOpenclawConfig = parsedOpenclaw;
               const infraHosts = new Set(Object.keys(parsedConfig.hosts || {}));
               const unknownHosts = Object.keys(parsedOpenclaw.hosts || {}).filter((host) => !infraHosts.has(host));

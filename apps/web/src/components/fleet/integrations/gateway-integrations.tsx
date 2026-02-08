@@ -28,8 +28,15 @@ export function GatewayIntegrations(props: {
   profile: unknown
   fleetSecretEnv: unknown
   canEdit: boolean
+  configQueryKey?: readonly unknown[]
+  metadataQueryKey?: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
+
+  const refreshQueries = async () => {
+    if (props.configQueryKey) await queryClient.invalidateQueries({ queryKey: props.configQueryKey })
+    if (props.metadataQueryKey) await queryClient.invalidateQueries({ queryKey: props.metadataQueryKey })
+  }
 
   const effectiveConfigForAnalysis = useMemo(() => {
     // For analysis (env refs + token warnings), treat first-class fields as part of the effective OpenClaw config.
@@ -127,7 +134,7 @@ export function GatewayIntegrations(props: {
     },
     onSuccess: async () => {
       toast.success("Channel config updated")
-      await queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      await refreshQueries()
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -153,7 +160,7 @@ export function GatewayIntegrations(props: {
     },
     onSuccess: async (message) => {
       toast.success(message)
-      await queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      await refreshQueries()
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
@@ -188,7 +195,7 @@ export function GatewayIntegrations(props: {
     },
     onSuccess: async (message) => {
       toast.success(message)
-      await queryClient.invalidateQueries({ queryKey: ["clawletsConfig", props.projectId] })
+      await refreshQueries()
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })

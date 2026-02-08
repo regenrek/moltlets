@@ -1,5 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query"
+import { api } from "../../../../convex/_generated/api"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import type { Id } from "../../../../convex/_generated/dataModel"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
 export const Route = createFileRoute("/$projectSlug/setup/")({
@@ -15,12 +18,11 @@ export const Route = createFileRoute("/$projectSlug/setup/")({
       })
     }
 
-    const cfg = await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
-    const config = (cfg as any)?.config
-    const hostNames = config?.hosts && typeof config.hosts === "object" ? Object.keys(config.hosts).sort() : []
-    const defaultHost = typeof config?.defaultHost === "string" && hostNames.includes(config.defaultHost)
-      ? config.defaultHost
-      : (hostNames[0] ?? null)
+    const hosts = await context.queryClient.ensureQueryData(
+      convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    )
+    const hostNames = hosts.map((row) => row.hostName).sort()
+    const defaultHost = hostNames[0] ?? null
 
     if (!defaultHost) {
       throw redirect({

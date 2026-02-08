@@ -74,4 +74,30 @@ describe("server command", () => {
     await server.subCommands?.status?.run?.({ args: { host: "alpha", targetHost: "admin@host" } } as any);
     expect(sshCaptureMock).toHaveBeenCalled();
   });
+
+  it("tailscale-ipv4 parses and prints JSON output", async () => {
+    const config = makeConfig({ hostName: "alpha" });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
+    sshCaptureMock.mockResolvedValue("100.64.0.22\n");
+    const logs: string[] = [];
+    const logSpy = vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
+    const { server } = await import("../src/commands/openclaw/server/index.js");
+    await server.subCommands?.["tailscale-ipv4"]?.run?.({ args: { host: "alpha", targetHost: "admin@host", json: true } } as any);
+    expect(logs.join("\n")).toContain("\"ipv4\": \"100.64.0.22\"");
+    logSpy.mockRestore();
+  });
+
+  it("ssh-check returns hostname in JSON mode", async () => {
+    const config = makeConfig({ hostName: "alpha" });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ hostName: "alpha", hostCfg });
+    sshCaptureMock.mockResolvedValue("alpha-node\n");
+    const logs: string[] = [];
+    const logSpy = vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
+    const { server } = await import("../src/commands/openclaw/server/index.js");
+    await server.subCommands?.["ssh-check"]?.run?.({ args: { host: "alpha", targetHost: "admin@host", json: true } } as any);
+    expect(logs.join("\n")).toContain("\"hostname\": \"alpha-node\"");
+    logSpy.mockRestore();
+  });
 });

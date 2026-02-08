@@ -24,11 +24,16 @@ import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/for
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
-import { getClawletsConfig, writeClawletsConfigFile } from "~/sdk/config"
+import { configDotGet, configDotSet } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/settings")({
   component: HostsSetup,
 })
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
 
 function HostsSetup() {
   const { projectSlug, host: selectedHost } = Route.useParams()
@@ -36,15 +41,17 @@ function HostsSetup() {
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
 
+  const hostConfigQueryKey = ["hostSettingsConfig", projectId, selectedHost] as const
   const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
+    queryKey: hostConfigQueryKey,
     queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+      await configDotGet({
+        data: { projectId: projectId as Id<"projects">, path: `hosts.${selectedHost}` },
+      }),
     enabled: Boolean(projectId),
   })
 
-  const config = cfg.data?.config
-  const hostCfg = selectedHost && config ? config.hosts[selectedHost] : null
+  const hostCfg = (asRecord(cfg.data?.value) as any) || null
 
   const [enable, setEnable] = useState(false)
   const [diskDevice, setDiskDevice] = useState("/dev/sda")
@@ -127,7 +134,7 @@ function HostsSetup() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!config || !hostCfg) throw new Error("missing host")
+      if (!hostCfg) throw new Error("missing host")
       const sshPubkeyFileTrimmed = sshPubkeyFile.trim()
       if (looksLikeSshPrivateKeyText(sshPubkeyFileTrimmed) || looksLikeSshPublicKeyText(sshPubkeyFileTrimmed)) {
         throw new Error("SSH pubkey file must be a local file path (not key contents). Use Security → SSH Keys to paste keys.")
@@ -136,62 +143,60 @@ function HostsSetup() {
         emoji: hostThemeEmoji,
         color: hostThemeColor,
       })
-      const next = {
-        ...config,
-        hosts: {
-          ...config.hosts,
-          [selectedHost]: {
-            ...hostCfg,
-            enable,
-            diskDevice: diskDevice.trim(),
-            targetHost: targetHost.trim() || undefined,
-            flakeHost: flakeHost.trim(),
-            theme: normalizedTheme,
-            provisioning: {
-              ...hostCfg.provisioning,
-              provider,
-              adminCidr: adminCidr.trim(),
-              sshPubkeyFile: sshPubkeyFileTrimmed,
-            },
-            sshExposure: { ...hostCfg.sshExposure, mode: sshExposure },
-            tailnet: { ...hostCfg.tailnet, mode: tailnetMode },
-            hetzner: {
-              ...hostCfg.hetzner,
-              serverType: serverType.trim(),
-              image: hetznerImage.trim(),
-              location: hetznerLocation.trim(),
-              allowTailscaleUdpIngress: Boolean(hetznerAllowTailscaleUdpIngress),
-            },
-            aws: {
-              ...hostCfg.aws,
-              region: awsRegion.trim(),
-              instanceType: awsInstanceType.trim(),
-              amiId: awsAmiId.trim(),
-              vpcId: awsVpcId.trim(),
-              subnetId: awsSubnetId.trim(),
-              useDefaultVpc: Boolean(awsUseDefaultVpc),
-              allowTailscaleUdpIngress: Boolean(awsAllowTailscaleUdpIngress),
-            },
-            agentModelPrimary: agentModelPrimary.trim(),
-            selfUpdate: {
-              ...(hostCfg as any).selfUpdate,
-              enable: Boolean(selfUpdateEnable),
-              channel: selfUpdateChannel.trim(),
-              baseUrls: parseTextList(selfUpdateBaseUrls),
-              publicKeys: parseTextList(selfUpdatePublicKeys),
-              allowUnsigned: Boolean(selfUpdateAllowUnsigned),
-            },
-          },
+      const nextHost = {
+        ...hostCfg,
+        enable,
+        diskDevice: diskDevice.trim(),
+        targetHost: targetHost.trim() || undefined,
+        flakeHost: flakeHost.trim(),
+        theme: normalizedTheme,
+        provisioning: {
+          ...(hostCfg as any).provisioning,
+          provider,
+          adminCidr: adminCidr.trim(),
+          sshPubkeyFile: sshPubkeyFileTrimmed,
+        },
+        sshExposure: { ...(hostCfg as any).sshExposure, mode: sshExposure },
+        tailnet: { ...(hostCfg as any).tailnet, mode: tailnetMode },
+        hetzner: {
+          ...(hostCfg as any).hetzner,
+          serverType: serverType.trim(),
+          image: hetznerImage.trim(),
+          location: hetznerLocation.trim(),
+          allowTailscaleUdpIngress: Boolean(hetznerAllowTailscaleUdpIngress),
+        },
+        aws: {
+          ...(hostCfg as any).aws,
+          region: awsRegion.trim(),
+          instanceType: awsInstanceType.trim(),
+          amiId: awsAmiId.trim(),
+          vpcId: awsVpcId.trim(),
+          subnetId: awsSubnetId.trim(),
+          useDefaultVpc: Boolean(awsUseDefaultVpc),
+          allowTailscaleUdpIngress: Boolean(awsAllowTailscaleUdpIngress),
+        },
+        agentModelPrimary: agentModelPrimary.trim(),
+        selfUpdate: {
+          ...(hostCfg as any).selfUpdate,
+          enable: Boolean(selfUpdateEnable),
+          channel: selfUpdateChannel.trim(),
+          baseUrls: parseTextList(selfUpdateBaseUrls),
+          publicKeys: parseTextList(selfUpdatePublicKeys),
+          allowUnsigned: Boolean(selfUpdateAllowUnsigned),
         },
       }
-      return await writeClawletsConfigFile({
-        data: { projectId: projectId as Id<"projects">, next, title: `Update host ${selectedHost}` },
+      return await configDotSet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          path: `hosts.${selectedHost}`,
+          valueJson: JSON.stringify(nextHost),
+        },
       })
     },
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: hostConfigQueryKey })
       } else toast.error(formatValidationIssues(res.issues))
     },
     onError: (err) => {
@@ -218,8 +223,6 @@ function HostsSetup() {
         <div className="text-muted-foreground">Loading…</div>
       ) : cfg.error ? (
         <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
       ) : hostCfg ? (
         <div className="space-y-6">
           <ConnectivityPanel

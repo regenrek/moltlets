@@ -15,42 +15,34 @@ async function loadGateways(options: {
   validate?: () => { ok: boolean; issues?: Array<{ path: Array<string | number>; message: string }> }
 }) {
   vi.resetModules()
+  const configDotGet = vi.fn(async (_params: unknown) => ({
+    path: "hosts.h1.gateways.gateway1",
+    value: { openclaw: {}, channels: {} },
+  }))
+  const configDotSet = vi.fn(async (_params: unknown) => ({ ok: true as const, runId: "run1" }))
   const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
-    if (payload?.kind) return { runId: "run1" }
+    if (payload?.kind) return { runId: "run1", jobId: "job1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" }))
+  const query = vi.fn(async () => ({ project: { executionMode: "remote_runner" }, role: "admin" }))
 
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
+  vi.doMock("~/sdk/config/dot", () => ({
+    configDotGet,
+    configDotSet,
+  }))
   vi.doMock("@clawlets/core/lib/openclaw/schema/validate", () => ({
     validateOpenclawConfig: options.validate ?? (() => ({ ok: true })),
   }))
-  vi.doMock("@clawlets/core/lib/config/clawlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawlets/core/lib/config/clawlets-config")>(
-      "@clawlets/core/lib/config/clawlets-config",
-    )
-    return {
-      ...actual,
-      ClawletsConfigSchema: {
-        safeParse: (value: unknown) => ({ success: true, data: value }),
-      },
-      loadFullConfig: () => ({
-        infraConfigPath: "/tmp/fleet/clawlets.json",
-        config: { hosts: { h1: { gatewaysOrder: ["gateway1"], gateways: { gateway1: { openclaw: {} } } } } },
-      }),
-      writeClawletsConfig: async () => {},
-    }
-  })
   vi.doMock("~/server/openclaw-schema.server", () => ({
     fetchOpenclawSchemaLive:
       options.fetchLive ?? (async () => ({ ok: true, schema: { schema: { type: "object" } } })),
   }))
 
   const mod = await import("~/sdk/openclaw")
-  return { mod, mutation }
+  return { mod, mutation, configDotGet, configDotSet }
 }
 
 describe("setGatewayOpenclawConfig schema error mapping", () => {
@@ -61,7 +53,7 @@ describe("setGatewayOpenclawConfig schema error mapping", () => {
   }
 
   it("returns schema error when live schema returns ok:false", async () => {
-    const { mod, mutation } = await loadGateways({
+    const { mod, mutation, configDotSet } = await loadGateways({
       fetchLive: async () => ({ ok: false, message: "too many requests" }),
     })
     const res = await runWithStartContext(context, async () =>
@@ -77,6 +69,7 @@ describe("setGatewayOpenclawConfig schema error mapping", () => {
       .map(([, payload]) => payload)
       .filter((payload) => payload?.kind)
     expect(runCreates).toHaveLength(0)
+    expect(configDotSet).not.toHaveBeenCalled()
   })
 
   it("returns sanitized schema error when live schema throws", async () => {
@@ -97,7 +90,7 @@ describe("setGatewayOpenclawConfig schema error mapping", () => {
   })
 
   it("maps schema validation issues when pinned schema rejects", async () => {
-    const { mod, mutation } = await loadGateways({
+    const { mod, mutation, configDotSet } = await loadGateways({
       validate: () => ({ ok: false, issues: [{ path: ["name"], message: "name: required" }] }),
     })
     const res = await runWithStartContext(context, async () =>
@@ -113,10 +106,11 @@ describe("setGatewayOpenclawConfig schema error mapping", () => {
       .map(([, payload]) => payload)
       .filter((payload) => payload?.kind)
     expect(runCreates).toHaveLength(0)
+    expect(configDotSet).not.toHaveBeenCalled()
   })
 
   it("rejects inline secrets before writing config", async () => {
-    const { mod, mutation } = await loadGateways({})
+    const { mod, mutation, configDotSet } = await loadGateways({})
     const res = await runWithStartContext(context, async () =>
       mod.setGatewayOpenclawConfig({
         data: {
@@ -137,5 +131,6 @@ describe("setGatewayOpenclawConfig schema error mapping", () => {
       .map(([, payload]) => payload)
       .filter((payload) => payload?.kind)
     expect(runCreates).toHaveLength(0)
+    expect(configDotSet).not.toHaveBeenCalled()
   })
 })

@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest"
 
 import {
   __test_constantTimeEqual,
+  __test_canReadDeleteStatusAfterProjectRemoval,
   __test_hasActiveLease,
   __test_isDeleteTokenValid,
+  __test_nextStage,
   __test_randomToken,
   __test_sha256Hex,
 } from "../convex/projectErasure"
+import { PROJECT_DELETION_STAGES } from "../convex/lib/project-erasure-stages"
 
 describe("project erasure primitives", () => {
   it("generates base64url tokens", () => {
@@ -57,5 +60,38 @@ describe("project erasure primitives", () => {
     expect(__test_hasActiveLease(100, 100)).toBe(false)
     expect(__test_hasActiveLease(101, 100)).toBe(true)
   })
-})
 
+  it("advances through all deletion stages", () => {
+    expect(PROJECT_DELETION_STAGES).toHaveLength(16)
+    for (let i = 0; i < PROJECT_DELETION_STAGES.length - 1; i += 1) {
+      const current = PROJECT_DELETION_STAGES[i]!
+      const next = PROJECT_DELETION_STAGES[i + 1]!
+      expect(__test_nextStage(current as any)).toBe(next)
+    }
+    expect(__test_nextStage("done")).toBe("done")
+  })
+
+  it("allows delete status fallback for requester/admin after project removal", () => {
+    expect(
+      __test_canReadDeleteStatusAfterProjectRemoval({
+        authedUserId: "u1",
+        authedRole: "viewer",
+        requestedByUserId: "u1",
+      }),
+    ).toBe(true)
+    expect(
+      __test_canReadDeleteStatusAfterProjectRemoval({
+        authedUserId: "u2",
+        authedRole: "viewer",
+        requestedByUserId: "u1",
+      }),
+    ).toBe(false)
+    expect(
+      __test_canReadDeleteStatusAfterProjectRemoval({
+        authedUserId: "u2",
+        authedRole: "admin",
+        requestedByUserId: "u1",
+      }),
+    ).toBe(true)
+  })
+})

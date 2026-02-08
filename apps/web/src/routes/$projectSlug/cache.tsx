@@ -7,9 +7,9 @@ import { HostCacheSettingsSection } from "~/components/hosts/cache-settings-sect
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { parseLineList } from "~/lib/form-utils"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
-import { writeClawletsConfigFile } from "~/sdk/config"
+import { configDotBatch, configDotGet } from "~/sdk/config"
 
 function normalizeCache(cache: any): {
   substituters: string[]
@@ -37,7 +37,6 @@ export const Route = createFileRoute("/$projectSlug/cache")({
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
   },
   component: CachePage,
 })
@@ -50,20 +49,31 @@ function CachePage() {
   const isReady = projectStatus === "ready"
   const queryClient = useQueryClient()
 
-  const cfg = useQuery({
-    ...clawletsConfigQueryOptions((projectId as Id<"projects"> | null) ?? null),
+  const hostsConfigQueryKey = ["cacheHostsConfig", projectId] as const
+  const hostsConfigQuery = useQuery({
+    queryKey: hostsConfigQueryKey,
     enabled: Boolean(projectId && isReady),
+    queryFn: async () => {
+      const node = await configDotGet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          path: "hosts",
+        },
+      })
+      if (!node.value || typeof node.value !== "object" || Array.isArray(node.value)) return {}
+      return node.value as Record<string, unknown>
+    },
   })
 
-  const config = cfg.data?.config
+  const hostsConfig = hostsConfigQuery.data || {}
 
   const hostCaches = useMemo(() => {
-    const hosts = Object.entries(config?.hosts ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    const hosts = Object.entries(hostsConfig).sort(([a], [b]) => a.localeCompare(b))
     return hosts.map(([host, hostCfg]) => ({
       host,
       cache: normalizeCache((hostCfg as any)?.cache),
     }))
-  }, [config])
+  }, [hostsConfig])
 
   const cacheDivergedHosts = useMemo(() => {
     const [first] = hostCaches
@@ -83,7 +93,7 @@ function CachePage() {
   const [cacheNarinfoCachePositiveTtl, setCacheNarinfoCachePositiveTtl] = useState("3600")
 
   useEffect(() => {
-    const hosts = Object.entries(config?.hosts ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    const hosts = Object.entries(hostsConfig).sort(([a], [b]) => a.localeCompare(b))
     const firstHostCfg = hosts[0]?.[1] ?? null
     if (!firstHostCfg) return
     const cache = normalizeCache((firstHostCfg as any).cache)
@@ -93,14 +103,13 @@ function CachePage() {
     setCacheNetrcSecretName(cache.netrc.secretName || "garnix_netrc")
     setCacheNetrcPath(cache.netrc.path || "/etc/nix/netrc")
     setCacheNarinfoCachePositiveTtl(String(cache.netrc.narinfoCachePositiveTtl || 3600))
-  }, [config])
+  }, [hostsConfig])
 
   const save = useMutation({
     mutationFn: async () => {
       if (!projectId) throw new Error("missing project")
-      if (!config) throw new Error("config not loaded")
 
-      const hostNames = Object.keys(config.hosts ?? {})
+      const hostNames = Object.keys(hostsConfig)
       if (hostNames.length === 0) throw new Error("no hosts found (add a host first)")
 
       const cacheSubstituters = parseLineList(cacheSubstitutersText)
@@ -128,27 +137,20 @@ function CachePage() {
         },
       }
 
-      const nextHosts = { ...config.hosts }
-      for (const host of hostNames) {
-        nextHosts[host] = {
-          ...nextHosts[host],
-          cache: cacheNext,
-        }
-      }
-
-      const next = {
-        ...config,
-        hosts: nextHosts,
-      }
-
-      return await writeClawletsConfigFile({
-        data: { projectId: projectId as Id<"projects">, next, title: "Update cache policy" },
+      return await configDotBatch({
+        data: {
+          projectId: projectId as Id<"projects">,
+          ops: hostNames.map((host) => ({
+            path: `hosts.${host}.cache`,
+            valueJson: JSON.stringify(cacheNext),
+          })),
+        },
       })
     },
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: hostsConfigQueryKey })
       } else toast.error("Validation failed")
     },
     onError: (err) => {
@@ -156,7 +158,7 @@ function CachePage() {
     },
   })
 
-  if (projectQuery.isPending || cfg.isPending) {
+  if (projectQuery.isPending || hostsConfigQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
   }
   if (projectQuery.error) {
@@ -171,14 +173,10 @@ function CachePage() {
   if (projectStatus === "error") {
     return <div className="text-sm text-destructive">Project setup failed. Check Runs for details.</div>
   }
-  if (cfg.error) {
-    return <div className="text-sm text-destructive">{String(cfg.error)}</div>
+  if (hostsConfigQuery.error) {
+    return <div className="text-sm text-destructive">{String(hostsConfigQuery.error)}</div>
   }
-  if (!config) {
-    return <div className="text-muted-foreground">Missing config.</div>
-  }
-
-  const hasHosts = Object.keys(config.hosts ?? {}).length > 0
+  const hasHosts = Object.keys(hostsConfig).length > 0
 
   if (!hasHosts) {
     return <div className="text-muted-foreground">Add a host first to configure cache policy.</div>

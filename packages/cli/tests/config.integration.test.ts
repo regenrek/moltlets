@@ -138,4 +138,40 @@ describe("config set", () => {
       /path not found/i,
     );
   });
+
+  it("batch-set applies multiple operations", async () => {
+    const baseConfig = createDefaultClawletsConfig({ host: "alpha", gateways: ["maren"] });
+    loadFullConfigMock.mockReturnValue({
+      infraConfigPath: "/repo/fleet/clawlets.json",
+      config: baseConfig,
+    });
+    const { config } = await import("../src/commands/config");
+    await config.subCommands["batch-set"].run({
+      args: {
+        "ops-json": JSON.stringify([
+          { path: "fleet.codex.enable", valueJson: "true" },
+          { path: "fleet.backups.restic.repository", value: "r2://bucket/path" },
+        ]),
+      } as any,
+    });
+    expect(writeClawletsConfigMock).toHaveBeenCalledTimes(1);
+    const call = writeClawletsConfigMock.mock.calls[0][0];
+    expect(call.config.fleet.codex.enable).toBe(true);
+    expect(call.config.fleet.backups.restic.repository).toBe("r2://bucket/path");
+  });
+
+  it("replace writes full validated config", async () => {
+    const next = createDefaultClawletsConfig({ host: "bravo", gateways: ["east"] });
+    const { config } = await import("../src/commands/config");
+    await config.subCommands.replace.run({
+      args: { "config-json": JSON.stringify(next) } as any,
+    });
+    expect(writeClawletsConfigMock).toHaveBeenCalledTimes(1);
+    expect(writeClawletsConfigMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        configPath: "/repo/fleet/clawlets.json",
+        config: expect.objectContaining({ defaultHost: "bravo" }),
+      }),
+    );
+  });
 });

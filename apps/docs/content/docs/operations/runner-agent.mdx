@@ -1,0 +1,118 @@
+---
+title: Runner Agent
+description: Pair, start, and operate Model C runner agents.
+---
+
+Runner agents execute jobs for a project and report metadata back to the control plane.
+
+## Pairing
+
+Create a runner token from the dashboard/admin surface, then start the runner:
+
+```bash
+clawlets runner start \
+  --project <projectId> \
+  --token <runner-token> \
+  --control-plane-url <https://dashboard-host> \
+  --dashboardOrigin <https://dashboard-origin>
+```
+
+Optional flags:
+
+- `--name <runner-name>`
+- `--repoRoot <repo-path>`
+- `--pollMs <interval>`
+- `--leaseTtlMs <ttl>`
+- `--heartbeatMs <ttl>`
+- `--maxAttempts <n>`
+- `--localSecretsPort <1024-65535>`
+- `--nonce <csrf-nonce>`
+- `--secretsWaitMs <ms>`
+
+## Heartbeats, capabilities, and local submit handshake
+
+Runner sends:
+
+- runner heartbeat (`/runner/heartbeat`)
+- job lease heartbeat (`/runner/jobs/heartbeat`)
+
+If heartbeat goes stale, jobs become lease-eligible again after TTL expiry.
+
+Runner heartbeat capabilities include:
+
+- `supportsLocalSecretsSubmit`
+- `supportsInteractiveSecrets`
+- `supportsInfraApply`
+- `localSecretsPort`
+- `localSecretsNonce`
+
+Control plane validation:
+
+- `localSecretsPort` must be an integer in `1024..65535`.
+- `localSecretsNonce` is trimmed and must be non-empty (when provided) and bounded.
+
+## Secrets handling
+
+Default secure path:
+
+- Browser submits secret values to local runner endpoint (`127.0.0.1`) when available.
+- Runner stores plaintext in memory with TTL and writes encrypted artifacts only.
+
+Handshake requirements for local submit:
+
+- Request path: `POST /secrets/submit`
+- Origin must exactly match `--dashboardOrigin`
+- Header `x-clawlets-nonce` must equal heartbeat `localSecretsNonce`
+
+Fallback:
+
+- Runner-side interactive prompt when local submit is unavailable.
+
+Control plane never stores plaintext secret values.
+
+## Metadata sync limits
+
+`/runner/metadata/sync` enforces bounded payload sizes:
+
+- `projectConfigs <= 500`
+- `hosts <= 200`
+- `gateways <= 500`
+- `secretWiring <= 2000`
+- per-host `secretWiring <= 500` (extra rows dropped)
+
+Oversized payloads are rejected (`400`).
+
+## Error taxonomy and stop/retry policy
+
+Runner HTTP errors are classified as:
+
+- `auth`: `401`/`403`
+- `permanent`: non-`429` `4xx`
+- `transient`: `429`, `5xx`, network errors, request timeouts
+- `malformed`: invalid JSON response
+
+Runner behavior:
+
+- Lease loop: `auth`/`permanent` stop; `transient`/`malformed`/`unknown` retry with backoff.
+- Job completion call: `auth`/`permanent` stop; `transient`/`malformed`/`unknown` continue.
+- Heartbeat, metadata sync, and run-event append failures are logged and non-fatal.
+
+## Filesystem boundary
+
+Runner-local only:
+
+- Git working tree
+- `.clawlets/` runtime state
+- SOPS keys/material
+- SSH credentials
+
+Control plane should not mount or require repo-root paths.
+
+## Troubleshooting
+
+- **Runner offline:** verify process is running and token is not revoked.
+- **Jobs stuck queued:** check runner project id, token scope, and lease endpoints reachability.
+- **Lease expired mid-run:** ensure heartbeat interval is below lease TTL.
+- **Local secrets submit denied (`403`):** verify `Origin` equals `--dashboardOrigin` and `x-clawlets-nonce` matches runner nonce.
+- **Metadata sync rejected (`400`):** reduce payload array sizes to documented limits.
+- **Repeated failures:** inspect run logs (`runs` + `runEvents`) and adjust command args/config.

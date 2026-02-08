@@ -1,8 +1,10 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+import { api } from "../../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -10,7 +12,6 @@ import { Label } from "~/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Switch } from "~/components/ui/switch"
 import { useProjectBySlug } from "~/lib/project-data"
-import { getClawletsConfig } from "~/sdk/config"
 import { serverLogsExecute, serverLogsStart } from "~/sdk/server"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/logs")({
@@ -21,15 +22,21 @@ function LogsOperate() {
   const { projectSlug, host } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
-  const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
+    gcTime: 5_000,
   })
-  const config = cfg.data?.config as any
-  const hostCfg = (config as any)?.hosts?.[host]
-  const gateways = useMemo(() => (hostCfg?.gatewaysOrder || []) as string[], [hostCfg])
+  const hostExists = Boolean(hostsQuery.data?.some((row) => row.hostName === host))
+  const gatewaysQuery = useQuery({
+    ...convexQuery(api.gateways.listByProjectHost, {
+      projectId: projectId as Id<"projects">,
+      hostName: host,
+    }),
+    enabled: Boolean(projectId) && hostExists,
+    gcTime: 5_000,
+  })
+  const gateways = useMemo(() => (gatewaysQuery.data || []).map((row) => row.gatewayId), [gatewaysQuery.data])
 
   const [unit, setUnit] = useState("openclaw-*.service")
   const [lines, setLines] = useState("200")
@@ -72,12 +79,12 @@ function LogsOperate() {
         <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
       ) : !projectId ? (
         <div className="text-muted-foreground">Project not found.</div>
-      ) : cfg.isPending ? (
+      ) : hostsQuery.isPending ? (
         <div className="text-muted-foreground">Loading…</div>
-      ) : cfg.error ? (
-        <div className="text-sm text-destructive">{String(cfg.error)}</div>
-      ) : !config ? (
-        <div className="text-muted-foreground">Missing config.</div>
+      ) : hostsQuery.error ? (
+        <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
+      ) : !hostExists ? (
+        <div className="text-muted-foreground">Host not found in control-plane metadata.</div>
       ) : (
         <div className="space-y-6">
           <div className="rounded-lg border bg-card p-6 space-y-4">
@@ -93,7 +100,7 @@ function LogsOperate() {
                 <NativeSelect value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <NativeSelectOption value="openclaw-*.service">openclaw-*.service</NativeSelectOption>
                   {gateways.map((gatewayId) => (
-                    <NativeSelectOption key={gatewayId} value={`openclaw-.service`}>
+                    <NativeSelectOption key={gatewayId} value={`openclaw-${gatewayId}.service`}>
                       openclaw-{gatewayId}.service
                     </NativeSelectOption>
                   ))}

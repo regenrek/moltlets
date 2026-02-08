@@ -1,10 +1,8 @@
-import { stat } from "node:fs/promises"
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { assertRepoRootPath } from "~/server/paths"
+import { parseProjectIdInput } from "~/sdk/runtime"
 
 type DashboardProjectConfigSummary = {
   configPath: string | null
@@ -55,54 +53,54 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
         }
 
         try {
-          if (base.executionMode !== "local" || !base.localPath) {
+          const [projectConfigs, hosts] = await Promise.all([
+            client.query(api.projectConfigs.listByProject, { projectId: p._id as Id<"projects"> }),
+            client.query(api.hosts.listByProject, { projectId: p._id as Id<"projects"> }),
+          ])
+          if (projectConfigs.length > 0 || hosts.length > 0) {
+            const fleetCfg = projectConfigs.find((row) => row.type === "fleet") ?? projectConfigs[0] ?? null
+            const configMtimeMs = projectConfigs.reduce<number | null>((acc, row) => {
+              const value = typeof row.lastSyncAt === "number" ? row.lastSyncAt : null
+              if (value === null) return acc
+              if (acc === null) return value
+              return Math.max(acc, value)
+            }, null)
+            const hostsEnabled = hosts.filter((row) => row.desired?.enabled === true).length
+            const gatewaysTotal = hosts.reduce((total, row) => {
+              const count = row.desired?.gatewayCount
+              return total + (typeof count === "number" && Number.isFinite(count) ? count : 0)
+            }, 0)
+            const defaultHost = hosts[0]?.hostName ?? null
+            const firstError = projectConfigs.find((row) => typeof row.lastError === "string" && row.lastError.trim())
             return {
               ...base,
               cfg: {
-                configPath: null,
-                configMtimeMs: null,
-                gatewaysTotal: 0,
+                configPath: fleetCfg?.path ?? null,
+                configMtimeMs,
+                gatewaysTotal,
                 gatewayIdsPreview: [],
-                hostsTotal: 0,
-                hostsEnabled: 0,
-                defaultHost: null,
+                hostsTotal: hosts.length,
+                hostsEnabled,
+                defaultHost,
                 codexEnabled: false,
                 resticEnabled: false,
-                error: null,
+                error: firstError?.lastError ?? null,
               },
             }
           }
 
-          const repoRoot = assertRepoRootPath(base.localPath, { allowMissing: false })
-          const { configPath, config } = loadClawletsConfig({ repoRoot })
-
-          const hostNames = Object.keys(config.hosts || {})
-          const hostsEnabled = hostNames.filter((h) => Boolean((config.hosts as any)?.[h]?.enable)).length
-          const gatewayEntries: string[] = []
-          for (const host of hostNames) {
-            const hostCfg = (config.hosts as any)?.[host] || {}
-            const gatewaysOrder = Array.isArray(hostCfg?.gatewaysOrder) ? hostCfg.gatewaysOrder : []
-            const gatewaysKeys = Object.keys(hostCfg?.gateways || {})
-            const gateways = gatewaysOrder.length > 0 ? gatewaysOrder : gatewaysKeys
-            for (const gatewayId of gateways) {
-              if (typeof gatewayId === "string" && gatewayId.trim()) gatewayEntries.push(`${host}:${gatewayId}`)
-            }
-          }
-
-          const mtime = await stat(configPath).then((s) => s.mtimeMs).catch(() => null)
-
           return {
             ...base,
             cfg: {
-              configPath,
-              configMtimeMs: mtime,
-              gatewaysTotal: gatewayEntries.length,
-              gatewayIdsPreview: gatewayEntries.slice(0, 8),
-              hostsTotal: hostNames.length,
-              hostsEnabled,
-              defaultHost: typeof config.defaultHost === "string" ? config.defaultHost : null,
-              codexEnabled: Boolean((config as any).fleet?.codex?.enable),
-              resticEnabled: Boolean((config as any).fleet?.backups?.restic?.enable),
+              configPath: null,
+              configMtimeMs: null,
+              gatewaysTotal: 0,
+              gatewayIdsPreview: [],
+              hostsTotal: 0,
+              hostsEnabled: 0,
+              defaultHost: null,
+              codexEnabled: false,
+              resticEnabled: false,
               error: null,
             },
           }
@@ -128,4 +126,31 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
     )
 
     return { projects: summaries }
+  })
+
+export type ProjectHostExposure = {
+  hostName: string
+  enabled: boolean
+  sshExposureMode: string
+  targetHost: string | null
+  tailnetMode: string | null
+}
+
+export const getProjectHostExposureSummary = createServerFn({ method: "POST" })
+  .inputValidator(parseProjectIdInput)
+  .handler(async ({ data }) => {
+    const client = createConvexClient()
+    const rows = await client.query(api.hosts.listByProject, { projectId: data.projectId })
+    const hosts: ProjectHostExposure[] = rows.map((row) => ({
+      hostName: row.hostName,
+      enabled: row.desired?.enabled !== false,
+      sshExposureMode: typeof row.desired?.sshExposureMode === "string" ? row.desired.sshExposureMode : "unknown",
+      targetHost: typeof row.desired?.targetHost === "string" && row.desired.targetHost.trim()
+        ? row.desired.targetHost.trim()
+        : null,
+      tailnetMode: typeof row.desired?.tailnetMode === "string" && row.desired.tailnetMode.trim()
+        ? row.desired.tailnetMode.trim()
+        : null,
+    }))
+    return { hosts }
   })

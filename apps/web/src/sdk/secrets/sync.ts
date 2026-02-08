@@ -1,28 +1,26 @@
-import fs from "node:fs/promises"
-
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
-import { createSecretsTar } from "@clawlets/core/lib/secrets/secrets-tar"
-import { getRepoLayout, getHostRemoteSecretsDir, getHostSecretsDir } from "@clawlets/core/repo-layout"
 
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getClawletsCliEnv } from "~/server/run-env"
-import { spawnCommand } from "~/server/run-manager"
-import { getAdminProjectContext } from "~/sdk/project"
-import { parseProjectHostInput, parseProjectRunHostInput } from "~/sdk/runtime"
-import { resolveHostFromConfig } from "./helpers"
-import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  enqueueRunnerJobForRun,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  parseProjectHostInput,
+  parseProjectRunHostInput,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
 
 export const secretsSyncStart = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
+    await requireAdminProjectAccess(client, data.projectId)
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -43,36 +41,41 @@ export const secretsSyncPreview = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    const host = resolveHostFromConfig(config, data.host)
-
-    const layout = getRepoLayout(repoRoot)
-    const localDir = getHostSecretsDir(layout, host)
-    const remoteDir = getHostRemoteSecretsDir(host)
-
-    let tarPath = ""
-    try {
-      const created = await createSecretsTar({ hostName: host, localDir })
-      tarPath = created.tarPath
-      return {
-        ok: true as const,
-        localDir,
-        remoteDir,
-        digest: created.digest,
-        files: created.files,
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      return { ok: false as const, localDir, remoteDir, message }
-    } finally {
-      if (tarPath) {
-        try {
-          await fs.rm(tarPath, { force: true })
-        } catch {
-          // ignore
-        }
-      }
+    await requireAdminProjectAccess(client, data.projectId)
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "custom",
+      title: `Secrets sync preview (${host})`,
+      host,
+      args: ["secrets", "sync", "--host", host, "--preview-json"],
+      note: "control-plane sync preview",
+    })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 45_000,
+    })
+    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    if (terminal.status !== "succeeded") {
+      return { ok: false as const, message: terminal.errorMessage || lastErrorMessage(messages, "preview failed") }
+    }
+    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    if (!parsed) {
+      return { ok: false as const, message: lastErrorMessage(messages, "preview output missing JSON payload") }
+    }
+    const files = Array.isArray(parsed.files)
+      ? parsed.files.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : []
+    return {
+      ok: true as const,
+      localDir: typeof parsed.localDir === "string" ? parsed.localDir : "",
+      remoteDir: typeof parsed.remoteDir === "string" ? parsed.remoteDir : "",
+      digest: typeof parsed.digest === "string" ? parsed.digest : "",
+      files,
     }
   })
 
@@ -80,42 +83,20 @@ export const secretsSyncExecute = createServerFn({ method: "POST" })
   .inputValidator(parseProjectRunHostInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
+    const args = ["secrets", "sync", "--host", host, "--ssh-tty=false"]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "secrets_sync",
+      jobKind: "secrets_sync",
+      host,
+      payloadMeta: {
+        hostName: host,
+        args,
+      },
     })
-
-    try {
-      const { config } = loadClawletsConfig({ repoRoot })
-      if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
-      const redactTokens = await readClawletsEnvTokens(repoRoot)
-      const cliEntry = resolveClawletsCliEntry()
-      const cliEnv = getClawletsCliEnv()
-
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
-        args: [cliEntry, "secrets", "sync", "--host", data.host, "--ssh-tty=false"],
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, {
-        runId: data.runId,
-        status: "succeeded",
-      })
-      return { ok: true as const }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      await client.mutation(api.runs.setStatus, {
-        runId: data.runId,
-        status: "failed",
-        errorMessage: message,
-      })
-      return { ok: false as const, message }
-    }
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })

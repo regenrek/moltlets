@@ -1,23 +1,23 @@
-import { randomBytes } from "node:crypto"
 import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { parseOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
-import { buildOpenClawGatewayConfig } from "@clawlets/core/lib/openclaw/config-invariants"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
-import { compareOpenclawSchemaToNixOpenclaw, summarizeOpenclawSchemaComparison } from "@clawlets/core/lib/openclaw/schema/compare"
-import { fetchNixOpenclawSourceInfo, getNixOpenclawRevFromFlakeLock } from "@clawlets/core/lib/nix/nix-openclaw-source"
-import { shellQuote, sshCapture, validateTargetHost } from "@clawlets/core/lib/security/ssh-remote"
+import { shellQuote } from "@clawlets/core/lib/security/ssh-remote"
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
-import { createConvexClient } from "~/server/convex"
-import { getProjectContext } from "~/sdk/project"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
+import { createConvexClient } from "~/server/convex"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
 
-const SOURCE_TTL_MS = 5 * 60 * 1000
 const STATUS_TTL_MS = 60 * 1000
 const STATUS_FAILURE_TTL_MS = 10 * 1000
 const LIVE_SCHEMA_TTL_MS = 15 * 1000
-const SOURCE_CACHE_MAX = 64
 const STATUS_CACHE_MAX = 128
 const LIVE_SCHEMA_CACHE_MAX = 256
 const SCHEMA_MARKER_BEGIN = "__OPENCLAW_SCHEMA_BEGIN__"
@@ -26,13 +26,6 @@ const LIVE_SCHEMA_MAX_OUTPUT_BYTES = 5 * 1024 * 1024
 const SCHEMA_MARKER_OVERHEAD_BYTES = 16 * 1024
 const SCHEMA_PAYLOAD_BYTES_MAX = LIVE_SCHEMA_MAX_OUTPUT_BYTES - SCHEMA_MARKER_OVERHEAD_BYTES
 
-type SourceCacheEntry = {
-  expiresAt: number
-  value: Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>
-}
-
-const sourceCache = new Map<string, SourceCacheEntry>()
-const sourceInFlight = new Map<string, Promise<Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>>>()
 const statusCache = new Map<string, { expiresAt: number; value: OpenclawSchemaStatusResult }>()
 const statusInFlight = new Map<string, Promise<OpenclawSchemaStatusResult>>()
 const liveSchemaCache = new Map<string, { expiresAt: number; value: OpenclawSchemaLiveResult }>()
@@ -53,28 +46,6 @@ function capCache<T>(cache: Map<string, T>, maxSize: number) {
     removed += 1
     if (removed >= overflow) break
   }
-}
-
-async function fetchNixOpenclawSourceInfoCached(params: {
-  ref: string
-}): Promise<Awaited<ReturnType<typeof fetchNixOpenclawSourceInfo>>> {
-  const key = params.ref.trim() || "main"
-  const now = Date.now()
-  pruneExpired(sourceCache, now)
-  const cached = sourceCache.get(key)
-  if (cached && cached.expiresAt > now) return cached.value
-  const inFlight = sourceInFlight.get(key)
-  if (inFlight) return inFlight
-  const task = (async () => {
-    const value = await fetchNixOpenclawSourceInfo({ ref: key })
-    const expiresAt = Date.now() + SOURCE_TTL_MS
-    sourceCache.set(key, { expiresAt, value })
-    capCache(sourceCache, SOURCE_CACHE_MAX)
-    return value
-  })()
-  sourceInFlight.set(key, task)
-  void task.finally(() => sourceInFlight.delete(key))
-  return task
 }
 
 function extractJsonBlock(raw: string, nonce: string): string {
@@ -108,10 +79,6 @@ function extractJsonBlock(raw: string, nonce: string): string {
 
 export function __test_extractJsonBlock(raw: string, nonce: string): string {
   return extractJsonBlock(raw, nonce)
-}
-
-function needsSudo(targetHost: string): boolean {
-  return !/^root@/i.test(targetHost.trim())
 }
 
 function buildGatewaySchemaCommand(params: {
@@ -168,84 +135,130 @@ export type OpenclawSchemaStatusResult =
     }
   | { ok: false; message: string }
 
+function parseRunnerJson(messages: string[]): Record<string, unknown> | null {
+  const direct = parseLastJsonMessage<Record<string, unknown>>(messages)
+  if (direct) return direct
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const raw = String(messages[i] || "").trim()
+    if (!raw) continue
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+async function runRunnerJsonCommand(params: {
+  projectId: Id<"projects">
+  host?: string
+  title: string
+  args: string[]
+  timeoutMs: number
+}): Promise<{ ok: true; json: Record<string, unknown> } | { ok: false; message: string }> {
+  const client = createConvexClient()
+  const queued = await enqueueRunnerCommand({
+    client,
+    projectId: params.projectId,
+    runKind: "custom",
+    title: params.title,
+    host: params.host,
+    args: params.args,
+    note: "runner queued from openclaw schema endpoint",
+  })
+  const terminal = await waitForRunTerminal({
+    client,
+    projectId: params.projectId,
+    runId: queued.runId,
+    timeoutMs: params.timeoutMs,
+    pollMs: 700,
+  })
+  const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+  if (terminal.status !== "succeeded") {
+    return {
+      ok: false as const,
+      message: terminal.errorMessage || lastErrorMessage(messages, "runner command failed"),
+    }
+  }
+  const parsed = parseRunnerJson(messages)
+  if (!parsed) {
+    return { ok: false as const, message: "runner output missing JSON payload" }
+  }
+  return { ok: true as const, json: parsed }
+}
+
 export async function fetchOpenclawSchemaLive(params: {
   projectId: Id<"projects">
   host: string
   gatewayId: string
 }): Promise<OpenclawSchemaLiveResult> {
-  const client = createConvexClient()
-  const { role, repoRoot } = await getProjectContext(client, params.projectId)
-  if (role !== "admin") return { ok: false as const, message: "admin required" } satisfies OpenclawSchemaLiveResult
-  const gatewayId = GatewayIdSchema.parse(params.gatewayId.trim())
-  const hostCandidate = String(params.host || "").trim()
+  const host = String(params.host || "").trim()
+  if (!host) throw new Error("missing host")
+  const gatewayId = GatewayIdSchema.parse(String(params.gatewayId || "").trim())
+  const cacheKey = `${params.projectId}:${host}:${gatewayId}`
 
-  if (hostCandidate) {
-    const cacheKey = `${params.projectId}:${hostCandidate}:${gatewayId}`
-    const now = Date.now()
-    pruneExpired(liveSchemaCache, now)
-    const cached = liveSchemaCache.get(cacheKey)
-    if (cached && cached.expiresAt > now) return cached.value
+  const client = createConvexClient()
+  try {
+    await requireAdminProjectAccess(client, params.projectId)
+  } catch (err) {
+    const message = sanitizeErrorMessage(err, "admin required")
+    return { ok: false as const, message }
   }
 
-  const { config } = loadClawletsConfig({ repoRoot })
-
-  const host = hostCandidate || config.defaultHost || ""
-  if (!host) throw new Error("missing host")
-  if (!config.hosts[host]) throw new Error(`unknown host: ${host}`)
-  if (!(config.hosts as any)?.[host]?.gateways?.[gatewayId]) throw new Error(`unknown gateway: ${gatewayId}`)
-
-  const cacheKey = `${params.projectId}:${host}:${gatewayId}`
   const now = Date.now()
   pruneExpired(liveSchemaCache, now)
   const cached = liveSchemaCache.get(cacheKey)
   if (cached && cached.expiresAt > now) return cached.value
-
-  const targetHostRaw = String((config.hosts[host] as any)?.targetHost || "").trim()
-  if (!targetHostRaw) {
-    throw new Error(
-      `missing targetHost for ${host}. Set hosts.${host}.targetHost (Hosts → Settings → Target host), save, reload.`,
-    )
-  }
-  const targetHost = validateTargetHost(targetHostRaw)
-
-  const gatewayConfig = buildOpenClawGatewayConfig({ config, hostName: host, gatewayId })
-  const gateway = (gatewayConfig.invariants as any)?.gateway || {}
-  const port = typeof gateway.port === "number" ? gateway.port : Number(gateway.port || 0)
-  if (!Number.isFinite(port) || port <= 0) throw new Error(`invalid gateway port for gateway ${gatewayId}`)
 
   const inFlight = liveSchemaInFlight.get(cacheKey)
   if (inFlight) return inFlight
 
   const task = (async () => {
     try {
-      await client.mutation(api.projects.guardLiveSchemaFetch, { projectId: params.projectId, host, gatewayId })
-
-      const nonce = randomBytes(8).toString("hex")
-      const remoteCmd = buildGatewaySchemaCommand({ gatewayId, port, sudo: needsSudo(targetHost), nonce })
-      const raw = await sshCapture(targetHost, remoteCmd, {
-        cwd: repoRoot,
-        timeoutMs: 15_000,
-        maxOutputBytes: LIVE_SCHEMA_MAX_OUTPUT_BYTES,
+      await client.mutation(api.projects.guardLiveSchemaFetch, {
+        projectId: params.projectId,
+        host,
+        gatewayId,
       })
-      const payload = extractJsonBlock(raw || "", nonce)
-      const parsed = JSON.parse(payload)
-      const artifact = parseOpenclawSchemaArtifact(parsed)
+      const result = await runRunnerJsonCommand({
+        projectId: params.projectId,
+        host,
+        title: `OpenClaw schema live (${host} · ${gatewayId})`,
+        args: [
+          "openclaw",
+          "schema",
+          "fetch",
+          "--host",
+          host,
+          "--gateway",
+          gatewayId,
+          "--ssh-tty=false",
+        ],
+        timeoutMs: 20_000,
+      })
+      if (!result.ok) {
+        throw new Error(result.message || "runner schema fetch failed")
+      }
+      const artifact = parseOpenclawSchemaArtifact(result.json)
       if (!artifact.ok) {
         throw new Error(artifact.error)
       }
-      const result = { ok: true as const, schema: artifact.value } satisfies OpenclawSchemaLiveResult
+      const okResult = { ok: true as const, schema: artifact.value } satisfies OpenclawSchemaLiveResult
       const expiresAt = Date.now() + LIVE_SCHEMA_TTL_MS
-      liveSchemaCache.set(cacheKey, { expiresAt, value: result })
+      liveSchemaCache.set(cacheKey, { expiresAt, value: okResult })
       capCache(liveSchemaCache, LIVE_SCHEMA_CACHE_MAX)
-      return result
+      return okResult
     } catch (err) {
       const message = sanitizeErrorMessage(err, "Unable to fetch schema. Check gateway and host settings.")
-      console.error("openclaw schema live failed", message)
-      const result = { ok: false as const, message } satisfies OpenclawSchemaLiveResult
+      const failResult = { ok: false as const, message } satisfies OpenclawSchemaLiveResult
       const expiresAt = Date.now() + LIVE_SCHEMA_TTL_MS
-      liveSchemaCache.set(cacheKey, { expiresAt, value: result })
+      liveSchemaCache.set(cacheKey, { expiresAt, value: failResult })
       capCache(liveSchemaCache, LIVE_SCHEMA_CACHE_MAX)
-      return result
+      return failResult
     }
   })()
 
@@ -258,6 +271,14 @@ export async function fetchOpenclawSchemaStatus(params: {
   projectId: Id<"projects">
 }): Promise<OpenclawSchemaStatusResult> {
   const cacheKey = String(params.projectId)
+  const client = createConvexClient()
+  try {
+    await requireAdminProjectAccess(client, params.projectId)
+  } catch (err) {
+    const message = sanitizeErrorMessage(err, "admin required")
+    return { ok: false as const, message }
+  }
+
   const now = Date.now()
   pruneExpired(statusCache, now)
   const cached = statusCache.get(cacheKey)
@@ -267,55 +288,41 @@ export async function fetchOpenclawSchemaStatus(params: {
 
   const task = (async () => {
     try {
-      const client = createConvexClient()
-      const { repoRoot } = await getProjectContext(client, params.projectId)
-      const comparison = await compareOpenclawSchemaToNixOpenclaw({
-        repoRoot,
-        fetchNixOpenclawSourceInfo: fetchNixOpenclawSourceInfoCached,
-        getNixOpenclawRevFromFlakeLock,
-        requireSchemaRev: false,
+      const result = await runRunnerJsonCommand({
+        projectId: params.projectId,
+        title: "OpenClaw schema status",
+        args: ["openclaw", "schema", "status", "--json"],
+        timeoutMs: 25_000,
       })
-      if (!comparison) {
-        const result = {
-          ok: true as const,
-          warnings: ["openclaw schema revision unavailable"],
-        } satisfies OpenclawSchemaStatusResult
-        const expiresAt = Date.now() + STATUS_TTL_MS
-        statusCache.set(cacheKey, { expiresAt, value: result })
-        capCache(statusCache, STATUS_CACHE_MAX)
-        return result
+      if (!result.ok) {
+        throw new Error(result.message || "runner schema status failed")
       }
-
-      const summary = summarizeOpenclawSchemaComparison(comparison)
-      const pinned = summary.pinned?.ok
-        ? { nixOpenclawRev: summary.pinned.nixOpenclawRev, openclawRev: summary.pinned.openclawRev }
-        : undefined
-      const upstream = summary.upstream.ok
-        ? { nixOpenclawRef: summary.upstream.nixOpenclawRef, openclawRev: summary.upstream.openclawRev }
-        : undefined
-
-      const result = {
+      const row = result.json
+      if (row.ok !== true) {
+        const message = typeof row.message === "string" && row.message.trim()
+          ? row.message.trim()
+          : "Unable to fetch schema status. Check logs."
+        throw new Error(message)
+      }
+      const okResult = {
         ok: true as const,
-        pinned,
-        upstream,
-        warnings: summary.warnings.length > 0 ? summary.warnings : undefined,
+        pinned: row.pinned as OpenclawSchemaStatusResult extends { pinned?: infer P } ? P : never,
+        upstream: row.upstream as OpenclawSchemaStatusResult extends { upstream?: infer U } ? U : never,
+        warnings: Array.isArray(row.warnings)
+          ? row.warnings.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+          : undefined,
       } satisfies OpenclawSchemaStatusResult
       const expiresAt = Date.now() + STATUS_TTL_MS
-      statusCache.set(cacheKey, { expiresAt, value: result })
+      statusCache.set(cacheKey, { expiresAt, value: okResult })
       capCache(statusCache, STATUS_CACHE_MAX)
-      return result
+      return okResult
     } catch (err) {
       const message = sanitizeErrorMessage(err, "Unable to fetch schema status. Check logs.")
-      if (process.env.NODE_ENV === "development") {
-        console.error("openclaw schema status failed", message, err)
-      } else {
-        console.error("openclaw schema status failed", message)
-      }
-      const result = { ok: false as const, message } satisfies OpenclawSchemaStatusResult
+      const failResult = { ok: false as const, message } satisfies OpenclawSchemaStatusResult
       const expiresAt = Date.now() + STATUS_FAILURE_TTL_MS
-      statusCache.set(cacheKey, { expiresAt, value: result })
+      statusCache.set(cacheKey, { expiresAt, value: failResult })
       capCache(statusCache, STATUS_CACHE_MAX)
-      return result
+      return failResult
     }
   })()
 

@@ -1,6 +1,14 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { RUN_EVENT_LEVELS, RUN_KINDS, RUN_STATUSES } from "@clawlets/core/lib/runtime/run-constants";
+import {
+  JOB_STATUSES,
+  HOST_STATUSES,
+  RUNNER_STATUSES,
+  SECRET_WIRING_SCOPES,
+  SECRET_WIRING_STATUSES,
+} from "@clawlets/core/lib/runtime/control-plane-constants";
+import { PROJECT_DELETION_STAGES } from "./lib/project-erasure-stages";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
@@ -9,6 +17,11 @@ function literals<const T extends readonly string[]>(values: T) {
 export const RunKind = v.union(...literals(RUN_KINDS));
 export const RunStatus = v.union(...literals(RUN_STATUSES));
 export const RunEventLevel = v.union(...literals(RUN_EVENT_LEVELS));
+export const HostStatus = v.union(...literals(HOST_STATUSES));
+export const RunnerStatus = v.union(...literals(RUNNER_STATUSES));
+export const SecretWiringScope = v.union(...literals(SECRET_WIRING_SCOPES));
+export const SecretWiringStatus = v.union(...literals(SECRET_WIRING_STATUSES));
+export const JobStatus = v.union(...literals(JOB_STATUSES));
 export const RunEventMeta = v.union(
   v.object({
     kind: v.literal("phase"),
@@ -40,18 +53,7 @@ export const ProjectDeletionStatus = v.union(
   v.literal("completed"),
   v.literal("failed"),
 );
-export const ProjectDeletionStage = v.union(
-  v.literal("runEvents"),
-  v.literal("runs"),
-  v.literal("providers"),
-  v.literal("projectConfigs"),
-  v.literal("projectMembers"),
-  v.literal("auditLogs"),
-  v.literal("projectPolicies"),
-  v.literal("projectDeletionTokens"),
-  v.literal("project"),
-  v.literal("done"),
-);
+export const ProjectDeletionStage = v.union(...literals(PROJECT_DELETION_STAGES));
 export const AuditAction = v.union(
   v.literal("bootstrap"),
   v.literal("config.migrate"),
@@ -126,6 +128,51 @@ export const ProjectConfigType = v.union(
   v.literal("raw"),
 );
 export const ProviderType = v.union(v.literal("discord"), v.literal("telegram"));
+export const DesiredHostSummary = v.object({
+  enabled: v.optional(v.boolean()),
+  provider: v.optional(v.string()),
+  region: v.optional(v.string()),
+  gatewayCount: v.optional(v.number()),
+  gatewayArchitecture: v.optional(v.string()),
+  updateRing: v.optional(v.string()),
+  theme: v.optional(v.string()),
+  sshExposureMode: v.optional(v.string()),
+  targetHost: v.optional(v.string()),
+  tailnetMode: v.optional(v.string()),
+  selfUpdateEnabled: v.optional(v.boolean()),
+  selfUpdateChannel: v.optional(v.string()),
+  selfUpdateBaseUrlCount: v.optional(v.number()),
+  selfUpdatePublicKeyCount: v.optional(v.number()),
+  selfUpdateAllowUnsigned: v.optional(v.boolean()),
+});
+export const DesiredGatewaySummary = v.object({
+  enabled: v.optional(v.boolean()),
+  channelCount: v.optional(v.number()),
+  personaCount: v.optional(v.number()),
+  provider: v.optional(v.string()),
+  channels: v.optional(v.array(v.string())),
+  personaIds: v.optional(v.array(v.string())),
+  port: v.optional(v.number()),
+});
+export const ProviderConfigSummary = v.object({
+  displayName: v.optional(v.string()),
+});
+export const JobPayloadMeta = v.object({
+  hostName: v.optional(v.string()),
+  gatewayId: v.optional(v.string()),
+  scope: v.optional(SecretWiringScope),
+  secretNames: v.optional(v.array(v.string())),
+  configPaths: v.optional(v.array(v.string())),
+  args: v.optional(v.array(v.string())),
+  note: v.optional(v.string()),
+});
+export const RunnerCapabilities = v.object({
+  supportsLocalSecretsSubmit: v.optional(v.boolean()),
+  supportsInteractiveSecrets: v.optional(v.boolean()),
+  supportsInfraApply: v.optional(v.boolean()),
+  localSecretsPort: v.optional(v.number()),
+  localSecretsNonce: v.optional(v.string()),
+});
 
 const schema = defineSchema({
   users: defineTable({
@@ -172,8 +219,48 @@ const schema = defineSchema({
     lastSyncAt: v.optional(v.number()),
     lastError: v.optional(v.string()),
   })
+    .index("by_project", ["projectId"])
     .index("by_project_type", ["projectId", "type"])
     .index("by_project_path", ["projectId", "path"]),
+
+  hosts: defineTable({
+    projectId: v.id("projects"),
+    hostName: v.string(),
+    provider: v.optional(v.string()),
+    region: v.optional(v.string()),
+    lastSeenAt: v.optional(v.number()),
+    lastStatus: v.optional(HostStatus),
+    lastRunId: v.optional(v.id("runs")),
+    lastRunStatus: v.optional(RunStatus),
+    desired: v.optional(DesiredHostSummary),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_host", ["projectId", "hostName"]),
+
+  gateways: defineTable({
+    projectId: v.id("projects"),
+    hostName: v.string(),
+    gatewayId: v.string(),
+    lastSeenAt: v.optional(v.number()),
+    lastStatus: v.optional(HostStatus),
+    desired: v.optional(DesiredGatewaySummary),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_host", ["projectId", "hostName"])
+    .index("by_project_host_gateway", ["projectId", "hostName", "gatewayId"]),
+
+  secretWiring: defineTable({
+    projectId: v.id("projects"),
+    hostName: v.string(),
+    secretName: v.string(),
+    scope: SecretWiringScope,
+    status: SecretWiringStatus,
+    required: v.boolean(),
+    lastVerifiedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_host", ["projectId", "hostName"])
+    .index("by_project_host_secret", ["projectId", "hostName", "secretName"]),
 
   runs: defineTable({
     projectId: v.id("projects"),
@@ -208,12 +295,57 @@ const schema = defineSchema({
     projectId: v.id("projects"),
     type: ProviderType,
     enabled: v.boolean(),
-    config: v.optional(v.any()), // non-secret
+    config: v.optional(ProviderConfigSummary), // non-secret
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_project", ["projectId"])
     .index("by_project_type", ["projectId", "type"]),
+
+  runners: defineTable({
+    projectId: v.id("projects"),
+    runnerName: v.string(),
+    lastSeenAt: v.number(),
+    lastStatus: RunnerStatus,
+    version: v.optional(v.string()),
+    capabilities: v.optional(RunnerCapabilities),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_runner", ["projectId", "runnerName"]),
+
+  runnerTokens: defineTable({
+    projectId: v.id("projects"),
+    runnerId: v.id("runners"),
+    tokenHash: v.string(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_runner", ["runnerId"])
+    .index("by_tokenHash", ["tokenHash"]),
+
+  jobs: defineTable({
+    projectId: v.id("projects"),
+    runId: v.id("runs"),
+    kind: v.string(),
+    status: JobStatus,
+    payload: v.optional(JobPayloadMeta),
+    payloadHash: v.optional(v.string()),
+    leaseId: v.optional(v.string()),
+    leasedByRunnerId: v.optional(v.id("runners")),
+    leaseExpiresAt: v.optional(v.number()),
+    attempt: v.number(),
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_status", ["projectId", "status"])
+    .index("by_project_createdAt", ["projectId", "createdAt"]),
 
   auditLogs: defineTable({
     ts: v.number(),

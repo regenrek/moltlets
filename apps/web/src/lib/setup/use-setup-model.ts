@@ -5,8 +5,9 @@ import * as React from "react"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions, deployCredsQueryOptions } from "~/lib/query-options"
+import { deployCredsQueryOptions } from "~/lib/query-options"
 import { coerceSetupStepId, deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { configDotGet } from "~/sdk/config"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type SetupSearch = {
@@ -21,10 +22,35 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const isReady = projectStatus === "ready"
 
   const configQuery = useQuery({
-    ...clawletsConfigQueryOptions(projectId),
-    enabled: Boolean(projectId && isReady),
+    queryKey: ["hostSetupConfig", projectId, params.host],
+    enabled: Boolean(projectId && isReady && params.host),
+    queryFn: async () => {
+      const [hostNode, sshKeysNode] = await Promise.all([
+        configDotGet({
+          data: {
+            projectId: projectId as Id<"projects">,
+            path: `hosts.${params.host}`,
+          },
+        }),
+        configDotGet({
+          data: {
+            projectId: projectId as Id<"projects">,
+            path: "fleet.sshAuthorizedKeys",
+          },
+        }),
+      ])
+      const hostCfg =
+        hostNode.value && typeof hostNode.value === "object" && !Array.isArray(hostNode.value)
+          ? (hostNode.value as Record<string, unknown>)
+          : null
+      const sshAuthorizedKeys = Array.isArray(sshKeysNode.value) ? sshKeysNode.value : []
+      return {
+        hosts: hostCfg ? { [params.host]: hostCfg } : {},
+        fleet: { sshAuthorizedKeys },
+      }
+    },
   })
-  const config = (configQuery.data?.config as any) ?? null
+  const config = (configQuery.data as any) ?? null
 
   const deployCredsQuery = useQuery({
     ...deployCredsQueryOptions(projectId),

@@ -13,6 +13,34 @@ type DeployCredsCardProps = {
   projectId: Id<"projects">
 }
 
+async function submitLocalRunnerUpdates(params: {
+  port: number
+  nonce: string
+  jobId: string
+  updates: Record<string, string>
+}): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${params.port}/secrets/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-clawlets-nonce": params.nonce,
+    },
+    body: JSON.stringify({
+      jobId: params.jobId,
+      secrets: params.updates,
+    }),
+  })
+  if (response.ok) return
+  let detail = ""
+  try {
+    const payload = await response.json()
+    detail = payload?.error ? String(payload.error) : ""
+  } catch {
+    // ignore
+  }
+  throw new Error(detail || `runner local submit failed (${response.status})`)
+}
+
 export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const creds = useQuery({
@@ -46,22 +74,47 @@ export function DeployCredsCard({ projectId }: DeployCredsCardProps) {
 
   const save = useMutation({
     mutationFn: async () => {
-      return await updateDeployCreds({
+      const updates: Record<string, string> = {
+        ...(hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
+        ...(githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
+        ...(awsAccessKeyId.trim() ? { AWS_ACCESS_KEY_ID: awsAccessKeyId.trim() } : {}),
+        ...(awsSecretAccessKey.trim() ? { AWS_SECRET_ACCESS_KEY: awsSecretAccessKey.trim() } : {}),
+        ...(awsSessionToken.trim() ? { AWS_SESSION_TOKEN: awsSessionToken.trim() } : {}),
+        ...(sopsAgeKeyFile.trim() ? { SOPS_AGE_KEY_FILE: sopsAgeKeyFile.trim() } : {}),
+      }
+      const updatedKeys = Object.keys(updates)
+      if (updatedKeys.length === 0) throw new Error("No changes to save")
+      const queued = await updateDeployCreds({
         data: {
           projectId,
-          updates: {
-            ...(hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
-            ...(githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
-            ...(awsAccessKeyId.trim() ? { AWS_ACCESS_KEY_ID: awsAccessKeyId.trim() } : {}),
-            ...(awsSecretAccessKey.trim() ? { AWS_SECRET_ACCESS_KEY: awsSecretAccessKey.trim() } : {}),
-            ...(awsSessionToken.trim() ? { AWS_SESSION_TOKEN: awsSessionToken.trim() } : {}),
-            SOPS_AGE_KEY_FILE: sopsAgeKeyFile.trim(),
-          },
+          updatedKeys,
         },
       })
+      return { queued: queued as any, updates }
     },
-    onSuccess: async () => {
-      toast.success("Saved")
+    onSuccess: async ({ queued, updates }) => {
+      const localSubmit = queued?.localSubmit
+      if (
+        queued?.localSubmitRequired
+        && localSubmit
+        && typeof localSubmit.port === "number"
+        && typeof localSubmit.nonce === "string"
+        && typeof queued.jobId === "string"
+      ) {
+        try {
+          await submitLocalRunnerUpdates({
+            port: Math.trunc(localSubmit.port),
+            nonce: localSubmit.nonce,
+            jobId: queued.jobId,
+            updates,
+          })
+          toast.success("Queued and sent to local runner")
+        } catch (err) {
+          toast.warning(err instanceof Error ? err.message : "Runner local submit failed; use runner prompt fallback")
+        }
+      } else {
+        toast.info("Queued. Runner prompt/input may be required.")
+      }
       setHcloudToken("")
       setGithubToken("")
       setAwsAccessKeyId("")

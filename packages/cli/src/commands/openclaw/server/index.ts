@@ -2,6 +2,7 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import { shellQuote, sshCapture, sshRun } from "@clawlets/core/lib/security/ssh-remote";
 import { mapWithConcurrency } from "@clawlets/core/lib/runtime/concurrency";
+import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host/host-connectivity";
 import { requireTargetHost, needsSudo } from "./common.js";
 import { serverGithubSync } from "./github-sync.js";
 import { serverChannels } from "./channels.js";
@@ -353,6 +354,79 @@ const serverRestart = defineCommand({
   },
 });
 
+const serverTailscaleIpv4 = defineCommand({
+  meta: {
+    name: "tailscale-ipv4",
+    description: "Probe tailscale IPv4 over SSH.",
+  },
+  args: {
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
+    json: { type: "boolean", description: "Output JSON.", default: false },
+    sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
+  },
+  async run({ args }) {
+    const cwd = process.cwd();
+    const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
+    if (!ctx) return;
+    const { hostName, hostCfg } = ctx;
+    const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
+    const sudo = needsSudo(targetHost);
+
+    const raw = await sshCapture(targetHost, "tailscale ip -4", {
+      tty: sudo && args.sshTty,
+      timeoutMs: 10_000,
+      maxOutputBytes: 8 * 1024,
+    });
+    const normalized = normalizeSingleLineOutput(raw || "");
+    const ipv4 = extractFirstIpv4(normalized || raw || "");
+    if (!ipv4) throw new Error("tailscale ip missing");
+    if (!isTailscaleIpv4(ipv4)) throw new Error(`unexpected IPv4 ${ipv4}`);
+
+    if (args.json) {
+      console.log(JSON.stringify({ ok: true, ipv4 }, null, 2));
+      return;
+    }
+    console.log(ipv4);
+  },
+});
+
+const serverSshCheck = defineCommand({
+  meta: {
+    name: "ssh-check",
+    description: "Verify SSH reachability and return hostname.",
+  },
+  args: {
+    runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
+    host: { type: "string", description: "Host name (defaults to clawlets.json defaultHost / sole host)." },
+    targetHost: { type: "string", description: "SSH target override (default: from clawlets.json)." },
+    json: { type: "boolean", description: "Output JSON.", default: false },
+    sshTty: { type: "boolean", description: "Allocate TTY for sudo prompts.", default: true },
+  },
+  async run({ args }) {
+    const cwd = process.cwd();
+    const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
+    if (!ctx) return;
+    const { hostName, hostCfg } = ctx;
+    const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
+    const sudo = needsSudo(targetHost);
+
+    const raw = await sshCapture(targetHost, "hostname", {
+      tty: sudo && args.sshTty,
+      timeoutMs: 8_000,
+      maxOutputBytes: 2 * 1024,
+    });
+    const hostname = normalizeSingleLineOutput(raw || "");
+    if (args.json) {
+      console.log(JSON.stringify({ ok: true, hostname: hostname || null }, null, 2));
+      return;
+    }
+    if (hostname) console.log(hostname);
+    else console.log("ok");
+  },
+});
+
 export const server = defineCommand({
   meta: {
     name: "server",
@@ -365,6 +439,8 @@ export const server = defineCommand({
     logs: serverLogs,
     "github-sync": serverGithubSync,
     restart: serverRestart,
+    "tailscale-ipv4": serverTailscaleIpv4,
+    "ssh-check": serverSshCheck,
     update: serverUpdate,
   },
 });

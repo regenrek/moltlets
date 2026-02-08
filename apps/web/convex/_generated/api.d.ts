@@ -11,20 +11,28 @@
 import type * as auditLogs from "../auditLogs.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as gateways from "../gateways.js";
+import type * as hosts from "../hosts.js";
 import type * as http from "../http.js";
+import type * as jobs from "../jobs.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_controlPlane from "../lib/controlPlane.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as lib_workspaceRef from "../lib/workspaceRef.js";
 import type * as maintenance from "../maintenance.js";
+import type * as projectConfigs from "../projectConfigs.js";
 import type * as projectErasure from "../projectErasure.js";
 import type * as projectPolicies from "../projectPolicies.js";
 import type * as projects from "../projects.js";
 import type * as retention from "../retention.js";
 import type * as runEvents from "../runEvents.js";
+import type * as runnerTokens from "../runnerTokens.js";
+import type * as runners from "../runners.js";
 import type * as runs from "../runs.js";
+import type * as secretWiring from "../secretWiring.js";
 import type * as users from "../users.js";
 
 import type {
@@ -37,20 +45,28 @@ declare const fullApi: ApiFromModules<{
   auditLogs: typeof auditLogs;
   auth: typeof auth;
   crons: typeof crons;
+  gateways: typeof gateways;
+  hosts: typeof hosts;
   http: typeof http;
+  jobs: typeof jobs;
   "lib/auth": typeof lib_auth;
+  "lib/controlPlane": typeof lib_controlPlane;
   "lib/env": typeof lib_env;
   "lib/errors": typeof lib_errors;
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/validators": typeof lib_validators;
   "lib/workspaceRef": typeof lib_workspaceRef;
   maintenance: typeof maintenance;
+  projectConfigs: typeof projectConfigs;
   projectErasure: typeof projectErasure;
   projectPolicies: typeof projectPolicies;
   projects: typeof projects;
   retention: typeof retention;
   runEvents: typeof runEvents;
+  runnerTokens: typeof runnerTokens;
+  runners: typeof runners;
   runs: typeof runs;
+  secretWiring: typeof secretWiring;
   users: typeof users;
 }>;
 

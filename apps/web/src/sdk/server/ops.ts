@@ -1,13 +1,8 @@
 import { createServerFn } from "@tanstack/react-start"
 
 import { api } from "../../../convex/_generated/api"
-import type { Id } from "../../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
-import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getClawletsCliEnv } from "~/server/run-env"
-import { spawnCommand, spawnCommandCapture } from "~/server/run-manager"
-import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
+import { createConvexClient } from "~/server/convex"
+import { enqueueRunnerJobForRun } from "~/sdk/runtime"
 import {
   parseServerAuditExecuteInput,
   parseServerAuditStartInput,
@@ -37,21 +32,6 @@ function requireTypedConfirmation(params: {
   }
 }
 
-async function setRunFailedOrCanceled(params: {
-  client: ConvexClient
-  runId: Id<"runs">
-  error: unknown
-}): Promise<{ status: "failed" | "canceled"; message: string }> {
-  const message = params.error instanceof Error ? params.error.message : String(params.error)
-  const canceled = message.toLowerCase().includes("canceled")
-  await params.client.mutation(api.runs.setStatus, {
-    runId: params.runId,
-    status: canceled ? "canceled" : "failed",
-    errorMessage: message,
-  })
-  return { status: canceled ? "canceled" : "failed", message }
-}
-
 export const serverUpdateApplyStart = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateApplyStartInput)
   .handler(async ({ data }) => {
@@ -78,43 +58,29 @@ export const serverUpdateApplyExecute = createServerFn({ method: "POST" })
     requireTypedConfirmation({ expected, received: data.confirm })
 
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const args = [
+      "server",
+      "update",
+      "apply",
+      "--host",
+      data.host,
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_update_apply",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "update",
-        "apply",
-        "--host",
-        data.host,
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_update_apply",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+        note: "runner queued from web execute endpoint",
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverStatusStart = createServerFn({ method: "POST" })
@@ -134,42 +100,27 @@ export const serverStatusExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerStatusExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const args = [
+      "server",
+      "status",
+      "--host",
+      data.host,
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_status",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "status",
-        "--host",
-        data.host,
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_status",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverAuditStart = createServerFn({ method: "POST" })
@@ -195,74 +146,28 @@ export const serverAuditExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerAuditExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const args = [
+      "server",
+      "audit",
+      "--host",
+      data.host,
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--json",
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_audit",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "audit",
-        "--host",
-        data.host,
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--json",
-        "--ssh-tty=false",
-      ]
-      const captured = await spawnCommandCapture({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_audit",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-        maxCaptureBytes: 512_000,
-        allowNonZeroExit: true,
-      })
-
-      let parsed: any = null
-      try {
-        parsed = JSON.parse(captured.stdout || "")
-      } catch {
-        parsed = { raw: captured.stdout || "", stderr: captured.stderr || "", exitCode: captured.exitCode }
-      }
-
-      const hasMissing =
-        Array.isArray(parsed?.checks) && parsed.checks.some((c: any) => c?.status === "missing")
-      const ok = captured.exitCode === 0 && !hasMissing
-
-      await client.mutation(api.runs.setStatus, {
-        runId: data.runId,
-        status: ok ? "succeeded" : "failed",
-        errorMessage: ok ? undefined : "server audit failed",
-      })
-
-      await client.mutation(api.runEvents.appendBatch, {
-        runId: data.runId,
-        events: [
-          {
-            ts: Date.now(),
-            level: ok ? "info" : "error",
-            message: ok ? "Server audit ok" : "Server audit failed",
-            meta: { kind: "phase", phase: "command_end" },
-          },
-        ],
-      })
-
-      return { ok, result: parsed }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res, result: { error: res.message } }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverLogsStart = createServerFn({ method: "POST" })
@@ -283,51 +188,35 @@ export const serverLogsExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerLogsExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const unit = data.unit.trim() || "openclaw-*.service"
+    const lines = data.lines.trim() || "200"
+    const args = [
+      "server",
+      "logs",
+      "--host",
+      data.host,
+      "--unit",
+      unit,
+      "--lines",
+      lines,
+      ...(data.since.trim() ? ["--since", data.since.trim()] : []),
+      ...(data.follow ? ["--follow"] : []),
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_logs",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    const unit = data.unit.trim() || "openclaw-*.service"
-    const lines = data.lines.trim() || "200"
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "logs",
-        "--host",
-        data.host,
-        "--unit",
-        unit,
-        "--lines",
-        lines,
-        ...(data.since.trim() ? ["--since", data.since.trim()] : []),
-        ...(data.follow ? ["--follow"] : []),
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_logs",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverUpdateStatusStart = createServerFn({ method: "POST" })
@@ -347,71 +236,28 @@ export const serverUpdateStatusExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateStatusExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const args = [
+      "server",
+      "update",
+      "status",
+      "--host",
+      data.host,
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_update_status",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "update",
-        "status",
-        "--host",
-        data.host,
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      const captured = await spawnCommandCapture({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_update_status",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-        maxCaptureBytes: 256_000,
-        allowNonZeroExit: true,
-      })
-
-      let parsed: any = null
-      try {
-        parsed = JSON.parse(captured.stdout || "")
-      } catch {
-        parsed = { raw: captured.stdout || "", stderr: captured.stderr || "", exitCode: captured.exitCode }
-      }
-
-      const ok = captured.exitCode === 0
-      await client.mutation(api.runs.setStatus, {
-        runId: data.runId,
-        status: ok ? "succeeded" : "failed",
-        errorMessage: ok ? undefined : "updater status failed",
-      })
-
-      await client.mutation(api.runEvents.appendBatch, {
-        runId: data.runId,
-        events: [
-          {
-            ts: Date.now(),
-            level: ok ? "info" : "error",
-            message: ok ? "Updater status fetched" : "Updater status failed",
-            meta: { kind: "phase", phase: "command_end" },
-          },
-        ],
-      })
-
-      return { ok, result: parsed }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res, result: { error: res.message } }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverUpdateLogsStart = createServerFn({ method: "POST" })
@@ -431,49 +277,33 @@ export const serverUpdateLogsExecute = createServerFn({ method: "POST" })
   .inputValidator(parseServerUpdateLogsExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const lines = data.lines.trim() || "200"
+    const args = [
+      "server",
+      "update",
+      "logs",
+      "--host",
+      data.host,
+      "--lines",
+      lines,
+      ...(data.since.trim() ? ["--since", data.since.trim()] : []),
+      ...(data.follow ? ["--follow"] : []),
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_update_logs",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    const lines = data.lines.trim() || "200"
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "update",
-        "logs",
-        "--host",
-        data.host,
-        "--lines",
-        lines,
-        ...(data.since.trim() ? ["--since", data.since.trim()] : []),
-        ...(data.follow ? ["--follow"] : []),
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_update_logs",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })
 
 export const serverRestartStart = createServerFn({ method: "POST" })
@@ -504,42 +334,27 @@ export const serverRestartExecute = createServerFn({ method: "POST" })
     requireTypedConfirmation({ expected, received: data.confirm })
 
     const client = createConvexClient()
-    const { repoRoot } = await requireAdminAndBoundRun({
+    const args = [
+      "server",
+      "restart",
+      "--host",
+      data.host,
+      "--unit",
+      unit,
+      ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
+      "--ssh-tty=false",
+    ]
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "server_restart",
-    })
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-    const cliEnv = getClawletsCliEnv()
-
-    try {
-      const args = [
-        cliEntry,
-        "server",
-        "restart",
-        "--host",
-        data.host,
-        "--unit",
-        unit,
-        ...(data.targetHost.trim() ? ["--target-host", data.targetHost.trim()] : []),
-        "--ssh-tty=false",
-      ]
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
+      jobKind: "server_restart",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
         args,
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })

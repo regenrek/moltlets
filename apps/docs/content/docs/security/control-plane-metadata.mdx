@@ -18,11 +18,25 @@ Never store in Convex:
 - OpenTofu/Terraform state
 - Full fleet config blobs
 
+## Metadata tables (Model C)
+
+Convex stores metadata needed by the UI and runner coordination:
+
+- `runs`, `runEvents`, `auditLogs`: operational timeline and redacted logs.
+- `projectConfigs`: per-config-path hash/sync/error (`path`, `type`, `lastHash`, `lastSyncAt`, `lastError`).
+- `hosts`: per-host status + bounded desired summary (non-secret).
+- `gateways`: per-host+gateway status + bounded desired summary (non-secret).
+- `secretWiring`: secret name/scope/status only (`configured|missing|placeholder|warn`), never values.
+- `runners`: runner heartbeat and capabilities.
+- `runnerTokens`: hash-only runner auth material (token plaintext never persisted).
+- `jobs`: queue state (`queued|leased|running|succeeded|failed|canceled`) and bounded payload metadata.
+
 ## Run and audit storage
 
 - `runEvents` stores redacted message text (`message`, `level`, `ts`, `redacted`) and bounded `meta`.
 - Structured command JSON remains in server-function return values, not persisted as run events.
 - `auditLogs` uses strict action-bound payload shapes (`action`, `target`, `data`).
+- `jobs.payload` is scrubbed on completion; `payloadHash` is retained for auditability.
 
 ## Project identity and PII minimization
 
@@ -53,8 +67,34 @@ Convex does not provide TTL indexes for tables. Retention is enforced by schedul
 
 Erasure scope is control-plane only. Git history and external repos are outside Convex deletion scope.
 
+Project erasure runs `PROJECT_DELETION_STAGES` in this order:
+
+- `runEvents`
+- `runs`
+- `providers`
+- `projectConfigs`
+- `hosts`
+- `gateways`
+- `secretWiring`
+- `jobs`
+- `runnerTokens`
+- `runners`
+- `projectMembers`
+- `auditLogs`
+- `projectPolicies`
+- `projectDeletionTokens`
+- `project`
+- `done` (terminal marker, not a table-delete stage)
+
 ## Git write policy
 
 - Default: PR-first (`pr_only`).
 - Direct commits require explicit per-project opt-in (`direct_commit_enabled`).
 - Policy changes are audited.
+
+## Security invariants
+
+- Runner auth uses bearer token over HTTP routes; Convex stores token hashes only.
+- Tokens are passed in headers, not mutation args.
+- Secret values must never appear in table fields, logs, payloads, or audit entries.
+- Control-plane payloads are bounded and validated (length limits + key denylist for secret-like keys).

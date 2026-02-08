@@ -1,41 +1,54 @@
-import fs from "node:fs/promises"
-import { tmpdir } from "node:os"
-import path from "node:path"
-
 import { createServerFn } from "@tanstack/react-start"
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan"
 import {
   buildSecretsInitTemplate,
-  isPlaceholderSecretValue,
-  type SecretsInitJson,
 } from "@clawlets/core/lib/secrets/secrets-init"
 import { buildSecretsInitTemplateSets } from "@clawlets/core/lib/secrets/secrets-init-template"
-import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config"
-import { getRepoLayout, getHostSecretFile } from "@clawlets/core/repo-layout"
-import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawlets/core/lib/secrets/secrets-allowlist"
-import { writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe"
-import { mkpasswdYescryptHash } from "@clawlets/core/lib/security/mkpasswd"
-import { sopsDecryptYamlFile } from "@clawlets/core/lib/security/sops"
-import { readYamlScalarFromMapping } from "@clawlets/core/lib/storage/yaml-scalar"
-import { loadDeployCreds } from "@clawlets/core/lib/infra/deploy-creds"
+import { ClawletsConfigSchema } from "@clawlets/core/lib/config/clawlets-config"
 
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getClawletsCliEnv } from "~/server/run-env"
-import { runWithEvents, spawnCommand } from "~/server/run-manager"
-import { getAdminProjectContext } from "~/sdk/project"
-import { parseProjectHostScopeInput, parseSecretsInitExecuteInput } from "~/sdk/runtime"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  enqueueRunnerJobForRun,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  parseProjectHostScopeInput,
+  parseSecretsInitExecuteInput,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
 import { resolveHostFromConfig } from "./helpers"
-import { requireAdminAndBoundRun } from "~/sdk/runtime/server"
 
 export const getSecretsTemplate = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
+    await requireAdminProjectAccess(client, data.projectId)
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "custom",
+      title: "config show",
+      args: ["config", "show", "--pretty=false"],
+      note: "secrets template config read",
+    })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 30_000,
+    })
+    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    if (terminal.status !== "succeeded") {
+      throw new Error(terminal.errorMessage || lastErrorMessage(messages, "config read failed"))
+    }
+    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    if (!parsed) {
+      throw new Error(lastErrorMessage(messages, "config show output missing JSON payload"))
+    }
+    const config = ClawletsConfigSchema.parse(parsed)
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
 
     const hostCfg = config.hosts[host]
@@ -62,9 +75,14 @@ export const secretsInitStart = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostScopeInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
+    await requireAdminProjectAccess(client, data.projectId)
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
+
+    const hosts = await client.query(api.hosts.listByProject, { projectId: data.projectId })
+    if (!hosts.some((row) => row.hostName === host)) {
+      throw new Error(`unknown host: ${host}`)
+    }
 
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
@@ -89,136 +107,42 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
   .inputValidator(parseSecretsInitExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const guard = await requireAdminAndBoundRun({
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
+    const secretNames = data.secretNames
+    const args = [
+      "secrets",
+      "init",
+      "--host",
+      host,
+      "--scope",
+      data.scope,
+      "--from-json",
+      "__RUNNER_SECRETS_JSON__",
+      "--yes",
+      ...(data.allowPlaceholders ? ["--allow-placeholders"] : []),
+    ]
+
+    const queued = await enqueueRunnerJobForRun({
       client,
       projectId: data.projectId,
       runId: data.runId,
       expectedKind: "secrets_init",
+      jobKind: "secrets_init",
+      host,
+      payloadMeta: {
+        hostName: host,
+        scope: data.scope === "all" ? undefined : data.scope,
+        secretNames,
+        args,
+        note: "secrets supplied locally to runner (localhost submit or runner prompt)",
+      },
     })
-
-    const repoRoot = guard.repoRoot
-    let tmpJsonPath = ""
-    let tmpJsonDir = ""
-    let redactTokens: string[] = []
-    try {
-      const { config } = loadClawletsConfig({ repoRoot })
-      if (!config.hosts[data.host]) throw new Error(`unknown host: ${data.host}`)
-      const layout = getRepoLayout(repoRoot)
-
-      const allowlist = buildManagedHostSecretNameAllowlist({ config, host: data.host, scope: data.scope })
-      assertSecretsAreManaged({ allowlist, secrets: data.secrets })
-
-      const baseRedactions = await readClawletsEnvTokens(repoRoot)
-      const extraRedactions = [
-        data.adminPassword,
-        data.adminPasswordHash,
-        data.tailscaleAuthKey,
-        ...Object.values(data.secrets || {}),
-      ]
-        .map((s) => String(s || "").trim())
-        .filter(Boolean)
-
-      redactTokens = Array.from(new Set([...baseRedactions, ...extraRedactions]))
-
-      const cliEntry = resolveClawletsCliEntry()
-      const cliEnv = getClawletsCliEnv()
-      tmpJsonDir = await fs.mkdtemp(path.join(tmpdir(), "clawlets-secrets-ui-"))
-      try {
-        await fs.chmod(tmpJsonDir, 0o700)
-      } catch {
-        // best-effort on platforms without POSIX perms
-      }
-      tmpJsonPath = path.join(tmpJsonDir, `secrets.ui.${Date.now()}.${process.pid}.json`)
-
-      let adminPasswordHash = data.adminPasswordHash.trim()
-      if (!adminPasswordHash && data.adminPassword.trim()) {
-        await runWithEvents({
-          client,
-          runId: data.runId,
-          redactTokens,
-          fn: async (emit) => {
-            await emit({ level: "info", message: "Generating admin password hash (yescrypt)…" })
-          },
-        })
-        adminPasswordHash = await mkpasswdYescryptHash(data.adminPassword, {
-          nixBin: String(process.env.NIX_BIN || "nix").trim() || "nix",
-          cwd: repoRoot,
-          dryRun: false,
-          redact: [data.adminPassword],
-        })
-      }
-      if (!adminPasswordHash) {
-        const loaded = loadDeployCreds({ cwd: repoRoot })
-        const ageKeyFile = String(loaded.values.SOPS_AGE_KEY_FILE || "").trim()
-        if (!ageKeyFile) throw new Error("missing SOPS_AGE_KEY_FILE (needed to read existing admin_password_hash)")
-
-        const hostSecretPath = getHostSecretFile(layout, data.host, "admin_password_hash")
-        const nix = { nixBin: String(loaded.values.NIX_BIN || "nix").trim() || "nix", cwd: repoRoot, dryRun: false } as const
-        try {
-          const decrypted = await sopsDecryptYamlFile({
-            filePath: hostSecretPath,
-            ageKeyFile,
-            nix,
-          })
-          const existing = readYamlScalarFromMapping({ yamlText: decrypted, key: "admin_password_hash" })?.trim() || ""
-          if (existing && !isPlaceholderSecretValue(existing)) adminPasswordHash = existing
-        } catch {
-          // ignore; fall through to placeholder handling below
-        }
-
-        if (!adminPasswordHash) {
-          if (data.allowPlaceholders) adminPasswordHash = "<FILL_ME>"
-          else throw new Error("admin password required (set Admin password or allow placeholders)")
-        }
-      }
-
-      const payload: SecretsInitJson = {
-        adminPasswordHash,
-        ...(data.tailscaleAuthKey.trim() ? { tailscaleAuthKey: data.tailscaleAuthKey.trim() } : {}),
-        secrets: data.secrets,
-      }
-
-      await writeFileAtomic(tmpJsonPath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 })
-
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
-        args: [
-          cliEntry,
-          "secrets",
-          "init",
-          "--host",
-          data.host,
-          "--scope",
-          data.scope,
-          "--from-json",
-          tmpJsonPath,
-          "--yes",
-          ...(data.allowPlaceholders ? ["--allow-placeholders"] : []),
-        ],
-        env: cliEnv.env,
-        envAllowlist: cliEnv.envAllowlist,
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      await client.mutation(api.runs.setStatus, {
-        runId: data.runId,
-        status: "failed",
-        errorMessage: message,
-      })
-      return { ok: false as const, message }
-    } finally {
-      if (tmpJsonDir) {
-        try {
-          await fs.rm(tmpJsonDir, { recursive: true, force: true })
-        } catch {
-          // ignore
-        }
-      }
+    return {
+      ok: true as const,
+      queued: true as const,
+      jobId: queued.jobId,
+      runId: queued.runId,
+      localSubmitRequired: true as const,
     }
   })

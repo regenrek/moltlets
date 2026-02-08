@@ -38,6 +38,11 @@ function hasActiveLease(leaseExpiresAt: number | undefined, now: number): boolea
   return typeof leaseExpiresAt === "number" && leaseExpiresAt > now;
 }
 
+function normalizeRetentionDays(raw: number | undefined): number {
+  const value = typeof raw === "number" && Number.isFinite(raw) ? raw : 30;
+  return Math.max(1, Math.min(365, Math.trunc(value)));
+}
+
 async function deleteRunEventsBeforeCutoff(params: {
   ctx: MutationCtx;
   projectId: Id<"projects">;
@@ -194,7 +199,7 @@ export const runRetentionSweep = internalMutation({
       projectsScanned += 1;
       cursor = page.isDone ? null : page.continueCursor;
 
-      const retentionDays = Math.max(1, Math.min(365, Math.trunc(policy.retentionDays || 30)));
+      const retentionDays = normalizeRetentionDays(policy.retentionDays);
       const cutoffTs = now - retentionDays * 24 * 60 * 60 * 1000;
 
       let remainingProjectBudget = Math.min(PER_PROJECT_DELETE_BUDGET, remainingGlobalBudget);
@@ -256,3 +261,11 @@ export const runRetentionSweep = internalMutation({
     };
   },
 });
+
+export function __test_hasActiveLease(leaseExpiresAt: number | undefined, now: number): boolean {
+  return hasActiveLease(leaseExpiresAt, now);
+}
+
+export function __test_normalizeRetentionDays(raw: number | undefined): number {
+  return normalizeRetentionDays(raw);
+}

@@ -1,8 +1,10 @@
 "use client"
 
+import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+import { api } from "../../../../../convex/_generated/api"
 import { SetupCelebration } from "~/components/setup/setup-celebration"
 import { SetupHeader } from "~/components/setup/setup-header"
 import { SetupSection } from "~/components/setup/setup-section"
@@ -12,7 +14,7 @@ import { SetupStepDeploy } from "~/components/setup/steps/step-deploy"
 import { SetupStepSecrets } from "~/components/setup/steps/step-secrets"
 import { SetupStepVerify } from "~/components/setup/steps/step-verify"
 import { Accordion } from "~/components/ui/accordion"
-import { clawletsConfigQueryOptions, deployCredsQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { deployCredsQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
 import { coerceSetupStepId } from "~/lib/setup/setup-model"
 import { useSetupModel } from "~/lib/setup/use-setup-model"
@@ -35,7 +37,9 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/setup")({
     const projectId = project?._id ?? null
     if (!projectId || project?.status !== "ready") return
     await Promise.all([
-      context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId)),
+      context.queryClient.ensureQueryData(
+        convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+      ),
       context.queryClient.ensureQueryData(deployCredsQueryOptions(projectId)),
     ])
   },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { Button } from "~/components/ui/button"
@@ -10,33 +10,43 @@ import { Textarea } from "~/components/ui/textarea"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { addProjectSshKeys, getClawletsConfig, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
+import { addProjectSshKeys, configDotGet, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
   component: SecuritySshKeys,
 })
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
 
 function SecuritySshKeys() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
+  const sshKeysQueryKey = ["fleetSshKeysConfig", projectId] as const
 
   const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
-    queryFn: async () =>
-      await getClawletsConfig({ data: { projectId: projectId as Id<"projects"> } }),
+    queryKey: sshKeysQueryKey,
+    queryFn: async () => {
+      const [authorized, knownHosts] = await Promise.all([
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet.sshAuthorizedKeys" } }),
+        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet.sshKnownHosts" } }),
+      ])
+      return {
+        authorized: normalizeStringArray(authorized.value),
+        knownHosts: normalizeStringArray(knownHosts.value),
+      }
+    },
     enabled: Boolean(projectId),
   })
 
-  const config = cfg.data?.config
-  const fleetSshKeys = useMemo(
-    () => ({
-      authorized: config?.fleet?.sshAuthorizedKeys ?? [],
-      knownHosts: config?.fleet?.sshKnownHosts ?? [],
-    }),
-    [config],
-  )
+  const fleetSshKeys = cfg.data ?? { authorized: [], knownHosts: [] }
 
   const [keyText, setKeyText] = useState("")
   const [knownHostsText, setKnownHostsText] = useState("")
@@ -62,7 +72,7 @@ function SecuritySshKeys() {
         toast.success("Updated SSH settings")
         setKeyText("")
         setKnownHostsText("")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
       } else toast.error("Failed")
     },
   })
@@ -77,7 +87,7 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed SSH key")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
       } else toast.error("Failed")
     },
   })
@@ -92,7 +102,7 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed known_hosts entry")
-        void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
       } else toast.error("Failed")
     },
   })
@@ -108,9 +118,6 @@ function SecuritySshKeys() {
   }
   if (cfg.error) {
     return <div className="text-sm text-destructive">{String(cfg.error)}</div>
-  }
-  if (!config) {
-    return <div className="text-muted-foreground">Missing config.</div>
   }
   return (
     <div className="space-y-6">

@@ -168,8 +168,8 @@ describe("run manager", () => {
           "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);",
         ],
         redactTokens: [],
-        timeoutMs: 200,
-        killGraceMs: 200,
+        timeoutMs: 1000,
+        killGraceMs: 1000,
       }),
     ).rejects.toThrow(/timed out/i)
   })

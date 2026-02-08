@@ -1,5 +1,4 @@
-import { GatewayIdSchema, HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers"
-import { assertSafeRecordKey, createNullProtoRecord } from "@clawlets/core/lib/runtime/safe-record"
+import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers"
 
 import type { SystemTableNames } from "convex/server"
 import type { Id, TableNames } from "../../../convex/_generated/dataModel"
@@ -72,21 +71,6 @@ function parseLines(value: unknown): string {
   if (!trimmed) return "200"
   if (!/^[0-9]+$/.test(trimmed)) throw new Error("invalid lines")
   return trimmed
-}
-
-function parseSecretValuesRecord(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return createNullProtoRecord<string>()
-  const out = createNullProtoRecord<string>()
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof v !== "string") continue
-    const key = String(k || "").trim()
-    const value = v.trim()
-    if (!key || !value) continue
-    assertSafeRecordKey({ key, context: "web secrets values" })
-    void SecretNameSchema.parse(key)
-    out[key] = value
-  }
-  return out
 }
 
 function parseTimeoutMs(value: unknown): number {
@@ -503,27 +487,21 @@ export function parseSecretsInitExecuteInput(data: unknown): {
   host: string
   scope: "bootstrap" | "updates" | "openclaw" | "all"
   allowPlaceholders: boolean
-  adminPassword: string
-  adminPasswordHash: string
-  tailscaleAuthKey: string
-  secrets: Record<string, string>
+  secretNames: string[]
 } {
   const base = parseProjectRunHostScopeInput(data)
   const d = requireObject(data)
   return {
     ...base,
     allowPlaceholders: Boolean(d["allowPlaceholders"]),
-    adminPassword: typeof d["adminPassword"] === "string" ? d["adminPassword"] : "",
-    adminPasswordHash: typeof d["adminPasswordHash"] === "string" ? d["adminPasswordHash"] : "",
-    tailscaleAuthKey: typeof d["tailscaleAuthKey"] === "string" ? d["tailscaleAuthKey"] : "",
-    secrets: parseSecretValuesRecord(d["secrets"]),
+    secretNames: parseSecretNameList(d["secrets"]),
   }
 }
 
 export function parseWriteHostSecretsInput(data: unknown): {
   projectId: Id<"projects">
   host: string
-  secrets: Record<string, string>
+  secretNames: string[]
 } {
   const d = requireObject(data)
   if (!d["secrets"] || typeof d["secrets"] !== "object" || Array.isArray(d["secrets"])) {
@@ -532,6 +510,14 @@ export function parseWriteHostSecretsInput(data: unknown): {
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     host: parseHostNameRequired(d["host"]),
-    secrets: parseSecretValuesRecord(d["secrets"]),
+    secretNames: parseSecretNameList(d["secrets"]),
   }
+}
+
+function parseSecretNameList(input: unknown): string[] {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("invalid secrets");
+  const names = Object.keys(input as Record<string, unknown>)
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return Array.from(new Set(names));
 }

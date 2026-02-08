@@ -1,8 +1,10 @@
 "use client"
 
+import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+import { api } from "../../../../../convex/_generated/api"
 import { SetupCelebration } from "~/components/setup/setup-celebration"
 import { OpenClawSetupStepDeploy } from "~/components/setup/openclaw/step-deploy"
 import { OpenClawSetupStepEnable } from "~/components/setup/openclaw/step-enable"
@@ -11,7 +13,7 @@ import { OpenClawSetupStepSecrets } from "~/components/setup/openclaw/step-secre
 import { SetupHeader } from "~/components/setup/setup-header"
 import { SetupSection } from "~/components/setup/setup-section"
 import { Accordion } from "~/components/ui/accordion"
-import { clawletsConfigQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
+import { projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
 import { coerceOpenClawSetupStepId } from "~/lib/setup/openclaw-setup-model"
 import { useOpenClawSetupModel } from "~/lib/setup/use-openclaw-setup-model"
@@ -33,7 +35,14 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/openclaw-setup")
       null
     const projectId = project?._id ?? null
     if (!projectId || project?.status !== "ready") return
-    await context.queryClient.ensureQueryData(clawletsConfigQueryOptions(projectId))
+    await Promise.all([
+      context.queryClient.ensureQueryData(
+        convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+      ),
+      context.queryClient.ensureQueryData(
+        convexQuery(api.gateways.listByProjectHost, { projectId: projectId as Id<"projects">, hostName: params.host }),
+      ),
+    ])
   },
   component: OpenClawSetupPage,
 })

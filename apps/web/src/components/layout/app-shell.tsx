@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button"
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar"
 import { useProjectBySlug } from "~/lib/project-data"
 import { buildHostPath, parseHostName, parseProjectSlug } from "~/lib/project-routing"
-import { getClawletsConfig } from "~/sdk/config"
+import { getProjectHostExposureSummary } from "~/sdk/dashboard"
 
 type OpenHost = {
   name: string
@@ -36,25 +36,24 @@ function OpenSshExposureBanner() {
   const projectId = projectQuery.projectId
 
   const cfg = useQuery({
-    queryKey: ["clawletsConfig", projectId],
+    queryKey: ["projectHostExposureSummary", projectId],
     enabled: Boolean(projectId),
     queryFn: async () =>
-      await getClawletsConfig({
+      await getProjectHostExposureSummary({
         data: { projectId: projectId as Id<"projects"> },
       }),
   })
 
-  const config = cfg.data?.config as any
   const openHosts = React.useMemo<OpenHost[]>(() => {
-    if (!config || !config.hosts || typeof config.hosts !== "object") return []
-    return Object.entries(config.hosts).flatMap(([name, hostCfg]) => {
-      if (!hostCfg || typeof hostCfg !== "object") return []
-      if ((hostCfg as any).enable === false) return []
-      const mode = (hostCfg as any).sshExposure?.mode
-      if (mode === "bootstrap" || mode === "public") return [{ name, mode }]
+    const hosts = cfg.data?.hosts || []
+    return hosts.flatMap((host) => {
+      if (!host.enabled) return []
+      if (host.sshExposureMode === "bootstrap" || host.sshExposureMode === "public") {
+        return [{ name: host.hostName, mode: host.sshExposureMode }]
+      }
       return []
     })
-  }, [config])
+  }, [cfg.data?.hosts])
 
   if (!projectSlug || !projectId || openHosts.length === 0) return null
 

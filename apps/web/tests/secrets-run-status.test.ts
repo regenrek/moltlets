@@ -8,108 +8,60 @@ const startStorage = globalObj[GLOBAL_STORAGE_KEY]
 const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
   startStorage?.run(context, fn) as Promise<T>
 
-async function loadSecretsVerify(options: { getRepoRootThrows: boolean }) {
-  vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, _payload?: { status?: string }) => null)
-
-  vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation, query: vi.fn() }) as any,
-  }))
-  vi.doMock("~/sdk/runtime/server", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("~/sdk/runtime/server")>()
-    return {
-      ...actual,
-      requireAdminAndBoundRun: async () => ({
-        project: { localPath: "/tmp/repo" },
-        role: "admin",
-        repoRoot: "/tmp/repo",
-        run: { kind: "secrets_verify", status: "running" },
-      }),
-    }
-  })
-  vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-    loadClawletsConfig: () => {
-      if (options.getRepoRootThrows) throw new Error("repo missing")
-      return { config: { defaultHost: "alpha", hosts: { alpha: {} } } }
-    },
-  }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
-  vi.doMock("~/server/run-manager", () => ({
-    runWithEvents: async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
-      await fn(async () => {})
-    },
-    spawnCommandCapture: async () => ({ exitCode: 0, stdout: "{}", stderr: "" }),
-  }))
-
-  const mod = await import("~/sdk/secrets")
-  return { mod, mutation }
+const startContext = {
+  request: new Request("http://localhost"),
+  contextAfterGlobalMiddlewares: {},
+  executedRequestMiddlewares: new Set(),
 }
 
-async function loadSecretsSync(options: { spawnThrows: boolean }) {
-  vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, _payload?: { status?: string }) => null)
+describe("secrets execute queueing", () => {
+  it("queues secrets verify job", async () => {
+    vi.resetModules()
+    const mutation = vi.fn(async () => ({ runId: "run1", jobId: "job1" }))
+    const query = vi.fn(async () => ({
+      role: "admin",
+      run: { projectId: "p1", kind: "secrets_verify", status: "running" },
+    }))
 
-  vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation, query: vi.fn() }) as any,
-  }))
-  vi.doMock("~/sdk/runtime/server", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("~/sdk/runtime/server")>()
-    return {
-      ...actual,
-      requireAdminAndBoundRun: async () => ({
-        project: { localPath: "/tmp/repo" },
-        role: "admin",
-        repoRoot: "/tmp/repo",
-        run: { kind: "secrets_sync", status: "running" },
+    vi.doMock("~/server/convex", () => ({
+      createConvexClient: () => ({ mutation, query }) as any,
+    }))
+
+    const mod = await import("~/sdk/secrets")
+    const res = await runWithStartContext(startContext, async () =>
+      await mod.secretsVerifyExecute({
+        data: { projectId: "p1" as any, runId: "run1" as any, host: "alpha", scope: "all" },
       }),
-    }
-  })
-  vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-    loadClawletsConfig: () => ({ config: { defaultHost: "alpha", hosts: { alpha: {} } } }),
-  }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
-  vi.doMock("~/server/run-manager", () => ({
-    spawnCommand: async () => {
-      if (options.spawnThrows) throw new Error("spawn failed")
-    },
-  }))
-
-  const mod = await import("~/sdk/secrets")
-  return { mod, mutation }
-}
-
-describe("secrets run status", () => {
-  it("marks run failed when verify pre-run setup throws", async () => {
-    const { mod, mutation } = await loadSecretsVerify({ getRepoRootThrows: true })
-    const res = await runWithStartContext(
-      { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
-      async () =>
-        await mod.secretsVerifyExecute({
-          data: { projectId: "p1" as any, runId: "run1" as any, host: "alpha" },
-        }),
     )
-    expect(res.ok).toBe(false)
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
+
+    expect(res.ok).toBe(true)
+    expect(res.queued).toBe(true)
+    expect(res.jobId).toBe("job1")
+    expect(mutation).toHaveBeenCalledTimes(1)
   })
 
-  it("marks run failed when sync command throws", async () => {
-    const { mod, mutation } = await loadSecretsSync({ spawnThrows: true })
-    const res = await runWithStartContext(
-      { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
-      async () =>
-        await mod.secretsSyncExecute({
-          data: { projectId: "p1" as any, runId: "run1" as any, host: "alpha" },
-        }),
+  it("queues secrets sync job", async () => {
+    vi.resetModules()
+    const mutation = vi.fn(async () => ({ runId: "run1", jobId: "job1" }))
+    const query = vi.fn(async () => ({
+      role: "admin",
+      run: { projectId: "p1", kind: "secrets_sync", status: "running" },
+    }))
+
+    vi.doMock("~/server/convex", () => ({
+      createConvexClient: () => ({ mutation, query }) as any,
+    }))
+
+    const mod = await import("~/sdk/secrets")
+    const res = await runWithStartContext(startContext, async () =>
+      await mod.secretsSyncExecute({
+        data: { projectId: "p1" as any, runId: "run1" as any, host: "alpha" },
+      }),
     )
-    expect(res.ok).toBe(false)
-    const statusCalls = mutation.mock.calls
-      .map(([, payload]) => payload)
-      .filter((payload) => payload?.status === "failed")
-    expect(statusCalls).toHaveLength(1)
+
+    expect(res.ok).toBe(true)
+    expect(res.queued).toBe(true)
+    expect(res.jobId).toBe("job1")
+    expect(mutation).toHaveBeenCalledTimes(1)
   })
 })

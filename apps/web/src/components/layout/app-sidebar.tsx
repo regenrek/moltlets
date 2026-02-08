@@ -1,3 +1,4 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
@@ -18,6 +19,8 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline"
+import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import {
   Sidebar,
   SidebarContent,
@@ -50,7 +53,6 @@ import {
   slugifyProjectName,
   storeLastProjectSlug,
 } from "~/lib/project-routing"
-import { clawletsConfigQueryOptions } from "~/lib/query-options"
 import { cn } from "~/lib/utils"
 
 function NavLink({
@@ -123,12 +125,20 @@ function AppSidebar() {
     [projectSlug, projects],
   )
   const { projectId } = useProjectBySlug(projectSlug)
-  const configQuery = useQuery({
-    ...clawletsConfigQueryOptions(projectId),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    gcTime: 5_000,
     enabled: Boolean(projectId),
   })
-  const config = configQuery.data?.config as any
-  const activeHostTheme = activeHost ? (config?.hosts as any)?.[activeHost]?.theme : null
+  const hostByName = React.useMemo(
+    () => new Map((hostsQuery.data ?? []).map((row) => [row.hostName, row] as const)),
+    [hostsQuery.data],
+  )
+  const activeHostTheme = activeHost
+    ? (hostByName.get(activeHost)?.desired?.theme
+        ? { color: hostByName.get(activeHost)?.desired?.theme as any }
+        : null)
+    : null
   const [navQuery, setNavQuery] = React.useState("")
 
   if (!projectSlug) {

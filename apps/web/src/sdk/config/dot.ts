@@ -1,19 +1,31 @@
 import { createServerFn } from "@tanstack/react-start"
-import {
-  ClawletsConfigSchema,
-  loadClawletsConfig,
-  loadFullConfig,
-  writeClawletsConfig,
-} from "@clawlets/core/lib/config/clawlets-config"
 import { splitDotPath } from "@clawlets/core/lib/storage/dot-path"
-import { deleteAtPath, getAtPath, setAtPath } from "@clawlets/core/lib/storage/object-path"
-import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
-import { readClawletsEnvTokens } from "~/server/redaction"
 import { GATEWAY_OPENCLAW_POLICY_MESSAGE, isGatewayOpenclawPath } from "./helpers"
-import { getAdminProjectContext } from "~/sdk/project"
-import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/runtime/server"
-import { parseProjectIdInput } from "~/sdk/runtime"
+import type { ValidationIssue } from "~/sdk/runtime"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import {
+  enqueueRunnerCommand,
+  lastErrorMessage,
+  listRunMessages,
+  parseLastJsonMessage,
+  parseProjectIdInput,
+  waitForRunTerminal,
+} from "~/sdk/runtime"
+
+type ConfigDotOp = {
+  path: string
+  value?: string
+  valueJson?: string
+  del: boolean
+}
+
+function toFailure(message: string): { ok: false; issues: ValidationIssue[] } {
+  return {
+    ok: false as const,
+    issues: [{ code: "error", path: [], message }],
+  }
+}
 
 export const configDotGet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
@@ -23,11 +35,36 @@ export const configDotGet = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
+    await requireAdminProjectAccess(client, data.projectId)
     const parts = splitDotPath(data.path)
-    const value = getAtPath(config as any, parts)
-    return { path: parts.join("."), value: value as any }
+    const normalizedPath = parts.join(".")
+    const queued = await enqueueRunnerCommand({
+      client,
+      projectId: data.projectId,
+      runKind: "custom",
+      title: `config get ${normalizedPath}`,
+      args: ["config", "get", "--path", normalizedPath, "--json"],
+      note: "control-plane config read",
+    })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 30_000,
+    })
+    const messages = await listRunMessages({ client, runId: queued.runId })
+    if (terminal.status !== "succeeded") {
+      throw new Error(terminal.errorMessage || lastErrorMessage(messages, "config read failed"))
+    }
+    const parsed = parseLastJsonMessage<{ path?: unknown; value?: unknown }>(messages)
+    if (!parsed) {
+      throw new Error(lastErrorMessage(messages, "config read output missing JSON payload"))
+    }
+    const path =
+      typeof parsed.path === "string" && parsed.path.trim()
+        ? parsed.path.trim()
+        : normalizedPath
+    return { path, value: parsed.value as any }
   })
 
 export const configDotSet = createServerFn({ method: "POST" })
@@ -58,11 +95,8 @@ export const configDotSet = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
+    await requireAdminProjectAccess(client, data.projectId)
     const parts = splitDotPath(data.path)
-    const next = structuredClone(config) as any
 
     if (isGatewayOpenclawPath(parts)) {
       return {
@@ -77,45 +111,41 @@ export const configDotSet = createServerFn({ method: "POST" })
       }
     }
 
+    const args = ["config", "set", "--path", parts.join(".")]
     if (data.del) {
-      const ok = deleteAtPath(next, parts)
-      if (!ok) throw new Error(`path not found: ${parts.join(".")}`)
+      args.push("--delete")
     } else if (data.valueJson !== undefined) {
-      let parsed: unknown
       try {
-        parsed = JSON.parse(data.valueJson)
+        JSON.parse(data.valueJson)
       } catch {
         throw new Error("invalid JSON value")
       }
-      setAtPath(next, parts, parsed)
+      args.push("--value-json", data.valueJson)
     } else if (data.value !== undefined) {
-      setAtPath(next, parts, data.value)
+      args.push("--value", data.value)
     } else {
-      throw new Error("missing value (or set del=true)")
+      return toFailure("missing value (or set del=true)")
     }
 
-    const validated = ClawletsConfigSchema.safeParse(next)
-    if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
-
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `config set ${parts.join(".")}`,
-    })
-
-    type ConfigDotResult = { ok: true; runId: typeof runId } | { ok: false; issues: ValidationIssue[] }
-
-    return await runWithEventsAndStatus<ConfigDotResult>({
+    const queued = await enqueueRunnerCommand({
       client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Updating ${parts.join(".")}` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
-      },
-      onSuccess: () => ({ ok: true as const, runId }),
-      onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
+      projectId: data.projectId,
+      runKind: "config_write",
+      title: `config set ${parts.join(".")}`,
+      args,
+      note: "control-plane config write",
     })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 45_000,
+    })
+    if (terminal.status !== "succeeded") {
+      const messages = await listRunMessages({ client, runId: queued.runId })
+      return toFailure(terminal.errorMessage || lastErrorMessage(messages, "config update failed"))
+    }
+    return { ok: true as const, runId: queued.runId }
   })
 
 export const configDotBatch = createServerFn({ method: "POST" })
@@ -148,80 +178,56 @@ export const configDotBatch = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-    const next = structuredClone(config) as any
-
-    const plannedPaths: string[] = []
-
-    for (const op of data.ops) {
+    await requireAdminProjectAccess(client, data.projectId)
+    const normalizedOps: ConfigDotOp[] = data.ops.map((op) => ({
+      path: splitDotPath(op.path).join("."),
+      value: op.value,
+      valueJson: op.valueJson,
+      del: op.del,
+    }))
+    for (const op of normalizedOps) {
       const parts = splitDotPath(op.path)
-      plannedPaths.push(parts.join("."))
-
-      if (isGatewayOpenclawPath(parts)) {
-        return {
-          ok: false as const,
-          issues: [
-            {
-              code: "policy",
-              path: parts,
-              message: GATEWAY_OPENCLAW_POLICY_MESSAGE,
-            },
-          ],
-        }
+      if (!isGatewayOpenclawPath(parts)) continue
+      return {
+        ok: false as const,
+        issues: [
+          {
+            code: "policy",
+            path: parts,
+            message: GATEWAY_OPENCLAW_POLICY_MESSAGE,
+          },
+        ],
       }
-
-      if (op.del) {
-        const ok = deleteAtPath(next, parts)
-        if (!ok) throw new Error(`path not found: ${parts.join(".")}`)
-        continue
-      }
-
-      if (op.valueJson !== undefined) {
-        let parsed: unknown
-        try {
-          parsed = JSON.parse(op.valueJson)
-        } catch {
-          throw new Error(`invalid JSON value at ${parts.join(".")}`)
-        }
-        setAtPath(next, parts, parsed)
-        continue
-      }
-
-      if (op.value !== undefined) {
-        setAtPath(next, parts, op.value)
-        continue
-      }
-
-      throw new Error(`missing value (or set del=true) for ${parts.join(".")}`)
     }
-
-    const validated = ClawletsConfigSchema.safeParse(next)
-    if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
-
+    for (const op of normalizedOps) {
+      if (op.valueJson === undefined) continue
+      try {
+        JSON.parse(op.valueJson)
+      } catch {
+        throw new Error(`invalid JSON value at ${op.path}`)
+      }
+    }
     const title =
-      plannedPaths.length === 1
-        ? `config set ${plannedPaths[0] || "unknown"}`
-        : `config set ${plannedPaths[0] || "unknown"} (+${plannedPaths.length - 1} more)`
-
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title,
-    })
-
-    type ConfigDotBatchResult = { ok: true; runId: typeof runId } | { ok: false; issues: ValidationIssue[] }
-
-    return await runWithEventsAndStatus<ConfigDotBatchResult>({
+      normalizedOps.length === 1
+        ? `config set ${normalizedOps[0]?.path || "unknown"}`
+        : `config set ${normalizedOps[0]?.path || "unknown"} (+${normalizedOps.length - 1} more)`
+    const queued = await enqueueRunnerCommand({
       client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Updating ${plannedPaths.length} config path(s)` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
-      },
-      onSuccess: () => ({ ok: true as const, runId }),
-      onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
+      projectId: data.projectId,
+      runKind: "config_write",
+      title,
+      args: ["config", "batch-set", "--ops-json", JSON.stringify(normalizedOps)],
+      note: "control-plane config batch write",
     })
+    const terminal = await waitForRunTerminal({
+      client,
+      projectId: data.projectId,
+      runId: queued.runId,
+      timeoutMs: 60_000,
+    })
+    if (terminal.status !== "succeeded") {
+      const messages = await listRunMessages({ client, runId: queued.runId })
+      return toFailure(terminal.errorMessage || lastErrorMessage(messages, "config update failed"))
+    }
+    return { ok: true as const, runId: queued.runId }
   })

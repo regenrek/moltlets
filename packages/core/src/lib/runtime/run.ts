@@ -35,9 +35,14 @@ export async function run(
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
+    let timeout: NodeJS.Timeout | null = null;
     const finish = (err?: Error) => {
       if (settled) return;
       settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
       if (err) reject(err);
       else resolve();
     };
@@ -46,7 +51,7 @@ export async function run(
       env: opts.env,
       stdio: "inherit",
     });
-    const timeout = opts.timeoutMs
+    timeout = opts.timeoutMs
       ? setTimeout(() => {
           child.kill("SIGTERM");
           finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
@@ -54,7 +59,6 @@ export async function run(
       : null;
     child.on("error", (err) => finish(err as Error));
     child.on("exit", (code) => {
-      if (timeout) clearTimeout(timeout);
       if (code === 0) finish();
       else finish(new Error(`${cmd} exited with code ${code ?? "null"}`));
     });
@@ -70,9 +74,14 @@ export async function capture(
 
   return await new Promise<string>((resolve, reject) => {
     let settled = false;
+    let timeout: NodeJS.Timeout | null = null;
     const finish = (err?: Error, value?: string) => {
       if (settled) return;
       settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
       if (err) reject(err);
       else resolve(value ?? "");
     };
@@ -86,7 +95,7 @@ export async function capture(
       env: opts.env,
       stdio,
     });
-    const timeout = opts.timeoutMs
+    timeout = opts.timeoutMs
       ? setTimeout(() => {
           child.kill("SIGTERM");
           finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
@@ -105,7 +114,6 @@ export async function capture(
     });
     child.on("error", (err) => finish(err as Error));
     child.on("exit", (code) => {
-      if (timeout) clearTimeout(timeout);
       if (code === 0) {
         const output = Buffer.concat(chunks).toString("utf8").trim();
         const finalOutput = opts.redactOutput ? redactLine(output, opts.redact) : output;
@@ -126,9 +134,14 @@ export async function captureWithInput(
 
   return await new Promise<string>((resolve, reject) => {
     let settled = false;
+    let timeout: NodeJS.Timeout | null = null;
     const finish = (err?: Error, value?: string) => {
       if (settled) return;
       settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
       if (err) reject(err);
       else resolve(value ?? "");
     };
@@ -139,7 +152,7 @@ export async function captureWithInput(
       env: opts.env,
       stdio: ["pipe", "pipe", "inherit"],
     });
-    const timeout = opts.timeoutMs
+    timeout = opts.timeoutMs
       ? setTimeout(() => {
           child.kill("SIGTERM");
           finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
@@ -160,7 +173,6 @@ export async function captureWithInput(
     child.stdin.write(input);
     child.stdin.end();
     child.on("exit", (code) => {
-      if (timeout) clearTimeout(timeout);
       if (code === 0) {
         const output = Buffer.concat(chunks).toString("utf8").trim();
         const finalOutput = opts.redactOutput ? redactLine(output, opts.redact) : output;

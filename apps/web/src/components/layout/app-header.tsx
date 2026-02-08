@@ -1,10 +1,13 @@
+import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { ServerStackIcon } from "@heroicons/react/24/outline"
-import { HostThemeBadge, type HostTheme } from "~/components/hosts/host-theme"
+import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
+import { HostThemeBadge, normalizeHostTheme, type HostTheme } from "~/components/hosts/host-theme"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import {
@@ -29,7 +32,6 @@ import {
   parseHostName,
   parseProjectSlug,
 } from "~/lib/project-routing"
-import { clawletsConfigQueryOptions } from "~/lib/query-options"
 
 type HostOption = {
   name: string
@@ -47,26 +49,37 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
 
-  const configQuery = useQuery({
-    ...clawletsConfigQueryOptions(projectId),
+  const hostsQuery = useQuery({
+    ...convexQuery(api.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    gcTime: 5_000,
     enabled: Boolean(projectId),
   })
-  const config = configQuery.data?.config as any
+  const hostRows = hostsQuery.data ?? []
+  const hostByName = React.useMemo(
+    () => new Map(hostRows.map((row) => [row.hostName, row] as const)),
+    [hostRows],
+  )
   const hostNames = React.useMemo(
-    () => Object.keys(config?.hosts || {}).sort(),
-    [config],
+    () => hostRows.map((row) => row.hostName).sort((a, b) => a.localeCompare(b)),
+    [hostRows],
   )
   const hostOptions = React.useMemo<HostOption[]>(
     () =>
       hostNames.map((name) => ({
         name,
-        enabled: config?.hosts?.[name]?.enable !== false,
-        isDefault: config?.defaultHost === name,
-        theme: config?.hosts?.[name]?.theme ?? null,
+        enabled: hostByName.get(name)?.desired?.enabled !== false,
+        isDefault: false,
+        theme: hostByName.get(name)?.desired?.theme
+          ? normalizeHostTheme({ color: hostByName.get(name)?.desired?.theme as any })
+          : null,
       })),
-    [config, hostNames],
+    [hostByName, hostNames],
   )
-  const activeTheme = activeHost ? config?.hosts?.[activeHost]?.theme : null
+  const activeTheme = activeHost
+    ? (hostByName.get(activeHost)?.desired?.theme
+        ? normalizeHostTheme({ color: hostByName.get(activeHost)?.desired?.theme as any })
+        : null)
+    : null
 
   const handleHostSelect = React.useCallback(
     (next: string) => {

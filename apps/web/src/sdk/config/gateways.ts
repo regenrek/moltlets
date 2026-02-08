@@ -1,20 +1,18 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
-  ClawletsConfigSchema,
   GatewayArchitectureSchema,
-  loadFullConfig,
-  writeClawletsConfig,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { GatewayIdSchema, PersonaNameSchema } from "@clawlets/shared/lib/identifiers"
-import { api } from "../../../convex/_generated/api"
-import { createConvexClient } from "~/server/convex"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getAdminProjectContext } from "~/sdk/project"
-import { runWithEventsAndStatus } from "~/sdk/runtime/server"
 import { parseProjectIdInput } from "~/sdk/runtime"
+import { configDotBatch, configDotGet, configDotSet } from "./dot"
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => String(entry ?? "").trim()).filter(Boolean)
 }
 
 export function ensureHostGatewayEntry(params: {
@@ -74,59 +72,68 @@ export const addGateway = createServerFn({ method: "POST" })
     }
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
-    const next = structuredClone(config) as any
-    next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
-    next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
-    const hostCfg = next.hosts[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
+
     const gatewayId = data.gatewayId.trim()
-    const architecture = data.architecture.trim()
     const parsedGateway = GatewayIdSchema.safeParse(gatewayId)
     if (!parsedGateway.success) throw new Error("invalid gateway id")
 
-    let changed = false
+    const hostNode = await configDotGet({
+      data: { projectId: data.projectId, path: `hosts.${hostName}` },
+    })
+    if (!isPlainObject(hostNode.value)) {
+      throw new Error(`unknown host: ${hostName}`)
+    }
+
+    const hostCfg = structuredClone(hostNode.value) as Record<string, unknown>
+    const res = ensureHostGatewayEntry({ hostCfg, gatewayId })
+
+    const ops: Array<{ path: string; value?: string; valueJson?: string; del: boolean }> = []
+    const architecture = data.architecture.trim()
     if (architecture) {
       const parsedArchitecture = GatewayArchitectureSchema.safeParse(architecture)
       if (!parsedArchitecture.success) throw new Error("invalid gateway architecture")
-      const existingArch = next.fleet.gatewayArchitecture
+      const existingArchNode = await configDotGet({
+        data: { projectId: data.projectId, path: "fleet.gatewayArchitecture" },
+      })
+      const existingArch = typeof existingArchNode.value === "string" ? existingArchNode.value.trim() : ""
       if (existingArch && existingArch !== parsedArchitecture.data) {
         throw new Error(`gateway architecture already set to ${existingArch}`)
       }
       if (!existingArch) {
-        next.fleet.gatewayArchitecture = parsedArchitecture.data
-        changed = true
+        ops.push({
+          path: "fleet.gatewayArchitecture",
+          value: parsedArchitecture.data,
+          del: false,
+        })
       }
     }
 
-    const res = ensureHostGatewayEntry({ hostCfg, gatewayId })
-    if (res.changed) changed = true
-    next.hosts[hostName] = hostCfg
+    if (!res.changed && ops.length === 0) return { ok: true as const }
 
-    if (!changed) return { ok: true as const }
+    const nextOrder = asStringArray(hostCfg.gatewaysOrder)
+    const gateways = isPlainObject(hostCfg.gateways) ? hostCfg.gateways : {}
+    const gateway = isPlainObject(gateways[gatewayId]) ? gateways[gatewayId] : {}
 
-    const validated = ClawletsConfigSchema.parse(next)
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway add ${hostName}/${gatewayId}`,
-      host: hostName,
-    })
-    return await runWithEventsAndStatus({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Adding gateway ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
+    ops.push(
+      {
+        path: `hosts.${hostName}.gatewaysOrder`,
+        valueJson: JSON.stringify(nextOrder),
+        del: false,
       },
-      onSuccess: () => ({ ok: true as const, runId }),
+      {
+        path: `hosts.${hostName}.gateways.${gatewayId}`,
+        valueJson: JSON.stringify(gateway),
+        del: false,
+      },
+    )
+
+    return await configDotBatch({
+      data: {
+        projectId: data.projectId,
+        ops,
+      },
     })
   })
 
@@ -144,13 +151,9 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     }
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
+
     const gatewayId = data.gatewayId.trim()
     const agentId = data.agentId.trim()
     const parsedGateway = GatewayIdSchema.safeParse(gatewayId)
@@ -158,47 +161,39 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     const parsedAgent = PersonaNameSchema.safeParse(agentId)
     if (!parsedAgent.success) throw new Error("invalid agent id")
 
-    const next = structuredClone(config) as any
-    next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
-    const hostCfg = next.hosts[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    hostCfg.gateways =
-      hostCfg.gateways && typeof hostCfg.gateways === "object" && !Array.isArray(hostCfg.gateways) ? hostCfg.gateways : {}
-    const gateway = hostCfg.gateways[gatewayId]
-    if (!gateway || typeof gateway !== "object") throw new Error(`unknown gateway id: ${gatewayId}`)
-
-    gateway.agents = gateway.agents && typeof gateway.agents === "object" && !Array.isArray(gateway.agents) ? gateway.agents : {}
-    gateway.agents.list = Array.isArray(gateway.agents.list) ? gateway.agents.list : []
-    const existing = gateway.agents.list.find((entry: any) => entry?.id === agentId)
-    if (existing) throw new Error(`agent already exists: ${agentId}`)
-
-    const hasDefault = gateway.agents.list.some((entry: any) => entry?.default === true)
-    const makeDefault = data.makeDefault || !hasDefault
-    if (makeDefault) {
-      gateway.agents.list = gateway.agents.list.map((entry: any) => ({ ...entry, default: false }))
+    const gatewayNode = await configDotGet({
+      data: { projectId: data.projectId, path: `hosts.${hostName}.gateways.${gatewayId}` },
+    })
+    if (!isPlainObject(gatewayNode.value)) {
+      throw new Error(`unknown gateway id: ${gatewayId}`)
     }
+
+    const gateway = structuredClone(gatewayNode.value) as Record<string, unknown>
+    gateway.agents = isPlainObject(gateway.agents) ? gateway.agents : {}
+    const agents = gateway.agents as Record<string, unknown>
+    const list = Array.isArray(agents.list) ? (agents.list as Array<Record<string, unknown>>) : []
+    if (list.some((entry) => String(entry?.id || "") === agentId)) {
+      throw new Error(`agent already exists: ${agentId}`)
+    }
+
+    const hasDefault = list.some((entry) => entry?.default === true)
+    const makeDefault = data.makeDefault || !hasDefault
+    const nextList: Array<Record<string, unknown>> = makeDefault
+      ? list.map((entry) => ({ ...entry, default: false } as Record<string, unknown>))
+      : [...list]
+
     const entry: Record<string, unknown> = { id: agentId }
     const name = data.name.trim()
     if (name) entry.name = name
     if (makeDefault) entry.default = true
-    gateway.agents.list = [...gateway.agents.list, entry]
+    nextList.push(entry)
 
-    const validated = ClawletsConfigSchema.parse(next)
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `agent add ${hostName}/${gatewayId}/${agentId}`,
-      host: hostName,
-    })
-    return await runWithEventsAndStatus({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Adding agent ${agentId} to ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
+    return await configDotSet({
+      data: {
+        projectId: data.projectId,
+        path: `hosts.${hostName}.gateways.${gatewayId}.agents.list`,
+        valueJson: JSON.stringify(nextList),
       },
-      onSuccess: () => ({ ok: true as const, runId }),
     })
   })
 
@@ -214,13 +209,9 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     }
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
+
     const gatewayId = data.gatewayId.trim()
     const agentId = data.agentId.trim()
     const parsedGateway = GatewayIdSchema.safeParse(gatewayId)
@@ -228,33 +219,21 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     const parsedAgent = PersonaNameSchema.safeParse(agentId)
     if (!parsedAgent.success) throw new Error("invalid agent id")
 
-    const next = structuredClone(config) as any
-    next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
-    const hostCfg = next.hosts[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const gateway = hostCfg.gateways?.[gatewayId]
-    if (!gateway || typeof gateway !== "object") throw new Error(`unknown gateway id: ${gatewayId}`)
-    const list = Array.isArray(gateway.agents?.list) ? gateway.agents.list : []
-    if (!list.some((entry: any) => entry?.id === agentId)) throw new Error(`agent not found: ${agentId}`)
-    gateway.agents = gateway.agents && typeof gateway.agents === "object" && !Array.isArray(gateway.agents) ? gateway.agents : {}
-    gateway.agents.list = list.filter((entry: any) => entry?.id !== agentId)
-
-    const validated = ClawletsConfigSchema.parse(next)
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `agent rm ${hostName}/${gatewayId}/${agentId}`,
-      host: hostName,
+    const listNode = await configDotGet({
+      data: { projectId: data.projectId, path: `hosts.${hostName}.gateways.${gatewayId}.agents.list` },
     })
-    return await runWithEventsAndStatus({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Removing agent ${agentId} from ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
+    const list = Array.isArray(listNode.value) ? (listNode.value as Array<Record<string, unknown>>) : []
+    if (!list.some((entry) => String(entry?.id || "") === agentId)) {
+      throw new Error(`agent not found: ${agentId}`)
+    }
+
+    const nextList = list.filter((entry) => String(entry?.id || "") !== agentId)
+    return await configDotSet({
+      data: {
+        projectId: data.projectId,
+        path: `hosts.${hostName}.gateways.${gatewayId}.agents.list`,
+        valueJson: JSON.stringify(nextList),
       },
-      onSuccess: () => ({ ok: true as const, runId }),
     })
   })
 
@@ -265,53 +244,70 @@ export const removeGateway = createServerFn({ method: "POST" })
     return { ...base, host: String(d["host"] || ""), gatewayId: String(d["gatewayId"] || "") }
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
     const hostName = data.host.trim()
     if (!hostName) throw new Error("missing host")
-    const gatewayId = data.gatewayId.trim()
-    const next = structuredClone(config) as any
-    next.hosts = next.hosts && typeof next.hosts === "object" && !Array.isArray(next.hosts) ? next.hosts : {}
-    const hostCfg = next.hosts[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingOrder = Array.isArray(hostCfg.gatewaysOrder) ? hostCfg.gatewaysOrder : []
-    const existingGateways =
-      hostCfg.gateways && typeof hostCfg.gateways === "object" && !Array.isArray(hostCfg.gateways) ? hostCfg.gateways : {}
-    if (!existingOrder.includes(gatewayId) && !existingGateways[gatewayId]) throw new Error("gateway not found")
 
-    hostCfg.gatewaysOrder = existingOrder.filter((b: string) => b !== gatewayId)
-    const gatewaysRecord = { ...existingGateways }
-    delete gatewaysRecord[gatewayId]
-    hostCfg.gateways = gatewaysRecord
-    next.hosts[hostName] = hostCfg
-    if (Array.isArray(next.fleet?.codex?.gateways)) {
-      const stillExists = Object.entries(next.hosts).some(
-        ([name, cfg]) => name !== hostName && Boolean((cfg as any)?.gateways?.[gatewayId]),
-      )
+    const gatewayId = data.gatewayId.trim()
+    const hostNode = await configDotGet({
+      data: { projectId: data.projectId, path: `hosts.${hostName}` },
+    })
+    if (!isPlainObject(hostNode.value)) {
+      throw new Error(`unknown host: ${hostName}`)
+    }
+
+    const hostCfg = hostNode.value as Record<string, unknown>
+    const existingOrder = asStringArray(hostCfg.gatewaysOrder)
+    const existingGateways = isPlainObject(hostCfg.gateways) ? hostCfg.gateways : {}
+    if (!existingOrder.includes(gatewayId) && !existingGateways[gatewayId]) {
+      throw new Error("gateway not found")
+    }
+
+    const nextOrder = existingOrder.filter((entry) => entry !== gatewayId)
+    const ops: Array<{ path: string; value?: string; valueJson?: string; del: boolean }> = [
+      {
+        path: `hosts.${hostName}.gatewaysOrder`,
+        valueJson: JSON.stringify(nextOrder),
+        del: false,
+      },
+      {
+        path: `hosts.${hostName}.gateways.${gatewayId}`,
+        del: true,
+      },
+    ]
+
+    const [hostsNode, codexGatewaysNode] = await Promise.all([
+      configDotGet({ data: { projectId: data.projectId, path: "hosts" } }),
+      configDotGet({ data: { projectId: data.projectId, path: "fleet.codex.gateways" } }),
+    ])
+    const codexGateways = asStringArray(codexGatewaysNode.value)
+    if (codexGateways.includes(gatewayId)) {
+      const allHosts = isPlainObject(hostsNode.value)
+        ? (hostsNode.value as Record<string, unknown>)
+        : {}
+      let stillExists = false
+      for (const [name, cfg] of Object.entries(allHosts)) {
+        if (name === hostName) continue
+        if (!isPlainObject(cfg)) continue
+        const gateways = isPlainObject(cfg.gateways) ? cfg.gateways : {}
+        if (gateways[gatewayId]) {
+          stillExists = true
+          break
+        }
+      }
       if (!stillExists) {
-        next.fleet.codex.gateways = next.fleet.codex.gateways.filter((b: string) => b !== gatewayId)
+        ops.push({
+          path: "fleet.codex.gateways",
+          valueJson: JSON.stringify(codexGateways.filter((entry) => entry !== gatewayId)),
+          del: false,
+        })
       }
     }
 
-    const validated = ClawletsConfigSchema.parse(next)
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway rm ${hostName}/${gatewayId}`,
-      host: hostName,
-    })
-    return await runWithEventsAndStatus({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Removing gateway ${gatewayId} (host=${hostName})` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
+    return await configDotBatch({
+      data: {
+        projectId: data.projectId,
+        ops,
       },
-      onSuccess: () => ({ ok: true as const, runId }),
     })
   })
 
@@ -325,33 +321,14 @@ export const setGatewayArchitecture = createServerFn({ method: "POST" })
     }
   })
   .handler(async ({ data }) => {
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
     const architecture = data.architecture.trim()
     const parsedArchitecture = GatewayArchitectureSchema.safeParse(architecture)
     if (!parsedArchitecture.success) throw new Error("invalid gateway architecture")
-
-    const next = structuredClone(config) as any
-    next.fleet = next.fleet && typeof next.fleet === "object" && !Array.isArray(next.fleet) ? next.fleet : {}
-    next.fleet.gatewayArchitecture = parsedArchitecture.data
-
-    const validated = ClawletsConfigSchema.parse(next)
-    const { runId } = await client.mutation(api.runs.create, {
-      projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway architecture ${parsedArchitecture.data}`,
-    })
-    return await runWithEventsAndStatus({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Setting gateway architecture: ${parsedArchitecture.data}` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated })
+    return await configDotSet({
+      data: {
+        projectId: data.projectId,
+        path: "fleet.gatewayArchitecture",
+        value: parsedArchitecture.data,
       },
-      onSuccess: () => ({ ok: true as const, runId }),
     })
   })

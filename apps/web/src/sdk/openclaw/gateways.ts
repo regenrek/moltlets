@@ -8,30 +8,84 @@ import { getPinnedOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/sch
 import { OPENCLAW_DEFAULT_COMMANDS } from "@clawlets/core/lib/openclaw/openclaw-defaults"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/secrets/env-vars"
 import { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw/security-lint"
-import {
-  ClawletsConfigSchema,
-  loadFullConfig,
-  writeClawletsConfig,
-} from "@clawlets/core/lib/config/clawlets-config"
-
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { fetchOpenclawSchemaLive } from "~/server/openclaw-schema.server"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { getAdminProjectContext } from "~/sdk/project"
 import {
   parseGatewayOpenclawConfigInput,
   parseGatewayCapabilityPresetInput,
   parseGatewayCapabilityPresetPreviewInput,
   parseProjectGatewayInput,
   parseProjectHostGatewayInput,
+  type ValidationIssue,
 } from "~/sdk/runtime"
-import { mapValidationIssues, runWithEventsAndStatus, type ValidationIssue } from "~/sdk/runtime/server"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
+import { configDotGet, configDotSet } from "~/sdk/config/dot"
+import { requireAdminProjectAccess } from "~/sdk/project"
 
 export const LIVE_SCHEMA_ERROR_FALLBACK = "Unable to fetch schema. Check logs."
 
 type RunFailure = { ok: false; issues: ValidationIssue[] }
+
+function gatewayPath(hostName: string, gatewayId: string): string {
+  return `hosts.${hostName}.gateways.${gatewayId}`
+}
+
+async function loadGatewayConfig(params: {
+  projectId: string
+  host: string
+  gatewayId: string
+}): Promise<{ hostName: string; gatewayId: string; gateway: Record<string, unknown> }> {
+  const hostName = params.host.trim()
+  if (!hostName) throw new Error("missing host")
+  const gatewayId = params.gatewayId.trim()
+  if (!gatewayId) throw new Error("missing gatewayId")
+
+  const node = await configDotGet({
+    data: {
+      projectId: params.projectId as any,
+      path: gatewayPath(hostName, gatewayId),
+    },
+  })
+  if (!isPlainObject(node.value)) throw new Error("gateway not found")
+  return {
+    hostName,
+    gatewayId,
+    gateway: structuredClone(node.value) as Record<string, unknown>,
+  }
+}
+
+async function writeGatewayConfig(params: {
+  projectId: string
+  hostName: string
+  gatewayId: string
+  gateway: Record<string, unknown>
+  action: string
+  data?: Record<string, unknown>
+}): Promise<{ ok: true; runId: string } | RunFailure> {
+  const writeRes = await configDotSet({
+    data: {
+      projectId: params.projectId as any,
+      path: gatewayPath(params.hostName, params.gatewayId),
+      valueJson: JSON.stringify(params.gateway),
+    },
+  })
+
+  if (!writeRes.ok) return { ok: false as const, issues: writeRes.issues }
+
+  const client = createConvexClient()
+  await client.mutation(api.auditLogs.append, {
+    projectId: params.projectId as any,
+    action: params.action as any,
+    target: { gatewayId: params.gatewayId },
+    data: {
+      runId: writeRes.runId,
+      ...(params.data || {}),
+    },
+  })
+
+  return { ok: true as const, runId: writeRes.runId }
+}
 
 export function sanitizeLiveSchemaError(err: unknown): string {
   return sanitizeErrorMessage(err, LIVE_SCHEMA_ERROR_FALLBACK)
@@ -110,23 +164,17 @@ function mapSchemaFailure(message: string): ValidationIssue[] {
 export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
   .inputValidator(parseGatewayOpenclawConfigInput)
   .handler(async ({ data }) => {
-    const gatewayId = data.gatewayId.trim()
-    const hostName = data.host.trim()
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
 
     if (!isPlainObject(data.openclaw)) throw new Error("openclaw config must be a JSON object")
 
-    const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
-
-    const next = structuredClone(config) as any
-    const hostCfg = next?.hosts?.[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingGateway = hostCfg?.gateways?.[gatewayId]
-    if (!existingGateway || typeof existingGateway !== "object") throw new Error("gateway not found")
-
-    existingGateway.openclaw = data.openclaw
+    const loaded = await loadGatewayConfig({
+      projectId: data.projectId,
+      host: data.host,
+      gatewayId: data.gatewayId,
+    })
+    loaded.gateway.openclaw = data.openclaw
 
     const schemaMode = data.schemaMode === "live" ? "live" : "pinned"
     let schema: Record<string, unknown> | undefined = undefined
@@ -134,8 +182,8 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
       try {
         const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
-          host: data.host,
-          gatewayId,
+          host: loaded.hostName,
+          gatewayId: loaded.gatewayId,
         })
         if (!live.ok) {
           return { ok: false as const, issues: [{ code: "schema", path: [], message: live.message }] satisfies ValidationIssue[] }
@@ -152,7 +200,7 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
     }
 
     const schemaValidation = validateOpenclawConfig(
-      withDefaultCommands(existingGateway.openclaw as Record<string, unknown>),
+      withDefaultCommands(loaded.gateway.openclaw as Record<string, unknown>),
       schema,
     )
     if (!schemaValidation.ok) {
@@ -162,88 +210,60 @@ export const setGatewayOpenclawConfig = createServerFn({ method: "POST" })
       }
     }
 
-    const securityReport = lintOpenclawSecurityConfig({ openclaw: existingGateway.openclaw, gatewayId })
-    const inlineSecrets = securityReport.findings.filter((f) => f.id.startsWith("inlineSecret."))
+    const securityReport = lintOpenclawSecurityConfig({ openclaw: loaded.gateway.openclaw, gatewayId: loaded.gatewayId })
+    const inlineSecrets = securityReport.findings.filter((finding) => finding.id.startsWith("inlineSecret."))
     if (inlineSecrets.length > 0) {
       return {
         ok: false as const,
-        issues: inlineSecrets.slice(0, 20).map((f) => ({
+        issues: inlineSecrets.slice(0, 20).map((finding) => ({
           code: "security",
-          path: f.id
+          path: finding.id
             .slice("inlineSecret.".length)
             .split(".")
             .filter(Boolean),
-          message: f.detail,
+          message: finding.detail,
         })),
       }
     }
 
-    const validated = ClawletsConfigSchema.safeParse(next)
-    if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
-
-    const { runId } = await client.mutation(api.runs.create, {
+    return await writeGatewayConfig({
       projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway ${hostName}/${gatewayId} openclaw config`,
-      host: hostName,
-    })
-
-    await client.mutation(api.auditLogs.append, {
-      projectId: data.projectId,
+      hostName: loaded.hostName,
+      gatewayId: loaded.gatewayId,
+      gateway: loaded.gateway,
       action: "gateway.openclaw.write",
-      target: { gatewayId },
-      data: { runId },
-    })
-
-    type SetOpenclawResult = { ok: true; runId: typeof runId } | RunFailure
-
-    return await runWithEventsAndStatus<SetOpenclawResult>({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Updating hosts.${hostName}.gateways.${gatewayId}.openclaw` })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
-        await emit({ level: "info", message: "Done." })
-      },
-      onSuccess: () => ({ ok: true as const, runId }),
-      onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
     })
   })
 
 export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseGatewayCapabilityPresetInput)
   .handler(async ({ data }) => {
-    const gatewayId = data.gatewayId.trim()
-    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
 
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
+    await requireAdminProjectAccess(client, data.projectId)
 
-    const next = structuredClone(config) as any
-    const hostCfg = next?.hosts?.[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingGateway = hostCfg?.gateways?.[gatewayId]
-    if (!existingGateway || typeof existingGateway !== "object") throw new Error("gateway not found")
+    const loaded = await loadGatewayConfig({
+      projectId: data.projectId,
+      host: data.host,
+      gatewayId: data.gatewayId,
+    })
 
     let warnings: string[] = []
     try {
-      const result = applyCapabilityPreset({ openclaw: existingGateway.openclaw, channels: existingGateway.channels, preset })
-      existingGateway.openclaw = result.openclaw
-      existingGateway.channels = result.channels
+      const result = applyCapabilityPreset({ openclaw: loaded.gateway.openclaw, channels: loaded.gateway.channels, preset })
+      loaded.gateway.openclaw = result.openclaw
+      loaded.gateway.channels = result.channels
       warnings = result.warnings
-      const secretEnv = ensureGatewayProfileSecretEnv(existingGateway)
+      const secretEnv = ensureGatewayProfileSecretEnv(loaded.gateway)
       for (const envVar of result.requiredEnv) {
-        ensureSecretEnvMapping({ secretEnv, envVar, gatewayId })
+        ensureSecretEnvMapping({ secretEnv, envVar, gatewayId: loaded.gatewayId })
       }
     } catch (err) {
       return { ok: false as const, issues: mapSchemaFailure(String((err as Error)?.message || err)) }
     }
 
-    const effectiveConfig = buildEffectiveOpenclawConfig(existingGateway as Record<string, unknown>)
+    const effectiveConfig = buildEffectiveOpenclawConfig(loaded.gateway)
     const schemaValidation = validateOpenclawConfig(effectiveConfig)
     if (!schemaValidation.ok) {
       return { ok: false as const, issues: mapSchemaIssues(schemaValidation.issues) }
@@ -253,8 +273,8 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
       try {
         const live = await fetchOpenclawSchemaLive({
           projectId: data.projectId,
-          host: data.host,
-          gatewayId,
+          host: loaded.hostName,
+          gatewayId: loaded.gatewayId,
         })
         if (!live.ok) {
           return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
@@ -269,54 +289,33 @@ export const applyGatewayCapabilityPreset = createServerFn({ method: "POST" })
       }
     }
 
-    const validated = ClawletsConfigSchema.safeParse(next)
-    if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
-
-    const { runId } = await client.mutation(api.runs.create, {
+    const writeRes = await writeGatewayConfig({
       projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway ${hostName}/${gatewayId} preset ${preset.id}`,
-      host: hostName,
-    })
-
-    await client.mutation(api.auditLogs.append, {
-      projectId: data.projectId,
+      hostName: loaded.hostName,
+      gatewayId: loaded.gatewayId,
+      gateway: loaded.gateway,
       action: "gateway.preset.apply",
-      target: { gatewayId },
-      data: { preset: preset.id, runId, warnings },
+      data: { preset: preset.id, warnings },
     })
-
-    type ApplyPresetResult = { ok: true; runId: typeof runId; warnings: string[] } | RunFailure
-
-    return await runWithEventsAndStatus<ApplyPresetResult>({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Applying ${preset.id} preset for ${gatewayId} (host=${hostName})` })
-        for (const w of warnings) await emit({ level: "warn", message: w })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
-        await emit({ level: "info", message: "Done." })
-      },
-      onSuccess: () => ({ ok: true as const, runId, warnings }),
-      onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
-    })
+    if (!writeRes.ok) return writeRes
+    return { ok: true as const, runId: writeRes.runId, warnings }
   })
 
 export const previewGatewayCapabilityPreset = createServerFn({ method: "POST" })
   .inputValidator(parseGatewayCapabilityPresetPreviewInput)
   .handler(async ({ data }) => {
-    const gatewayId = data.gatewayId.trim()
-    const hostName = data.host.trim()
     const preset = resolvePreset(data.kind, data.presetId)
-    const { config: raw } = loadFullConfig({
-      repoRoot: (await getAdminProjectContext(createConvexClient(), data.projectId)).repoRoot,
-    })
-    const hostCfg = (raw as any)?.hosts?.[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingGateway = (hostCfg as any)?.gateways?.[gatewayId]
-    if (!existingGateway || typeof existingGateway !== "object") throw new Error("gateway not found")
 
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
+    const loaded = await loadGatewayConfig({
+      projectId: data.projectId,
+      host: data.host,
+      gatewayId: data.gatewayId,
+    })
+
+    const existingGateway = loaded.gateway
     const nextGateway = structuredClone(existingGateway) as Record<string, unknown>
     let warnings: string[] = []
     let requiredEnv: string[] = []
@@ -332,14 +331,14 @@ export const previewGatewayCapabilityPreset = createServerFn({ method: "POST" })
       requiredEnv = result.requiredEnv
       const secretEnv = ensureGatewayProfileSecretEnv(nextGateway)
       for (const envVar of result.requiredEnv) {
-        ensureSecretEnvMapping({ secretEnv, envVar, gatewayId })
+        ensureSecretEnvMapping({ secretEnv, envVar, gatewayId: loaded.gatewayId })
       }
     } catch (err) {
       return { ok: false as const, issues: mapSchemaFailure(String((err as Error)?.message || err)) }
     }
 
     const schemaValidation = validateOpenclawConfig(buildEffectiveOpenclawConfig(nextGateway))
-    const diff = diffConfig(existingGateway, nextGateway, `hosts.${hostName}.gateways.${gatewayId}`)
+    const diff = diffConfig(existingGateway, nextGateway, `hosts.${loaded.hostName}.gateways.${loaded.gatewayId}`)
 
     return {
       ok: true as const,
@@ -353,29 +352,26 @@ export const previewGatewayCapabilityPreset = createServerFn({ method: "POST" })
 export const verifyGatewayOpenclawSchema = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostGatewayInput)
   .handler(async ({ data }) => {
-    const gatewayId = data.gatewayId.trim()
-    const hostName = data.host.trim()
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const { config: raw } = loadFullConfig({ repoRoot })
-    const hostCfg = (raw as any)?.hosts?.[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingGateway = (hostCfg as any)?.gateways?.[gatewayId]
-    if (!existingGateway || typeof existingGateway !== "object") throw new Error("gateway not found")
+    await requireAdminProjectAccess(client, data.projectId)
+
+    const loaded = await loadGatewayConfig({
+      projectId: data.projectId,
+      host: data.host,
+      gatewayId: data.gatewayId,
+    })
 
     const pinned = getPinnedOpenclawSchemaArtifact()
-    let liveSchema: Record<string, unknown> | null = null
     try {
       const live = await fetchOpenclawSchemaLive({
         projectId: data.projectId,
-        host: hostName,
-        gatewayId,
+        host: loaded.hostName,
+        gatewayId: loaded.gatewayId,
       })
       if (!live.ok) {
         return { ok: false as const, issues: mapSchemaFailure(live.message || LIVE_SCHEMA_ERROR_FALLBACK) }
       }
-      liveSchema = live.schema.schema as Record<string, unknown>
-      const liveValidation = validateOpenclawConfig(withDefaultCommands((existingGateway as any).openclaw), liveSchema)
+      const liveValidation = validateOpenclawConfig(withDefaultCommands((loaded.gateway as any).openclaw), live.schema.schema as Record<string, unknown>)
       return {
         ok: true as const,
         issues: liveValidation.ok ? [] : mapSchemaIssues(liveValidation.issues),
@@ -392,64 +388,43 @@ export const verifyGatewayOpenclawSchema = createServerFn({ method: "POST" })
 export const hardenGatewayOpenclawConfig = createServerFn({ method: "POST" })
   .inputValidator(parseProjectGatewayInput)
   .handler(async ({ data }) => {
-    const gatewayId = data.gatewayId.trim()
-    const hostName = data.host.trim()
-
     const client = createConvexClient()
-    const { repoRoot } = await getAdminProjectContext(client, data.projectId)
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const { infraConfigPath, config } = loadFullConfig({ repoRoot })
+    await requireAdminProjectAccess(client, data.projectId)
 
-    const next = structuredClone(config) as any
-    const hostCfg = next?.hosts?.[hostName]
-    if (!hostCfg || typeof hostCfg !== "object") throw new Error(`unknown host: ${hostName}`)
-    const existingGateway = hostCfg?.gateways?.[gatewayId]
-    if (!existingGateway || typeof existingGateway !== "object") throw new Error("gateway not found")
-
-    const hardened = applySecurityDefaults({ openclaw: existingGateway.openclaw, channels: existingGateway.channels })
-    if (hardened.changes.length === 0) return { ok: true as const, changes: [], warnings: [] }
-
-    existingGateway.openclaw = hardened.openclaw
-    existingGateway.channels = hardened.channels
-    const validated = ClawletsConfigSchema.safeParse(next)
-    if (!validated.success) return { ok: false as const, issues: mapValidationIssues(validated.error.issues as unknown[]) }
-
-    const { runId } = await client.mutation(api.runs.create, {
+    const loaded = await loadGatewayConfig({
       projectId: data.projectId,
-      kind: "config_write",
-      title: `gateway ${hostName}/${gatewayId} openclaw harden`,
-      host: hostName,
+      host: data.host,
+      gatewayId: data.gatewayId,
     })
 
-    await client.mutation(api.auditLogs.append, {
+    const hardened = applySecurityDefaults({ openclaw: loaded.gateway.openclaw, channels: loaded.gateway.channels })
+    if (hardened.changes.length === 0) return { ok: true as const, changes: [], warnings: [] }
+
+    loaded.gateway.openclaw = hardened.openclaw
+    loaded.gateway.channels = hardened.channels
+
+    const schemaValidation = validateOpenclawConfig(buildEffectiveOpenclawConfig(loaded.gateway))
+    if (!schemaValidation.ok) {
+      return { ok: false as const, issues: mapSchemaIssues(schemaValidation.issues) }
+    }
+
+    const writeRes = await writeGatewayConfig({
       projectId: data.projectId,
+      hostName: loaded.hostName,
+      gatewayId: loaded.gatewayId,
+      gateway: loaded.gateway,
       action: "gateway.openclaw.harden",
-      target: { gatewayId },
       data: {
-        runId,
         changesCount: hardened.changes.length,
         warningsCount: hardened.warnings.length,
       },
     })
+    if (!writeRes.ok) return writeRes
 
-    type HardenResult = {
-      ok: true
-      runId: typeof runId
-      changes: typeof hardened.changes
-      warnings: typeof hardened.warnings
-    } | RunFailure
-
-    return await runWithEventsAndStatus<HardenResult>({
-      client,
-      runId,
-      redactTokens,
-      fn: async (emit) => {
-        await emit({ level: "info", message: `Hardening hosts.${hostName}.gateways.${gatewayId}` })
-        for (const w of hardened.warnings) await emit({ level: "warn", message: w })
-        await writeClawletsConfig({ configPath: infraConfigPath, config: validated.data })
-        await emit({ level: "info", message: "Done." })
-      },
-      onSuccess: () => ({ ok: true as const, runId, changes: hardened.changes, warnings: hardened.warnings }),
-      onError: (message) => ({ ok: false as const, issues: [{ code: "error", path: [], message }] }),
-    })
+    return {
+      ok: true as const,
+      runId: writeRes.runId,
+      changes: hardened.changes,
+      warnings: hardened.warnings,
+    }
   })

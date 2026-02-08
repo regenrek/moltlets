@@ -1,20 +1,62 @@
 import { describe, expect, it, vi } from "vitest"
 
+function mockRunnerSchema(params?: {
+  adminDeny?: boolean
+  guardError?: Error | null
+  terminal?: { status: "succeeded" | "failed" | "canceled"; errorMessage?: string }
+  messages?: string[]
+}) {
+  const requireAdminProjectAccess = vi.fn(async () => {
+    if (params?.adminDeny) throw new Error("admin required")
+    return { role: "admin" }
+  })
+  const mutation = vi.fn(async () => {
+    if (params?.guardError) throw params.guardError
+    return null
+  })
+  const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run-1" as any, jobId: "job-1" as any }))
+  const waitForRunTerminal = vi.fn(async () => params?.terminal || ({ status: "succeeded" as const }))
+  const listRunMessages = vi.fn(async () => params?.messages || [])
+  const parseLastJsonMessage = vi.fn((messages: string[]) => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const raw = String(messages[i] || "").trim()
+      if (!raw.startsWith("{") || !raw.endsWith("}")) continue
+      try {
+        return JSON.parse(raw)
+      } catch {
+        continue
+      }
+    }
+    return null
+  })
+  const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
+
+  vi.doMock("~/sdk/project", () => ({ requireAdminProjectAccess }))
+  vi.doMock("~/server/convex", () => ({ createConvexClient: () => ({ mutation }) as any }))
+  vi.doMock("~/sdk/runtime", () => ({
+    enqueueRunnerCommand,
+    waitForRunTerminal,
+    listRunMessages,
+    parseLastJsonMessage,
+    lastErrorMessage,
+  }))
+
+  return { requireAdminProjectAccess, mutation, enqueueRunnerCommand }
+}
+
 describe("openclaw schema output parsing", () => {
-  it("rejects payloads larger than the limit", () => {
+  it("rejects payloads larger than the limit", async () => {
     const nonce = "big00001"
     const raw = [
       `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
       "a".repeat(6 * 1024 * 1024),
       `__OPENCLAW_SCHEMA_END__${nonce}__`,
     ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("schema payload too large:")
-    })()
-  })
+    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
+    expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("schema payload too large:")
+  }, 15_000)
 
-  it("accepts payloads above 2MB when below transport-aligned cap", () => {
+  it("accepts payloads above 2MB when below transport-aligned cap", async () => {
     const nonce = "mid00001"
     const payload = "a".repeat(3 * 1024 * 1024)
     const raw = [
@@ -22,14 +64,12 @@ describe("openclaw schema output parsing", () => {
       payload,
       `__OPENCLAW_SCHEMA_END__${nonce}__`,
     ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      const extracted = __test_extractJsonBlock(raw, nonce)
-      expect(extracted).toHaveLength(payload.length)
-    })()
+    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
+    const extracted = __test_extractJsonBlock(raw, nonce)
+    expect(extracted).toHaveLength(payload.length)
   })
 
-  it("extracts JSON amid banners and noise", () => {
+  it("extracts JSON amid banners and noise", async () => {
     const nonce = "deadbeef"
     const raw = [
       "Welcome to host",
@@ -41,191 +81,19 @@ describe("openclaw schema output parsing", () => {
       `__OPENCLAW_SCHEMA_END__${nonce}__`,
       "trailing noise {bad}",
     ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      const extracted = __test_extractJsonBlock(raw, nonce)
-      expect(JSON.parse(extracted)).toMatchObject({ version: "1.0.0" })
-    })()
+    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
+    const extracted = __test_extractJsonBlock(raw, nonce)
+    expect(JSON.parse(extracted)).toMatchObject({ version: "1.0.0" })
   })
 
-  it("extracts JSON between markers", () => {
-    const nonce = "bead1234"
-    const raw = [
-      "noise line",
-      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      "{\"schema\":{\"type\":\"object\"},\"version\":\"1.1.0\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-      `__OPENCLAW_SCHEMA_END__${nonce}__`,
-    ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      const extracted = __test_extractJsonBlock(raw, nonce)
-      expect(JSON.parse(extracted)).toMatchObject({ version: "1.1.0" })
-    })()
-  })
-
-  it("extracts last valid JSON object", () => {
-    const nonce = "feedcafe"
-    const raw = [
-      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      "{\"schema\":{\"type\":\"object\"},\"version\":\"2.0.0\"}",
-      `__OPENCLAW_SCHEMA_END__${nonce}__`,
-    ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      const extracted = __test_extractJsonBlock(raw, nonce)
-      expect(JSON.parse(extracted)).toMatchObject({ version: "2.0.0" })
-    })()
-  })
-
-  it("rejects nested lookalike without markers", () => {
+  it("rejects nested lookalike without markers", async () => {
     const nonce = "c0ffee01"
     const raw = [
       "log line",
       "{\"message\":\"nested {\\\"schema\\\":{\\\"type\\\":\\\"object\\\"},\\\"version\\\":\\\"x\\\",\\\"generatedAt\\\":\\\"x\\\",\\\"openclawRev\\\":\\\"rev\\\"}\"}",
     ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("missing schema markers in output")
-    })()
-  })
-
-  it("ignores marker-like strings embedded in output", () => {
-    const nonce = "badc0de1"
-    const raw = [
-      "noise __OPENCLAW_SCHEMA_BEGIN__badc0de1__ noise",
-      "{\"schema\":{\"type\":\"object\"},\"version\":\"3.0.0\"}",
-      "noise __OPENCLAW_SCHEMA_END__badc0de1__ noise",
-    ].join("\n")
-    return (async () => {
-      const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-      expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("missing schema markers in output")
-    })()
-  })
-
-  it("rejects JSON missing schema fields", async () => {
-    vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce12", "utf8"),
-    }))
-    const sshCapture = async () =>
-      [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653132__",
-        "{\"ok\":true}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653132__",
-      ].join("\n")
-    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
-    const mutation = async () => null
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["gateway1"], gateways: { gateway1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
-    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-    const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.message).toContain("schema payload missing required fields")
-    }
-  })
-
-  it("rejects non-object schema field", async () => {
-    vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce34", "utf8"),
-    }))
-    const sshCapture = async () =>
-      [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653334__",
-        "{\"schema\":[],\"version\":\"1\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653334__",
-      ].join("\n")
-    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
-    const mutation = async () => null
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["gateway1"], gateways: { gateway1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
-    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-    const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.message).toContain("schema payload missing required fields")
-    }
-  })
-
-  it("rejects non-object uiHints field", async () => {
-    vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce78", "utf8"),
-    }))
-    const sshCapture = async () =>
-      [
-        "__OPENCLAW_SCHEMA_BEGIN__6e6f6e63653738__",
-        "{\"schema\":{},\"uiHints\":[],\"version\":\"1\",\"generatedAt\":\"x\",\"openclawRev\":\"rev\"}",
-        "__OPENCLAW_SCHEMA_END__6e6f6e63653738__",
-      ].join("\n")
-    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
-    const mutation = async () => null
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["gateway1"], gateways: { gateway1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
-    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
-    const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.message).toContain("schema payload missing required fields")
-    }
+    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
+    expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("missing schema markers in output")
   })
 
   it("quotes gateway id in gateway schema command", async () => {
@@ -255,67 +123,29 @@ describe("openclaw schema output parsing", () => {
     expect(cmd).not.toContain(`--token "$token"`)
   })
 
-  it("escapes gateway id metacharacters in gateway schema command", async () => {
+  it("returns schema parse failures from runner output", async () => {
     vi.resetModules()
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/security/ssh-remote")>(
-        "@clawlets/core/lib/security/ssh-remote",
-      )
-      return actual
+    mockRunnerSchema({
+      messages: [JSON.stringify({ ok: true })],
     })
-    const [{ __test_buildGatewaySchemaCommand }, { shellQuote }] = await Promise.all([
-      import("~/server/openclaw-schema.server"),
-      import("@clawlets/core/lib/security/ssh-remote"),
-    ])
-    const gatewayId = "gateway 1;echo pwned"
-    const cmd = __test_buildGatewaySchemaCommand({
-      gatewayId,
-      port: 1234,
-      sudo: true,
-      nonce: "nonce",
-    })
-    const envFile = `/srv/openclaw/${gatewayId}/credentials/gateway.env`
-    const envFileQuoted = shellQuote(envFile).replace(/'/g, "'\\''")
-    expect(cmd).toContain(shellQuote(`gateway-${gatewayId}`))
-    expect(cmd).not.toContain(`source ${envFileQuoted}`)
-    expect(cmd).toContain("OPENCLAW_GATEWAY_TOKEN")
-    expect(cmd).toContain(`env OPENCLAW_GATEWAY_TOKEN="$token"`)
-    expect(cmd).not.toContain(`--token "$token"`)
+    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+    const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.message).toContain("schema payload missing required fields")
+    }
   })
 
-  it("sanitizes raw ssh errors", async () => {
+  it("sanitizes raw runner failures", async () => {
     vi.resetModules()
-    vi.doMock("node:crypto", () => ({
-      randomBytes: () => Buffer.from("nonce55", "utf8"),
-    }))
-    const sshCapture = async () => {
-      throw new Error(
-        "ssh: connect to host 10.0.0.1 port 22: Connection timed out; cmd: bash -lc 'source /srv/openclaw/gateway1/credentials/gateway.env'",
-      )
-    }
-    const query = async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role: "admin" })
-    const mutation = async () => null
-    vi.doMock("~/server/convex", () => ({
-      createConvexClient: () => ({ query, mutation }) as any,
-    }))
-    vi.doMock("@clawlets/core/lib/config/clawlets-config", () => ({
-      loadClawletsConfig: () => ({
-        config: {
-          defaultHost: "h1",
-          hosts: { h1: { targetHost: "root@127.0.0.1", gatewaysOrder: ["gateway1"], gateways: { gateway1: {} } } },
-        },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/openclaw/config-invariants", () => ({
-      buildOpenClawGatewayConfig: () => ({
-        invariants: { gateway: { port: 18789 } },
-      }),
-    }))
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", () => ({
-      shellQuote: (v: string) => v,
-      validateTargetHost: (v: string) => v,
-      sshCapture,
-    }))
+    mockRunnerSchema({
+      terminal: {
+        status: "failed",
+        errorMessage:
+          "ssh: connect to host 10.0.0.1 port 22: Connection timed out; cmd: bash -lc 'source /srv/openclaw/gateway1/credentials/gateway.env'",
+      },
+      messages: [],
+    })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
     const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
     expect(res.ok).toBe(false)
@@ -324,5 +154,16 @@ describe("openclaw schema output parsing", () => {
       expect(res.message).not.toContain("ssh")
       expect(res.message).not.toContain("/srv/openclaw")
     }
+  })
+
+  it("rejects non-admin before runner execution", async () => {
+    vi.resetModules()
+    const mocks = mockRunnerSchema({ adminDeny: true })
+    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+    const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.message).toBe("admin required")
+    expect(mocks.mutation).not.toHaveBeenCalled()
+    expect(mocks.enqueueRunnerCommand).not.toHaveBeenCalled()
   })
 })

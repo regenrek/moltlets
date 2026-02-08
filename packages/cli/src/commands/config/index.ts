@@ -1,8 +1,8 @@
-import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { defineCommand } from "citty";
 import { ensureDir } from "@clawlets/core/lib/storage/fs-safe";
+import { FileSystemConfigStore } from "@clawlets/core/lib/storage/fs-config-store";
 import { splitDotPath } from "@clawlets/core/lib/storage/dot-path";
 import { deleteAtPath, getAtPath, setAtPath } from "@clawlets/core/lib/storage/object-path";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
@@ -20,6 +20,8 @@ import { validateClawletsConfig } from "@clawlets/core/lib/config/clawlets-confi
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } from "@clawlets/core/lib/secrets/secrets-autowire";
 
+const store = new FileSystemConfigStore();
+
 const init = defineCommand({
   meta: { name: "init", description: "Initialize fleet/clawlets.json + fleet/openclaw.json (canonical config)." },
   args: {
@@ -35,7 +37,7 @@ const init = defineCommand({
     const openclawConfigPath = layout.openclawConfigPath;
     const writeTargets = `${path.relative(repoRoot, infraConfigPath)} + ${path.relative(repoRoot, openclawConfigPath)}`;
 
-    if (fs.existsSync(infraConfigPath) && !args.force) {
+    if ((await store.exists(infraConfigPath)) && !args.force) {
       throw new Error(`config already exists (pass --force to overwrite): ${infraConfigPath}`);
     }
 
@@ -330,6 +332,111 @@ const set = defineCommand({
   },
 });
 
+const batchSet = defineCommand({
+  meta: { name: "batch-set", description: "Apply multiple dot-path updates to fleet/clawlets.json." },
+  args: {
+    "ops-json": { type: "string", description: "JSON array of operations: {path,value|valueJson,del?}." },
+    json: { type: "boolean", description: "JSON output.", default: false },
+  },
+  async run({ args }) {
+    const raw = String((args as any)["ops-json"] || "").trim();
+    if (!raw) throw new Error("missing --ops-json");
+
+    let opsRaw: unknown;
+    try {
+      opsRaw = JSON.parse(raw);
+    } catch {
+      throw new Error("invalid --ops-json (must be valid JSON array)");
+    }
+    if (!Array.isArray(opsRaw)) throw new Error("invalid --ops-json (expected array)");
+    if (opsRaw.length === 0) throw new Error("invalid --ops-json (empty array)");
+    if (opsRaw.length > 100) throw new Error("invalid --ops-json (max 100 ops)");
+
+    const repoRoot = findRepoRoot(process.cwd());
+    const { infraConfigPath, config } = loadFullConfig({ repoRoot });
+    const next = structuredClone(config) as any;
+    const plannedPaths: string[] = [];
+
+    for (let index = 0; index < opsRaw.length; index++) {
+      const row = opsRaw[index];
+      if (!row || typeof row !== "object" || Array.isArray(row)) {
+        throw new Error(`invalid op at index ${index}`);
+      }
+      const op = row as Record<string, unknown>;
+      const pathRaw = String(op.path || "").trim();
+      if (!pathRaw) throw new Error(`missing path at index ${index}`);
+      const parts = splitDotPath(pathRaw);
+      const pathKey = parts.join(".");
+      plannedPaths.push(pathKey);
+
+      const del = Boolean(op.del);
+      const hasValue = op.value !== undefined;
+      const hasValueJson = op.valueJson !== undefined;
+      if (hasValue && hasValueJson) throw new Error(`ambiguous value at index ${index}`);
+      if (del && (hasValue || hasValueJson)) throw new Error(`invalid op at index ${index} (delete with value)`);
+
+      if (del) {
+        const ok = deleteAtPath(next, parts);
+        if (!ok) throw new Error(`path not found: ${pathKey}`);
+        continue;
+      }
+
+      if (hasValueJson) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(String(op.valueJson));
+        } catch {
+          throw new Error(`invalid valueJson at ${pathKey}`);
+        }
+        setAtPath(next, parts, parsed);
+        continue;
+      }
+
+      if (hasValue) {
+        setAtPath(next, parts, String(op.value));
+        continue;
+      }
+
+      throw new Error(`missing value for ${pathKey}`);
+    }
+
+    const validated = ClawletsConfigSchema.parse(next);
+    await writeClawletsConfig({ configPath: infraConfigPath, config: validated });
+    if (args.json) {
+      console.log(JSON.stringify({ ok: true, updated: plannedPaths }, null, 2));
+      return;
+    }
+    console.log("ok");
+  },
+});
+
+const replace = defineCommand({
+  meta: { name: "replace", description: "Replace fleet/clawlets.json with a full validated JSON object." },
+  args: {
+    "config-json": { type: "string", description: "Full config JSON object." },
+    json: { type: "boolean", description: "JSON output.", default: false },
+  },
+  async run({ args }) {
+    const raw = String((args as any)["config-json"] || "").trim();
+    if (!raw) throw new Error("missing --config-json");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("invalid --config-json (must be valid JSON object)");
+    }
+    const validated = ClawletsConfigSchema.parse(parsed);
+    const repoRoot = findRepoRoot(process.cwd());
+    const configPath = getRepoLayout(repoRoot).clawletsConfigPath;
+    await writeClawletsConfig({ configPath, config: validated });
+    if (args.json) {
+      console.log(JSON.stringify({ ok: true }, null, 2));
+      return;
+    }
+    console.log("ok");
+  },
+});
+
 const migrate = defineCommand({
   meta: { name: "migrate", description: "Reserved for future schema migrations. No migrations are currently supported." },
   args: {
@@ -343,9 +450,9 @@ const migrate = defineCommand({
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const configPath = getRepoLayout(repoRoot).clawletsConfigPath;
-    if (!fs.existsSync(configPath)) throw new Error(`missing config: ${configPath}`);
+    if (!(await store.exists(configPath))) throw new Error(`missing config: ${configPath}`);
 
-    const rawText = fs.readFileSync(configPath, "utf8");
+    const rawText = await store.readText(configPath);
     let parsed: unknown;
     try {
       parsed = JSON.parse(rawText);
@@ -372,5 +479,16 @@ const migrate = defineCommand({
 
 export const config = defineCommand({
   meta: { name: "config", description: "Canonical config (fleet/clawlets.json)." },
-  subCommands: { init, show, validate, migrate, get, set, "wire-secrets": wireSecrets, "derive-allowlist": deriveAllowlist },
+  subCommands: {
+    init,
+    show,
+    validate,
+    migrate,
+    get,
+    set,
+    "batch-set": batchSet,
+    replace,
+    "wire-secrets": wireSecrets,
+    "derive-allowlist": deriveAllowlist,
+  },
 });

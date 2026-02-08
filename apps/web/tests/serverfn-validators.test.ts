@@ -10,9 +10,16 @@ import {
   parseProjectHostScopeInput,
   parseProjectHostRequiredInput,
   parseProjectRunHostInput,
+  parseProjectRunHostConfirmInput,
   parseProjectRunHostScopeInput,
+  parseProjectHostTargetInput,
+  parseServerAuditExecuteInput,
+  parseServerAuditStartInput,
   parseServerChannelsExecuteInput,
   parseServerChannelsStartInput,
+  parseServerStatusStartInput,
+  parseServerStatusExecuteInput,
+  parseServerLogsStartInput,
   parseServerLogsExecuteInput,
   parseServerRestartExecuteInput,
   parseServerRestartStartInput,
@@ -250,7 +257,60 @@ describe("serverfn validators", () => {
     ).toThrow(/invalid lines/i)
   })
 
-  it("parses secrets init inputs with secret values", () => {
+  it("parses host/confirm/status/audit/log start validators", () => {
+    expect(parseProjectHostTargetInput({ projectId: "p1", host: "alpha", targetHost: "admin@1.2.3.4" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+    expect(parseProjectRunHostConfirmInput({ projectId: "p1", runId: "r1", host: "alpha", confirm: "yes" })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      confirm: "yes",
+    })
+    expect(parseServerStatusStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+    expect(
+      parseServerStatusExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "admin@1.2.3.4",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "admin@1.2.3.4",
+    })
+    expect(parseServerAuditStartInput({ projectId: "p1", host: "alpha" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+    })
+    expect(
+      parseServerAuditExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      targetHost: "",
+    })
+    expect(parseServerLogsStartInput({ projectId: "p1", host: "alpha", unit: "openclaw.service" })).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      unit: "openclaw.service",
+    })
+  })
+
+  it("parses secrets init inputs with secret names only", () => {
     expect(
       parseSecretsInitExecuteInput({
         projectId: "p1",
@@ -258,7 +318,6 @@ describe("serverfn validators", () => {
         host: "alpha",
         scope: "updates",
         allowPlaceholders: true,
-        adminPassword: "pw",
         secrets: { discord_token: "abc" },
       }),
     ).toMatchObject({
@@ -267,8 +326,7 @@ describe("serverfn validators", () => {
       host: "alpha",
       scope: "updates",
       allowPlaceholders: true,
-      adminPassword: "pw",
-      secrets: { discord_token: "abc" },
+      secretNames: ["discord_token"],
     })
   })
 
@@ -280,7 +338,7 @@ describe("serverfn validators", () => {
     expect(parseWriteHostSecretsInput({ projectId: "p1", host: "alpha", secrets: { discord_token: "abc" } })).toEqual({
       projectId: "p1",
       host: "alpha",
-      secrets: { discord_token: "abc" },
+      secretNames: ["discord_token"],
     })
   })
 

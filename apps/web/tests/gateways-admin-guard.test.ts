@@ -10,49 +10,35 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
 
 async function loadGateways(role: "admin" | "viewer") {
   vi.resetModules()
+  const configDotGet = vi.fn(async (_params: unknown) => ({
+    path: "hosts.alpha.gateways.gateway1",
+    value: { openclaw: {}, channels: {} },
+  }))
+  const configDotSet = vi.fn(async (_params: unknown) => ({ ok: true as const, runId: "run1" }))
   const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
-    if (payload?.kind) return { runId: "run1" }
+    if (payload?.kind) return { runId: "run1", jobId: "job1" }
     return null
   })
-  const query = vi.fn(async () => ({ project: { executionMode: "local", localPath: "/tmp" }, role }))
-  const runWithEvents = vi.fn(async ({ fn }: { fn: (emit: (e: any) => Promise<void>) => Promise<void> }) => {
-    await fn(async () => {})
-  })
+  const query = vi.fn(async () => ({ project: { executionMode: "remote_runner" }, role }))
 
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
-  vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
-  vi.doMock("~/server/run-manager", () => ({
-    runWithEvents,
+  vi.doMock("~/sdk/config/dot", () => ({
+    configDotGet,
+    configDotSet,
   }))
   vi.doMock("@clawlets/core/lib/openclaw/schema/validate", () => ({
     validateOpenclawConfig: () => ({ ok: true }),
   }))
-  vi.doMock("@clawlets/core/lib/config/clawlets-config", async () => {
-    const actual = await vi.importActual<typeof import("@clawlets/core/lib/config/clawlets-config")>(
-      "@clawlets/core/lib/config/clawlets-config",
-    )
-    return {
-      ...actual,
-      ClawletsConfigSchema: {
-        safeParse: (value: unknown) => ({ success: true, data: value }),
-      },
-      loadFullConfig: () => ({
-        infraConfigPath: "/tmp/fleet/clawlets.json",
-        config: { hosts: { alpha: { gatewaysOrder: ["gateway1"], gateways: { gateway1: { openclaw: {} } } } } },
-      }),
-      writeClawletsConfig: async () => {},
-    }
-  })
 
   const mod = await import("~/sdk/openclaw")
-  return { mod, mutation, runWithEvents }
+  return { mod, mutation, configDotGet, configDotSet }
 }
 
 describe("gateways admin guard", () => {
   it("blocks viewer from mutating gateway config", async () => {
-    const { mod, mutation, runWithEvents } = await loadGateways("viewer")
+    const { mod, mutation, configDotGet, configDotSet } = await loadGateways("viewer")
     await expect(
       runWithStartContext(
         { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
@@ -69,11 +55,12 @@ describe("gateways admin guard", () => {
       ),
     ).rejects.toThrow(/admin required/i)
     expect(mutation).not.toHaveBeenCalled()
-    expect(runWithEvents).not.toHaveBeenCalled()
+    expect(configDotGet).not.toHaveBeenCalled()
+    expect(configDotSet).not.toHaveBeenCalled()
   })
 
   it("allows admin to mutate gateway config", async () => {
-    const { mod } = await loadGateways("admin")
+    const { mod, mutation, configDotGet, configDotSet } = await loadGateways("admin")
     const res = await runWithStartContext(
       { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
       async () =>
@@ -88,5 +75,8 @@ describe("gateways admin guard", () => {
         }),
     )
     expect(res.ok).toBe(true)
+    expect(configDotGet).toHaveBeenCalled()
+    expect(configDotSet).toHaveBeenCalled()
+    expect(mutation).toHaveBeenCalled()
   })
 })

@@ -1,33 +1,14 @@
 import { createServerFn } from "@tanstack/react-start"
-import { loadClawletsConfig, getSshExposureMode } from "@clawlets/core/lib/config/clawlets-config"
 import { api } from "../../../convex/_generated/api"
-import type { Id } from "../../../convex/_generated/dataModel"
-import { createConvexClient, type ConvexClient } from "~/server/convex"
-import { resolveClawletsCliEntry } from "~/server/clawlets-cli"
-import { readClawletsEnvTokens } from "~/server/redaction"
-import { spawnCommand } from "~/server/run-manager"
-import { getRepoRoot } from "~/sdk/project"
-import { parseProjectHostRequiredInput, parseProjectRunHostInput } from "~/sdk/runtime"
-
-async function setRunFailedOrCanceled(params: {
-  client: ConvexClient
-  runId: Id<"runs">
-  error: unknown
-}): Promise<{ status: "failed" | "canceled"; message: string }> {
-  const message = params.error instanceof Error ? params.error.message : String(params.error)
-  const canceled = message.toLowerCase().includes("canceled")
-  await params.client.mutation(api.runs.setStatus, {
-    runId: params.runId,
-    status: canceled ? "canceled" : "failed",
-    errorMessage: message,
-  })
-  return { status: canceled ? "canceled" : "failed", message }
-}
+import { createConvexClient } from "~/server/convex"
+import { requireAdminProjectAccess } from "~/sdk/project"
+import { enqueueRunnerJobForRun, parseProjectHostRequiredInput, parseProjectRunHostInput } from "~/sdk/runtime"
 
 export const lockdownStart = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostRequiredInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
     const { runId } = await client.mutation(api.runs.create, {
       projectId: data.projectId,
       kind: "lockdown",
@@ -47,31 +28,19 @@ export const lockdownExecute = createServerFn({ method: "POST" })
   .inputValidator(parseProjectRunHostInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
-    const repoRoot = await getRepoRoot(client, data.projectId)
-    const { config } = loadClawletsConfig({ repoRoot })
-    const hostCfg = config.hosts[data.host]
-    if (!hostCfg) throw new Error(`unknown host: ${data.host}`)
-    const sshMode = getSshExposureMode(hostCfg)
-    if (sshMode !== "tailnet") {
-      throw new Error(`sshExposure.mode=${sshMode}; set sshExposure.mode=tailnet before lockdown`)
-    }
-
-    const redactTokens = await readClawletsEnvTokens(repoRoot)
-    const cliEntry = resolveClawletsCliEntry()
-
-    try {
-      await spawnCommand({
-        client,
-        runId: data.runId,
-        cwd: repoRoot,
-        cmd: "node",
-        args: [cliEntry, "lockdown", "--host", data.host],
-        redactTokens,
-      })
-      await client.mutation(api.runs.setStatus, { runId: data.runId, status: "succeeded" })
-      return { ok: true as const }
-    } catch (err) {
-      const res = await setRunFailedOrCanceled({ client, runId: data.runId, error: err })
-      return { ok: false as const, ...res }
-    }
+    const host = data.host.trim()
+    if (!host) throw new Error("missing host")
+    const queued = await enqueueRunnerJobForRun({
+      client,
+      projectId: data.projectId,
+      runId: data.runId,
+      expectedKind: "lockdown",
+      jobKind: "lockdown",
+      host,
+      payloadMeta: {
+        hostName: host,
+        args: ["lockdown", "--host", host],
+      },
+    })
+    return { ok: true as const, queued: true as const, jobId: queued.jobId, runId: queued.runId }
   })

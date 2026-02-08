@@ -5,13 +5,13 @@ import * as React from "react"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
-import { clawletsConfigQueryOptions } from "~/lib/query-options"
 import {
   coerceOpenClawSetupStepId,
   deriveOpenClawSetupModel,
   type OpenClawSetupModel,
   type OpenClawSetupStepId,
 } from "~/lib/setup/openclaw-setup-model"
+import { configDotGet } from "~/sdk/config"
 import { SECRETS_VERIFY_OPENCLAW_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type OpenClawSetupSearch = {
@@ -26,10 +26,23 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
   const isReady = projectStatus === "ready"
 
   const configQuery = useQuery({
-    ...clawletsConfigQueryOptions(projectId),
-    enabled: Boolean(projectId && isReady),
+    queryKey: ["openclawSetupConfig", projectId, params.host],
+    enabled: Boolean(projectId && isReady && params.host),
+    queryFn: async () => {
+      const hostNode = await configDotGet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          path: `hosts.${params.host}`,
+        },
+      })
+      const hostCfg =
+        hostNode.value && typeof hostNode.value === "object" && !Array.isArray(hostNode.value)
+          ? (hostNode.value as Record<string, unknown>)
+          : null
+      return { hosts: hostCfg ? { [params.host]: hostCfg } : {} }
+    },
   })
-  const config = (configQuery.data?.config as any) ?? null
+  const config = (configQuery.data as any) ?? null
 
   const latestOpenClawSecretsVerifyRunQuery = useQuery({
     ...convexQuery(api.runs.latestByProjectHostKind, {

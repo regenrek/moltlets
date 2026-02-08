@@ -14,8 +14,29 @@ async function loadSdk() {
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query: vi.fn() }) as any,
   }))
+  vi.doMock("~/sdk/runtime", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("~/sdk/runtime")>()
+    return {
+      ...actual,
+      enqueueRunnerCommand: async () => ({ runId: "run_1", jobId: "job_1" }),
+      waitForRunTerminal: async () => ({ status: "succeeded" }),
+      listRunMessages: async () => [
+        JSON.stringify({
+          ok: true,
+          keyPath: "/tmp/repo/.clawlets/keys/operators/alice.agekey",
+          publicKey: "age1test",
+        }),
+      ],
+      parseLastJsonMessage: (messages: string[]) => {
+        const raw = messages[messages.length - 1] || "{}"
+        return JSON.parse(raw)
+      },
+      lastErrorMessage: () => "runner command failed",
+    }
+  })
   vi.doMock("~/sdk/project", () => ({
     getRepoRoot: async () => "/tmp/repo",
+    requireAdminProjectAccess: async () => ({ role: "admin" }),
   }))
   vi.doMock("@clawlets/core/lib/storage/fs-safe", () => ({
     ensureDir: async () => {},
@@ -61,7 +82,7 @@ describe("audit pii minimization", () => {
 
       await runWithStartContext(ctx, async () =>
         mod.updateDeployCreds({
-          data: { projectId: "p1" as any, updates: {} },
+          data: { projectId: "p1" as any, updatedKeys: ["HCLOUD_TOKEN"] },
         }),
       )
       await runWithStartContext(ctx, async () =>
@@ -76,14 +97,17 @@ describe("audit pii minimization", () => {
 
       expect(deploy).toBeTruthy()
       expect(deploy.target).toEqual({ doc: ".clawlets/env" })
-      expect(deploy.data).toEqual({ updatedKeys: ["HCLOUD_TOKEN"] })
+      expect(deploy.data).toEqual({ runId: "run_1", updatedKeys: ["HCLOUD_TOKEN"] })
       expect(deploy.target?.envPath).toBeUndefined()
       expect(deploy.data?.runtimeDir).toBeUndefined()
 
       expect(operator).toBeTruthy()
       expect(operator.target).toEqual({ doc: ".clawlets/keys/operators" })
       expect(operator.data?.operatorId).toBeUndefined()
-      expect(String(operator.data?.operatorIdHash || "")).toMatch(/^sha256:[0-9a-f]{64}$/)
+      expect(operator.data?.operatorIdHash).toBeUndefined()
+      expect(operator.data).toEqual({
+        runId: "run_1",
+      })
     } finally {
       if (previousUser === undefined) delete process.env.USER
       else process.env.USER = previousUser

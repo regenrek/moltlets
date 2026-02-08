@@ -1,6 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { convexQuery } from "@convex-dev/react-query"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import { toast } from "sonner"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
@@ -52,13 +54,50 @@ export function BootstrapChecklist({
   projectId,
   host,
   config,
+  hostDesired,
 }: {
   projectId: Id<"projects">
   host: string
-  config: any
+  config?: any
+  hostDesired?: {
+    enabled?: boolean
+    targetHost?: string
+    sshExposureMode?: string
+    tailnetMode?: string
+    selfUpdateEnabled?: boolean
+    selfUpdateChannel?: string
+    selfUpdateBaseUrlCount?: number
+    selfUpdatePublicKeyCount?: number
+    selfUpdateAllowUnsigned?: boolean
+  } | null
 }) {
   const queryClient = useQueryClient()
   const hostCfg = host && config?.hosts ? config.hosts[host] : null
+  const metadataTargetHost = typeof hostDesired?.targetHost === "string" ? hostDesired.targetHost.trim() : ""
+  const metadataSshExposure = typeof hostDesired?.sshExposureMode === "string" ? hostDesired.sshExposureMode.trim() : ""
+  const metadataTailnetMode = typeof hostDesired?.tailnetMode === "string" ? hostDesired.tailnetMode.trim() : ""
+  const baseTargetHost = metadataTargetHost || String(hostCfg?.targetHost || "").trim()
+  const baseSshExposure = metadataSshExposure || String(hostCfg?.sshExposure?.mode || "bootstrap")
+  const baseTailnetMode = metadataTailnetMode || String(hostCfg?.tailnet?.mode || "tailscale")
+  const baseEnabled = typeof hostDesired?.enabled === "boolean" ? hostDesired.enabled : Boolean(hostCfg?.enable)
+  const baseSelfUpdateEnabled = typeof hostDesired?.selfUpdateEnabled === "boolean"
+    ? hostDesired.selfUpdateEnabled
+    : Boolean(hostCfg?.selfUpdate?.enable)
+  const baseSelfUpdateChannel = typeof hostDesired?.selfUpdateChannel === "string" && hostDesired.selfUpdateChannel.trim()
+    ? hostDesired.selfUpdateChannel.trim()
+    : String(hostCfg?.selfUpdate?.channel || "prod")
+  const baseUrlsCount = typeof hostDesired?.selfUpdateBaseUrlCount === "number" && Number.isFinite(hostDesired.selfUpdateBaseUrlCount)
+    ? Math.max(0, Math.trunc(hostDesired.selfUpdateBaseUrlCount))
+    : Array.isArray(hostCfg?.selfUpdate?.baseUrls) ? hostCfg.selfUpdate.baseUrls.length : 0
+  const publicKeysCount = typeof hostDesired?.selfUpdatePublicKeyCount === "number" && Number.isFinite(hostDesired.selfUpdatePublicKeyCount)
+    ? Math.max(0, Math.trunc(hostDesired.selfUpdatePublicKeyCount))
+    : Array.isArray(hostCfg?.selfUpdate?.publicKeys) ? hostCfg.selfUpdate.publicKeys.length : 0
+  const baseAllowUnsigned = typeof hostDesired?.selfUpdateAllowUnsigned === "boolean"
+    ? hostDesired.selfUpdateAllowUnsigned
+    : Boolean(hostCfg?.selfUpdate?.allowUnsigned)
+  const [targetHostOverride, setTargetHostOverride] = useState<string | null>(null)
+  const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
+  const [sshExposureOverride, setSshExposureOverride] = useState<string | null>(null)
   const [tailscaleIp, setTailscaleIp] = useState<string | null>(null)
   const [tailscaleError, setTailscaleError] = useState<string | null>(null)
   const [tailscaleSecretOk, setTailscaleSecretOk] = useState<boolean | null>(null)
@@ -66,6 +105,18 @@ export function BootstrapChecklist({
 
   const [applyRunId, setApplyRunId] = useState<Id<"runs"> | null>(null)
   const [lockdownRunId, setLockdownRunId] = useState<Id<"runs"> | null>(null)
+  const targetHost = targetHostOverride ?? baseTargetHost
+  const sshExposure = sshExposureOverride ?? baseSshExposure
+  const tailnetMode = baseTailnetMode
+  const enabled = enabledOverride ?? baseEnabled
+  const updateChannel = baseSelfUpdateChannel || "prod"
+  const selfUpdateConfigured = baseSelfUpdateEnabled && baseUrlsCount > 0 && (baseAllowUnsigned || publicKeysCount > 0)
+
+  useEffect(() => {
+    setTargetHostOverride(null)
+    setEnabledOverride(null)
+    setSshExposureOverride(null)
+  }, [projectId, host, baseTargetHost, baseEnabled, baseSshExposure])
 
   const publicIpv4Query = useQuery({
     queryKey: ["hostPublicIpv4", projectId, host],
@@ -76,28 +127,34 @@ export function BootstrapChecklist({
   })
 
   const publicIpv4 = publicIpv4Query.data?.ok ? publicIpv4Query.data.ipv4 : ""
-  const targetHost = String(hostCfg?.targetHost || "")
   const targetHostPublic = publicIpv4 ? `admin@${publicIpv4}` : ""
   const targetHostTailnet = tailscaleIp ? `admin@${tailscaleIp}` : ""
-  const sshExposure = String(hostCfg?.sshExposure?.mode || "bootstrap")
-  const tailnetMode = String(hostCfg?.tailnet?.mode || "tailscale")
-  const enabled = Boolean(hostCfg?.enable)
   const tailscaleRequired = tailnetMode === "tailscale"
-  const updateChannel = String(hostCfg?.selfUpdate?.channel || "prod")
-  const baseUrls: string[] = Array.isArray(hostCfg?.selfUpdate?.baseUrls) ? hostCfg.selfUpdate.baseUrls.map(String) : []
-  const publicKeys: string[] = Array.isArray(hostCfg?.selfUpdate?.publicKeys) ? hostCfg.selfUpdate.publicKeys.map(String) : []
-  const allowUnsigned = Boolean(hostCfg?.selfUpdate?.allowUnsigned)
-  const selfUpdateConfigured = Boolean(hostCfg?.selfUpdate?.enable) && baseUrls.length > 0 && (allowUnsigned || publicKeys.length > 0)
+  const hostsQuerySpec = convexQuery(api.hosts.listByProject, { projectId })
 
   const setConfig = useMutation({
     mutationFn: async (payload: { path: string; value?: string; valueJson?: string }) =>
       await configDotSet({ data: { projectId, path: payload.path, value: payload.value, valueJson: payload.valueJson } }),
-    onSuccess: (res) => {
+    onSuccess: (res, payload) => {
       if (!res.ok) {
         toast.error("Config update failed")
         return
       }
-      void queryClient.invalidateQueries({ queryKey: ["clawletsConfig", projectId] })
+      if (payload.path === `hosts.${host}.targetHost` && typeof payload.value === "string") {
+        setTargetHostOverride(payload.value.trim())
+      }
+      if (payload.path === `hosts.${host}.enable` && typeof payload.valueJson === "string") {
+        try {
+          const parsed = JSON.parse(payload.valueJson)
+          if (typeof parsed === "boolean") setEnabledOverride(parsed)
+        } catch {
+          // ignore
+        }
+      }
+      if (payload.path === `hosts.${host}.sshExposure.mode` && typeof payload.value === "string") {
+        setSshExposureOverride(payload.value.trim())
+      }
+      void queryClient.invalidateQueries({ queryKey: hostsQuerySpec.queryKey })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -128,21 +185,11 @@ export function BootstrapChecklist({
     mutationFn: async () => {
       const start = await secretsVerifyStart({ data: { projectId, host, scope: "bootstrap" } })
       const result = await secretsVerifyExecute({ data: { projectId, runId: start.runId, host, scope: "bootstrap" } })
-      return result
+      return { runId: start.runId, result }
     },
-    onSuccess: (res: any) => {
-      const results = res?.result?.results || []
-      const entry = results.find((item: any) => item?.secret === "tailscale_auth_key")
-      if (entry?.status === "ok") {
-        setTailscaleSecretOk(true)
-        setTailscaleSecretError(null)
-      } else if (entry?.status === "missing") {
-        setTailscaleSecretOk(false)
-        setTailscaleSecretError("tailscale_auth_key missing")
-      } else {
-        setTailscaleSecretOk(false)
-        setTailscaleSecretError(entry?.detail || "tailscale_auth_key not verified")
-      }
+    onSuccess: (_res: any) => {
+      setTailscaleSecretOk(null)
+      setTailscaleSecretError("verification queued; check run log and secret wiring status")
     },
     onError: (err) => {
       setTailscaleSecretOk(false)
@@ -240,7 +287,7 @@ export function BootstrapChecklist({
           statusVariant={selfUpdateConfigured && targetHost.trim() ? "secondary" : "destructive"}
           description={
             <span>
-              Channel: <code>{updateChannel}</code> · baseUrls: <code>{baseUrls.length || 0}</code> · Target: <code>{targetHost || "<unset>"}</code>
+              Channel: <code>{updateChannel}</code> · baseUrls: <code>{baseUrlsCount}</code> · Target: <code>{targetHost || "<unset>"}</code>
             </span>
           }
           actionLabel="Apply now"

@@ -9,7 +9,7 @@ import { resolveWorkspacePath } from "~/server/paths";
 import { readClawletsEnvTokens } from "~/server/redaction";
 import { runWithEvents } from "~/server/run-manager";
 import { resolveTemplateSpec } from "~/server/template-spec";
-import { getAdminProjectContext } from "./context";
+import { getAdminProjectContext } from "./repo-context";
 import { parseProjectIdInput } from "~/sdk/runtime";
 
 function getHost(input?: unknown): string {
