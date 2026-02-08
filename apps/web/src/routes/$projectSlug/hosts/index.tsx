@@ -2,7 +2,7 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-import { PlusIcon } from "@heroicons/react/24/outline"
+import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
@@ -10,10 +10,10 @@ import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
-import { Input } from "~/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Label } from "~/components/ui/label"
 import { useProjectBySlug } from "~/lib/project-data"
-import { addHost } from "~/sdk/config"
+import { addHost, generateHostName } from "~/sdk/config"
 import { projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 
@@ -42,15 +42,28 @@ function HostsOverview() {
     enabled: Boolean(projectId && isReady),
   })
 
-  const hostRows = hostsQuery.data || []
-  const hosts = useMemo(() => hostRows.map((row) => row.hostName), [hostRows])
+  const hostRows = hostsQuery.data
+  const hosts = useMemo(() => (hostRows ?? []).map((row) => row.hostName), [hostRows])
   const enabledHosts = useMemo(
-    () => hostRows.filter((row) => (row.desired?.enabled ?? true) !== false).length,
+    () => (hostRows ?? []).filter((row) => (row.desired?.enabled ?? true) !== false).length,
     [hostRows],
   )
-  const onlineHosts = useMemo(() => hostRows.filter((row) => row.lastStatus === "online").length, [hostRows])
+  const onlineHosts = useMemo(() => (hostRows ?? []).filter((row) => row.lastStatus === "online").length, [hostRows])
   const [newHostOpen, setNewHostOpen] = useState(false)
   const [newHost, setNewHost] = useState("")
+  const generateHostMutation = useMutation({
+    mutationFn: async () => {
+      if (!projectId) throw new Error("project missing")
+      const generated = await generateHostName({ data: { projectId: projectId as Id<"projects"> } })
+      return generated.host
+    },
+    onSuccess: (host) => {
+      setNewHost(host)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : String(err))
+    },
+  })
   const addHostMutation = useMutation({
     mutationFn: async () => {
       const trimmed = newHost.trim()
@@ -114,12 +127,25 @@ function HostsOverview() {
                 </DialogHeader>
                 <div className="space-y-2">
                   <Label htmlFor="new-host-name">Host name</Label>
-                  <Input
-                    id="new-host-name"
-                    placeholder="clawlets-prod-01"
-                    value={newHost}
-                    onChange={(e) => setNewHost(e.target.value)}
-                  />
+                  <InputGroup>
+                    <InputGroupInput
+                      id="new-host-name"
+                      placeholder="clawlets-prod-01"
+                      value={newHost}
+                      onChange={(e) => setNewHost(e.target.value)}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        type="button"
+                        variant="secondary"
+                        disabled={generateHostMutation.isPending || addHostMutation.isPending}
+                        onClick={() => generateHostMutation.mutate()}
+                      >
+                        <ArrowPathIcon />
+                        Generate
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
                   <div className="text-xs text-muted-foreground">
                     Uses the same naming rules as config host IDs.
                   </div>
@@ -186,7 +212,7 @@ function HostsOverview() {
                   <div className="col-span-1 text-right">Status</div>
                 </div>
                 <div className="divide-y">
-                  {hostRows.map((hostRow) => {
+                  {(hostRows ?? []).map((hostRow) => {
                     const host = hostRow.hostName
                     const enabled = (hostRow.desired?.enabled ?? true) !== false
                     const channel = String(hostRow.desired?.selfUpdateChannel || hostRow.desired?.updateRing || "prod")

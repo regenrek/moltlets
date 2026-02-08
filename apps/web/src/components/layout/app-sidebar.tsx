@@ -1,6 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
-import { Link, useRouter, useRouterState } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
 import {
   ArrowPathIcon,
@@ -41,6 +41,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Label } from "~/components/ui/label"
 import { HostThemeBadge } from "~/components/hosts/host-theme"
 import { NavUser } from "~/components/layout/nav-user"
+import { useProjectCreateModal } from "~/components/projects/project-create-modal-provider"
 import { useProjectBySlug, useProjectsList } from "~/lib/project-data"
 import {
   buildHostPath,
@@ -110,16 +111,16 @@ type NavItem = {
 }
 
 function AppSidebar() {
-  const router = useRouter()
+  const { openProjectCreateModal } = useProjectCreateModal()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const instanceHost = getInstanceHostFromWindow()
   const projectSlug = parseProjectSlug(pathname)
   const activeHost = parseHostName(pathname)
   const projectsQuery = useProjectsList()
-  const projects = projectsQuery.data ?? []
+  const projects = projectsQuery.data
   const activeProject = React.useMemo(
     () =>
-      projectSlug
+      projectSlug && projects?.length
         ? projects.find((project) => slugifyProjectName(project.name) === projectSlug) || null
         : null,
     [projectSlug, projects],
@@ -154,11 +155,8 @@ function AppSidebar() {
   const projectGlobalBase = buildProjectGlobalBase(projectSlug)
   const hostsBase = buildHostsPath(projectSlug)
   const hostBase = activeHost ? buildHostPath(projectSlug, activeHost) : null
-  const hostAwarePath = React.useCallback(
-    (hostSuffix: string, globalSlug: string) =>
-      hostBase ? `${hostBase}/${hostSuffix}` : `${projectGlobalBase}/${globalSlug}`,
-    [hostBase, projectGlobalBase],
-  )
+  const hostAwarePath = (hostSuffix: string, globalSlug: string) =>
+    hostBase ? `${hostBase}/${hostSuffix}` : `${projectGlobalBase}/${globalSlug}`
   const overviewIcon = activeHost ? (
     <HostThemeBadge theme={activeHostTheme} size="xs" />
   ) : null
@@ -172,7 +170,7 @@ function AppSidebar() {
       tooltip: hostBase ? "Single host overview." : "Fleet host overview.",
     },
     {
-      to: hostBase ? `${hostBase}/setup` : hostsBase,
+      to: hostBase ? `${hostBase}/setup` : `${projectBase}/setup`,
       label: "Setup",
       icon: CheckIcon,
       tooltip: "Server and OpenClaw setup guides.",
@@ -265,10 +263,10 @@ function AppSidebar() {
   const hasMatches =
     filteredInfra.length || filteredOpenclaw.length || filteredProject.length
 
-  const isActiveItem = React.useCallback((item: NavItem) => {
+  const isActiveItem = (item: NavItem) => {
     const targets = [item.to, ...(item.aliases ?? [])]
     return targets.some((target) => pathname === target || pathname.startsWith(`${target}/`))
-  }, [pathname])
+  }
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -296,8 +294,8 @@ function AppSidebar() {
               <DropdownMenuContent align="start">
                 {projectsQuery.isPending ? (
                   <DropdownMenuItem disabled>Loading projects...</DropdownMenuItem>
-                ) : projects.length ? (
-                  projects.map((project) => {
+                ) : (projects?.length ?? 0) > 0 ? (
+                  projects?.map((project) => {
                     const slug = slugifyProjectName(project.name)
                     const isActive = slug === projectSlug
                     return (
@@ -321,7 +319,7 @@ function AppSidebar() {
                   <DropdownMenuItem disabled>No projects</DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem nativeButton={false} render={<Link to="/projects/new" />}>
+                <DropdownMenuItem onClick={openProjectCreateModal}>
                   New project
                 </DropdownMenuItem>
                 <DropdownMenuItem nativeButton={false} render={<Link to="/projects" />}>
@@ -361,7 +359,7 @@ function AppSidebar() {
             <SidebarMenu>
               {filteredInfra.map((item) => (
                 <NavLink
-                  key={item.to}
+                  key={`${item.to}:${item.label}`}
                   item={item}
                   isActive={isActiveItem(item)}
                 />
@@ -377,7 +375,7 @@ function AppSidebar() {
               <SidebarMenu>
                 {filteredOpenclaw.map((item) => (
                   <NavLink
-                    key={item.to}
+                    key={`${item.to}:${item.label}`}
                     item={item}
                     isActive={isActiveItem(item)}
                   />
@@ -395,7 +393,7 @@ function AppSidebar() {
               <SidebarMenu>
                 {filteredProject.map((item) => (
                   <NavLink
-                    key={item.to}
+                    key={`${item.to}:${item.label}`}
                     item={item}
                     isActive={isActiveItem(item)}
                   />

@@ -8,6 +8,7 @@ const findRepoRootMock = vi.fn(() => "/repo");
 const loadClawletsConfigMock = vi.fn();
 const writeClawletsConfigMock = vi.fn();
 const resolveHostNameMock = vi.fn();
+const generateHostNameMock = vi.fn();
 
 vi.mock("@clawlets/core/lib/project/repo", () => ({
   findRepoRoot: findRepoRootMock,
@@ -24,6 +25,10 @@ vi.mock("@clawlets/core/lib/config/clawlets-config", async () => {
     resolveHostName: resolveHostNameMock,
   };
 });
+
+vi.mock("@clawlets/core/lib/host/host-name-generator", () => ({
+  generateHostName: generateHostNameMock,
+}));
 
 describe("host command", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
@@ -46,8 +51,20 @@ describe("host command", () => {
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
     const { host } = await import("../src/commands/config/host.js");
     await host.subCommands?.add?.run?.({ args: { host: "beta" } } as any);
+    expect(generateHostNameMock).not.toHaveBeenCalled();
     expect(writeClawletsConfigMock).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith("ok: added host beta");
+  });
+
+  it("adds a generated host when --host is omitted", async () => {
+    const config = makeConfig({ hostName: "alpha" });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
+    generateHostNameMock.mockReturnValue("brisk-atlas-42");
+    const { host } = await import("../src/commands/config/host.js");
+    await host.subCommands?.add?.run?.({ args: {} } as any);
+    expect(generateHostNameMock).toHaveBeenCalledWith({ existingHosts: ["alpha"] });
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith("ok: added host brisk-atlas-42");
   });
 
   it("set-default warns on invalid host", async () => {

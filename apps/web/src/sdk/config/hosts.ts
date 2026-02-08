@@ -2,21 +2,22 @@ import { createServerFn } from "@tanstack/react-start"
 import {
   assertSafeHostName,
 } from "@clawlets/core/lib/config/clawlets-config"
+import { generateHostName as generateRandomHostName } from "@clawlets/core/lib/host/host-name-generator"
 import { parseSshPublicKeysFromText } from "@clawlets/core/lib/security/ssh"
 import { parseKnownHostsFromText } from "@clawlets/core/lib/security/ssh-files"
-import { parseProjectIdInput, parseProjectSshKeysInput } from "~/sdk/runtime"
+import { coerceString, coerceTrimmedString, parseProjectIdInput, parseProjectSshKeysInput } from "~/sdk/runtime"
 import { configDotBatch, configDotGet, configDotSet } from "./dot"
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+  return value.map((entry) => coerceTrimmedString(entry)).filter(Boolean)
 }
 
 export const addHost = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return { ...base, host: String(d["host"] || "") }
+    return { ...base, host: coerceString(d["host"]) }
   })
   .handler(async ({ data }) => {
     const host = data.host.trim()
@@ -42,6 +43,19 @@ export const addHost = createServerFn({ method: "POST" })
     return await configDotBatch({
       data: { projectId: data.projectId, ops },
     })
+  })
+
+export const generateHostName = createServerFn({ method: "POST" })
+  .inputValidator(parseProjectIdInput)
+  .handler(async ({ data }) => {
+    const hostsNode = await configDotGet({
+      data: { projectId: data.projectId, path: "hosts" },
+    })
+    const hosts =
+      hostsNode.value && typeof hostsNode.value === "object" && !Array.isArray(hostsNode.value)
+        ? Object.keys(hostsNode.value as Record<string, unknown>)
+        : []
+    return { host: generateRandomHostName({ existingHosts: hosts }) }
   })
 
 export const addProjectSshKeys = createServerFn({ method: "POST" })
@@ -76,7 +90,7 @@ export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return { ...base, key: String(d["key"] || "") }
+    return { ...base, key: coerceString(d["key"]) }
   })
   .handler(async ({ data }) => {
     const key = data.key.trim()
@@ -99,7 +113,7 @@ export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return { ...base, entry: String(d["entry"] || "") }
+    return { ...base, entry: coerceString(d["entry"]) }
   })
   .handler(async ({ data }) => {
     const entry = data.entry.trim()
