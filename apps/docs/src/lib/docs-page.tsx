@@ -8,7 +8,6 @@ import browserCollections from "fumadocs-mdx:collections/browser";
 import { PageActions } from "@/components/page-actions";
 import { baseOptions } from "@/lib/layout.shared";
 import { mdxComponents } from "@/lib/mdx-components";
-import { source } from "@/lib/source";
 
 const DOCS_GITHUB_REPO = "https://github.com/regenrek/clawlets";
 const DOCS_GITHUB_BRANCH = "main";
@@ -19,6 +18,7 @@ export const serverLoader = createServerFn({
 })
   .inputValidator((slugs: string[]) => slugs)
   .handler(async ({ data: slugs }) => {
+    const { source } = await import("@/lib/source");
     const page = source.getPage(slugs);
     if (!page) throw notFound();
 
@@ -62,14 +62,25 @@ export async function loadDocsPage(slugs: string[]) {
   return data;
 }
 
+type DocsPageData = {
+  path: string;
+  pageUrl: string;
+  pagePath: string;
+  tree?: React.ComponentProps<typeof DocsLayout>["tree"];
+  pageTree?: React.ComponentProps<typeof DocsLayout>["tree"];
+};
+
 export function DocsPageShell({ data }: { data: ReturnType<typeof useFumadocsLoader> }) {
+  const docsData = data as unknown as DocsPageData;
+  const tree = docsData.tree ?? docsData.pageTree;
+  if (!tree) return null;
   return (
-    <DocsLayout {...baseOptions()} tree={data.pageTree}>
+    <DocsLayout {...baseOptions()} tree={tree}>
       <Suspense>
-        {clientLoader.useContent(data.path, {
+        {clientLoader.useContent(docsData.path, {
           className: "",
-          pageUrl: data.pageUrl,
-          pagePath: data.pagePath,
+          pageUrl: docsData.pageUrl,
+          pagePath: docsData.pagePath,
         })}
       </Suspense>
     </DocsLayout>
