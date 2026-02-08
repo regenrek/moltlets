@@ -21,14 +21,15 @@ function AccountSettings() {
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
-  const currentUser = useQuery({
+  const viewer = useQuery({
     ...convexQuery(api.users.getCurrent, {}),
     enabled: canQuery,
     gcTime: 60_000,
   })
-  const user = currentUser.data
-  const name = user?.name || session?.user?.name || session?.user?.email || "Account"
-  const email = user?.email || session?.user?.email || ""
+  const user = viewer.data?.user
+  const auth = viewer.data?.auth
+  const name = user?.name || auth?.name || session?.user?.name || auth?.email || session?.user?.email || "Account"
+  const email = user?.email || auth?.email || session?.user?.email || ""
   const role = user?.role || "viewer"
 
   const [displayName, setDisplayName] = React.useState(name)
@@ -60,7 +61,7 @@ function AccountSettings() {
     setBusy(true)
     try {
       await authClient.updateUser({ name: nextName })
-      await currentUser.refetch()
+      await viewer.refetch()
       setSuccess("Display name updated.")
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -82,7 +83,7 @@ function AccountSettings() {
     try {
       const callbackURL = `${window.location.origin}/settings/account`
       await authClient.changeEmail({ newEmail: next, callbackURL })
-      await currentUser.refetch()
+      await viewer.refetch()
       setSuccess("Email change requested.")
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

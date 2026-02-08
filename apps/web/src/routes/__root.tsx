@@ -60,7 +60,7 @@ export const Route = createRootRouteWithContext<{
       },
       ...seo({
         title: "Clawlets",
-        description: "Self-hosted web UI for managing Clawdbot fleets.",
+        description: "Self-hosted web UI for managing Infra & Openclaw fleets.",
       }),
     ],
     links: [

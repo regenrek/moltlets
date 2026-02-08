@@ -4,8 +4,8 @@ import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
 import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "./lib/auth";
-import { withResolvedProjectMetadata } from "./lib/projectMetadata";
 import { rateLimit } from "./lib/rateLimit";
+import { toProjectDocValue } from "./lib/returnShapes";
 import { ProjectDoc, RunDoc } from "./lib/validators";
 import { Role } from "./schema";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
@@ -82,7 +82,7 @@ export const get = query({
     const run = await ctx.db.get(runId);
     if (!run) throw new Error("run not found");
     const access = await requireProjectAccessQuery(ctx, run.projectId);
-    return { run, role: access.role, project: withResolvedProjectMetadata(access.project) };
+    return { run, role: access.role, project: toProjectDocValue(access.project) };
   },
 });
 

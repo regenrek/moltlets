@@ -40,20 +40,25 @@ export function NavUser() {
   const { isAuthenticated, isLoading } = useConvexAuth()
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
 
-  const currentUser = useQuery({
+  const viewer = useQuery({
     ...convexQuery(api.users.getCurrent, {}),
     enabled: canQuery,
     gcTime: 60_000,
   })
+  const user = viewer.data?.user
+  const auth = viewer.data?.auth
 
   const name =
-    currentUser.data?.name ||
+    user?.name ||
+    auth?.name ||
     session?.user?.name ||
+    auth?.email ||
     session?.user?.email ||
     "Account"
-  const email = currentUser.data?.email || session?.user?.email || ""
+  const email = user?.email || auth?.email || session?.user?.email || ""
   const avatar =
-    currentUser.data?.pictureUrl ||
+    user?.pictureUrl ||
+    auth?.image ||
     (session?.user as { image?: string } | undefined)?.image ||
     ""
   const initials = getInitials(name || email || "User")

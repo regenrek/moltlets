@@ -32,7 +32,7 @@ import {
 export const UserDoc = v.object({
   _id: v.id("users"),
   _creationTime: v.number(),
-  tokenIdentifier: v.string(),
+  authUserId: v.string(),
   name: v.optional(v.string()),
   email: v.optional(v.string()),
   pictureUrl: v.optional(v.string()),

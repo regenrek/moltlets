@@ -176,7 +176,7 @@ export const RunnerCapabilities = v.object({
 
 const schema = defineSchema({
   users: defineTable({
-    tokenIdentifier: v.string(),
+    authUserId: v.string(),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     pictureUrl: v.optional(v.string()),
@@ -184,16 +184,15 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_authUserId", ["authUserId"])
     .index("by_role", ["role"]),
 
   projects: defineTable({
     ownerUserId: v.id("users"),
     name: v.string(),
-    // Legacy rows may predate metadata backfill; keep optional until all deployments are migrated.
-    executionMode: v.optional(ExecutionMode),
-    workspaceRef: v.optional(WorkspaceRef),
-    workspaceRefKey: v.optional(v.string()),
+    executionMode: ExecutionMode,
+    workspaceRef: WorkspaceRef,
+    workspaceRefKey: v.string(),
     localPath: v.optional(v.string()),
     status: ProjectStatus,
     createdAt: v.number(),
@@ -288,8 +287,6 @@ const schema = defineSchema({
     ts: v.number(),
     level: RunEventLevel,
     message: v.string(),
-    // Legacy rows may still carry pre-RunEventMeta payload under `data`.
-    data: v.optional(v.any()),
     meta: v.optional(RunEventMeta),
     redacted: v.optional(v.boolean()),
   })

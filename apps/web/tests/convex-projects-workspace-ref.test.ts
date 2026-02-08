@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ConvexError } from "convex/values"
 
-import { __test_normalizeWorkspaceRef, __test_resolveProjectRuntimeMetadata } from "../convex/projects"
+import { __test_normalizeWorkspaceRef } from "../convex/projects"
 
 function expectConvexFail(fn: () => void, code: string, message?: string) {
   try {
@@ -44,33 +44,5 @@ describe("workspaceRef normalization", () => {
       "conflict",
       "workspaceRef.relPath too long",
     )
-  })
-
-  it("infers local metadata for legacy project rows", () => {
-    expect(
-      __test_resolveProjectRuntimeMetadata({
-        projectId: "legacy-1",
-        localPath: " /tmp/legacy ",
-      }),
-    ).toEqual({
-      executionMode: "local",
-      workspaceRef: { kind: "local", id: "legacy:legacy-1", relPath: undefined },
-      workspaceRefKey: "local:legacy:legacy-1",
-      localPath: "/tmp/legacy",
-    })
-  })
-
-  it("coerces invalid local metadata to remote runner", () => {
-    expect(
-      __test_resolveProjectRuntimeMetadata({
-        projectId: "legacy-2",
-        executionMode: "local",
-      }),
-    ).toEqual({
-      executionMode: "remote_runner",
-      workspaceRef: { kind: "git", id: "legacy:legacy-2", relPath: undefined },
-      workspaceRefKey: "git:legacy:legacy-2",
-      localPath: undefined,
-    })
   })
 })

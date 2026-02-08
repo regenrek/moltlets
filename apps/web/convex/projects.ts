@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { ProjectDoc } from "./lib/validators";
+import { toProjectDocValue } from "./lib/returnShapes";
 import { ExecutionMode, Role, WorkspaceRef } from "./schema";
 import {
   requireAuthMutation,
@@ -14,11 +15,6 @@ import {
 import { fail } from "./lib/errors";
 import { rateLimit } from "./lib/rateLimit";
 import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
-import {
-  resolveProjectRuntimeMetadata,
-  withResolvedProjectMetadata,
-  type ProjectRuntimeMetadata,
-} from "./lib/projectMetadata";
 import { normalizeWorkspaceRef } from "./lib/workspaceRef";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
@@ -69,7 +65,7 @@ export const list = query({
     for (const p of owned) byId.set(p._id, p);
     for (const p of memberProjects) byId.set(p._id, p);
     return Array.from(byId.values())
-      .map((project) => withResolvedProjectMetadata(project))
+      .map(toProjectDocValue)
       .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
@@ -79,7 +75,7 @@ export const get = query({
   returns: v.object({ project: ProjectDoc, role: Role }),
   handler: async (ctx, { projectId }) => {
     const { project, role } = await requireProjectAccessQuery(ctx, projectId);
-    return { project: withResolvedProjectMetadata(project), role };
+    return { project: toProjectDocValue(project), role };
   },
 });
 
@@ -167,14 +163,11 @@ export const update = mutation({
     const { projectId, ...patch } = args;
     const access = await requireProjectAccessMutation(ctx, projectId);
     requireAdmin(access.role);
-    const project = withResolvedProjectMetadata(access.project);
+    const project = access.project;
 
     const now = Date.now();
     const next: Record<string, unknown> = {
       updatedAt: now,
-      executionMode: project.executionMode,
-      workspaceRef: project.workspaceRef,
-      workspaceRefKey: project.workspaceRefKey,
     };
     if (project.executionMode === "remote_runner") next["localPath"] = undefined;
     if (typeof patch.name === "string") {
@@ -237,7 +230,7 @@ export const update = mutation({
     await ctx.db.patch(projectId, next);
     const updated = await ctx.db.get(projectId);
     if (!updated) fail("not_found", "project not found");
-    return withResolvedProjectMetadata(updated);
+    return toProjectDocValue(updated);
   },
 });
 
@@ -272,13 +265,4 @@ export function __test_normalizeWorkspaceRef(value: {
   relPath?: string;
 }): { kind: "local" | "git"; id: string; relPath?: string; key: string } {
   return normalizeWorkspaceRef(value);
-}
-
-export function __test_resolveProjectRuntimeMetadata(input: {
-  projectId: string;
-  executionMode?: "local" | "remote_runner";
-  workspaceRef?: { kind: "local" | "git"; id: string; relPath?: string };
-  localPath?: string;
-}): ProjectRuntimeMetadata {
-  return resolveProjectRuntimeMetadata(input);
 }

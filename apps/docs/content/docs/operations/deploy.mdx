@@ -15,6 +15,11 @@ In Model C, the dashboard/control plane can run on a VPS without local repo acce
 - Runner agent executes repo/Git/SOPS/SSH actions on a runner machine.
 - Secret values are handled by the runner path, not persisted in control-plane storage.
 
+<Callout type="info" title="Execution mode matters">
+  This split assumes projects running in <code>executionMode=remote_runner</code> (no <code>localPath</code> on the dashboard host).
+  The current <code>/projects/new</code> flow scaffolds <code>executionMode=local</code> projects, which require the dashboard server to have repo access for some operations (scaffolding and workspace docs).
+</Callout>
+
 Recommended deployment split:
 
 - `apps/web` on VPS (no repo mount, no `.clawlets`, no host keys)

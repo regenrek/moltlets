@@ -1,76 +1,95 @@
-import type { UserIdentity } from "convex/server";
-
 import { fail } from "./errors";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { authComponent } from "../auth";
 
 export type Authed = {
-  identity: UserIdentity | null;
   user: Doc<"users">;
 };
 
-async function getUserByTokenIdentifier(ctx: QueryCtx, tokenIdentifier: string): Promise<Doc<"users"> | null> {
+function asPlainObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+async function getUserByAuthUserId(ctx: QueryCtx, authUserId: string): Promise<Doc<"users"> | null> {
   return await ctx.db
     .query("users")
-    .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", tokenIdentifier))
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
 }
 
-async function ensureUserByIdentity(ctx: MutationCtx, identity: UserIdentity): Promise<Authed> {
+async function ensureUserByAuthUser(ctx: MutationCtx, authUser: { _id: string; name?: string | null; email?: string | null; image?: string | null }): Promise<Authed> {
   const now = Date.now();
-  const tokenIdentifier = identity.tokenIdentifier;
+  const authUserId = String(authUser._id);
   const adminUsers = await ctx.db
     .query("users")
     .withIndex("by_role", (q) => q.eq("role", "admin"))
     .take(2);
-  const hasRealAdmin = adminUsers.some((user) => user.tokenIdentifier !== "dev");
+  const hasAdmin = adminUsers.length > 0;
   const existing = await ctx.db
     .query("users")
-    .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", tokenIdentifier))
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
 
   if (existing) {
-    const nextRole = !hasRealAdmin ? "admin" : existing.role;
+    const nextRole = !hasAdmin ? "admin" : existing.role;
     await ctx.db.patch(existing._id, {
-      name: identity.name,
-      email: identity.email,
-      pictureUrl: identity.pictureUrl,
+      name: typeof authUser.name === "string" ? authUser.name : undefined,
+      email: typeof authUser.email === "string" ? authUser.email : undefined,
+      pictureUrl: typeof authUser.image === "string" ? authUser.image : undefined,
       role: nextRole,
       updatedAt: now,
     });
     const patched = await ctx.db.get(existing._id);
     if (!patched) fail("not_found", "user disappeared");
-    return { identity, user: patched };
+    return { user: patched };
   }
 
   const isFirstUser = (await ctx.db.query("users").take(1)).length === 0;
-  const shouldPromote = isFirstUser || !hasRealAdmin;
+  const shouldPromote = isFirstUser || !hasAdmin;
   const userId = await ctx.db.insert("users", {
-    tokenIdentifier,
-    name: identity.name,
-    email: identity.email,
-    pictureUrl: identity.pictureUrl,
+    authUserId,
+    name: typeof authUser.name === "string" ? authUser.name : undefined,
+    email: typeof authUser.email === "string" ? authUser.email : undefined,
+    pictureUrl: typeof authUser.image === "string" ? authUser.image : undefined,
     role: shouldPromote ? "admin" : "viewer",
     createdAt: now,
     updatedAt: now,
   });
   const user = await ctx.db.get(userId);
   if (!user) fail("not_found", "failed to create user");
-  return { identity, user };
+  return { user };
 }
 
 export async function requireAuthQuery(ctx: QueryCtx): Promise<Authed> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) fail("unauthorized", "sign-in required");
-  const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
+  const authUser = await authComponent.safeGetAuthUser(ctx);
+  if (!authUser) fail("unauthorized", "sign-in required");
+  const obj = asPlainObject(authUser);
+  const authUserId = asOptionalString(obj?.["_id"]);
+  if (!authUserId) fail("unauthorized", "invalid auth user");
+  const user = await getUserByAuthUserId(ctx, authUserId);
   if (!user) fail("unauthorized", "user missing (run users.ensureCurrent)");
-  return { identity, user };
+  return { user };
 }
 
 export async function requireAuthMutation(ctx: MutationCtx): Promise<Authed> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) fail("unauthorized", "sign-in required");
-  return await ensureUserByIdentity(ctx, identity);
+  const authUser = await authComponent.safeGetAuthUser(ctx);
+  if (!authUser) fail("unauthorized", "sign-in required");
+  const obj = asPlainObject(authUser);
+  const authUserId = asOptionalString(obj?.["_id"]);
+  if (!authUserId) fail("unauthorized", "invalid auth user");
+  const picked = {
+    _id: authUserId,
+    name: typeof obj?.["name"] === "string" ? obj["name"] : null,
+    email: typeof obj?.["email"] === "string" ? obj["email"] : null,
+    image: typeof obj?.["image"] === "string" ? obj["image"] : null,
+  };
+  return await ensureUserByAuthUser(ctx, picked);
 }
 
 async function requireProjectAccessCommon(params: {

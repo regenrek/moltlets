@@ -1,6 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query"
 import type { Id } from "../../convex/_generated/dataModel"
-import { api } from "../../convex/_generated/api"
+import { api } from "../../convex/_generated/api.js"
 import { getDashboardOverview } from "~/sdk/dashboard"
 import { getDeployCredsStatus } from "~/sdk/infra"
 

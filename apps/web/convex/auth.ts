@@ -1,8 +1,6 @@
 import { betterAuth } from "better-auth/minimal";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { createClient } from "@convex-dev/better-auth";
-import { v } from "convex/values";
-import { query } from "./_generated/server";
 
 import type { DataModel } from "./_generated/dataModel";
 import { components } from "./_generated/api";
@@ -31,19 +29,3 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) => 
     plugins: [convex({ authConfig, jwksRotateOnTokenGenerationError: true })],
   });
 };
-
-export const getAuthUser = query({
-  args: {},
-  returns: v.any(),
-  handler: async (ctx) => {
-    return await authComponent.getAuthUser(ctx);
-  },
-});
-
-export const getCurrentUser = query({
-  args: {},
-  returns: v.union(v.null(), v.any()),
-  handler: async (ctx) => {
-    return (await authComponent.safeGetAuthUser(ctx)) ?? null;
-  },
-});
