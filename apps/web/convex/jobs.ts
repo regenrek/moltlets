@@ -23,6 +23,8 @@ function literals<const T extends readonly string[]>(values: T) {
 
 const ListLimit = 200;
 const MAX_JOB_ATTEMPTS = 25;
+type JobStatus = (typeof JOB_STATUSES)[number];
+const JOB_STATUS_SET = new Set<string>(JOB_STATUSES);
 
 const JobStatusArg = v.union(...literals(JOB_STATUSES));
 
@@ -30,7 +32,15 @@ function resolveRunKind(kind: string): (typeof RUN_KINDS)[number] {
   return (RUN_KINDS as readonly string[]).includes(kind) ? (kind as (typeof RUN_KINDS)[number]) : "custom";
 }
 
-function isTerminalJobStatus(status: (typeof JOB_STATUSES)[number]): boolean {
+function isKnownJobStatus(status: string): status is JobStatus {
+  return JOB_STATUS_SET.has(status);
+}
+
+function normalizeJobStatus(status: string | undefined): JobStatus {
+  return typeof status === "string" && isKnownJobStatus(status) ? status : "failed";
+}
+
+function isTerminalJobStatus(status: string): boolean {
   return status === "succeeded" || status === "failed" || status === "canceled";
 }
 
@@ -248,21 +258,22 @@ function canCompleteJob(params: {
   job:
     | {
         leaseId?: string;
-        status: (typeof JOB_STATUSES)[number];
+        status: string;
         leaseExpiresAt?: number;
       }
     | null;
   leaseId: string;
   now: number;
-}): { ok: boolean; status: (typeof JOB_STATUSES)[number] } {
+}): { ok: boolean; status: JobStatus } {
   const job = params.job;
   if (!job) return { ok: false, status: "failed" };
-  if (job.leaseId !== params.leaseId) return { ok: false, status: job.status };
-  if (job.status !== "leased" && job.status !== "running") return { ok: false, status: job.status };
+  const status = normalizeJobStatus(job.status);
+  if (job.leaseId !== params.leaseId) return { ok: false, status };
+  if (status !== "leased" && status !== "running") return { ok: false, status };
   if (typeof job.leaseExpiresAt !== "number" || job.leaseExpiresAt <= params.now) {
-    return { ok: false, status: job.status };
+    return { ok: false, status };
   }
-  return { ok: true, status: job.status };
+  return { ok: true, status };
 }
 
 export const leaseNextInternal = internalMutation({
@@ -383,6 +394,7 @@ export const completeInternal = internalMutation({
     const now = Date.now();
     const gate = canCompleteJob({ job, leaseId, now });
     if (!gate.ok) return gate;
+    if (!job) return { ok: false, status: "failed" };
     await ctx.db.patch(jobId, {
       status,
       finishedAt: now,
@@ -410,12 +422,12 @@ export function __test_canCompleteJob(params: {
   job:
     | {
         leaseId?: string;
-        status: (typeof JOB_STATUSES)[number];
+        status: string;
         leaseExpiresAt?: number;
       }
     | null;
   leaseId: string;
   now: number;
-}): { ok: boolean; status: (typeof JOB_STATUSES)[number] } {
+}): { ok: boolean; status: JobStatus } {
   return canCompleteJob(params);
 }
