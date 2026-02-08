@@ -15,10 +15,11 @@ import { loadHostContextOrExit } from "@clawlets/core/lib/runtime/context";
 import { getHostAgeKeySopsCreationRulePathRegex, getHostSecretsSopsCreationRulePathRegex } from "@clawlets/core/lib/security/sops-rules";
 import { getSopsCreationRuleAgeRecipients } from "@clawlets/core/lib/security/sops-config";
 import { mapWithConcurrency } from "@clawlets/core/lib/runtime/concurrency";
+import { coerceString, formatUnknown } from "@clawlets/shared/lib/strings";
 import { parseSecretsScope } from "./common.js";
 
 function uniqSorted(values: string[]): string[] {
-  return Array.from(new Set(values)).sort();
+  return Array.from(new Set(values)).toSorted();
 }
 
 export const secretsVerify = defineCommand({
@@ -72,7 +73,7 @@ export const secretsVerify = defineCommand({
     const secretNames = Array.from(new Set<string>([
       ...scopeSummary.requiredNames,
       ...scopeSummary.optionalNames,
-    ])).sort();
+    ])).toSorted();
     const optionalSecrets = scope === "openclaw" ? [] : ["root_password_hash"];
 
     type Result = { secret: string; status: "ok" | "missing" | "warn"; detail?: string };
@@ -144,7 +145,7 @@ export const secretsVerify = defineCommand({
           return { secret: secretName, status: "missing", detail: "(invalid: expected exactly 1 key matching filename)" };
         }
         const v = parsed[secretName];
-        const value = typeof v === "string" ? v : v == null ? "" : String(v);
+        const value = typeof v === "string" ? v : coerceString(v);
         if (!allowOptionalMarker && value.trim() === "<OPTIONAL>") {
           return { secret: secretName, status: "missing", detail: "(placeholder: <OPTIONAL>)" };
         }
@@ -159,7 +160,7 @@ export const secretsVerify = defineCommand({
         }
         return { secret: secretName, status: "ok" };
       } catch (e) {
-        return { secret: secretName, status: "missing", detail: String((e as Error)?.message || e) };
+        return { secret: secretName, status: "missing", detail: formatUnknown(e) };
       }
     };
 

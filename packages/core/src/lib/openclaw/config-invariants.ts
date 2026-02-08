@@ -5,6 +5,7 @@ import { skillApiKeyEnvVar } from "../secrets/env-vars.js";
 import invariantSpec from "../../assets/openclaw-invariants.json" with { type: "json" };
 import type { OpenClawConfig, OpenclawAgents, OpenclawChannels, OpenclawHooks, OpenclawPlugins, OpenclawSkills } from "../../generated/openclaw-config.types.js";
 import { OPENCLAW_DEFAULT_COMMANDS } from "./openclaw-defaults.js";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 type OpenClawConfigObject = OpenClawConfig & Record<string, unknown>;
 type PartialOpenClawConfigObject = Partial<OpenClawConfig> & Record<string, unknown>;
@@ -142,7 +143,7 @@ function resolveSkipBootstrap(params: { profile: Record<string, unknown> }): boo
   if (override != null) return override;
   const workspace = isPlainObject(params.profile["workspace"]) ? (params.profile["workspace"] as Record<string, unknown>) : {};
   const seedDir = workspace["seedDir"];
-  return seedDir != null && String(seedDir).trim() !== "";
+  return seedDir != null && coerceTrimmedString(seedDir) !== "";
 }
 
 function warnOverrides(params: {

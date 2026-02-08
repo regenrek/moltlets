@@ -7,6 +7,7 @@ import { getHostSecretsDir } from "../repo-layout.js";
 import { sopsDecryptYamlFile } from "../lib/security/sops.js";
 import { isPlaceholderSecretValue } from "../lib/secrets/secrets-init.js";
 import type { DoctorCheck, DoctorPush } from "./types.js";
+import { coerceString, formatUnknown } from "@clawlets/shared/lib/strings";
 
 export async function addCattleChecks(params: {
   repoRoot: string;
@@ -64,7 +65,7 @@ export async function addCattleChecks(params: {
       const decrypted = await sopsDecryptYamlFile({ filePath: tsSecret, ageKeyFile: params.sopsAgeKeyFile, nix });
       const parsed = (YAML.parse(decrypted) as Record<string, unknown>) || {};
       const v = parsed["tailscale_auth_key"];
-      const value = typeof v === "string" ? v : v == null ? "" : String(v);
+      const value = typeof v === "string" ? v : coerceString(v);
       push({
         status: value.trim() && !isPlaceholderSecretValue(value) ? "ok" : "missing",
         label: "tailscale_auth_key value",
@@ -74,7 +75,7 @@ export async function addCattleChecks(params: {
       push({
         status: "missing",
         label: "tailscale_auth_key decrypt",
-        detail: String((e as Error)?.message || e),
+        detail: formatUnknown(e),
       });
     }
   }

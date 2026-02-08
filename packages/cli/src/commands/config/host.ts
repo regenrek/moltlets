@@ -15,33 +15,39 @@ import {
   type ClawletsHostConfig,
 } from "@clawlets/core/lib/config/clawlets-config";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "@clawlets/core/lib/nix/nix-cache";
+import { generateHostName } from "@clawlets/core/lib/host/host-name-generator";
 import { HOST_THEME_DEFAULT_COLOR, HOST_THEME_DEFAULT_EMOJI } from "@clawlets/core/lib/host/host-theme";
+import { coerceString, coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 function parseBoolOrUndefined(v: unknown): boolean | undefined {
   if (v === undefined || v === null) return undefined;
-  const s = String(v).trim().toLowerCase();
+  const s = coerceTrimmedString(v).toLowerCase();
   if (s === "") return undefined;
   if (s === "true" || s === "1" || s === "yes") return true;
   if (s === "false" || s === "0" || s === "no") return false;
-  throw new Error(`invalid boolean: ${String(v)} (use true/false)`);
+  throw new Error(`invalid boolean: ${coerceString(v)} (use true/false)`);
 }
 
 function toStringArray(v: unknown): string[] {
   if (v == null) return [];
-  if (Array.isArray(v)) return v.map((x) => String(x));
-  return [String(v)];
+  if (Array.isArray(v)) return v.map((x) => coerceString(x));
+  return [coerceString(v)];
 }
 
 const add = defineCommand({
   meta: { name: "add", description: "Add a host entry to fleet/clawlets.json." },
   args: {
-    host: { type: "string", description: "Host name." },
+    host: { type: "string", description: "Host name (auto-generated when omitted)." },
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
     const { configPath, config } = loadClawletsConfig({ repoRoot });
-    const hostName = String(args.host || "").trim();
-    if (!hostName) throw new Error("missing --host");
+    const rawHostName = coerceTrimmedString(args.host);
+    const hostName =
+      rawHostName ||
+      generateHostName({
+        existingHosts: Object.keys(config.hosts || {}),
+      });
     assertSafeHostName(hostName);
     if (config.hosts[hostName]) throw new Error(`host already exists in clawlets.json: ${hostName}`);
 

@@ -20,10 +20,11 @@ import { getLocalOperatorAgeKeyPath, getRepoLayout } from "@clawlets/core/repo-l
 import { parseAgeKeyFile } from "@clawlets/core/lib/security/age";
 import { ageKeygen } from "@clawlets/core/lib/security/age-keygen";
 import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 function resolveEnvFilePath(params: { cwd: string; runtimeDir?: string; envFileArg?: unknown }): { path: string; origin: "default" | "explicit" } {
   const repoRoot = findRepoRoot(params.cwd);
-  const explicit = String(params.envFileArg ?? "").trim();
+  const explicit = coerceTrimmedString(params.envFileArg);
   if (explicit) {
     const expanded = expandPath(explicit);
     const abs = path.isAbsolute(expanded) ? expanded : path.resolve(params.cwd, expanded);

@@ -32,6 +32,7 @@ import { cancelFlow, navOnCancel, NAV_EXIT } from "../../lib/wizard.js";
 import { loadHostContextOrExit } from "@clawlets/core/lib/runtime/context";
 import { parseSecretsScope, upsertYamlScalarLine } from "./common.js";
 import { writeClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
+import { coerceString } from "@clawlets/shared/lib/strings";
 
 function wantsInteractive(flag: boolean | undefined): boolean {
   if (flag) return true;
@@ -292,7 +293,7 @@ export const secretsInit = defineCommand({
           if (fs.existsSync(extraFilesKeyPath)) {
             const keyText = fs.readFileSync(extraFilesKeyPath, "utf8");
             const parsed = parseAgeKeyFile(keyText);
-            if (!parsed.secretKey) throw new Error(`invalid extra-files key: ${extraFilesKeyPath}`);
+            if (!parsed.secretKey) throw new Error(`invalid extra-files key: ${extraFilesKeyPath}`, { cause: e });
             const publicKey = await agePublicKeyFromIdentityFile(extraFilesKeyPath, nix);
             hostKeys = { secretKey: parsed.secretKey, publicKey };
             shouldRewriteHostKeyFile = true;
@@ -404,7 +405,7 @@ export const secretsInit = defineCommand({
           continue;
         }
 
-        const s = String(v ?? "");
+        const s = coerceString(v);
         if (step.kind === "adminPassword") values.adminPassword = s;
         else if (step.kind === "tailscaleAuthKey") values.tailscaleAuthKey = s;
         else if (step.kind === "cacheNetrcFile") {
@@ -437,7 +438,7 @@ export const secretsInit = defineCommand({
     const secretsToWrite = Array.from(new Set([
       ...sets.requiredSecretNames,
       ...sets.optionalSecrets,
-    ])).sort();
+    ])).toSorted();
 
     const isOptionalMarker = (v: string): boolean => String(v || "").trim() === "<OPTIONAL>";
     const requiredSecretNamesForValue = new Set<string>(sets.requiredSecretNames);

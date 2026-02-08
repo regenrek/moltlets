@@ -1,5 +1,6 @@
-import type { SecretSource, SecretsPlanWarning } from "./secrets-plan.js";
+import type { SecretsPlanWarning } from "./secrets-plan.js";
 import { getKnownLlmProviders, getProviderCredentials } from "@clawlets/shared/lib/llm-provider-env";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 const ENV_REF_RE = /^\$\{([A-Z_][A-Z0-9_]*)\}$/;
 
@@ -106,7 +107,7 @@ export function collectDerivedSecretEnvEntries(gatewayCfg: unknown): DerivedSecr
 
   const hooks = gatewayCfg.hooks;
   if (isPlainObject(hooks)) {
-    const tokenSecret = String(hooks.tokenSecret || "").trim();
+    const tokenSecret = coerceTrimmedString(hooks.tokenSecret);
     if (tokenSecret) {
       entries.push({
         envVar: HOOKS_TOKEN_ENV_VAR,
@@ -116,7 +117,7 @@ export function collectDerivedSecretEnvEntries(gatewayCfg: unknown): DerivedSecr
       });
     }
 
-    const gmailSecret = String(hooks.gmailPushTokenSecret || "").trim();
+    const gmailSecret = coerceTrimmedString(hooks.gmailPushTokenSecret);
     if (gmailSecret) {
       entries.push({
         envVar: HOOKS_GMAIL_PUSH_TOKEN_ENV_VAR,
@@ -133,7 +134,7 @@ export function collectDerivedSecretEnvEntries(gatewayCfg: unknown): DerivedSecr
 
   for (const [skill, entry] of Object.entries(skillEntries)) {
     if (!isPlainObject(entry)) continue;
-    const secretName = String(entry.apiKeySecret || "").trim();
+    const secretName = coerceTrimmedString(entry.apiKeySecret);
     if (!secretName) continue;
     entries.push({
       envVar: skillApiKeyEnvVar(skill),

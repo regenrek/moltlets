@@ -19,6 +19,7 @@ import {
 import { validateClawletsConfig } from "@clawlets/core/lib/config/clawlets-config-validate";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { applySecretsAutowire, planSecretsAutowire, type SecretsAutowireScope } from "@clawlets/core/lib/secrets/secrets-autowire";
+import { coerceString, coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 const store = new FileSystemConfigStore();
 
@@ -31,7 +32,7 @@ const init = defineCommand({
   },
   async run({ args }) {
     const repoRoot = findRepoRoot(process.cwd());
-    const host = String(args.host || "openclaw-fleet-host").trim() || "openclaw-fleet-host";
+    const host = coerceTrimmedString(args.host) || "openclaw-fleet-host";
     const layout = getRepoLayout(repoRoot);
     const infraConfigPath = layout.clawletsConfigPath;
     const openclawConfigPath = layout.openclawConfigPath;
@@ -327,7 +328,7 @@ const set = defineCommand({
       const msg = details
         ? `config update failed; revert or fix validation errors: ${details}`
         : "config update failed; revert or fix validation errors";
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
   },
 });
@@ -339,7 +340,7 @@ const batchSet = defineCommand({
     json: { type: "boolean", description: "JSON output.", default: false },
   },
   async run({ args }) {
-    const raw = String((args as any)["ops-json"] || "").trim();
+    const raw = coerceTrimmedString((args as any)["ops-json"]);
     if (!raw) throw new Error("missing --ops-json");
 
     let opsRaw: unknown;
@@ -363,7 +364,7 @@ const batchSet = defineCommand({
         throw new Error(`invalid op at index ${index}`);
       }
       const op = row as Record<string, unknown>;
-      const pathRaw = String(op.path || "").trim();
+      const pathRaw = coerceTrimmedString(op.path);
       if (!pathRaw) throw new Error(`missing path at index ${index}`);
       const parts = splitDotPath(pathRaw);
       const pathKey = parts.join(".");
@@ -384,7 +385,7 @@ const batchSet = defineCommand({
       if (hasValueJson) {
         let parsed: unknown;
         try {
-          parsed = JSON.parse(String(op.valueJson));
+          parsed = JSON.parse(coerceString(op.valueJson));
         } catch {
           throw new Error(`invalid valueJson at ${pathKey}`);
         }
@@ -393,7 +394,7 @@ const batchSet = defineCommand({
       }
 
       if (hasValue) {
-        setAtPath(next, parts, String(op.value));
+        setAtPath(next, parts, coerceString(op.value));
         continue;
       }
 
@@ -417,7 +418,7 @@ const replace = defineCommand({
     json: { type: "boolean", description: "JSON output.", default: false },
   },
   async run({ args }) {
-    const raw = String((args as any)["config-json"] || "").trim();
+    const raw = coerceTrimmedString((args as any)["config-json"]);
     if (!raw) throw new Error("missing --config-json");
     let parsed: unknown;
     try {

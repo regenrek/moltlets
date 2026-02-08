@@ -1,4 +1,5 @@
 import providerInfoJson from "../assets/llm-providers.json" with { type: "json" };
+import { coerceTrimmedString } from "./strings.js";
 
 export type LlmProviderAuth = "apiKey" | "oauth" | "mixed";
 
@@ -32,20 +33,20 @@ function normalizeProviderInfoMap(raw: unknown): {
     for (const entry of credentialsRaw) {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
       const record = entry as Record<string, unknown>;
-      const id = String(record["id"] || "").trim();
+      const id = coerceTrimmedString(record["id"]);
       const anyOfEnvRaw = Array.isArray(record["anyOfEnv"]) ? (record["anyOfEnv"] as unknown[]) : [];
-      const anyOfEnv = anyOfEnvRaw.map((s) => String(s || "").trim()).filter(Boolean);
+      const anyOfEnv = anyOfEnvRaw.map((s) => coerceTrimmedString(s)).filter(Boolean);
       if (!id || anyOfEnv.length === 0) continue;
       credentials.push({ id, anyOfEnv });
     }
     providers[key] = {
       auth,
       credentials,
-      configEnvVars: configEnvVars.map((s) => String(s || "").trim()).filter(Boolean),
+      configEnvVars: configEnvVars.map((s) => coerceTrimmedString(s)).filter(Boolean),
     };
     const aliases = Array.isArray(info["aliases"]) ? (info["aliases"] as unknown[]) : [];
     for (const a of aliases) {
-      const alias = String(a || "").trim().toLowerCase();
+      const alias = coerceTrimmedString(a).toLowerCase();
       if (!alias || alias === key) continue;
       aliasToProvider[alias] = key;
     }
@@ -79,7 +80,7 @@ export function getLlmProviderInfo(provider: string): LlmProviderInfo | null {
 }
 
 export function getKnownLlmProviders(): string[] {
-  return Object.keys(PROVIDER_INFO).sort();
+  return Object.keys(PROVIDER_INFO).toSorted();
 }
 
 export function getProviderAuthMode(provider: string): LlmProviderAuth | null {

@@ -5,10 +5,11 @@ import { defineCommand } from "citty";
 import { loadDeployCreds } from "@clawlets/core/lib/infra/deploy-creds";
 import { loadHostContextOrExit } from "@clawlets/core/lib/runtime/context";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
+import { coerceTrimmedString, formatUnknown } from "@clawlets/shared/lib/strings";
 import { resolveAwsCliCredentials } from "./provider-runtime.js";
 
 function trimOrEmpty(value: unknown): string {
-  return String(value || "").trim();
+  return coerceTrimmedString(value);
 }
 
 function parseDurationToMs(raw: string): number | null {
@@ -159,7 +160,7 @@ async function runAwsImageImport(params: AwsImportParams): Promise<string> {
   try {
     importTaskId = trimOrEmpty(JSON.parse(importOut)?.ImportTaskId);
   } catch (error) {
-    throw new Error(`aws import-image returned invalid JSON (${String((error as Error)?.message || error)})`);
+    throw new Error(`aws import-image returned invalid JSON (${formatUnknown(error)})`, { cause: error });
   }
 
   if (!importTaskId) {
@@ -183,7 +184,7 @@ async function runAwsImageImport(params: AwsImportParams): Promise<string> {
     try {
       task = JSON.parse(statusOut)?.ImportImageTasks?.[0];
     } catch (error) {
-      throw new Error(`aws describe-import-image-tasks returned invalid JSON (${String((error as Error)?.message || error)})`);
+      throw new Error(`aws describe-import-image-tasks returned invalid JSON (${String((error as Error)?.message || error)})`, { cause: error });
     }
 
     if (!task) {

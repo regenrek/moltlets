@@ -1,4 +1,5 @@
 import { assertSafeHostName } from "@clawlets/shared/lib/identifiers";
+import { coerceTrimmedString, formatUnknown } from "@clawlets/shared/lib/strings";
 import type { ClawletsConfig, ClawletsHostConfig } from "./schema.js";
 import type { SshExposureMode, TailnetMode } from "./schema-host.js";
 
@@ -8,7 +9,7 @@ export type ResolveHostNameResult =
 
 export function resolveHostName(params: { config: ClawletsConfig; host?: unknown }): ResolveHostNameResult {
   const availableHosts = Object.keys(params.config.hosts || {});
-  const provided = String(params.host ?? "").trim();
+  const provided = coerceTrimmedString(params.host);
 
   if (provided) {
     try {
@@ -16,7 +17,7 @@ export function resolveHostName(params: { config: ClawletsConfig; host?: unknown
     } catch (e) {
       return {
         ok: false,
-        message: String((e as Error)?.message || e),
+        message: formatUnknown(e),
         availableHosts,
         tips: [
           "host names must be safe identifiers (no spaces or shell metacharacters)",

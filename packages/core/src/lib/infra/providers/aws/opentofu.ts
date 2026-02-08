@@ -4,11 +4,12 @@ import { fileURLToPath } from "node:url";
 import type { AwsProvisionSpec, ProvisionerRuntime } from "../../types.js";
 import { capture, run } from "../../../runtime/run.js";
 import { withFlakesEnv } from "../../../nix/nix-flakes.js";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 const AWS_ASSET_SEGMENTS = ["assets", "opentofu", "providers", "aws"] as const;
 
 function trimOrEmpty(value: unknown): string {
-  return String(value || "").trim();
+  return coerceTrimmedString(value);
 }
 
 export function resolveAwsOpenTofuWorkDir(runtime: ProvisionerRuntime): string {

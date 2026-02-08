@@ -1,9 +1,10 @@
 import process from "node:process";
 import type { DeployCredsResult } from "@clawlets/core/lib/infra/deploy-creds";
 import type { ProvisionerRuntime } from "@clawlets/core/lib/infra/infra";
+import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 function trimOrEmpty(value: unknown): string {
-  return String(value || "").trim();
+  return coerceTrimmedString(value);
 }
 
 function resolveFromEnvOrFile(params: {
@@ -49,7 +50,7 @@ export function buildProvisionerRuntime(params: {
   return {
     repoRoot: params.repoRoot,
     opentofuDir: params.opentofuDir,
-    nixBin: String(params.deployCreds.values.NIX_BIN || "nix").trim() || "nix",
+    nixBin: trimOrEmpty(params.deployCreds.values.NIX_BIN) || "nix",
     dryRun: params.dryRun,
     redact: [
       params.deployCreds.values.HCLOUD_TOKEN,
