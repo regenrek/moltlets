@@ -87,7 +87,7 @@ export const listByProject = query({
       .query("runners")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return rows.sort((a, b) => a.runnerName.localeCompare(b.runnerName));
+    return rows.toSorted((a, b) => a.runnerName.localeCompare(b.runnerName));
   },
 });
 

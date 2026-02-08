@@ -157,7 +157,7 @@ export function buildFleetSecretsPlan(params: {
       envVarPathsByVar[canonical] = (envVarPathsByVar[canonical] || []).concat(paths);
     }
     const envVarRefs = {
-      vars: Object.keys(envVarPathsByVar).sort(),
+      vars: Object.keys(envVarPathsByVar).toSorted(),
       pathsByVar: envVarPathsByVar,
     };
 
@@ -202,7 +202,7 @@ export function buildFleetSecretsPlan(params: {
 
     normalizeEnvVarPaths(envVarPathsByVar);
 
-    const envVarsRequired = Array.from(requiredEnvBySource.keys()).sort();
+    const envVarsRequired = Array.from(requiredEnvBySource.keys()).toSorted();
     const envVarToSecretName: Record<string, string> = {};
     for (const envVar of envVarsRequired) {
       const secretName = String(secretEnv[envVar] || "").trim();
@@ -277,9 +277,9 @@ export function buildFleetSecretsPlan(params: {
 
   return {
     gateways: gatewayIds,
-    hostSecretNamesRequired: Array.from(hostSecretNamesRequired).sort(),
-    secretNamesAll: Array.from(secretNamesAll).sort(),
-    secretNamesRequired: Array.from(secretNamesRequired).sort(),
+    hostSecretNamesRequired: Array.from(hostSecretNamesRequired).toSorted(),
+    secretNamesAll: Array.from(secretNamesAll).toSorted(),
+    secretNamesRequired: Array.from(secretNamesRequired).toSorted(),
     required,
     optional,
     scopes,

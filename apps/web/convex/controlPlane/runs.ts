@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 import { mutation, query } from "../_generated/server";
 import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
+import { fail } from "../shared/errors";
 import { rateLimit } from "../shared/rateLimit";
 import { toProjectDocValue } from "../shared/returnShapes";
 import { ProjectDoc, RunDoc } from "../shared/validators";
@@ -80,7 +81,7 @@ export const get = query({
   returns: v.object({ run: RunDoc, role: Role, project: ProjectDoc }),
   handler: async (ctx, { runId }) => {
     const run = await ctx.db.get(runId);
-    if (!run) throw new Error("run not found");
+    if (!run) fail("not_found", "run not found");
     const access = await requireProjectAccessQuery(ctx, run.projectId);
     return { run, role: access.role, project: toProjectDocValue(access.project) };
   },
@@ -124,7 +125,7 @@ export const setStatus = mutation({
   returns: v.null(),
   handler: async (ctx, { runId, status, errorMessage }) => {
     const run = await ctx.db.get(runId);
-    if (!run) throw new Error("run not found");
+    if (!run) fail("not_found", "run not found");
 
     const access = await requireProjectAccessMutation(ctx, run.projectId);
     requireAdmin(access.role);

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/secrets/env-vars"
@@ -36,7 +36,6 @@ export function SecretWiringDetails(props: {
   fleetSecretEnv: unknown
   gatewaySecretEnv: unknown
 }) {
-  const queryClient = useQueryClient()
   const [draftSecretByEnvVar, setDraftSecretByEnvVar] = useState<Record<string, string>>({})
 
   const wireEnv = useMutation({

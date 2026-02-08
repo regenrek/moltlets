@@ -23,7 +23,6 @@ import {
   cancelRunPatch,
   isTerminalJobStatus,
   resolveRunKind,
-  type JobStatus,
 } from "./jobState";
 
 function literals<const T extends readonly string[]>(values: T) {
@@ -237,7 +236,7 @@ export const leaseNextInternal = internalMutation({
       .query("jobs")
       .withIndex("by_project_status", (q) => q.eq("projectId", projectId).eq("status", "queued"))
       .take(25))
-      .sort((a, b) => a.createdAt - b.createdAt);
+      .toSorted((a, b) => a.createdAt - b.createdAt);
     if (candidates.length === 0) return null;
     for (const next of candidates) {
       if (next.attempt >= MAX_JOB_ATTEMPTS) {

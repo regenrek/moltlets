@@ -25,6 +25,20 @@ type RepoStatus = {
   pushBlockedReason?: string | null
 }
 
+function formatUnknownError(value: unknown): string {
+  if (value instanceof Error) return value.message
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value)
+  }
+  try {
+    const json = JSON.stringify(value)
+    return typeof json === "string" ? json : "Unknown error"
+  } catch {
+    return "Unknown error"
+  }
+}
+
 export function BootstrapDeploySourceSection(props: {
   help: ReactNode
   mode: "nixos-anywhere" | "image"
@@ -111,7 +125,7 @@ export function BootstrapDeploySourceSection(props: {
             Checking repo…
           </div>
         ) : repoStatus.error ? (
-          <div className="text-sm text-destructive">{String(repoStatus.error)}</div>
+          <div className="text-sm text-destructive">{formatUnknownError(repoStatus.error)}</div>
         ) : repo ? (
           <div className="space-y-2">
             {localSelected ? (
@@ -255,4 +269,3 @@ git push -u origin HEAD
     </div>
   )
 }
-

@@ -2,7 +2,18 @@ import { capture, run, type RunOpts } from "../runtime/run.js";
 
 const SSH_TARGET_HOST_RE =
   /^(?:[A-Za-z0-9._-]+@)?(?:[A-Za-z0-9._-]+|\[[0-9a-fA-F:]+\])$/;
-const CONTROL_OR_WHITESPACE_RE = /[\s\u0000-\u001f\u007f]/;
+const WHITESPACE_RE = /\s/u;
+
+function hasControlOrWhitespace(value: string): boolean {
+  for (const character of value) {
+    if (WHITESPACE_RE.test(character)) return true;
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export function shellQuote(value: string): string {
   if (value.length === 0) return "''";
@@ -13,7 +24,7 @@ export function isValidTargetHost(targetHost: string): boolean {
   const v = targetHost.trim();
   if (!v) return false;
   if (v.startsWith("-")) return false;
-  if (CONTROL_OR_WHITESPACE_RE.test(v)) return false;
+  if (hasControlOrWhitespace(v)) return false;
   return SSH_TARGET_HOST_RE.test(v);
 }
 

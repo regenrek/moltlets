@@ -101,7 +101,7 @@ async function listRunMessages(runId: Id<"runs">): Promise<string[]> {
     runId,
     paginationOpts: { numItems: 200, cursor: null },
   })
-  return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).reverse()
+  return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
 }
 
 function parseLastJsonMessage<T extends Record<string, unknown>>(messages: string[]): T | null {

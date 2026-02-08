@@ -29,7 +29,7 @@ function sortedUnique(values: unknown): string[] {
         .map((value) => String(value || "").trim())
         .filter(Boolean),
     ),
-  ).sort()
+  ).toSorted()
 }
 
 function collectGatewayRows(params: {

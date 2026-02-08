@@ -69,7 +69,7 @@ export async function listRunMessages(params: {
     runId: params.runId,
     paginationOpts: { numItems: Math.max(1, Math.min(500, params.limit ?? 200)), cursor: null },
   })
-  return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).reverse()
+  return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
 }
 
 export function parseLastJsonMessage<T extends Record<string, unknown>>(messages: string[]): T | null {

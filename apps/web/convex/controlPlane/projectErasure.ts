@@ -10,7 +10,6 @@ import { rateLimit } from "../shared/rateLimit";
 import { ProjectDeletionStage } from "../schema";
 import {
   canReadDeleteStatusAfterProjectRemoval,
-  constantTimeEqual,
   type DeleteStage,
   hasActiveLease,
   isDeleteTokenValid,

@@ -144,8 +144,8 @@ export function finalizeSecretSpecs(secretSpecs: Map<string, SecretSpecAccumulat
   scopes: SecretsPlanScopeSets;
 } {
   const specList: SecretSpec[] = Array.from(secretSpecs.values()).map((spec) => {
-    const envVars = Array.from(spec.envVars).sort();
-    const gateways = Array.from(spec.gateways).sort();
+    const envVars = Array.from(spec.envVars).toSorted();
+    const gateways = Array.from(spec.gateways).toSorted();
     return {
       name: spec.name,
       kind: spec.kind,
@@ -160,8 +160,8 @@ export function finalizeSecretSpecs(secretSpecs: Map<string, SecretSpecAccumulat
   });
 
   const byName = (a: SecretSpec, b: SecretSpec) => a.name.localeCompare(b.name);
-  const required = specList.filter((spec) => !spec.optional).sort(byName);
-  const optional = specList.filter((spec) => spec.optional).sort(byName);
+  const required = specList.filter((spec) => !spec.optional).toSorted(byName);
+  const optional = specList.filter((spec) => spec.optional).toSorted(byName);
   const scopes = buildFleetSecretsPlanScopeSets(required);
   return { required, optional, scopes };
 }

@@ -28,7 +28,7 @@ function collectChannelRows(gateways: (typeof api.controlPlane.gateways.listByPr
   for (const gateway of gateways) {
     const desired = (gateway.desired || {}) as { channels?: string[]; enabled?: boolean }
     const channelIds = Array.isArray(desired.channels)
-      ? Array.from(new Set(desired.channels.map((entry) => String(entry || "").trim()).filter(Boolean))).sort()
+      ? Array.from(new Set(desired.channels.map((entry) => String(entry || "").trim()).filter(Boolean))).toSorted()
       : []
     for (const channelId of channelIds) {
       const model = channelModelById.get(channelId)

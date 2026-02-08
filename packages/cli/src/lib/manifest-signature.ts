@@ -64,7 +64,7 @@ export async function verifyManifestSignature(params: {
       const err = e as NodeJS.ErrnoException;
       const msg = String(err?.message || e);
       if (err?.code === "ENOENT" || msg.includes("spawn minisign ENOENT")) {
-        throw new Error(`minisign not found (${msg}). Install minisign and retry.`);
+        throw new Error(`minisign not found (${msg}). Install minisign and retry.`, { cause: e });
       }
       lastErr = e;
       continue;
@@ -107,9 +107,9 @@ export async function signFileWithMinisign(params: {
     const err = e as NodeJS.ErrnoException;
     const msg = String(err?.message || e);
     if (err?.code === "ENOENT" || msg.includes("spawn minisign ENOENT")) {
-      throw new Error(`minisign not found (${msg}). Install minisign and retry.`);
+      throw new Error(`minisign not found (${msg}). Install minisign and retry.`, { cause: e });
     }
-    throw new Error(`minisign sign failed (${msg}). See minisign output above.`);
+    throw new Error(`minisign sign failed (${msg}). See minisign output above.`, { cause: e });
   } finally {
     if (tempDir) {
       try {

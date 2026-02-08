@@ -46,7 +46,7 @@ function walk(root: string): string[] {
       if (ent.isFile() && shouldScanFile(p)) out.push(p);
     }
   }
-  return out.sort();
+  return out.toSorted();
 }
 
 export function findInlineScriptingViolations(params: { repoRoot: string }): InlineScriptViolation[] {

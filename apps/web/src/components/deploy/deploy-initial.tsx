@@ -1,5 +1,5 @@
 import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -46,7 +46,6 @@ export function DeployInitialInstall({
 }: DeployInitialInstallProps) {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
-  const queryClient = useQueryClient()
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),

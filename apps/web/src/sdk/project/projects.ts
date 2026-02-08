@@ -10,7 +10,7 @@ import { readClawletsEnvTokens } from "~/server/redaction";
 import { runWithEvents } from "~/server/run-manager";
 import { resolveTemplateSpec } from "~/server/template-spec";
 import { getAdminProjectContext } from "./repo-context";
-import { parseProjectIdInput } from "~/sdk/runtime";
+import { coerceString, parseProjectIdInput } from "~/sdk/runtime";
 
 function getHost(input?: unknown): string {
   const raw = typeof input === "string" ? input.trim() : "";
@@ -44,7 +44,7 @@ export const projectInitPlan = createServerFn({ method: "POST" })
     if (!data || typeof data !== "object") throw new Error("invalid input");
     const d = data as Record<string, unknown>;
     return {
-      localPath: String(d["localPath"] || ""),
+      localPath: coerceString(d["localPath"]),
       host: getHost(d["host"]),
       templateSpec: resolveTemplateSpec(d["templateSpec"]),
       theme: getHostTheme(d["theme"]),
@@ -64,8 +64,8 @@ export const projectCreateStart = createServerFn({ method: "POST" })
     if (!data || typeof data !== "object") throw new Error("invalid input");
     const d = data as Record<string, unknown>;
     return {
-      name: String(d["name"] || ""),
-      localPath: String(d["localPath"] || ""),
+      name: coerceString(d["name"]),
+      localPath: coerceString(d["localPath"]),
       host: getHost(d["host"]),
       templateSpec: resolveTemplateSpec(d["templateSpec"]),
       theme: getHostTheme(d["theme"]),
@@ -164,8 +164,8 @@ export const projectImport = createServerFn({ method: "POST" })
     if (!data || typeof data !== "object") throw new Error("invalid input");
     const d = data as Record<string, unknown>;
     return {
-      name: String(d["name"] || ""),
-      localPath: String(d["localPath"] || ""),
+      name: coerceString(d["name"]),
+      localPath: coerceString(d["localPath"]),
     };
   })
   .handler(async ({ data }) => {

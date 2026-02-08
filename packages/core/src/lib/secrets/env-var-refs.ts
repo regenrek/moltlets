@@ -90,9 +90,9 @@ export function findEnvVarRefs(obj: unknown): EnvVarRefs {
   const pathsByVar: Record<string, string[]> = {};
   findEnvVarRefsInAny({ value: obj, path: "", pathsByVar });
 
-  const vars = Object.keys(pathsByVar).sort();
+  const vars = Object.keys(pathsByVar).toSorted();
   for (const v of vars) {
-    pathsByVar[v] = Array.from(new Set(pathsByVar[v] || [])).sort();
+    pathsByVar[v] = Array.from(new Set(pathsByVar[v] || [])).toSorted();
   }
 
   return { vars, pathsByVar };

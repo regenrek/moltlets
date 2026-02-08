@@ -1,10 +1,8 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useConvexAuth } from "convex/react"
 import * as React from "react"
 import { authClient } from "~/lib/auth-client"
-import { api } from "../../../convex/_generated/api"
+import { currentUserQueryOptions } from "~/lib/query-options"
 import { Button } from "~/components/ui/button"
 import { Card } from "~/components/ui/card"
 import { Input } from "~/components/ui/input"
@@ -13,27 +11,30 @@ import { Separator } from "~/components/ui/separator"
 import { ModeToggle } from "~/components/mode-toggle"
 
 export const Route = createFileRoute("/settings/account")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(currentUserQueryOptions())
+  },
   component: AccountSettings,
 })
 
 function AccountSettings() {
-  const router = useRouter()
-  const { data: session, isPending } = authClient.useSession()
-  const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
-  const viewer = useQuery({
-    ...convexQuery(api.identity.users.getCurrent, {}),
-    enabled: canQuery,
-    gcTime: 60_000,
-  })
+  const viewer = useSuspenseQuery(currentUserQueryOptions())
+  const { data: session } = authClient.useSession()
   const user = viewer.data?.user
   const auth = viewer.data?.auth
   const name = user?.name || auth?.name || session?.user?.name || auth?.email || session?.user?.email || "Account"
   const email = user?.email || auth?.email || session?.user?.email || ""
   const role = user?.role || "viewer"
+  const formKey = user?._id || auth?.id || session?.user?.id || "account"
 
-  const [displayName, setDisplayName] = React.useState(name)
-  const [newEmail, setNewEmail] = React.useState(email)
+  return <AccountSettingsForm key={String(formKey)} name={name} email={email} role={role} />
+}
+
+function AccountSettingsForm(props: { name: string; email: string; role: string }) {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const [displayName, setDisplayName] = React.useState(props.name)
+  const [newEmail, setNewEmail] = React.useState(props.email)
   const [currentPassword, setCurrentPassword] = React.useState("")
   const [nextPassword, setNextPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -41,13 +42,9 @@ function AccountSettings() {
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
-    setDisplayName(name)
-  }, [name])
-
-  React.useEffect(() => {
-    setNewEmail(email)
-  }, [email])
+  async function refreshViewer() {
+    await queryClient.invalidateQueries({ queryKey: currentUserQueryOptions().queryKey })
+  }
 
   async function onUpdateName(event: React.FormEvent) {
     event.preventDefault()
@@ -61,7 +58,7 @@ function AccountSettings() {
     setBusy(true)
     try {
       await authClient.updateUser({ name: nextName })
-      await viewer.refetch()
+      await refreshViewer()
       setSuccess("Display name updated.")
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -83,7 +80,7 @@ function AccountSettings() {
     try {
       const callbackURL = `${window.location.origin}/settings/account`
       await authClient.changeEmail({ newEmail: next, callbackURL })
-      await viewer.refetch()
+      await refreshViewer()
       setSuccess("Email change requested.")
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -137,15 +134,15 @@ function AccountSettings() {
       <Card className="p-6 space-y-6">
         <div className="space-y-1">
           <div className="text-sm text-muted-foreground">Name</div>
-          <div className="font-medium">{name}</div>
+          <div className="font-medium">{props.name}</div>
         </div>
         <div className="space-y-1">
           <div className="text-sm text-muted-foreground">Email</div>
-          <div className="font-medium">{email || "—"}</div>
+          <div className="font-medium">{props.email || "—"}</div>
         </div>
         <div className="space-y-1">
           <div className="text-sm text-muted-foreground">Role</div>
-          <div className="font-medium capitalize">{role}</div>
+          <div className="font-medium capitalize">{props.role}</div>
         </div>
         {error ? <div className="text-sm text-destructive">{error}</div> : null}
         {success ? <div className="text-sm text-emerald-600">{success}</div> : null}

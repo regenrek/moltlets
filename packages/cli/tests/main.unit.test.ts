@@ -45,7 +45,7 @@ describe("cli main", () => {
     "prints version and exits",
     async () => {
     process.argv = ["node", "clawlets", "--version"];
-    exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
       return undefined as never;
     }) as any);
     const mod = await import("../src/main.ts");

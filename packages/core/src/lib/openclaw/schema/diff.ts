@@ -82,9 +82,9 @@ export function diffOpenclawChannelSchemas(
   }
 
   return {
-    added: added.sort(),
-    removed: removed.sort(),
-    changed: changed.sort((a, b) => a.path.localeCompare(b.path)),
+    added: added.toSorted(),
+    removed: removed.toSorted(),
+    changed: changed.toSorted((a, b) => a.path.localeCompare(b.path)),
   };
 }
 

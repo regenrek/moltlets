@@ -35,7 +35,7 @@ export const detectLocalSshPubkeyFiles = createServerFn({ method: "POST" }).hand
     const files = entries
       .filter((e) => e.isFile() && e.name.endsWith(".pub"))
       .map((e) => `~/.ssh/${e.name}`)
-      .sort(sortPubkeyFiles)
+      .toSorted(sortPubkeyFiles)
 
     return { ok: true, files, baseDir: "~/.ssh" } satisfies DetectSshPubkeyFilesResult
   } catch (err) {

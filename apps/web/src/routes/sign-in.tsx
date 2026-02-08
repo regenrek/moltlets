@@ -1,12 +1,17 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import * as React from "react";
 import { authClient } from "~/lib/auth-client";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { getAuthBootstrap } from "~/sdk/auth";
 
 export const Route = createFileRoute("/sign-in")({
+  beforeLoad: async () => {
+    const { token } = await getAuthBootstrap();
+    if (token) throw redirect({ to: "/" });
+  },
   component: SignIn,
 });
 
@@ -16,18 +21,12 @@ function SignIn() {
 
 function AuthEnabledSignIn() {
   const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
   const [mode, setMode] = React.useState<"sign-in" | "sign-up">("sign-in");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (isPending) return;
-    if (session?.user?.id) void router.navigate({ to: "/" });
-  }, [isPending, router, session?.user?.id]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +46,7 @@ function AuthEnabledSignIn() {
         });
       }
       await router.invalidate();
-      // Navigation happens via the session effect above; avoids racing SSR auth gating.
+      await router.navigate({ to: "/" });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -110,8 +109,8 @@ function AuthEnabledSignIn() {
             <div className="text-sm text-destructive">{error}</div>
           ) : null}
 
-          <Button type="submit" className="w-full" disabled={busy || isPending}>
-            {busy || isPending ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
+          <Button type="submit" className="w-full" disabled={busy}>
+            {busy ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
           </Button>
         </form>
 

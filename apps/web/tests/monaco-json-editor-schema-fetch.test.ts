@@ -63,7 +63,7 @@ describe("monaco schema fetch safety", () => {
 
   it("passes redirect error mode to fetch", async () => {
     stubWindow()
-    const fetchMock = vi.fn(async (_url: string, opts?: { redirect?: string }) => ({
+    const fetchMock = vi.fn(async (_url: string, _opts?: { redirect?: string }) => ({
       ok: true,
       status: 200,
       text: async () => "{}",

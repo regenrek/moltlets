@@ -87,8 +87,8 @@ function GatewaysSetup() {
     enabled: Boolean(projectId) && canQuery && Boolean(hostSummary),
     gcTime: 5_000,
   })
-  const gatewayRows = gatewaysQuery.data || []
-  const gateways = useMemo(() => gatewayRows.map((row) => row.gatewayId), [gatewayRows])
+  const gatewayRows = gatewaysQuery.data
+  const gateways = useMemo(() => (gatewayRows ?? []).map((row) => row.gatewayId), [gatewayRows])
   const gatewayArchitecture = (hostSummary?.desired as { gatewayArchitecture?: GatewayArchitecture } | undefined)
     ?.gatewayArchitecture
   const hasGateways = gateways.length > 0
@@ -108,7 +108,7 @@ function GatewaysSetup() {
 
   const gatewayDetailsById = useMemo<Record<string, GatewayRosterDetail>>(() => {
     const byId: Record<string, GatewayRosterDetail> = {}
-    for (const row of gatewayRows) {
+    for (const row of gatewayRows ?? []) {
       const details = (row.desired || {}) as {
         channels?: string[]
         port?: number
@@ -130,7 +130,7 @@ function GatewaysSetup() {
         if (normalized) found.add(normalized)
       }
     }
-    return Array.from(found).sort()
+    return Array.from(found).toSorted()
   }, [gateways, gatewayDetailsById])
 
   const filteredGateways = useMemo(() => {
@@ -266,7 +266,6 @@ function GatewaysSetup() {
               placeholder="OpenClaw"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              autoFocus
             />
           </StackedField>
 

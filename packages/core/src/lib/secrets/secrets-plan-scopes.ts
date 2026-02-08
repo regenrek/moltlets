@@ -9,7 +9,7 @@ export type SecretsPlanScopeSummary = {
 };
 
 function uniqSorted(values: string[]): string[] {
-  return Array.from(new Set(values)).sort();
+  return Array.from(new Set(values)).toSorted();
 }
 
 export function buildSecretsPlanScopes(params: {

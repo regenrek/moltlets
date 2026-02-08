@@ -83,7 +83,7 @@ function dropWorkspaceDeps(pkg) {
   const next = { ...pkg };
   const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
   for (const section of sections) {
-    const deps = { ...(next[section] || {}) };
+    const deps = { ...next[section] };
     let changed = false;
     for (const [depName, depVersion] of Object.entries(deps)) {
       if (!isWorkspaceProtocol(depVersion)) continue;
@@ -183,7 +183,7 @@ function main() {
   // Internal workspace packages are bundled into the build output and removed from the manifest.
   const nextPkg = dropWorkspaceDeps(pkg);
   nextPkg.private = false;
-  nextPkg.publishConfig = { ...(nextPkg.publishConfig || {}), access: "public" };
+  nextPkg.publishConfig = { ...nextPkg.publishConfig, access: "public" };
   nextPkg.files = Array.from(
     new Set(["dist", "README.md", "LICENSE", ...(Array.isArray(nextPkg.files) ? nextPkg.files : [])]),
   ).filter((x) => x !== "node_modules");

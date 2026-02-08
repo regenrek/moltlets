@@ -31,6 +31,8 @@ type HostSecretsPanelProps = {
   scope?: "bootstrap" | "updates" | "openclaw" | "all"
 }
 
+const EMPTY_MISSING_SECRET_CONFIG: MissingSecretConfig[] = []
+
 export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecretsPanelProps) {
   const template = useQuery({
     queryKey: ["secretsTemplate", projectId, host, scope],
@@ -87,8 +89,8 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
     return names
   }, [secretsPlan])
   const planMissing = secretsPlan?.missing
-    || (template.data as { missingSecretConfig?: unknown[] } | undefined)?.missingSecretConfig
-    || []
+    ?? ((template.data as { missingSecretConfig?: MissingSecretConfig[] } | undefined)?.missingSecretConfig)
+    ?? EMPTY_MISSING_SECRET_CONFIG
   const planWarnings = secretsPlan?.warnings || []
   const missingEnvVars = useMemo(() => {
     return (planMissing || []).filter((item) => (item as MissingSecretConfig).kind === "envVar") as Array<

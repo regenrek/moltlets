@@ -40,12 +40,12 @@ function HostScopeChooser({
     enabled: Boolean(projectId && isReady),
   })
 
-  const hostRows = hostsQuery.data ?? []
+  const hostRows = hostsQuery.data
   const hostByName = useMemo(
-    () => new Map(hostRows.map((row) => [row.hostName, row] as const)),
+    () => new Map((hostRows ?? []).map((row) => [row.hostName, row] as const)),
     [hostRows],
   )
-  const hosts = useMemo(() => hostRows.map((row) => row.hostName).sort(), [hostRows])
+  const hosts = useMemo(() => (hostRows ?? []).map((row) => row.hostName).sort(), [hostRows])
   const normalizedQuery = query.trim().toLowerCase()
   const filteredHosts = useMemo(
     () => (normalizedQuery
@@ -78,7 +78,7 @@ function HostScopeChooser({
         <div className="text-muted-foreground">Loading…</div>
       ) : hostsQuery.error ? (
         <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
-      ) : hostRows.length === 0 ? (
+      ) : (hostRows ?? []).length === 0 ? (
         <div className="text-muted-foreground">No host metadata yet.</div>
       ) : (
         <div className="space-y-4">

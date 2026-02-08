@@ -3,7 +3,7 @@ import {
   GatewayArchitectureSchema,
 } from "@clawlets/core/lib/config/clawlets-config"
 import { GatewayIdSchema, PersonaNameSchema } from "@clawlets/shared/lib/identifiers"
-import { parseProjectIdInput } from "~/sdk/runtime"
+import { coerceString, coerceTrimmedString, parseProjectIdInput } from "~/sdk/runtime"
 import { configDotBatch, configDotGet, configDotSet } from "./dot"
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -12,7 +12,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+  return value.map((entry) => coerceTrimmedString(entry)).filter(Boolean)
 }
 
 export function ensureHostGatewayEntry(params: {
@@ -66,8 +66,8 @@ export const addGateway = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      host: String(d["host"] || ""),
-      gatewayId: String(d["gatewayId"] || ""),
+      host: coerceString(d["host"]),
+      gatewayId: coerceString(d["gatewayId"]),
       architecture: typeof d["architecture"] === "string" ? d["architecture"] : "",
     }
   })
@@ -143,9 +143,9 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      host: String(d["host"] || ""),
-      gatewayId: String(d["gatewayId"] || ""),
-      agentId: String(d["agentId"] || ""),
+      host: coerceString(d["host"]),
+      gatewayId: coerceString(d["gatewayId"]),
+      agentId: coerceString(d["agentId"]),
       name: typeof d["name"] === "string" ? d["name"] : "",
       makeDefault: Boolean(d["makeDefault"]),
     }
@@ -172,7 +172,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     gateway.agents = isPlainObject(gateway.agents) ? gateway.agents : {}
     const agents = gateway.agents as Record<string, unknown>
     const list = Array.isArray(agents.list) ? (agents.list as Array<Record<string, unknown>>) : []
-    if (list.some((entry) => String(entry?.id || "") === agentId)) {
+    if (list.some((entry) => coerceTrimmedString(entry?.id) === agentId)) {
       throw new Error(`agent already exists: ${agentId}`)
     }
 
@@ -203,9 +203,9 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      host: String(d["host"] || ""),
-      gatewayId: String(d["gatewayId"] || ""),
-      agentId: String(d["agentId"] || ""),
+      host: coerceString(d["host"]),
+      gatewayId: coerceString(d["gatewayId"]),
+      agentId: coerceString(d["agentId"]),
     }
   })
   .handler(async ({ data }) => {
@@ -223,11 +223,11 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
       data: { projectId: data.projectId, path: `hosts.${hostName}.gateways.${gatewayId}.agents.list` },
     })
     const list = Array.isArray(listNode.value) ? (listNode.value as Array<Record<string, unknown>>) : []
-    if (!list.some((entry) => String(entry?.id || "") === agentId)) {
+    if (!list.some((entry) => coerceTrimmedString(entry?.id) === agentId)) {
       throw new Error(`agent not found: ${agentId}`)
     }
 
-    const nextList = list.filter((entry) => String(entry?.id || "") !== agentId)
+    const nextList = list.filter((entry) => coerceTrimmedString(entry?.id) !== agentId)
     return await configDotSet({
       data: {
         projectId: data.projectId,
@@ -241,7 +241,7 @@ export const removeGateway = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return { ...base, host: String(d["host"] || ""), gatewayId: String(d["gatewayId"] || "") }
+    return { ...base, host: coerceString(d["host"]), gatewayId: coerceString(d["gatewayId"]) }
   })
   .handler(async ({ data }) => {
     const hostName = data.host.trim()
@@ -317,7 +317,7 @@ export const setGatewayArchitecture = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      architecture: String(d["architecture"] || ""),
+      architecture: coerceString(d["architecture"]),
     }
   })
   .handler(async ({ data }) => {

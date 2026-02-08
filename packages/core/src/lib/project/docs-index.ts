@@ -12,7 +12,7 @@ function readMeta(filePath: string): { pages: string[] } {
   try {
     parsed = JSON.parse(rawText) as DocsMeta;
   } catch (err) {
-    throw new Error(`docs meta must be valid JSON: ${filePath}`);
+    throw new Error(`docs meta must be valid JSON: ${filePath}`, { cause: err });
   }
   if (!parsed || typeof parsed !== "object") throw new Error(`docs meta must be a JSON object: ${filePath}`);
   if (!Array.isArray(parsed.pages)) throw new Error(`docs meta must contain pages: []: ${filePath}`);

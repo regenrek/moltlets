@@ -177,7 +177,6 @@ export function GatewayPersonas(props: {
                   placeholder="Primary"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  autoFocus
                 />
               </StackedField>
 

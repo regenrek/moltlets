@@ -175,7 +175,7 @@ const readOAuthProviders = async (src: string): Promise<string[]> => {
       `failed to parse ${oauthIndexPath}: getOAuthProviders() contains no provider ids`,
     );
   }
-  return Array.from(new Set(ids)).sort();
+  return Array.from(new Set(ids)).toSorted();
 };
 
 const parseProviderAliases = (params: {
@@ -229,8 +229,8 @@ const buildProviderInfo = (params: {
   ]);
   const out: Record<string, ProviderInfo> = {};
 
-  for (const provider of Array.from(providers).sort()) {
-    const envVars = (params.envMap[provider] ?? []).slice().sort();
+  for (const provider of Array.from(providers).toSorted()) {
+    const envVars = (params.envMap[provider] ?? []).slice().toSorted();
     const oauthVars = envVars.filter((v) => v.includes("OAUTH_TOKEN"));
     const apiVars = envVars.filter((v) => !v.includes("OAUTH_TOKEN"));
 

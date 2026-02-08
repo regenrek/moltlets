@@ -2,6 +2,7 @@ import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifier
 
 import type { SystemTableNames } from "convex/server"
 import type { Id, TableNames } from "../../../convex/_generated/dataModel"
+import { coerceTrimmedString } from "./strings"
 
 export const SERVER_CHANNEL_OPS = ["status", "capabilities", "login", "logout"] as const
 export type ServerChannelOp = (typeof SERVER_CHANNEL_OPS)[number]
@@ -75,7 +76,7 @@ function parseLines(value: unknown): string {
 
 function parseTimeoutMs(value: unknown): number {
   if (value === undefined || value === null || value === "") return 10_000
-  const s = typeof value === "string" ? value.trim() : String(value ?? "").trim()
+  const s = coerceTrimmedString(value)
   if (!s) return 10_000
   if (!/^[0-9]+$/.test(s)) throw new Error("invalid timeout")
   const n = Number.parseInt(s, 10)

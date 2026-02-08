@@ -32,6 +32,7 @@ const MAINTENANCE_ENV_FLAG = "CLAWLETS_MAINTENANCE_ENABLED";
 const WIPE_BATCH_SIZE = 200;
 const PURGE_DEFAULT_MAX_DELETES = 5_000;
 const PURGE_CONTINUE_DELAY_MS = 250;
+const WipeTableValue = v.union(...WIPE_TABLES.map((table) => v.literal(table)));
 
 function requireMaintenanceEnabled(op: string): void {
   const enabled = String(process.env[MAINTENANCE_ENV_FLAG] || "").trim() === "1";
@@ -62,6 +63,15 @@ export const purgeProjects = internalMutation({
     maxDeletes: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
+  returns: v.object({
+    ok: v.boolean(),
+    dryRun: v.boolean(),
+    deleted: v.number(),
+    continued: v.boolean(),
+    nextTableIdx: v.union(v.number(), v.null()),
+    lastTable: v.union(WipeTableValue, v.null()),
+    remainingTables: v.number(),
+  }),
   handler: async (ctx, args) => {
     if (args.confirm !== "DELETE_PROJECTS") {
       throw new Error("Refusing to purge. Pass confirm=DELETE_PROJECTS.");

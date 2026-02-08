@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { validateMetadataSyncPayloadSizes } from "../convex/controlPlane/httpParsers";
 
+function sizedObjects(length: number): Record<string, never>[] {
+  return Array.from({ length }, () => ({}));
+}
+
 describe("runner metadata sync payload limits", () => {
   it("accepts payloads within bounds", () => {
     expect(
       validateMetadataSyncPayloadSizes({
-        projectConfigs: new Array(10).fill({}),
-        hosts: new Array(10).fill({}),
-        gateways: new Array(10).fill({}),
-        secretWiring: new Array(10).fill({}),
+        projectConfigs: sizedObjects(10),
+        hosts: sizedObjects(10),
+        gateways: sizedObjects(10),
+        secretWiring: sizedObjects(10),
       }),
     ).toBeNull();
   });
@@ -16,7 +20,7 @@ describe("runner metadata sync payload limits", () => {
   it("rejects oversized payload arrays", () => {
     expect(
       validateMetadataSyncPayloadSizes({
-        projectConfigs: new Array(501).fill({}),
+        projectConfigs: sizedObjects(501),
         hosts: [],
         gateways: [],
         secretWiring: [],
@@ -27,7 +31,7 @@ describe("runner metadata sync payload limits", () => {
         projectConfigs: [],
         hosts: [],
         gateways: [],
-        secretWiring: new Array(2001).fill({}),
+        secretWiring: sizedObjects(2001),
       }),
     ).toBe("secretWiring too large");
   });

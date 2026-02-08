@@ -92,7 +92,7 @@ export function listSecretsInitPlaceholders(params: {
     if (v && isPlaceholderSecretValue(v)) out.add(`secrets.${k}`);
   }
 
-  return Array.from(out).sort();
+  return Array.from(out).toSorted();
 }
 
 export function buildSecretsInitTemplate(params: {

@@ -38,7 +38,7 @@ export function normalizeTemplatePath(input: string): string {
 export function normalizeTemplateRef(input: string): string {
   const trimmed = requireValue("template ref", input);
   // Allow branch names (main, master, feature/x), tags (v1.0.0), or full 40-hex SHA
-  if (!/^[A-Za-z0-9_./\-]+$/.test(trimmed)) {
+  if (!/^[A-Za-z0-9_./-]+$/.test(trimmed)) {
     throw new Error(`template ref must be a valid git ref (branch, tag, or SHA) (got: ${trimmed})`);
   }
   return trimmed;

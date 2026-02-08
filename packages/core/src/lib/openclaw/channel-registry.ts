@@ -46,7 +46,7 @@ export function listPinnedChannels(): ChannelInfo[] {
   const channelSchemas = readChannelSchemaMap(schema.schema ?? {});
   const hints = readUiHints();
   return Object.keys(channelSchemas)
-    .sort()
+    .toSorted()
     .map((id) => {
       const hint = readHint(hints, `channels.${id}`);
       const schemaEntry = channelSchemas[id];

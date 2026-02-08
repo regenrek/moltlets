@@ -62,7 +62,7 @@ export function ThemeProvider({
   const setTheme = (next: Theme) => {
     setThemeState(next)
     localStorage.setItem(LS_KEY, next)
-    setThemeServer({ data: next }) // persist cookie for future requests
+    void setThemeServer({ data: next }) // persist cookie for future requests
   }
 
   return (

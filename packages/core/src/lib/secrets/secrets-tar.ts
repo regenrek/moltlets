@@ -22,7 +22,7 @@ function listYamlFiles(dir: string): string[] {
   return entries
     .filter((e) => e.isFile() && e.name.endsWith(".yaml"))
     .map((e) => e.name)
-    .sort();
+    .toSorted();
 }
 
 export async function createSecretsTar(params: {

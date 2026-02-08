@@ -29,6 +29,7 @@ export function ProjectDashboard(props: {
 }) {
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
+  const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
@@ -45,15 +46,15 @@ export function ProjectDashboard(props: {
   }, [overview.data?.projects, props.projectId])
 
   const recentRuns = useQuery({
-    queryKey: ["dashboardRecentRuns", project?.projectId ?? null],
+    queryKey: ["dashboardRecentRuns", project?.projectId ?? null, hasServerHttpClient],
     enabled: Boolean(project?.projectId) && canQuery,
     queryFn: async () => {
       const args = {
         projectId: project!.projectId as Id<"projects">,
         paginationOpts: { numItems: 200, cursor: null as string | null },
       }
-      if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
+      if (hasServerHttpClient) {
+        return await convexQueryClient.serverHttpClient!.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
       return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },

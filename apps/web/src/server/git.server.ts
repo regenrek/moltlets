@@ -274,7 +274,7 @@ export async function fetchGitRepoStatus(params: { projectId: Id<"projects"> }) 
   } catch (err) {
     const message = sanitizeErrorMessage(err, "Unable to read git status.")
     console.error("fetchGitRepoStatus failed", message)
-    throw new Error(message)
+    throw new Error(message, { cause: err })
   }
 }
 
@@ -342,7 +342,7 @@ export async function executeGitPush(params: { projectId: Id<"projects"> }) {
           // ignore status failures
         }
       }
-      throw new Error(message)
+      throw new Error(message, { cause: err })
     } finally {
       statusCache.delete(repoRoot)
       statusInFlight.delete(repoRoot)

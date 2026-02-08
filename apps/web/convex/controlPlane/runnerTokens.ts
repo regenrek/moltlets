@@ -113,7 +113,7 @@ export const listByProject = query({
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
     return rows
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .toSorted((a, b) => b.createdAt - a.createdAt)
       .map((row) => ({
         tokenId: row._id,
         runnerId: row.runnerId,

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 const downloadTemplateMock = vi.fn();
 const captureMock = vi.fn();
 const runMock = vi.fn();

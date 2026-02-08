@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { AppHeader } from "~/components/layout/app-header"
 import { AppSidebar } from "~/components/layout/app-sidebar"
+import { ProjectCreateModalProvider } from "~/components/projects/project-create-modal-provider"
 import { Button } from "~/components/ui/button"
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar"
 import { useProjectBySlug } from "~/lib/project-data"
@@ -107,20 +108,22 @@ function AppShell({
   showSidebar?: boolean
 }) {
   return (
-    <SidebarProvider>
-      {showSidebar ? <AppSidebar /> : null}
-      <SidebarInset>
-        <div className="min-h-svh flex flex-col">
-          <AppHeader showSidebarToggle={showSidebar} />
-          <OpenSshExposureBanner />
-          <main className="min-h-0 flex-1 overflow-auto">
-            <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6">
-              {children}
-            </div>
-          </main>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <ProjectCreateModalProvider>
+      <SidebarProvider>
+        {showSidebar ? <AppSidebar /> : null}
+        <SidebarInset>
+          <div className="min-h-svh flex flex-col">
+            <AppHeader showSidebarToggle={showSidebar} />
+            <OpenSshExposureBanner />
+            <main className="min-h-0 flex-1 overflow-auto">
+              <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6">
+                {children}
+              </div>
+            </main>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ProjectCreateModalProvider>
   )
 }
 

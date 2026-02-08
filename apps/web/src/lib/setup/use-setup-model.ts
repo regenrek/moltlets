@@ -7,11 +7,38 @@ import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
 import { coerceSetupStepId, deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import type { DeployCredsStatus } from "~/sdk/infra"
 import { configDotGet } from "~/sdk/config"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type SetupSearch = {
   step?: string
+}
+
+type SetupConfig = {
+  hosts: Record<string, Record<string, unknown>>
+  fleet: {
+    sshAuthorizedKeys: unknown[]
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function decodeSetupConfig(params: {
+  host: string
+  hostValue: unknown
+  sshKeysValue: unknown
+}): SetupConfig {
+  const hostCfg = asRecord(params.hostValue)
+  return {
+    hosts: hostCfg ? { [params.host]: hostCfg } : {},
+    fleet: {
+      sshAuthorizedKeys: Array.isArray(params.sshKeysValue) ? params.sshKeysValue : [],
+    },
+  }
 }
 
 export function useSetupModel(params: { projectSlug: string; host: string; search: SetupSearch }) {
@@ -39,24 +66,20 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
           },
         }),
       ])
-      const hostCfg =
-        hostNode.value && typeof hostNode.value === "object" && !Array.isArray(hostNode.value)
-          ? (hostNode.value as Record<string, unknown>)
-          : null
-      const sshAuthorizedKeys = Array.isArray(sshKeysNode.value) ? sshKeysNode.value : []
-      return {
-        hosts: hostCfg ? { [params.host]: hostCfg } : {},
-        fleet: { sshAuthorizedKeys },
-      }
+      return decodeSetupConfig({
+        host: params.host,
+        hostValue: hostNode.value,
+        sshKeysValue: sshKeysNode.value,
+      })
     },
   })
-  const config = (configQuery.data as any) ?? null
+  const config = configQuery.data ?? null
 
   const deployCredsQuery = useQuery({
     ...deployCredsQueryOptions(projectId),
     enabled: Boolean(projectId && isReady),
   })
-  const deployCreds = (deployCredsQuery.data as any) ?? null
+  const deployCreds: DeployCredsStatus | null = deployCredsQuery.data ?? null
 
   const latestBootstrapRunQuery = useQuery({
     ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
@@ -83,8 +106,8 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
         hostFromRoute: params.host,
         stepFromSearch: params.search.step,
         deployCreds,
-        latestBootstrapRun: (latestBootstrapRunQuery.data as any) ?? null,
-        latestBootstrapSecretsVerifyRun: (latestBootstrapSecretsVerifyRunQuery.data as any) ?? null,
+        latestBootstrapRun: latestBootstrapRunQuery.data ?? null,
+        latestBootstrapSecretsVerifyRun: latestBootstrapSecretsVerifyRunQuery.data ?? null,
       }),
     [
       config,
@@ -101,9 +124,9 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
       void router.navigate({
         to: "/$projectSlug/hosts/$host/setup",
         params: { projectSlug: params.projectSlug, host: params.host },
-        search: (prev: Record<string, unknown>) => ({ ...prev, ...next }),
+        search: (prev: SetupSearch) => ({ ...prev, ...next }),
         replace: opts?.replace,
-      } as any)
+      })
     },
     [params.host, params.projectSlug, router],
   )
@@ -116,9 +139,9 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   )
 
   const advance = React.useCallback(() => {
-    const visible = model.steps.filter((s) => s.status !== "locked")
-    const currentIdx = visible.findIndex((s) => s.id === model.activeStepId)
-    const next = visible.slice(currentIdx + 1).find((s) => s.status !== "locked")?.id
+    const visible = model.steps.filter((step) => step.status !== "locked")
+    const currentIndex = visible.findIndex((step) => step.id === model.activeStepId)
+    const next = visible.slice(currentIndex + 1).find((step) => step.status !== "locked")?.id
     if (next) setStep(next)
   }, [model.activeStepId, model.steps, setStep])
 

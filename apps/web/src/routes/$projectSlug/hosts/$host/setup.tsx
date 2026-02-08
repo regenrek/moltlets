@@ -3,6 +3,7 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
+import type { HostTheme } from "@clawlets/core/lib/host/host-theme"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../convex/_generated/api"
 import { SetupCelebration } from "~/components/setup/setup-celebration"
@@ -73,8 +74,10 @@ function HostSetupPage() {
     return <div className="text-muted-foreground">Host not found in config.</div>
   }
 
-  const hostCfg = (setup.config?.hosts as any)?.[selectedHost] ?? null
-  const selectedHostTheme = hostCfg?.theme ?? null
+  const hostCfg = (setup.config?.hosts?.[selectedHost] as
+    | { theme?: HostTheme; provisioning?: { provider?: string } }
+    | undefined) ?? null
+  const selectedHostTheme: HostTheme | null = hostCfg?.theme ?? null
   const provider = String(hostCfg?.provisioning?.provider || "hetzner") === "aws" ? "aws" : "hetzner"
 
   const requiredSteps = setup.model.steps.filter((s) => !s.optional)

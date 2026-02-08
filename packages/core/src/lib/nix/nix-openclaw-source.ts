@@ -31,7 +31,7 @@ function decodeNixString(raw: string): string {
 }
 
 function matchAttr(contents: string, name: string): string | null {
-  const pattern = `\\b${name}\\s*=\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')\\s*;`;
+  const pattern = `\\b${name}\\s*=\\s*("(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')\\s*;`;
   const regex = new RegExp(pattern, "m");
   const match = regex.exec(contents);
   if (!match) return null;

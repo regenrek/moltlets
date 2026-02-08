@@ -11,7 +11,7 @@ export function addMissingEnvVarConfig(params: {
     kind: "envVar",
     gateway: params.gatewayId,
     envVar: params.envVar,
-    sources: Array.from(params.sources).sort(),
+    sources: Array.from(params.sources).toSorted(),
     paths: params.paths,
   });
 }

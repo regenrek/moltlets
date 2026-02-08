@@ -8,7 +8,7 @@ import { ArrowLeft01Icon, ArrowRight01Icon, MoreHorizontalCircle01Icon } from "@
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
-      role="navigation"
+      
       aria-label="pagination"
       data-slot="pagination"
       className={cn(
@@ -46,6 +46,7 @@ function PaginationLink({
   className,
   isActive,
   size = "icon",
+  children,
   ...props
 }: PaginationLinkProps) {
   return (
@@ -60,7 +61,9 @@ function PaginationLink({
           data-slot="pagination-link"
           data-active={isActive}
           {...props}
-        />
+        >
+          {children}
+        </a>
       }
     />
   )

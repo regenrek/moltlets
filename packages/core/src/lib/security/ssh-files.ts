@@ -38,7 +38,7 @@ export function readKnownHostsFromFile(filePath: string): string[] {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message === "no known_hosts entries found") {
-      throw new Error(`no known_hosts entries found in file: ${filePath}`);
+      throw new Error(`no known_hosts entries found in file: ${filePath}`, { cause: err });
     }
     throw err;
   }

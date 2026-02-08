@@ -24,6 +24,7 @@ function AuditOperate() {
   const projectId = projectQuery.projectId
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
+  const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     enabled: Boolean(projectId),
@@ -31,7 +32,7 @@ function AuditOperate() {
   })
 
   const auditLogsQuery = useInfiniteQuery({
-    queryKey: ["auditLogsByProject", projectId],
+    queryKey: ["auditLogsByProject", projectId, hasServerHttpClient],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       if (!projectId) throw new Error("missing project")
@@ -39,8 +40,8 @@ function AuditOperate() {
         projectId: projectId as Id<"projects">,
         paginationOpts: { numItems: 50, cursor: pageParam },
       }
-      if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.security.auditLogs.listByProjectPage, args)
+      if (hasServerHttpClient) {
+        return await convexQueryClient.serverHttpClient!.consistentQuery(api.security.auditLogs.listByProjectPage, args)
       }
       return await convexQueryClient.convexClient.query(api.security.auditLogs.listByProjectPage, args)
     },

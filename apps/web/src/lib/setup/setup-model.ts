@@ -27,7 +27,10 @@ type MinimalDeployCreds = {
 }
 
 type MinimalConfig = {
-  hosts?: Record<string, any>
+  hosts?: Record<string, Record<string, unknown>>
+  fleet?: {
+    sshAuthorizedKeys?: unknown[]
+  }
 }
 
 export type SetupModel = {
@@ -45,6 +48,19 @@ export type DeriveSetupModelInput = {
   deployCreds: MinimalDeployCreds | null
   latestBootstrapRun: MinimalRun | null
   latestBootstrapSecretsVerifyRun: MinimalRun | null
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function asTrimmedString(value: unknown): string {
+  if (typeof value === "string") return value.trim()
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value).trim()
+  }
+  return ""
 }
 
 export function coerceSetupStepId(value: unknown): SetupStepId | null {
@@ -74,19 +90,20 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
       ? input.hostFromRoute
       : null
 
-  const hostCfg = selectedHost ? (input.config?.hosts as any)?.[selectedHost] : null
-  const provider = String(hostCfg?.provisioning?.provider || "hetzner").trim() || "hetzner"
-  const adminCidrOk = Boolean(String(hostCfg?.provisioning?.adminCidr || "").trim())
-  const sshKeysCount = Array.isArray((input.config as any)?.fleet?.sshAuthorizedKeys)
-    ? Number(((input.config as any)?.fleet?.sshAuthorizedKeys || []).length)
-    : 0
-  const hasSshKey = sshKeysCount > 0
+  const hostCfg = selectedHost ? input.config?.hosts?.[selectedHost] ?? null : null
+  const provisioning = asRecord(hostCfg?.provisioning) ?? {}
+  const provider = asTrimmedString(provisioning.provider) || "hetzner"
+  const adminCidrOk = Boolean(asTrimmedString(provisioning.adminCidr))
+  const sshAuthorizedKeys = Array.isArray(input.config?.fleet?.sshAuthorizedKeys)
+    ? input.config?.fleet?.sshAuthorizedKeys ?? []
+    : []
+  const hasSshKey = sshAuthorizedKeys.length > 0
   const connectionOk = Boolean(selectedHost && adminCidrOk && hasSshKey)
 
   const latestSecretsVerifyOk = input.latestBootstrapSecretsVerifyRun?.status === "succeeded"
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
 
-  const credsByKey = new Map((input.deployCreds?.keys || []).map((k) => [k.key, k.status]))
+  const credsByKey = new Map((input.deployCreds?.keys || []).map((entry) => [entry.key, entry.status]))
   const hasSopsAgeKey = credsByKey.get("SOPS_AGE_KEY_FILE") === "set"
   const providerCredsOk = resolveProviderCredsOk({ provider, credsByKey })
   const credsOk = Boolean(hasSopsAgeKey && providerCredsOk)
@@ -122,9 +139,9 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
 
   const visible = (step: SetupStep) => step.status !== "locked"
   const requested = coerceSetupStepId(input.stepFromSearch)
-  const requestedStep = requested && steps.find((s) => s.id === requested && visible(s)) ? requested : null
-  const firstIncomplete = steps.find((s) => visible(s) && s.status !== "done")?.id
-    ?? steps.find((s) => visible(s))?.id
+  const requestedStep = requested && steps.find((step) => step.id === requested && visible(step)) ? requested : null
+  const firstIncomplete = steps.find((step) => visible(step) && step.status !== "done")?.id
+    ?? steps.find((step) => visible(step))?.id
     ?? "connection"
   const requiredSteps = steps.filter((step) => !step.optional)
   const showCelebration = requiredSteps.every((step) => step.status === "done")

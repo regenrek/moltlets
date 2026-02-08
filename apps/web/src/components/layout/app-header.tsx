@@ -54,13 +54,13 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
     gcTime: 5_000,
     enabled: Boolean(projectId),
   })
-  const hostRows = hostsQuery.data ?? []
+  const hostRows = hostsQuery.data
   const hostByName = React.useMemo(
-    () => new Map(hostRows.map((row) => [row.hostName, row] as const)),
+    () => new Map((hostRows ?? []).map((row) => [row.hostName, row] as const)),
     [hostRows],
   )
   const hostNames = React.useMemo(
-    () => hostRows.map((row) => row.hostName).sort((a, b) => a.localeCompare(b)),
+    () => (hostRows ?? []).map((row) => row.hostName).sort((a, b) => a.localeCompare(b)),
     [hostRows],
   )
   const hostOptions = React.useMemo<HostOption[]>(

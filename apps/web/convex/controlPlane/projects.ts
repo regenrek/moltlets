@@ -59,7 +59,7 @@ export const list = query({
     for (const p of memberProjects) byId.set(p._id, p);
     return Array.from(byId.values())
       .map(toProjectDocValue)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      .toSorted((a, b) => b.updatedAt - a.updatedAt);
   },
 });
 

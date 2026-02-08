@@ -70,7 +70,7 @@ const serverAudit = defineCommand({
     const cwd = process.cwd();
     const ctx = loadHostContextOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!ctx) return;
-    const { config, hostName, hostCfg } = ctx;
+    const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
 
     const sudo = needsSudo(targetHost);

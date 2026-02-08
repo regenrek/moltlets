@@ -73,6 +73,6 @@ export function normalizeSecretFiles(value: unknown): Record<string, SecretFileS
 export function normalizeEnvVarPaths(pathsByVar: Record<string, string[]>): void {
   for (const [envVar, paths] of Object.entries(pathsByVar)) {
     if (!paths || paths.length === 0) continue;
-    pathsByVar[envVar] = Array.from(new Set(paths)).sort();
+    pathsByVar[envVar] = Array.from(new Set(paths)).toSorted();
   }
 }

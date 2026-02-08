@@ -209,6 +209,6 @@ export const listByProject = query({
       .query("hosts")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return rows.sort((a, b) => a.hostName.localeCompare(b.hostName));
+    return rows.toSorted((a, b) => a.hostName.localeCompare(b.hostName));
   },
 });

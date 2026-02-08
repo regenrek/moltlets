@@ -23,10 +23,10 @@ function buildGatewaySchemaCommand(params: { gatewayId: string; port: number; su
   const tokenName = "OPENCLAW_GATEWAY_TOKEN";
   const script = [
     "set -euo pipefail",
-    `token=\"$(awk -F= '$1==\"${tokenName}\"{print substr($0,length($1)+2); exit}' ${envFileQuoted})\"`,
+    `token="$(awk -F= '$1=="${tokenName}"{print substr($0,length($1)+2); exit}' ${envFileQuoted})"`,
     'token="${token%$"\\r"}"',
-    `if [ -z \"$token\" ]; then echo "missing ${tokenName}" >&2; exit 2; fi`,
-    `env ${tokenName}=\"$token\" openclaw gateway call config.schema --url ${url} --json`,
+    `if [ -z "$token" ]; then echo "missing ${tokenName}" >&2; exit 2; fi`,
+    `env ${tokenName}="$token" openclaw gateway call config.schema --url ${url} --json`,
   ].join(" && ");
   const args = [
     ...(params.sudo ? ["sudo", "-u", `gateway-${params.gatewayId}`] : []),

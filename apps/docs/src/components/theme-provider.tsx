@@ -63,7 +63,7 @@ export function ThemeProvider({
   const setTheme = (next: Theme) => {
     setThemeState(next);
     localStorage.setItem(LS_KEY, next);
-    setThemeServer({ data: next });
+    void setThemeServer({ data: next });
   };
 
   return (

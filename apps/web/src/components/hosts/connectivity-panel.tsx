@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
@@ -21,7 +21,6 @@ type ProbeState = {
 }
 
 export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityPanelProps) {
-  const queryClient = useQueryClient()
   const [tailscaleProbe, setTailscaleProbe] = useState<ProbeState | null>(null)
   const [sshProbe, setSshProbe] = useState<ProbeState | null>(null)
 

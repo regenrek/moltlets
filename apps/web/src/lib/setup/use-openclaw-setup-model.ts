@@ -18,6 +18,22 @@ export type OpenClawSetupSearch = {
   step?: string
 }
 
+type OpenClawSetupConfig = {
+  hosts: Record<string, Record<string, unknown>>
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function decodeOpenClawSetupConfig(params: { host: string; hostValue: unknown }): OpenClawSetupConfig {
+  const hostCfg = asRecord(params.hostValue)
+  return {
+    hosts: hostCfg ? { [params.host]: hostCfg } : {},
+  }
+}
+
 export function useOpenClawSetupModel(params: { projectSlug: string; host: string; search: OpenClawSetupSearch }) {
   const router = useRouter()
   const projectQuery = useProjectBySlug(params.projectSlug)
@@ -35,14 +51,13 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
           path: `hosts.${params.host}`,
         },
       })
-      const hostCfg =
-        hostNode.value && typeof hostNode.value === "object" && !Array.isArray(hostNode.value)
-          ? (hostNode.value as Record<string, unknown>)
-          : null
-      return { hosts: hostCfg ? { [params.host]: hostCfg } : {} }
+      return decodeOpenClawSetupConfig({
+        host: params.host,
+        hostValue: hostNode.value,
+      })
     },
   })
-  const config = (configQuery.data as any) ?? null
+  const config = configQuery.data ?? null
 
   const latestOpenClawSecretsVerifyRunQuery = useQuery({
     ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
@@ -68,8 +83,8 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
         config,
         hostFromRoute: params.host,
         stepFromSearch: params.search.step,
-        latestOpenClawSecretsVerifyRun: (latestOpenClawSecretsVerifyRunQuery.data as any) ?? null,
-        latestUpdateApplyRun: (latestUpdateApplyRunQuery.data as any) ?? null,
+        latestOpenClawSecretsVerifyRun: latestOpenClawSecretsVerifyRunQuery.data ?? null,
+        latestUpdateApplyRun: latestUpdateApplyRunQuery.data ?? null,
       }),
     [
       config,
@@ -85,9 +100,9 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
       void router.navigate({
         to: "/$projectSlug/hosts/$host/openclaw-setup",
         params: { projectSlug: params.projectSlug, host: params.host },
-        search: (prev: Record<string, unknown>) => ({ ...prev, ...next }),
+        search: (prev: OpenClawSetupSearch) => ({ ...prev, ...next }),
         replace: opts?.replace,
-      } as any)
+      })
     },
     [params.host, params.projectSlug, router],
   )
@@ -100,9 +115,9 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
   )
 
   const advance = React.useCallback(() => {
-    const visible = model.steps.filter((s) => s.status !== "locked")
-    const currentIdx = visible.findIndex((s) => s.id === model.activeStepId)
-    const next = visible.slice(currentIdx + 1).find((s) => s.status !== "locked")?.id
+    const visible = model.steps.filter((step) => step.status !== "locked")
+    const currentIndex = visible.findIndex((step) => step.id === model.activeStepId)
+    const next = visible.slice(currentIndex + 1).find((step) => step.status !== "locked")?.id
     if (next) setStep(next)
   }, [model.activeStepId, model.steps, setStep])
 

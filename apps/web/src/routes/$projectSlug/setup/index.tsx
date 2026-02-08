@@ -21,7 +21,7 @@ export const Route = createFileRoute("/$projectSlug/setup/")({
     const hosts = await context.queryClient.ensureQueryData(
       convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
     )
-    const hostNames = hosts.map((row) => row.hostName).sort()
+    const hostNames = hosts.map((row) => row.hostName).toSorted()
     const defaultHost = hostNames[0] ?? null
 
     if (!defaultHost) {

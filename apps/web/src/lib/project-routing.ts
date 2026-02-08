@@ -101,7 +101,7 @@ export function buildHostSwitchPath(params: {
 
 export function pickLastActiveProject<T extends ProjectLike>(projects: T[]): T | null {
   if (projects.length === 0) return null
-  const sorted = [...projects].sort((a, b) => {
+  const sorted = [...projects].toSorted((a, b) => {
     const aSeen = typeof a.lastSeenAt === "number" ? a.lastSeenAt : 0
     const bSeen = typeof b.lastSeenAt === "number" ? b.lastSeenAt : 0
     if (aSeen !== bSeen) return bSeen - aSeen

@@ -5,7 +5,7 @@ export async function mapWithConcurrency<TItem, TResult>(params: {
 }): Promise<TResult[]> {
   const items = params.items;
   const max = Math.max(1, Math.floor(params.concurrency || 1));
-  const out = new Array<TResult>(items.length);
+  const out = Array.from({ length: items.length }) as TResult[];
 
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(max, items.length) }, async () => {
@@ -20,4 +20,3 @@ export async function mapWithConcurrency<TItem, TResult>(params: {
   await Promise.all(workers);
   return out;
 }
-

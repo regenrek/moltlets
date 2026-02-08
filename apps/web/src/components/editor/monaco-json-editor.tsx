@@ -181,7 +181,7 @@ async function schemaRequestService(uri: string): Promise<string> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       storeSchemaFailure(normalized, message)
-      throw new Error(message)
+      throw new Error(message, { cause: err })
     } finally {
       window.clearTimeout(timer)
     }
@@ -225,6 +225,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
   const onChangeRef = useRef(props.onChange)
   const onDiagnosticsRef = useRef(props.onDiagnostics)
   const valueRef = useRef(props.value)
+  const readOnlyRef = useRef(props.readOnly)
   const validationRunner = useRef<ReturnType<typeof createDebouncedIdleRunner> | null>(null)
   const validationRunId = useRef(0)
   const languageModuleRef = useRef<JsonLanguageModule | null>(null)
@@ -253,19 +254,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
     return await languageServicePromiseRef.current
   }, [])
 
-  const scheduleValidation = () => {
-    if (!monacoRef.current || !modelRef.current) return
-    if (!validationRunner.current) {
-      validationRunner.current = createDebouncedIdleRunner({
-        fn: () => void validateNow(),
-        delayMs: 400,
-        timeoutMs: 1000,
-      })
-    }
-    validationRunner.current.schedule()
-  }
-
-  const validateNow = async () => {
+  const validateNow = useCallback(async () => {
     const runId = (validationRunId.current += 1)
     const monaco = monacoRef.current
     const model = modelRef.current
@@ -331,7 +320,19 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
       })) satisfies JsonEditorDiagnostic[]
       onDiagnostics(list)
     }
-  }
+  }, [ensureLanguageService])
+
+  const scheduleValidation = useCallback(() => {
+    if (!monacoRef.current || !modelRef.current) return
+    if (!validationRunner.current) {
+      validationRunner.current = createDebouncedIdleRunner({
+        fn: () => void validateNow(),
+        delayMs: 400,
+        timeoutMs: 1000,
+      })
+    }
+    validationRunner.current.schedule()
+  }, [validateNow])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -356,7 +357,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
 
       const editor = monaco.editor.create(containerRef.current!, {
         model,
-        readOnly: props.readOnly ?? false,
+        readOnly: readOnlyRef.current ?? false,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         tabSize: 2,
@@ -404,9 +405,10 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
       modelRef.current = null
       monacoRef.current = null
     }
-  }, [shouldLoad])
+  }, [scheduleValidation, shouldLoad])
 
   useEffect(() => {
+    readOnlyRef.current = props.readOnly
     const editor = editorRef.current
     if (!editor) return
     editor.updateOptions({ readOnly: props.readOnly ?? false })
@@ -421,7 +423,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
     model.setValue(props.value)
     applyingExternalChange.current = false
     scheduleValidation()
-  }, [props.value])
+  }, [props.value, scheduleValidation])
 
   useEffect(() => {
     schemaRef.current = props.schema
@@ -429,7 +431,7 @@ function MonacoJsonEditorInner(props: MonacoJsonEditorProps) {
     onChangeRef.current = props.onChange
     onDiagnosticsRef.current = props.onDiagnostics
     scheduleValidation()
-  }, [props.schema, props.schemaId, props.onChange, props.onDiagnostics])
+  }, [props.schema, props.schemaId, props.onChange, props.onDiagnostics, scheduleValidation])
 
   const requestLoad = useCallback((focus: boolean) => {
     if (loadRequested.current) return

@@ -5,6 +5,7 @@ import { GATEWAY_OPENCLAW_POLICY_MESSAGE, isGatewayOpenclawPath } from "./helper
 import type { ValidationIssue } from "~/sdk/runtime"
 import { requireAdminProjectAccess } from "~/sdk/project"
 import {
+  coerceString,
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
@@ -31,7 +32,7 @@ export const configDotGet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    return { ...base, path: String(d["path"] || "") }
+    return { ...base, path: coerceString(d["path"]) }
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
@@ -71,10 +72,10 @@ export const configDotSet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    const path = String(d["path"] || "").trim()
+    const path = coerceString(d["path"]).trim()
     if (!path) throw new Error("missing path")
-    const value = d["value"] === undefined ? undefined : String(d["value"])
-    const valueJson = d["valueJson"] === undefined ? undefined : String(d["valueJson"])
+    const value = d["value"] === undefined ? undefined : coerceString(d["value"])
+    const valueJson = d["valueJson"] === undefined ? undefined : coerceString(d["valueJson"])
     const del = Boolean(d["del"])
     if (value !== undefined && valueJson !== undefined) {
       throw new Error("ambiguous value (provide value or valueJson, not both)")
@@ -159,10 +160,10 @@ export const configDotBatch = createServerFn({ method: "POST" })
     const ops = opsRaw.map((op, i) => {
       if (!op || typeof op !== "object" || Array.isArray(op)) throw new Error(`invalid op at index ${i}`)
       const o = op as Record<string, unknown>
-      const path = String(o["path"] || "")
+      const path = coerceString(o["path"])
       const del = Boolean(o["del"])
-      const value = o["value"] === undefined ? undefined : String(o["value"])
-      const valueJson = o["valueJson"] === undefined ? undefined : String(o["valueJson"])
+      const value = o["value"] === undefined ? undefined : coerceString(o["value"])
+      const valueJson = o["valueJson"] === undefined ? undefined : coerceString(o["valueJson"])
       if (value !== undefined && valueJson !== undefined) {
         throw new Error(`ambiguous op at index ${i} (provide value or valueJson, not both)`)
       }

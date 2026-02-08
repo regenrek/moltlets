@@ -28,6 +28,6 @@ export function ThemeToggle() {
     theme === "system" ? (prefersDark ? "dark" : "light") : theme;
 
   return (
-    <ThemeSwitcher value={resolvedTheme} onChange={(next) => setTheme(next)} />
+    <ThemeSwitcher value={resolvedTheme} onThemeChange={(next) => setTheme(next)} />
   );
 }

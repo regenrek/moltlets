@@ -22,7 +22,7 @@ async function buildRawImage(params: { repoRoot: string; nixBin: string; host: s
   try {
     parsed = JSON.parse(out);
   } catch (e) {
-    throw new Error(`nix build --json returned invalid JSON (${String((e as Error)?.message || e)})`);
+    throw new Error(`nix build --json returned invalid JSON (${String((e as Error)?.message || e)})`, { cause: e });
   }
   const imagePath = (parsed as any)?.[0]?.outputs?.out;
   if (!imagePath || typeof imagePath !== "string") {

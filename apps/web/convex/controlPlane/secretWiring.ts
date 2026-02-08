@@ -117,6 +117,6 @@ export const listByProjectHost = query({
       .query("secretWiring")
       .withIndex("by_project_host", (q) => q.eq("projectId", projectId).eq("hostName", host))
       .collect();
-    return rows.sort((a, b) => a.secretName.localeCompare(b.secretName));
+    return rows.toSorted((a, b) => a.secretName.localeCompare(b.secretName));
   },
 });

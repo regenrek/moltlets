@@ -13,8 +13,8 @@ import {
 
 describe("plugins reserved commands", () => {
   it("matches base command registry", () => {
-    const reserved = listReservedCommands().sort();
-    const base = [...baseCommandNames].sort();
+    const reserved = listReservedCommands().toSorted();
+    const base = [...baseCommandNames].toSorted();
     expect(reserved).toEqual(base);
   });
 
@@ -43,7 +43,7 @@ describe("plugins reserved commands", () => {
     const errors: { slug: string }[] = [];
     const plugins = listInstalledPlugins({ cwd: repoRoot, onError: (err) => errors.push(err) });
     expect(plugins.map((p) => p.command)).toEqual(["cattle"]);
-    expect(errors.map((e) => e.slug).sort()).toEqual(["broken"]);
+    expect(errors.map((e) => e.slug).toSorted()).toEqual(["broken"]);
   });
 
   it("rejects path traversal in removePlugin", () => {

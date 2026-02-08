@@ -101,5 +101,5 @@ export function listEnabledChannels(openclaw: unknown): string[] {
       if (!isPlainObject(entry)) return true
       return entry["enabled"] !== false
     })
-    .sort()
+    .toSorted()
 }

@@ -5,7 +5,7 @@ import type {
   WorkspaceDocWriteResult,
   WorkspaceDocWriteScope,
 } from "./model"
-import { parseProjectIdInput } from "~/sdk/runtime"
+import { coerceString, parseProjectIdInput } from "~/sdk/runtime"
 import {
   listWorkspaceDocsServer,
   readWorkspaceDocServer,
@@ -19,7 +19,7 @@ export const listWorkspaceDocs = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      gatewayId: String(d["gatewayId"] || ""),
+      gatewayId: coerceString(d["gatewayId"]),
     }
   })
   .handler(async ({ data }) => {
@@ -30,13 +30,13 @@ export const readWorkspaceDoc = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    const scope = String(d["scope"] || "")
+    const scope = coerceString(d["scope"])
     if (scope !== "common" && scope !== "gateway" && scope !== "effective") throw new Error("invalid scope")
     return {
       ...base,
       gatewayId: typeof d["gatewayId"] === "string" ? d["gatewayId"] : "",
       scope: scope as WorkspaceDocScope,
-      name: String(d["name"] || ""),
+      name: coerceString(d["name"]),
     }
   })
   .handler(async ({ data }): Promise<WorkspaceDocReadResult> => {
@@ -47,13 +47,13 @@ export const writeWorkspaceDoc = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
-    const scope = String(d["scope"] || "")
+    const scope = coerceString(d["scope"])
     if (scope !== "common" && scope !== "gateway") throw new Error("invalid scope")
     return {
       ...base,
       gatewayId: typeof d["gatewayId"] === "string" ? d["gatewayId"] : "",
       scope: scope as WorkspaceDocWriteScope,
-      name: String(d["name"] || ""),
+      name: coerceString(d["name"]),
       content: typeof d["content"] === "string" ? d["content"] : "",
       expectedSha256: typeof d["expectedSha256"] === "string" ? d["expectedSha256"] : "",
     }
@@ -68,8 +68,8 @@ export const resetWorkspaceDocOverride = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      gatewayId: String(d["gatewayId"] || ""),
-      name: String(d["name"] || ""),
+      gatewayId: coerceString(d["gatewayId"]),
+      name: coerceString(d["name"]),
       expectedSha256: typeof d["expectedSha256"] === "string" ? d["expectedSha256"] : "",
     }
   })

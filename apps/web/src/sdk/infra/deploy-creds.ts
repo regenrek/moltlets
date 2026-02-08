@@ -9,6 +9,8 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
 import { requireAdminProjectAccess } from "~/sdk/project"
 import {
+  coerceString,
+  coerceTrimmedString,
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
@@ -56,7 +58,7 @@ function parseRunnerJson(messages: string[]): Record<string, unknown> | null {
   const direct = parseLastJsonMessage<Record<string, unknown>>(messages)
   if (direct) return direct
   for (let i = messages.length - 1; i >= 0; i--) {
-    const raw = String(messages[i] || "").trim()
+    const raw = coerceTrimmedString(messages[i])
     if (!raw) continue
     try {
       const parsed = JSON.parse(raw)
@@ -119,9 +121,9 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
         ? row.keys
             .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
             .map((entry) => {
-              const key = String(entry.key || "").trim()
-              const source = (String(entry.source || "unset").trim() || "unset") as DeployCredsStatusKey["source"]
-              const status = (String(entry.status || "unset").trim() || "unset") as DeployCredsStatusKey["status"]
+              const key = coerceTrimmedString(entry.key)
+              const source = (coerceTrimmedString(entry.source) || "unset") as DeployCredsStatusKey["source"]
+              const status = (coerceTrimmedString(entry.status) || "unset") as DeployCredsStatusKey["status"]
               const value = typeof entry.value === "string" ? entry.value : undefined
               return { key, source, status, ...(value ? { value } : {}) }
             })
@@ -145,7 +147,7 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
         template: typeof row.template === "string" ? row.template : "",
       } satisfies DeployCredsStatus
     } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to read deploy creds status. Check runner."))
+      throw new Error(sanitizeErrorMessage(err, "Unable to read deploy creds status. Check runner."), { cause: err })
     }
   })
 
@@ -179,10 +181,10 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
         && typeof runner.capabilities?.localSecretsNonce === "string"
         && runner.capabilities.localSecretsNonce.trim().length > 0,
       )
-      .sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0))
+      .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0))
       .map((runner) => ({
         port: Math.trunc(Number(runner.capabilities?.localSecretsPort || 0)),
-        nonce: String(runner.capabilities?.localSecretsNonce || "").trim(),
+        nonce: coerceTrimmedString(runner.capabilities?.localSecretsNonce),
       }))
       .find((row) => row.port >= 1024 && row.port <= 65535 && row.nonce.length > 0) || null
 
@@ -233,7 +235,7 @@ export const detectSopsAgeKey = createServerFn({ method: "POST" })
         ? row.candidates
             .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
             .map((entry) => ({
-              path: String(entry.path || ""),
+              path: coerceString(entry.path),
               exists: Boolean(entry.exists),
               valid: Boolean(entry.valid),
               reason: typeof entry.reason === "string" ? entry.reason : undefined,
@@ -247,7 +249,7 @@ export const detectSopsAgeKey = createServerFn({ method: "POST" })
         recommendedPath: typeof row.recommendedPath === "string" ? row.recommendedPath : null,
       }
     } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to detect age keys. Check runner."))
+      throw new Error(sanitizeErrorMessage(err, "Unable to detect age keys. Check runner."), { cause: err })
     }
   })
 
@@ -284,6 +286,6 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       }
       return { ok: true as const, keyPath, publicKey }
     } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to generate age key. Check runner."))
+      throw new Error(sanitizeErrorMessage(err, "Unable to generate age key. Check runner."), { cause: err })
     }
   })

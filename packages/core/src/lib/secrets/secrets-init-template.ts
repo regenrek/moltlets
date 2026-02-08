@@ -18,7 +18,7 @@ export type SecretsInitScope = SecretsPlanScope | "all";
 const SKIP_HOST_SECRET_NAMES = new Set(["admin_password_hash", "tailscale_auth_key"]);
 
 function uniqSorted(values: string[]): string[] {
-  return Array.from(new Set(values)).sort();
+  return Array.from(new Set(values)).toSorted();
 }
 
 export function buildSecretsInitTemplateSets(params: {

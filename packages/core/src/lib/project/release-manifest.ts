@@ -140,7 +140,7 @@ function parseJsonOrThrow(params: { text: string; sourceLabel: string }): unknow
     return JSON.parse(params.text);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`invalid JSON (${params.sourceLabel}): ${msg}`);
+    throw new Error(`invalid JSON (${params.sourceLabel}): ${msg}`, { cause: e });
   }
 }
 

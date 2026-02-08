@@ -19,7 +19,7 @@ type MinimalRun = {
 }
 
 type MinimalConfig = {
-  hosts?: Record<string, any>
+  hosts?: Record<string, Record<string, unknown>>
 }
 
 export type OpenClawSetupModel = {
@@ -35,6 +35,11 @@ export type DeriveOpenClawSetupModelInput = {
   stepFromSearch?: string | null
   latestOpenClawSecretsVerifyRun: MinimalRun | null
   latestUpdateApplyRun: MinimalRun | null
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
 }
 
 export function coerceOpenClawSetupStepId(value: unknown): OpenClawSetupStepId | null {
@@ -54,10 +59,13 @@ export function deriveOpenClawSetupModel(input: DeriveOpenClawSetupModelInput): 
       ? input.hostFromRoute
       : null
 
-  const hostCfg = selectedHost ? (input.config?.hosts as any)?.[selectedHost] : null
-  const enabled = Boolean(hostCfg?.openclaw?.enable)
-  const gatewaysOrder = Array.isArray(hostCfg?.gatewaysOrder) ? hostCfg.gatewaysOrder : []
-  const gatewayMap = hostCfg?.gateways && typeof hostCfg.gateways === "object" ? hostCfg.gateways : {}
+  const hostCfg = selectedHost ? input.config?.hosts?.[selectedHost] ?? null : null
+  const openclawCfg = asRecord(hostCfg?.openclaw) ?? {}
+  const enabled = Boolean(openclawCfg.enable)
+  const gatewaysOrder = Array.isArray(hostCfg?.gatewaysOrder)
+    ? hostCfg.gatewaysOrder.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : []
+  const gatewayMap = asRecord(hostCfg?.gateways) ?? {}
   const hasGateway = gatewaysOrder.length > 0 || Object.keys(gatewayMap).length > 0
   const secretsOk = input.latestOpenClawSecretsVerifyRun?.status === "succeeded"
   const deployOk = input.latestUpdateApplyRun?.status === "succeeded"
@@ -87,9 +95,9 @@ export function deriveOpenClawSetupModel(input: DeriveOpenClawSetupModelInput): 
 
   const visible = (step: OpenClawSetupStep) => step.status !== "locked"
   const requested = coerceOpenClawSetupStepId(input.stepFromSearch)
-  const requestedStep = requested && steps.find((s) => s.id === requested && visible(s)) ? requested : null
-  const firstIncomplete = steps.find((s) => visible(s) && s.status !== "done")?.id
-    ?? steps.find((s) => visible(s))?.id
+  const requestedStep = requested && steps.find((step) => step.id === requested && visible(step)) ? requested : null
+  const firstIncomplete = steps.find((step) => visible(step) && step.status !== "done")?.id
+    ?? steps.find((step) => visible(step))?.id
     ?? "enable"
   const showCelebration = steps.every((step) => step.status === "done")
 

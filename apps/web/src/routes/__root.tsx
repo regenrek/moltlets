@@ -135,7 +135,6 @@ function RootComponent() {
         initialToken={token}
       >
         <AuthErrorWatcher />
-        <RequireSignIn />
         <EnsureAuthedUser />
         <AuthGate app={app} />
       </ConvexBetterAuthProvider>
@@ -172,22 +171,6 @@ function EnsureAuthedUser() {
     if (isPending || isLoading || !isAuthenticated || !hasSession) return
     void ensureCurrent({}).catch(() => null)
   }, [ensureCurrent, hasSession, isAuthenticated, isLoading, isPending])
-
-  return null
-}
-
-function RequireSignIn() {
-  const router = useRouter()
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { data: session, isPending } = authClient.useSession()
-  const { isLoading } = useConvexAuth()
-
-  React.useEffect(() => {
-    if (isPending || isLoading) return
-    if (pathname === "/sign-in" || pathname.startsWith("/api/auth/")) return
-    if (session?.user?.id) return
-    void router.navigate({ to: "/sign-in" })
-  }, [isLoading, isPending, pathname, router, session?.user?.id])
 
   return null
 }

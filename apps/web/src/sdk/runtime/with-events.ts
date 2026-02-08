@@ -49,6 +49,6 @@ export async function runWithEventsAndStatus<T>(params: {
     const safeMessage = sanitizeErrorMessage(err, "run failed")
     await params.client.mutation(api.controlPlane.runs.setStatus, { runId: params.runId, status: "failed", errorMessage: safeMessage })
     if (params.onError) return params.onError(safeMessage)
-    throw new Error(safeMessage)
+    throw new Error(safeMessage, { cause: err })
   }
 }

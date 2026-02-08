@@ -55,7 +55,7 @@ describe("config patch security defaults", () => {
       logging: { redactSensitive: "tools" },
       session: { dmScope: "per-channel-peer" },
     });
-    expect(res.changes.map((c) => `${c.scope}.${c.path}`).sort()).toEqual([
+    expect(res.changes.map((c) => `${c.scope}.${c.path}`).toSorted()).toEqual([
       "openclaw.logging.redactSensitive",
       "openclaw.session.dmScope",
     ]);

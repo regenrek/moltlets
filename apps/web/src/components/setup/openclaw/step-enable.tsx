@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Button } from "~/components/ui/button"
@@ -10,7 +10,6 @@ export function OpenClawSetupStepEnable(props: {
   isComplete: boolean
   onContinue: () => void
 }) {
-  const queryClient = useQueryClient()
   const enable = useMutation({
     mutationFn: async () => {
       return await configDotBatch({
@@ -21,8 +20,6 @@ export function OpenClawSetupStepEnable(props: {
           ],
         },
       })
-    },
-    onSuccess: async () => {
     },
   })
 

@@ -34,7 +34,7 @@ function isWritablePathOrParent(target: string): boolean {
 }
 
 export function withFlakesEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const base = { ...process.env, ...(env || {}) };
+  const base = { ...process.env, ...env };
   const homeDir = String(base.HOME || "").trim();
   const needsPrivateXdgHome = Boolean(homeDir) && !isWritableDir(homeDir);
 

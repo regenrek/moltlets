@@ -37,9 +37,9 @@ export function Mermaid({ chart }: MermaidProps) {
   useEffect(() => {
     if (!mounted || !containerRef.current) return;
     let cancelled = false;
-
-    void import("mermaid")
-      .then(({ default: mermaid }) => {
+    const renderMermaid = async () => {
+      try {
+        const { default: mermaid } = await import("mermaid");
         if (cancelled || !containerRef.current) return;
         mermaid.initialize({
           startOnLoad: false,
@@ -49,16 +49,15 @@ export function Mermaid({ chart }: MermaidProps) {
           theme: resolvedTheme === "dark" ? "dark" : "default",
         });
         const chartText = chart.replaceAll("\\n", "\n").replaceAll("\r\n", "\n").trim();
-        return mermaid.render(safeId, chartText);
-      })
-      .then((result) => {
-        if (cancelled || !containerRef.current || !result) return;
+        const result = await mermaid.render(safeId, chartText);
+        if (cancelled || !containerRef.current) return;
         containerRef.current.innerHTML = result.svg;
         result.bindFunctions?.(containerRef.current);
-      })
-      .catch(() => {
+      } catch {
         // Fail closed: no diagram, avoid throwing in docs render.
-      });
+      }
+    };
+    void renderMermaid();
 
     return () => {
       cancelled = true;

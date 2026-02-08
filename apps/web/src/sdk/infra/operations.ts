@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { enqueueRunnerJobForRun, parseProjectIdInput } from "~/sdk/runtime"
+import { coerceString, enqueueRunnerJobForRun, parseProjectIdInput } from "~/sdk/runtime"
 
 export const runDoctor = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
@@ -11,7 +11,7 @@ export const runDoctor = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      host: String(d["host"] || ""),
+      host: coerceString(d["host"]),
       scope: (typeof d["scope"] === "string" ? d["scope"] : "all") as
         | "repo"
         | "bootstrap"
@@ -51,8 +51,8 @@ export const bootstrapStart = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>
     return {
       ...base,
-      host: String(d["host"] || ""),
-      mode: (String(d["mode"] || "nixos-anywhere").trim() || "nixos-anywhere") as "nixos-anywhere" | "image",
+      host: coerceString(d["host"]),
+      mode: (coerceString(d["mode"]).trim() || "nixos-anywhere") as "nixos-anywhere" | "image",
     }
   })
   .handler(async ({ data }) => {
@@ -79,8 +79,8 @@ export const bootstrapExecute = createServerFn({ method: "POST" })
     return {
       ...base,
       runId: d["runId"] as Id<"runs">,
-      host: String(d["host"] || ""),
-      mode: (String(d["mode"] || "nixos-anywhere").trim() || "nixos-anywhere") as "nixos-anywhere" | "image",
+      host: coerceString(d["host"]),
+      mode: (coerceString(d["mode"]).trim() || "nixos-anywhere") as "nixos-anywhere" | "image",
       force: Boolean(d["force"]),
       dryRun: Boolean(d["dryRun"]),
       lockdownAfter: Boolean(d["lockdownAfter"]),

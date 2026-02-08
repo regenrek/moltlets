@@ -11,10 +11,6 @@ import { rateLimit } from "../shared/rateLimit";
 import { GatewayDoc } from "../shared/validators";
 import { HostStatus } from "../schema";
 
-function literals<const T extends readonly string[]>(values: T) {
-  return values.map((value) => v.literal(value));
-}
-
 const DesiredGatewaySummaryPatch = v.object({
   enabled: v.optional(v.boolean()),
   channelCount: v.optional(v.number()),
@@ -144,7 +140,7 @@ export const listByProjectHost = query({
       .query("gateways")
       .withIndex("by_project_host", (q) => q.eq("projectId", projectId).eq("hostName", host))
       .collect();
-    return rows.sort((a, b) => a.gatewayId.localeCompare(b.gatewayId));
+    return rows.toSorted((a, b) => a.gatewayId.localeCompare(b.gatewayId));
   },
 });
 
@@ -157,7 +153,7 @@ export const listByProject = query({
       .query("gateways")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return rows.sort((a, b) => {
+    return rows.toSorted((a, b) => {
       const hostCmp = a.hostName.localeCompare(b.hostName);
       if (hostCmp !== 0) return hostCmp;
       return a.gatewayId.localeCompare(b.gatewayId);

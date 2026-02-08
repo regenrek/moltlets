@@ -80,7 +80,7 @@ async function writeGatewayConfig(params: {
     target: { gatewayId: params.gatewayId },
     data: {
       runId: writeRes.runId,
-      ...(params.data || {}),
+      ...params.data,
     },
   })
 

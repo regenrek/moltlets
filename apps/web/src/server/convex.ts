@@ -1,4 +1,3 @@
-import { ConvexHttpClient } from "convex/browser";
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
 
 import { fetchAuthAction, fetchAuthMutation, fetchAuthQuery } from "~/server/better-auth";
@@ -17,12 +16,6 @@ export type ConvexClient = {
     ...args: OptionalRestArgs<Action>
   ) => Promise<FunctionReturnType<Action>>;
 };
-
-function getConvexUrl(): string {
-  const url = String(process.env["VITE_CONVEX_URL"] || process.env["CONVEX_URL"] || "").trim();
-  if (!url) throw new Error("missing VITE_CONVEX_URL");
-  return url;
-}
 
 export function createConvexClient(): ConvexClient {
   return {

@@ -29,6 +29,7 @@ function HostOverview() {
   const { projectSlug, host } = Route.useParams()
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
+  const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const projectStatus = projectQuery.project?.status
@@ -43,15 +44,15 @@ function HostOverview() {
   const desired = hostSummary?.desired || {}
 
   const recentRuns = useQuery({
-    queryKey: ["dashboardRecentRuns", projectId, host],
+    queryKey: ["dashboardRecentRuns", projectId, host, hasServerHttpClient],
     enabled: Boolean(projectId && host),
     queryFn: async () => {
       const args = {
         projectId: projectId as Id<"projects">,
         paginationOpts: { numItems: 200, cursor: null as string | null },
       }
-      if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
+      if (hasServerHttpClient) {
+        return await convexQueryClient.serverHttpClient!.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
       return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },

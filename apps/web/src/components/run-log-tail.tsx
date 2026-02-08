@@ -1,82 +1,75 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { useRouter } from "@tanstack/react-router";
-import * as React from "react";
-import type { Id } from "../../convex/_generated/dataModel";
-import { api } from "../../convex/_generated/api";
-import { Button } from "~/components/ui/button";
-import { cancelRun } from "~/sdk/runtime";
+import { convexQuery } from "@convex-dev/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
+import * as React from "react"
+import type { Id } from "../../convex/_generated/dataModel"
+import { api } from "../../convex/_generated/api"
+import { Button } from "~/components/ui/button"
+import { cancelRun } from "~/sdk/runtime"
 
-export function RunLogTail({ runId, onDone }: { runId: Id<"runs">; onDone?: (status: string) => void }) {
-  const router = useRouter();
-  const convexQueryClient = router.options.context.convexQueryClient;
+type RunDoneStatus = "succeeded" | "failed" | "canceled"
 
-  const runQuery = useQuery({ ...convexQuery(api.controlPlane.runs.get, { runId }) });
+export function RunLogTail(props: { runId: Id<"runs">; onDone?: (status: RunDoneStatus) => void }) {
+  return <RunLogTailBody key={props.runId} {...props} />
+}
+
+function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status: RunDoneStatus) => void }) {
+  const router = useRouter()
+  const convexQueryClient = router.options.context.convexQueryClient
+  const runQuery = useQuery({ ...convexQuery(api.controlPlane.runs.get, { runId }) })
   const pageQuery = useQuery({
     ...convexQuery(api.controlPlane.runEvents.pageByRun, { runId, paginationOpts: { numItems: 300, cursor: null } }),
-  });
+  })
 
-  const [olderPages, setOlderPages] = React.useState<any[]>([]);
-  const [cursor, setCursor] = React.useState<string | null>(null);
-  const [isDone, setIsDone] = React.useState(false);
-  const lastDoneStatus = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    setOlderPages([]);
-    setCursor(null);
-    setIsDone(false);
-    lastDoneStatus.current = null;
-  }, [runId]);
-
-  React.useEffect(() => {
-    if (!pageQuery.data) return;
-    if (olderPages.length > 0) return;
-    if (cursor !== null) return;
-    setCursor(pageQuery.data.continueCursor);
-    setIsDone(pageQuery.data.isDone);
-  }, [cursor, olderPages.length, pageQuery.data]);
+  type RunEventsPage = NonNullable<typeof pageQuery.data>
+  const [olderPages, setOlderPages] = React.useState<RunEventsPage[]>([])
+  const firstPage = pageQuery.data
+  const lastOlderPage = olderPages[olderPages.length - 1] ?? null
+  const continueCursor = lastOlderPage ? lastOlderPage.continueCursor : firstPage?.continueCursor ?? null
+  const isDone = lastOlderPage ? lastOlderPage.isDone : firstPage?.isDone ?? true
+  const canLoadOlder = Boolean(firstPage && continueCursor && !isDone)
 
   const loadOlder = useMutation({
     mutationFn: async () => {
-      if (!cursor || isDone) return null;
-      const args = { runId, paginationOpts: { numItems: 300, cursor } };
+      if (!continueCursor || isDone) return null
+      const args = { runId, paginationOpts: { numItems: 300, cursor: continueCursor } }
       if (convexQueryClient.serverHttpClient) {
-        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runEvents.pageByRun, args);
+        return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runEvents.pageByRun, args)
       }
-      return await convexQueryClient.convexClient.query(api.controlPlane.runEvents.pageByRun, args);
+      return await convexQueryClient.convexClient.query(api.controlPlane.runEvents.pageByRun, args)
     },
-    onSuccess: (res) => {
-      if (!res) return;
-      setOlderPages((prev) => [...prev, res]);
-      setCursor(res.continueCursor);
-      setIsDone(res.isDone);
+    onSuccess: (result) => {
+      if (!result) return
+      setOlderPages((prev) => [...prev, result])
     },
-  });
+  })
 
   const eventsDesc = [
-    ...(pageQuery.data?.page ?? []),
-    ...olderPages.flatMap((p) => p.page as any[]),
-  ];
-  const seen = new Set<string>();
+    ...(firstPage?.page ?? []),
+    ...olderPages.flatMap((page) => page.page),
+  ]
+  const seen = new Set<string>()
   const events = eventsDesc
     .slice()
-    .reverse()
-    .filter((e: any) => {
-      if (seen.has(e._id)) return false;
-      seen.add(e._id);
-      return true;
-    });
-  const run = runQuery.data?.run;
-  const runStatus = run?.status;
+    .toReversed()
+    .filter((event) => {
+      if (seen.has(event._id)) return false
+      seen.add(event._id)
+      return true
+    })
 
-  React.useEffect(() => {
-    if (!onDone) return;
-    if (!runStatus) return;
-    if (runStatus === lastDoneStatus.current) return;
-    if (runStatus !== "succeeded" && runStatus !== "failed" && runStatus !== "canceled") return;
-    lastDoneStatus.current = runStatus;
-    onDone(runStatus);
-  }, [onDone, runStatus]);
+  const run = runQuery.data?.run
+  const runStatus = run?.status
+  const doneStatus: RunDoneStatus | null =
+    runStatus === "succeeded" || runStatus === "failed" || runStatus === "canceled"
+      ? runStatus
+      : null
+  const notifiedDoneStatus = React.useRef<RunDoneStatus | null>(null)
+
+  if (doneStatus && onDone && notifiedDoneStatus.current !== doneStatus) {
+    notifiedDoneStatus.current = doneStatus
+    queueMicrotask(() => onDone(doneStatus))
+  }
 
   return (
     <div className="rounded-lg border bg-card">
@@ -88,7 +81,7 @@ export function RunLogTail({ runId, onDone }: { runId: Id<"runs">; onDone?: (sta
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {pageQuery.data && !isDone ? (
+          {canLoadOlder ? (
             <Button
               size="sm"
               variant="outline"
@@ -118,10 +111,10 @@ export function RunLogTail({ runId, onDone }: { runId: Id<"runs">; onDone?: (sta
           ) : events.length === 0 ? (
             <span className="text-muted-foreground">No logs yet.</span>
           ) : (
-            events.map((e) => `${new Date(e.ts).toLocaleTimeString()} ${e.level} ${e.message}`).join("\n")
+            events.map((event) => `${new Date(event.ts).toLocaleTimeString()} ${event.level} ${event.message}`).join("\n")
           )}
         </pre>
       </div>
     </div>
-  );
+  )
 }

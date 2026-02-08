@@ -51,9 +51,9 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
     return Array.from(buckets.entries())
       .map(([gateway, entries]) => ({
         gateway,
-        entries: entries.sort((a, b) => a.envVar.localeCompare(b.envVar)),
+        entries: entries.toSorted((a, b) => a.envVar.localeCompare(b.envVar)),
       }))
-      .sort((a, b) => a.gateway.localeCompare(b.gateway))
+      .toSorted((a, b) => a.gateway.localeCompare(b.gateway))
   }, [props.missingEnvVars])
 
   const [drafts, setDrafts] = useState<Record<string, WireDraft>>({})

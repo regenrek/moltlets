@@ -24,7 +24,7 @@ function readSkillEntries(skills: unknown): SkillEntryView[] {
       const hasInlineApiKey = typeof entry["apiKey"] === "string" && Boolean(String(entry["apiKey"]).trim()) && !apiKeySecret
       return { skill, apiKeySecret, hasInlineApiKey }
     })
-    .sort((a, b) => a.skill.localeCompare(b.skill))
+    .toSorted((a, b) => a.skill.localeCompare(b.skill))
 }
 
 export function SkillsConfigCard(props: {

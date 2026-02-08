@@ -69,7 +69,7 @@ export function GatewayIntegrations(props: {
       const text = Array.isArray(allowFrom) ? allowFrom.map(String).join("\n") : ""
       return `${channel.id}:${text}`
     })
-    .sort()
+    .toSorted()
     .join("|")
   const channelsKey = `${props.gatewayId}:${allowFromKey}`
 

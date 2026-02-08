@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { HostCacheSettingsSection } from "~/components/hosts/cache-settings-section"
@@ -11,21 +11,38 @@ import { projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 import { configDotBatch, configDotGet } from "~/sdk/config"
 
-function normalizeCache(cache: any): {
+type CacheNetrcSettings = {
+  enable: boolean
+  secretName: string
+  path: string
+  narinfoCachePositiveTtl: number
+}
+
+type CacheSettings = {
   substituters: string[]
   trustedPublicKeys: string[]
-  netrc: { enable: boolean; secretName: string; path: string; narinfoCachePositiveTtl: number }
-} {
-  const c = cache && typeof cache === "object" ? cache : {}
-  const netrc = c.netrc && typeof c.netrc === "object" ? c.netrc : {}
+  netrc: CacheNetrcSettings
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function normalizeCache(cache: unknown): CacheSettings {
+  const cacheRecord = asRecord(cache) ?? {}
+  const netrcRecord = asRecord(cacheRecord.netrc) ?? {}
   return {
-    substituters: Array.isArray(c.substituters) ? c.substituters.map(String) : [],
-    trustedPublicKeys: Array.isArray(c.trustedPublicKeys) ? c.trustedPublicKeys.map(String) : [],
+    substituters: Array.isArray(cacheRecord.substituters) ? cacheRecord.substituters.map(String) : [],
+    trustedPublicKeys: Array.isArray(cacheRecord.trustedPublicKeys) ? cacheRecord.trustedPublicKeys.map(String) : [],
     netrc: {
-      enable: Boolean(netrc.enable),
-      secretName: typeof netrc.secretName === "string" ? netrc.secretName : "garnix_netrc",
-      path: typeof netrc.path === "string" ? netrc.path : "/etc/nix/netrc",
-      narinfoCachePositiveTtl: typeof netrc.narinfoCachePositiveTtl === "number" ? netrc.narinfoCachePositiveTtl : 3600,
+      enable: Boolean(netrcRecord.enable),
+      secretName: typeof netrcRecord.secretName === "string" ? netrcRecord.secretName : "garnix_netrc",
+      path: typeof netrcRecord.path === "string" ? netrcRecord.path : "/etc/nix/netrc",
+      narinfoCachePositiveTtl:
+        typeof netrcRecord.narinfoCachePositiveTtl === "number"
+          ? netrcRecord.narinfoCachePositiveTtl
+          : 3600,
     },
   }
 }
@@ -33,7 +50,7 @@ function normalizeCache(cache: any): {
 export const Route = createFileRoute("/$projectSlug/cache")({
   loader: async ({ context, params }) => {
     const projects = await context.queryClient.ensureQueryData(projectsListQueryOptions())
-    const project = projects.find((p) => slugifyProjectName(p.name) === params.projectSlug) ?? null
+    const project = projects.find((item) => slugifyProjectName(item.name) === params.projectSlug) ?? null
     const projectId = (project?._id as Id<"projects"> | null) ?? null
     if (!projectId) return
     if (project?.status !== "ready") return
@@ -47,7 +64,6 @@ function CachePage() {
   const projectId = projectQuery.projectId
   const projectStatus = projectQuery.project?.status
   const isReady = projectStatus === "ready"
-  const queryClient = useQueryClient()
 
   const hostsConfigQueryKey = ["cacheHostsConfig", projectId] as const
   const hostsConfigQuery = useQuery({
@@ -60,103 +76,27 @@ function CachePage() {
           path: "hosts",
         },
       })
-      if (!node.value || typeof node.value !== "object" || Array.isArray(node.value)) return {}
-      return node.value as Record<string, unknown>
+      return asRecord(node.value) ?? {}
     },
   })
 
-  const hostsConfig = hostsConfigQuery.data || {}
-
   const hostCaches = useMemo(() => {
-    const hosts = Object.entries(hostsConfig).sort(([a], [b]) => a.localeCompare(b))
+    const hosts = Object.entries(hostsConfigQuery.data ?? {}).toSorted(([a], [b]) => a.localeCompare(b))
     return hosts.map(([host, hostCfg]) => ({
       host,
-      cache: normalizeCache((hostCfg as any)?.cache),
+      cache: normalizeCache(asRecord(hostCfg)?.cache),
     }))
-  }, [hostsConfig])
+  }, [hostsConfigQuery.data])
 
   const cacheDivergedHosts = useMemo(() => {
     const [first] = hostCaches
     if (!first) return []
-    const base = JSON.stringify(first.cache)
+    const baseline = JSON.stringify(first.cache)
     return hostCaches
-      .filter((h) => JSON.stringify(h.cache) !== base)
-      .map((h) => h.host)
-      .filter((h) => h !== first.host)
+      .filter((entry) => JSON.stringify(entry.cache) !== baseline)
+      .map((entry) => entry.host)
+      .filter((host) => host !== first.host)
   }, [hostCaches])
-
-  const [cacheSubstitutersText, setCacheSubstitutersText] = useState("")
-  const [cacheTrustedKeysText, setCacheTrustedKeysText] = useState("")
-  const [cacheNetrcEnable, setCacheNetrcEnable] = useState(false)
-  const [cacheNetrcSecretName, setCacheNetrcSecretName] = useState("garnix_netrc")
-  const [cacheNetrcPath, setCacheNetrcPath] = useState("/etc/nix/netrc")
-  const [cacheNarinfoCachePositiveTtl, setCacheNarinfoCachePositiveTtl] = useState("3600")
-
-  useEffect(() => {
-    const hosts = Object.entries(hostsConfig).sort(([a], [b]) => a.localeCompare(b))
-    const firstHostCfg = hosts[0]?.[1] ?? null
-    if (!firstHostCfg) return
-    const cache = normalizeCache((firstHostCfg as any).cache)
-    setCacheSubstitutersText((cache.substituters || []).join("\n"))
-    setCacheTrustedKeysText((cache.trustedPublicKeys || []).join("\n"))
-    setCacheNetrcEnable(Boolean(cache.netrc.enable))
-    setCacheNetrcSecretName(cache.netrc.secretName || "garnix_netrc")
-    setCacheNetrcPath(cache.netrc.path || "/etc/nix/netrc")
-    setCacheNarinfoCachePositiveTtl(String(cache.netrc.narinfoCachePositiveTtl || 3600))
-  }, [hostsConfig])
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!projectId) throw new Error("missing project")
-
-      const hostNames = Object.keys(hostsConfig)
-      if (hostNames.length === 0) throw new Error("no hosts found (add a host first)")
-
-      const cacheSubstituters = parseLineList(cacheSubstitutersText)
-      const cacheTrustedPublicKeys = parseLineList(cacheTrustedKeysText)
-      if (cacheSubstituters.length === 0) throw new Error("Cache substituters must not be empty.")
-      if (cacheTrustedPublicKeys.length === 0) throw new Error("Cache trusted public keys must not be empty.")
-
-      const narinfoTtlRaw = cacheNarinfoCachePositiveTtl.trim()
-      const narinfoTtl = Number(narinfoTtlRaw)
-      if (!Number.isInteger(narinfoTtl) || narinfoTtl <= 0) throw new Error("Cache narinfo TTL must be a positive integer.")
-
-      const netrcSecretName = cacheNetrcSecretName.trim()
-      const netrcPath = cacheNetrcPath.trim()
-      if (cacheNetrcEnable && !netrcSecretName) throw new Error("Cache netrc secret name is required when enabled.")
-      if (cacheNetrcEnable && !netrcPath) throw new Error("Cache netrc path is required when enabled.")
-
-      const cacheNext = {
-        substituters: cacheSubstituters,
-        trustedPublicKeys: cacheTrustedPublicKeys,
-        netrc: {
-          enable: cacheNetrcEnable,
-          secretName: netrcSecretName,
-          path: netrcPath,
-          narinfoCachePositiveTtl: narinfoTtl,
-        },
-      }
-
-      return await configDotBatch({
-        data: {
-          projectId: projectId as Id<"projects">,
-          ops: hostNames.map((host) => ({
-            path: `hosts.${host}.cache`,
-            valueJson: JSON.stringify(cacheNext),
-          })),
-        },
-      })
-    },
-    onSuccess: (res) => {
-      if (res.ok) {
-        toast.success("Saved")
-        void queryClient.invalidateQueries({ queryKey: hostsConfigQueryKey })
-      } else toast.error("Validation failed")
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
-  })
 
   if (projectQuery.isPending || hostsConfigQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
@@ -176,11 +116,12 @@ function CachePage() {
   if (hostsConfigQuery.error) {
     return <div className="text-sm text-destructive">{String(hostsConfigQuery.error)}</div>
   }
-  const hasHosts = Object.keys(hostsConfig).length > 0
-
-  if (!hasHosts) {
+  if (hostCaches.length === 0) {
     return <div className="text-muted-foreground">Add a host first to configure cache policy.</div>
   }
+
+  const hostNames = hostCaches.map((entry) => entry.host)
+  const initialCache = hostCaches[0]?.cache ?? normalizeCache(null)
 
   return (
     <div className="space-y-6">
@@ -199,23 +140,100 @@ function CachePage() {
         </Alert>
       ) : null}
 
-      <HostCacheSettingsSection
-        host="*"
-        saving={save.isPending}
-        onSave={() => save.mutate()}
-        substitutersText={cacheSubstitutersText}
-        setSubstitutersText={setCacheSubstitutersText}
-        trustedKeysText={cacheTrustedKeysText}
-        setTrustedKeysText={setCacheTrustedKeysText}
-        netrcEnable={cacheNetrcEnable}
-        setNetrcEnable={setCacheNetrcEnable}
-        netrcSecretName={cacheNetrcSecretName}
-        setNetrcSecretName={setCacheNetrcSecretName}
-        netrcPath={cacheNetrcPath}
-        setNetrcPath={setCacheNetrcPath}
-        narinfoCachePositiveTtl={cacheNarinfoCachePositiveTtl}
-        setNarinfoCachePositiveTtl={setCacheNarinfoCachePositiveTtl}
+      <CacheSettingsForm
+        key={`${projectId}:${hostsConfigQuery.dataUpdatedAt}`}
+        projectId={projectId}
+        hostNames={hostNames}
+        queryKey={hostsConfigQueryKey}
+        initialCache={initialCache}
       />
     </div>
+  )
+}
+
+function CacheSettingsForm(props: {
+  projectId: Id<"projects">
+  hostNames: string[]
+  queryKey: readonly unknown[]
+  initialCache: CacheSettings
+}) {
+  const queryClient = useQueryClient()
+  const [cacheSubstitutersText, setCacheSubstitutersText] = useState(props.initialCache.substituters.join("\n"))
+  const [cacheTrustedKeysText, setCacheTrustedKeysText] = useState(props.initialCache.trustedPublicKeys.join("\n"))
+  const [cacheNetrcEnable, setCacheNetrcEnable] = useState(props.initialCache.netrc.enable)
+  const [cacheNetrcSecretName, setCacheNetrcSecretName] = useState(props.initialCache.netrc.secretName)
+  const [cacheNetrcPath, setCacheNetrcPath] = useState(props.initialCache.netrc.path)
+  const [cacheNarinfoCachePositiveTtl, setCacheNarinfoCachePositiveTtl] = useState(String(props.initialCache.netrc.narinfoCachePositiveTtl))
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (props.hostNames.length === 0) throw new Error("no hosts found (add a host first)")
+
+      const cacheSubstituters = parseLineList(cacheSubstitutersText)
+      const cacheTrustedPublicKeys = parseLineList(cacheTrustedKeysText)
+      if (cacheSubstituters.length === 0) throw new Error("Cache substituters must not be empty.")
+      if (cacheTrustedPublicKeys.length === 0) throw new Error("Cache trusted public keys must not be empty.")
+
+      const narinfoTtlRaw = cacheNarinfoCachePositiveTtl.trim()
+      const narinfoTtl = Number(narinfoTtlRaw)
+      if (!Number.isInteger(narinfoTtl) || narinfoTtl <= 0) throw new Error("Cache narinfo TTL must be a positive integer.")
+
+      const netrcSecretName = cacheNetrcSecretName.trim()
+      const netrcPath = cacheNetrcPath.trim()
+      if (cacheNetrcEnable && !netrcSecretName) throw new Error("Cache netrc secret name is required when enabled.")
+      if (cacheNetrcEnable && !netrcPath) throw new Error("Cache netrc path is required when enabled.")
+
+      const cacheNext: CacheSettings = {
+        substituters: cacheSubstituters,
+        trustedPublicKeys: cacheTrustedPublicKeys,
+        netrc: {
+          enable: cacheNetrcEnable,
+          secretName: netrcSecretName,
+          path: netrcPath,
+          narinfoCachePositiveTtl: narinfoTtl,
+        },
+      }
+
+      return await configDotBatch({
+        data: {
+          projectId: props.projectId,
+          ops: props.hostNames.map((host) => ({
+            path: `hosts.${host}.cache`,
+            valueJson: JSON.stringify(cacheNext),
+          })),
+        },
+      })
+    },
+    onSuccess: (result) => {
+      if (result.ok) {
+        toast.success("Saved")
+        void queryClient.invalidateQueries({ queryKey: props.queryKey })
+      } else {
+        toast.error("Validation failed")
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : String(error))
+    },
+  })
+
+  return (
+    <HostCacheSettingsSection
+      host="*"
+      saving={save.isPending}
+      onSave={() => save.mutate()}
+      substitutersText={cacheSubstitutersText}
+      setSubstitutersText={setCacheSubstitutersText}
+      trustedKeysText={cacheTrustedKeysText}
+      setTrustedKeysText={setCacheTrustedKeysText}
+      netrcEnable={cacheNetrcEnable}
+      setNetrcEnable={setCacheNetrcEnable}
+      netrcSecretName={cacheNetrcSecretName}
+      setNetrcSecretName={setCacheNetrcSecretName}
+      netrcPath={cacheNetrcPath}
+      setNetrcPath={setCacheNetrcPath}
+      narinfoCachePositiveTtl={cacheNarinfoCachePositiveTtl}
+      setNarinfoCachePositiveTtl={setCacheNarinfoCachePositiveTtl}
+    />
   )
 }

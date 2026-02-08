@@ -1,29 +1,24 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon } from "@hugeicons/core-free-icons"
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { useConvexAuth } from "convex/react"
+import { useProjectCreateModal } from "~/components/projects/project-create-modal-provider"
 import { Button } from "~/components/ui/button"
 import { ProjectsTable } from "~/components/dashboard/projects-table"
-import { getDashboardOverview } from "~/sdk/dashboard"
+import { dashboardOverviewQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName, storeLastProjectSlug } from "~/lib/project-routing"
-import { authClient } from "~/lib/auth-client"
 
 export const Route = createFileRoute("/projects/")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(dashboardOverviewQueryOptions())
+  },
   component: ProjectsIndex,
 })
 
 function ProjectsIndex() {
   const router = useRouter()
-  const { data: session, isPending } = authClient.useSession()
-  const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
-  const overview = useQuery({
-    queryKey: ["dashboardOverview"],
-    queryFn: async () => await getDashboardOverview({ data: {} }),
-    gcTime: 5_000,
-    enabled: canQuery,
-  })
+  const { openProjectCreateModal } = useProjectCreateModal()
+  const overview = useSuspenseQuery(dashboardOverviewQueryOptions())
   const projects = overview.data?.projects ?? []
 
   return (
@@ -43,21 +38,14 @@ function ProjectsIndex() {
           >
             Import
           </Button>
-          <Button
-            nativeButton={false}
-            render={<Link to="/projects/new" />}
-          >
+          <Button onClick={openProjectCreateModal}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
             New
           </Button>
         </div>
       </div>
 
-      {overview.isPending ? (
-        <div className="text-muted-foreground">Loading…</div>
-      ) : overview.error ? (
-        <div className="text-sm text-destructive">{String(overview.error)}</div>
-      ) : projects.length > 0 ? (
+      {projects.length > 0 ? (
         <ProjectsTable
           projects={projects}
           selectedProjectId={null}
@@ -79,10 +67,7 @@ function ProjectsIndex() {
             Create your first project to configure and deploy a fleet.
           </div>
           <div className="mt-4">
-            <Button
-              nativeButton={false}
-              render={<Link to="/projects/new" />}
-            >
+            <Button onClick={openProjectCreateModal}>
               Create Project
             </Button>
           </div>

@@ -99,6 +99,6 @@ export const listByProject = query({
       .query("projectConfigs")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return rows.sort((a, b) => a.path.localeCompare(b.path));
+    return rows.toSorted((a, b) => a.path.localeCompare(b.path));
   },
 });

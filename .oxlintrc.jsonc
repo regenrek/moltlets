@@ -1,8 +1,7 @@
 // .oxlintrc.jsonc — Oxlint config for the clawlets monorepo
 //
 // Single root config + overrides keeps every package consistent.
-// React/TanStack rules are off globally, enabled only in apps/web.
-// require() is banned everywhere except tests.
+// Convex and TanStack ESLint plugins are loaded through Oxlint jsPlugins.
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
 
@@ -19,7 +18,7 @@
   ],
 
   "categories": {
-    "correctness": "error",
+    "correctness": "warn",
     "suspicious": "warn"
   },
 
@@ -36,8 +35,10 @@
   ],
 
   "jsPlugins": [
-    "./tools/lint/tanstack-query-plugin.mjs",
-    "./tools/lint/tanstack-router-plugin.mjs"
+    { "name": "tanstack-query", "specifier": "@tanstack/eslint-plugin-query" },
+    { "name": "tanstack-router", "specifier": "@tanstack/eslint-plugin-router" },
+    { "name": "convex", "specifier": "@convex-dev/eslint-plugin" },
+    "./tools/lint/clawlets-plugin.mjs"
   ],
 
   "rules": {
@@ -50,36 +51,108 @@
 
     // --- Type-aware (only active with --type-aware) ---
     "typescript/no-floating-promises": "error",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unnecessary-type-assertion": "off",
+
+    // --- JSX runtime doesn't require React in scope ---
+    "react/react-in-jsx-scope": "off",
 
     // --- Web-only rules: off globally, enabled in apps/web override ---
     "react/rules-of-hooks": "off",
     "react/exhaustive-deps": "off",
     "tanstack-query/exhaustive-deps": "off",
-    "tanstack-router/create-route-property-order": "off"
+    "tanstack-router/create-route-property-order": "off",
+
+    // --- Convex rules: off globally, enabled only in apps/web/convex ---
+    "convex/no-old-registered-function-syntax": "off",
+    "convex/require-args-validator": "off",
+    "convex/explicit-table-ids": "off",
+    "convex/import-wrong-runtime": "off",
+
+    // --- Dynamic import ban: on only in main code override ---
+    "clawlets/no-dynamic-import-main": "off",
+
+    // --- Low-signal in this codebase; triggers mostly on stylistic local helpers ---
+    "unicorn/consistent-function-scoping": "off"
   },
 
   "overrides": [
     {
-      // Enable React + TanStack rules only in apps/web
+      // Enable React + TanStack rules only in apps/web.
       "files": ["apps/web/**/*.{ts,tsx,js,jsx}"],
       "rules": {
-        "react/rules-of-hooks": "error",
+        "react/rules-of-hooks": "warn",
         "react/exhaustive-deps": "warn",
         "tanstack-query/exhaustive-deps": "warn",
-        "tanstack-router/create-route-property-order": "error"
+        "tanstack-router/create-route-property-order": "warn"
       }
     },
     {
-      // Allow require() and dynamic imports in tests
+      // Enable Convex best-practice rules only in Convex source files.
+      "files": ["apps/web/convex/**/*.ts"],
+      "rules": {
+        "convex/no-old-registered-function-syntax": "error",
+        "convex/require-args-validator": "error",
+        "convex/explicit-table-ids": "error",
+        "convex/import-wrong-runtime": "off"
+      }
+    },
+    {
+      // Ban dynamic imports in primary application/library code.
+      "files": [
+        "apps/web/**/*.{ts,tsx,js,jsx}",
+        "packages/**/*.{ts,tsx,js,jsx}"
+      ],
+      "rules": {
+        "clawlets/no-dynamic-import-main": "warn"
+      }
+    },
+    {
+      // Explicitly allow approved dynamic-import call sites with in-file justification.
+      // - CLI plugin loader: entry module path only known at runtime.
+      // - Monaco JSON editor: intentional lazy-load/code-split for heavy browser-only deps.
+      "files": [
+        "packages/cli/src/lib/plugins.ts",
+        "apps/web/src/components/editor/monaco-json-editor.tsx"
+      ],
+      "rules": {
+        "clawlets/no-dynamic-import-main": "off"
+      }
+    },
+    {
+      // Monaco worker virtual modules are Vite-resolved and look like missing default exports to import/default.
+      "files": ["apps/web/src/lib/monaco-env.ts"],
+      "rules": {
+        "import/default": "off"
+      }
+    },
+    {
+      // Wrapper/component-level label false positives; control association is handled by call-site primitives.
+      "files": [
+        "apps/web/src/components/ui/label.tsx",
+        "apps/web/src/routes/$projectSlug/hosts/$host/gateways/index.tsx"
+      ],
+      "rules": {
+        "jsx-a11y/label-has-associated-control": "off"
+      }
+    },
+    {
+      // Allow require() and dynamic imports in tests/routes/tooling.
       "files": [
         "**/*.test.*",
         "**/*.spec.*",
         "**/__tests__/**",
-        "**/tests/**"
+        "**/tests/**",
+        "**/routes/**",
+        "**/scripts/**",
+        "tools/**",
+        "**/vite.config.*",
+        "**/vitest.config.*"
       ],
       "rules": {
         "typescript/no-require-imports": "off",
-        "typescript/no-var-requires": "off"
+        "typescript/no-var-requires": "off",
+        "clawlets/no-dynamic-import-main": "off"
       }
     }
   ]

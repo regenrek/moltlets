@@ -13,12 +13,11 @@ type RunsListProps = {
 function RunsList({ projectSlug, projectId, host }: RunsListProps) {
   const router = useRouter()
   const convexQueryClient = router.options.context.convexQueryClient
+  const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const hostFilter = host?.trim() || null
 
   const runs = useInfiniteQuery({
-    queryKey: hostFilter
-      ? ["runsByProjectHost", projectId, hostFilter]
-      : ["runsByProject", projectId],
+    queryKey: ["runsByProject", projectId, hostFilter, hasServerHttpClient],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       const args = {
@@ -26,13 +25,13 @@ function RunsList({ projectSlug, projectId, host }: RunsListProps) {
         paginationOpts: { numItems: 50, cursor: pageParam },
       } as any
       if (hostFilter) args.host = hostFilter
-      if (convexQueryClient.serverHttpClient) {
+      if (hasServerHttpClient) {
         return hostFilter
-          ? await convexQueryClient.serverHttpClient.consistentQuery(
+          ? await convexQueryClient.serverHttpClient!.consistentQuery(
             api.controlPlane.runs.listByProjectHostPage,
             args,
           )
-          : await convexQueryClient.serverHttpClient.consistentQuery(
+          : await convexQueryClient.serverHttpClient!.consistentQuery(
             api.controlPlane.runs.listByProjectPage,
             args,
           )

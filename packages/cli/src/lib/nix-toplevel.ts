@@ -25,7 +25,7 @@ export async function buildHostSystemToplevelFromPackage(params: {
   try {
     parsed = JSON.parse(out);
   } catch (e) {
-    throw new Error(`nix build --json returned invalid JSON (${String((e as Error)?.message || e)})`);
+    throw new Error(`nix build --json returned invalid JSON (${String((e as Error)?.message || e)})`, { cause: e });
   }
   const toplevel = (parsed as any)?.[0]?.outputs?.out;
   if (!toplevel || typeof toplevel !== "string") {

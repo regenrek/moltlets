@@ -23,7 +23,7 @@ type ThemeKey = (typeof themes)[number]["key"];
 
 interface ThemeSwitcherProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: ThemeKey;
-  onChange?: (theme: ThemeKey) => void;
+  onThemeChange?: (theme: ThemeKey) => void;
   defaultValue?: ThemeKey;
 }
 
@@ -31,7 +31,7 @@ export const ThemeSwitcher = forwardRef<HTMLDivElement, ThemeSwitcherProps>(
   (
     {
       value = undefined,
-      onChange = undefined,
+      onThemeChange = undefined,
       defaultValue = "light",
       className = "",
       ...props
@@ -41,7 +41,7 @@ export const ThemeSwitcher = forwardRef<HTMLDivElement, ThemeSwitcherProps>(
     const [theme, setTheme] = useControlledState({
       defaultValue: defaultValue,
       value: value,
-      onChange,
+      onChange: onThemeChange,
     });
     const [mounted, setMounted] = useState(false);
 

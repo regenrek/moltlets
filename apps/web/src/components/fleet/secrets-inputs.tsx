@@ -67,10 +67,10 @@ export function SecretsInputs(props: SecretsInputsProps) {
     }
     const byName = (a: SecretSpec, b: SecretSpec) => a.name.localeCompare(b.name)
     return {
-      channel: channel.sort(byName),
-      model: model.sort(byName),
-      host: host.sort(byName),
-      custom: custom.sort(byName),
+      channel: channel.toSorted(byName),
+      model: model.toSorted(byName),
+      host: host.toSorted(byName),
+      custom: custom.toSorted(byName),
     }
   }, [requiredSpecs])
 

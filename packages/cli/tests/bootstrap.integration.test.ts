@@ -138,7 +138,7 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
   const provisioning = {
     ...baseHost.provisioning,
     sshPubkeyFile: defaultPubkeyFile,
-    ...(hostOverrides.provisioning || {}),
+    ...hostOverrides.provisioning,
   };
   loadClawletsConfigMock.mockReturnValue({
     layout: getRepoLayout("/repo"),

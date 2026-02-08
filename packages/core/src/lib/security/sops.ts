@@ -10,7 +10,7 @@ import { ensureDir, writeFileAtomic } from "../storage/fs-safe.js";
 import { withFlakesEnv } from "../nix/nix-flakes.js";
 
 function shellEscapeSingle(value: string): string {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function withSopsAgeKeyEnv(params: {

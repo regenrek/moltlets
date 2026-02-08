@@ -5,7 +5,7 @@ import {
   notifyManager,
 } from '@tanstack/react-query'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import toast from 'react-hot-toast'
+import hotToast from 'react-hot-toast'
 import { ConvexQueryClient } from '@convex-dev/react-query'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
@@ -16,7 +16,7 @@ export function getRouter() {
     notifyManager.setScheduler(window.requestAnimationFrame)
   }
 
-  const CONVEX_URL = (import.meta as any).env.VITE_CONVEX_URL!
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL
   if (!CONVEX_URL) {
     console.error('missing envar CONVEX_URL')
   }
@@ -36,7 +36,7 @@ export function getRouter() {
     },
     mutationCache: new MutationCache({
       onError: (error) => {
-        toast(error.message, { className: 'bg-red-500 text-white' })
+        hotToast(error.message, { className: 'bg-red-500 text-white' })
       },
     }),
   })

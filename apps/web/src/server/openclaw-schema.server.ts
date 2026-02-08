@@ -97,9 +97,9 @@ function buildGatewaySchemaCommand(params: {
   const tokenName = "OPENCLAW_GATEWAY_TOKEN"
   const script = [
     "set -euo pipefail",
-    `token=\"$(awk -F= '$1==\"${tokenName}\"{print substr($0,length($1)+2); exit}' ${envFileQuoted})\"`,
+    `token="$(awk -F= '$1=="${tokenName}"{print substr($0,length($1)+2); exit}' ${envFileQuoted})"`,
     'token="${token%$"\\r"}"',
-    `if [ -z \"$token\" ]; then echo "missing ${tokenName}" >&2; exit 2; fi`,
+    `if [ -z "$token" ]; then echo "missing ${tokenName}" >&2; exit 2; fi`,
     `printf '%s\\n' ${beginQuoted}`,
     `env ${tokenName}="$token" openclaw gateway call config.schema --url ${url} --json`,
     `printf '%s\\n' ${endQuoted}`,

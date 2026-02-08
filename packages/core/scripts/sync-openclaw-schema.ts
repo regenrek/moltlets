@@ -33,7 +33,7 @@ function stableSort(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableSort);
   if (!isPlainObject(value)) return value;
   const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort((a, b) => a.localeCompare(b))) {
+  for (const key of Object.keys(value).toSorted((a, b) => a.localeCompare(b))) {
     out[key] = stableSort(value[key]);
   }
   return out;
@@ -170,7 +170,7 @@ function pickZodSchemaExport(mod: Record<string, unknown>, id: string): unknown 
 
   const candidates = Object.keys(mod)
     .filter((key) => key.endsWith("ConfigSchema"))
-    .sort((a, b) => a.localeCompare(b));
+    .toSorted((a, b) => a.localeCompare(b));
   if (candidates.length === 0) return null;
   if (candidates.length === 1) return (mod as any)[candidates[0]!] as unknown;
 
@@ -288,7 +288,7 @@ async function buildSchemaArtifact(params: { openclawSrc: string; openclawRev: s
 
   const channels: Array<Record<string, unknown>> = [];
   const missingChannelSchemas: string[] = [];
-  const sortedChannelIds = Array.from(channelIds).sort((a, b) => a.localeCompare(b));
+  const sortedChannelIds = Array.from(channelIds).toSorted((a, b) => a.localeCompare(b));
   for (const id of sortedChannelIds) {
     const zodSchema = await loadChannelZodSchema({ openclawSrc: src, id, coreSchemas, jiti });
     if (!zodSchema) {
@@ -300,7 +300,7 @@ async function buildSchemaArtifact(params: { openclawSrc: string; openclawRev: s
       const built = channelConfigMod.buildChannelConfigSchema(zodSchema as any) as { schema?: Record<string, unknown> };
       configSchema = (built?.schema ?? {}) as Record<string, unknown>;
     } catch (err) {
-      throw new Error(`failed to build channel config schema for ${id}: ${String((err as Error)?.message || err)}`);
+      throw new Error(`failed to build channel config schema for ${id}: ${String((err as Error)?.message || err)}`, { cause: err });
     }
 
     const meta = channelMetaById.get(id);
@@ -324,7 +324,7 @@ async function buildSchemaArtifact(params: { openclawSrc: string; openclawRev: s
 
   const plugins = (manifestRegistry.plugins ?? [])
     .slice()
-    .sort((a: any, b: any) => String(a?.id ?? "").localeCompare(String(b?.id ?? "")))
+    .toSorted((a: any, b: any) => String(a?.id ?? "").localeCompare(String(b?.id ?? "")))
     .map((plugin: any) => ({
       id: plugin.id,
       name: plugin.name,

@@ -274,9 +274,9 @@ describe("secrets init", () => {
     });
     const nextConfig = structuredClone(config) as typeof config;
     nextConfig.hosts.alpha.gateways.maren.profile = {
-      ...(nextConfig.hosts.alpha.gateways.maren.profile || {}),
+      ...nextConfig.hosts.alpha.gateways.maren.profile,
       secretEnv: {
-        ...(nextConfig.hosts.alpha.gateways.maren.profile?.secretEnv || {}),
+        ...nextConfig.hosts.alpha.gateways.maren.profile?.secretEnv,
         DISCORD_BOT_TOKEN: "discord_token_maren",
       },
     };

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
@@ -15,7 +15,6 @@ export function SetupStepHost(props: {
   onSelectHost: (host: string) => void
   onContinue: () => void
 }) {
-  const queryClient = useQueryClient()
   const hosts = useMemo(() => Object.keys(props.config?.hosts || {}).sort(), [props.config])
   const [query, setQuery] = useState("")
   const normalizedQuery = query.trim().toLowerCase()
@@ -125,4 +124,3 @@ export function SetupStepHost(props: {
     </div>
   )
 }
-

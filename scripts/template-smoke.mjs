@@ -40,7 +40,7 @@ function runJson(cmd, args, opts = {}) {
   try {
     return JSON.parse(out);
   } catch (e) {
-    throw new Error(`${cmd} returned invalid JSON (${String(e?.message || e)})`);
+    throw new Error(`${cmd} returned invalid JSON (${String(e?.message || e)})`, { cause: e });
   }
 }
 
