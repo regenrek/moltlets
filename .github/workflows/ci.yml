@@ -85,9 +85,28 @@ jobs:
           echo "boundaries=$(changed \"${boundaries_paths[@]}\")" >> "$GITHUB_OUTPUT"
           echo "template_e2e=$(changed \"${template_paths[@]}\")" >> "$GITHUB_OUTPUT"
 
-  node:
+  lockfile:
     needs: changes
-    if: needs.changes.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Validate lockfile
+        run: pnpm check:lockfile
+
+  node:
+    needs: [changes, lockfile]
+    if: needs.changes.outputs.node == 'true' && needs.lockfile.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -166,8 +185,8 @@ jobs:
         run: pnpm -C apps/web test
 
   docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    needs: [changes, lockfile]
+    if: needs.changes.outputs.docs == 'true' && needs.lockfile.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -304,8 +323,8 @@ jobs:
           exit 1
 
   template-e2e:
-    needs: changes
-    if: needs.changes.outputs.template_e2e == 'true'
+    needs: [changes, lockfile]
+    if: needs.changes.outputs.template_e2e == 'true' && needs.lockfile.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -368,6 +387,8 @@ jobs:
           (cd "${tmpdir}/clawlets-project" && node "${GITHUB_WORKSPACE}/packages/cli/dist/main.mjs" config validate --strict)
 
   openclaw-assets:
+    needs: lockfile
+    if: needs.lockfile.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

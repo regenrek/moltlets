@@ -23,6 +23,7 @@
     "check:workspace-boundaries": "node scripts/check-boundaries.mjs",
     "check:core-lib-boundaries": "node scripts/check-core-lib-domain-boundaries.mjs",
     "check:boundaries": "pnpm run check:workspace-boundaries && pnpm run check:core-lib-boundaries",
+    "check:lockfile": "pnpm -w install --frozen-lockfile --ignore-scripts",
     "gate": "pnpm -r build && pnpm -r typecheck && pnpm run lint && pnpm -C packages/cli test && pnpm -C packages/core run coverage",
     "template:smoke": "node scripts/template-smoke.mjs",
     "clawlets:build": "pnpm -C packages/cli build",

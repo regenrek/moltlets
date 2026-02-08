@@ -10,5 +10,7 @@ pre-push:
   jobs:
     - name: block-forbidden-files
       run: node scripts/hooks/block-forbidden-staged-files.mjs
+    - name: lockfile
+      run: pnpm check:lockfile
     - name: oxlint
       run: npx oxlint .
