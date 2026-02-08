@@ -183,7 +183,9 @@ const schema = defineSchema({
     role: Role,
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_tokenIdentifier", ["tokenIdentifier"]),
+  })
+    .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_role", ["role"]),
 
   projects: defineTable({
     ownerUserId: v.id("users"),

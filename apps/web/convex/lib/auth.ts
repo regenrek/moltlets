@@ -21,8 +21,8 @@ async function ensureUserByIdentity(ctx: MutationCtx, identity: UserIdentity): P
   const tokenIdentifier = identity.tokenIdentifier;
   const adminUsers = await ctx.db
     .query("users")
-    .filter((q) => q.eq(q.field("role"), "admin"))
-    .collect();
+    .withIndex("by_role", (q) => q.eq("role", "admin"))
+    .take(2);
   const hasRealAdmin = adminUsers.some((user) => user.tokenIdentifier !== "dev");
   const existing = await ctx.db
     .query("users")
