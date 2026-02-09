@@ -18,6 +18,11 @@ describe("git command", () => {
     vi.clearAllMocks();
   });
 
+  it("does not expose a clone subcommand", async () => {
+    const { git } = await import("../src/commands/git/index.js");
+    expect((git as any).subCommands?.clone).toBeUndefined();
+  });
+
   it("prints status JSON for deploy metadata", async () => {
     captureMock.mockImplementation(async (_cmd: string, args: string[]) => {
       if (args[0] === "rev-parse" && args[1] === "--abbrev-ref" && args[2] === "HEAD") return "main\n";

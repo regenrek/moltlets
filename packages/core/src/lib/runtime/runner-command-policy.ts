@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { RUN_KINDS } from "./run-constants.js";
 import { CONTROL_PLANE_TEXT_LIMITS, SECRET_WIRING_SCOPES } from "./control-plane-constants.js";
 import { validateArgsForKind } from "./runner-command-policy-args.js";
+import { validateGitRepoUrlPolicy } from "@clawlets/shared/lib/repo-url-policy";
 
 type SecretScope = (typeof SECRET_WIRING_SCOPES)[number] | "all";
 type RunnerCommandExecutable = "clawlets" | "git";
@@ -36,9 +37,6 @@ const SECRET_SCOPES = new Set(["bootstrap", "updates", "openclaw", "all"]);
 const TEMPLATE_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const TEMPLATE_PATH_RE = /^[A-Za-z0-9._/-]+$/;
 const TEMPLATE_REF_RE = /^[A-Za-z0-9._/-]+$/;
-const SCP_REPO_RE = /^[^@\s]+@(\[[^\]\s]+\]|[^:\s]+):[^\s]+$/;
-const ALLOWED_REPO_PROTOCOLS = new Set(["https:", "ssh:"]);
-const BLOCKED_REPO_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "169.254.169.254"]);
 
 const META_MAX = {
   note: 1024,
@@ -125,38 +123,19 @@ function ensureOptionalDepth(value: unknown): number | undefined {
   return depth;
 }
 
-function normalizeRepoHost(host: string): string {
-  return host.trim().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "").toLowerCase();
-}
-
-function ensureAllowedRepoHost(host: string, field: string): void {
-  const normalized = normalizeRepoHost(host);
-  if (!normalized) throw new Error(`${field} invalid host`);
-  if (BLOCKED_REPO_HOSTS.has(normalized)) throw new Error(`${field} host is not allowed`);
-}
-
 function ensureRepoUrl(value: unknown): string | undefined {
   const repoUrl = ensureOptionalBoundedText({ value, field: "payloadMeta.repoUrl", max: META_MAX.repoUrl });
   if (!repoUrl) return undefined;
-  if (/^file:/i.test(repoUrl)) throw new Error("payloadMeta.repoUrl file: urls are forbidden");
-
-  const scpHost = repoUrl.match(SCP_REPO_RE)?.[1];
-  if (scpHost) {
-    ensureAllowedRepoHost(scpHost, "payloadMeta.repoUrl");
-    return repoUrl;
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(repoUrl);
-  } catch {
+  const validated = validateGitRepoUrlPolicy(repoUrl);
+  if (!validated.ok) {
+    // Map shared policy errors onto existing core error surface for compatibility.
+    if (validated.error.code === "file_forbidden") throw new Error("payloadMeta.repoUrl file: urls are forbidden");
+    if (validated.error.code === "invalid_protocol") throw new Error("payloadMeta.repoUrl invalid protocol");
+    if (validated.error.code === "host_not_allowed") throw new Error("payloadMeta.repoUrl host is not allowed");
+    if (validated.error.code === "invalid_host") throw new Error("payloadMeta.repoUrl invalid host");
     throw new Error("payloadMeta.repoUrl invalid");
   }
-  if (!ALLOWED_REPO_PROTOCOLS.has(parsed.protocol)) {
-    throw new Error("payloadMeta.repoUrl invalid protocol");
-  }
-  ensureAllowedRepoHost(parsed.hostname, "payloadMeta.repoUrl");
-  return repoUrl;
+  return validated.repoUrl;
 }
 
 function ensureBranch(value: unknown): string | undefined {

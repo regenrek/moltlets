@@ -67,11 +67,40 @@ describe("projects.create mode validation", () => {
     )
   })
 
+  it("rejects runnerRepoPath traversal after slash normalization", () => {
+    expectConvexFail(
+      () => __test_normalizeRunnerRepoPath("~\\.clawlets\\projects\\..\\escape"),
+      "conflict",
+      "runnerRepoPath cannot contain '..' path segments",
+    )
+  })
+
+  it("rejects bare runnerRepoPath '..'", () => {
+    expectConvexFail(
+      () => __test_normalizeRunnerRepoPath(".."),
+      "conflict",
+      "runnerRepoPath cannot contain '..' path segments",
+    )
+  })
+
   it("rejects runnerRepoPath forbidden characters", () => {
     expectConvexFail(
       () => __test_normalizeRunnerRepoPath("~/.clawlets/projects/fleet\nbad"),
       "conflict",
       "runnerRepoPath contains forbidden characters",
+    )
+  })
+
+  it("returns undefined for empty runnerRepoPath", () => {
+    expect(__test_normalizeRunnerRepoPath("")).toBeUndefined()
+    expect(__test_normalizeRunnerRepoPath("   ")).toBeUndefined()
+  })
+
+  it("rejects runnerRepoPath exceeding max length", () => {
+    expectConvexFail(
+      () => __test_normalizeRunnerRepoPath("a".repeat(513)),
+      "conflict",
+      "runnerRepoPath too long",
     )
   })
 })
