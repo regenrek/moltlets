@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { createConvexClient } from "~/server/convex";
-import { coerceString, coerceTrimmedString } from "~/sdk/runtime";
+import { coerceString, coerceTrimmedString } from "~/sdk/runtime/strings";
+import { validateGitRepoUrlPolicy, parseGitRemote } from "@clawlets/shared/lib/repo-url-policy";
 
 const HOST_DEFAULT = "openclaw-fleet-host";
 const RUNNER_REPO_PATH_MAX = 512;
@@ -11,9 +12,6 @@ const RUNNER_NAME_MAX = 128;
 const TEMPLATE_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const TEMPLATE_PATH_RE = /^[A-Za-z0-9._/-]+$/;
 const TEMPLATE_REF_RE = /^[A-Za-z0-9._/-]+$/;
-const SCP_REPO_RE = /^[^@\s]+@(\[[^\]\s]+\]|[^:\s]+):[^\s]+$/;
-const ALLOWED_REPO_PROTOCOLS = new Set(["https:", "ssh:"]);
-const BLOCKED_REPO_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "169.254.169.254"]);
 
 function forbidMultilineNul(value: string, field: string): void {
   if (value.includes("\0") || value.includes("\n") || value.includes("\r")) {
@@ -37,27 +35,11 @@ function normalizeRunnerRepoPath(input: unknown): string {
     .replace(/\/{2,}/g, "/")
     .replace(/\/+$/, "");
   const out = normalized || "/";
-  if (out.split("/").some((segment) => segment === "..")) {
+  if (out.split("/").includes("..")) {
     throw new Error("runnerRepoPath cannot contain '..' path segments");
   }
   if (out.length > RUNNER_REPO_PATH_MAX) throw new Error("runnerRepoPath too long");
   return out;
-}
-
-function normalizeRepoHost(host: string): string {
-  return host.trim().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "").toLowerCase();
-}
-
-function ensureAllowedRepoHost(host: string): void {
-  const normalized = normalizeRepoHost(host);
-  if (!normalized) throw new Error("repoUrl invalid host");
-  if (BLOCKED_REPO_HOSTS.has(normalized)) throw new Error("repoUrl host is not allowed");
-}
-
-function getScpRepoHost(repoUrl: string): string | null {
-  const match = repoUrl.match(SCP_REPO_RE);
-  if (!match) return null;
-  return match[1] ?? null;
 }
 
 function normalizeRunnerName(input: unknown): string {
@@ -96,30 +78,22 @@ function normalizeTemplateRef(input: unknown): string | undefined {
 function normalizeCloneRepoUrl(input: unknown): string {
   const value = coerceString(input).trim();
   if (!value) throw new Error("repoUrl required");
-  forbidMultilineNul(value, "repoUrl");
-  if (/^file:/i.test(value)) throw new Error("repoUrl file: urls are not allowed");
-  const scpHost = getScpRepoHost(value);
-  if (scpHost) {
-    ensureAllowedRepoHost(scpHost);
-    return value;
-  }
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
+  const validated = validateGitRepoUrlPolicy(value);
+  if (!validated.ok) {
+    if (validated.error.code === "file_forbidden") throw new Error("repoUrl file: urls are not allowed");
+    if (validated.error.code === "invalid_protocol") throw new Error("repoUrl invalid protocol");
+    if (validated.error.code === "host_not_allowed") throw new Error("repoUrl host is not allowed");
+    if (validated.error.code === "invalid_host") throw new Error("repoUrl invalid host");
     throw new Error("repoUrl invalid");
   }
-  if (!ALLOWED_REPO_PROTOCOLS.has(parsed.protocol)) {
-    throw new Error("repoUrl invalid protocol");
-  }
-  ensureAllowedRepoHost(parsed.hostname);
-  return value;
+  return validated.repoUrl;
 }
 
 function canonicalizeRepoIdentity(repoUrl: string): string {
-  if (SCP_REPO_RE.test(repoUrl)) {
+  const remote = parseGitRemote(repoUrl);
+  if (remote?.kind === "scp") {
     const [lhs, rhs] = repoUrl.split(":", 2);
-    const [user, host] = lhs.split("@", 2);
+    const [user, host] = (lhs ?? "").split("@", 2);
     const cleanPath = (rhs || "")
       .replace(/^\/+/, "")
       .replace(/\/+$/, "")
