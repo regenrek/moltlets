@@ -1,11 +1,15 @@
-import { useMutation } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { ArrowPathIcon } from "@heroicons/react/24/outline"
+import { CheckCircleIcon } from "@heroicons/react/24/solid"
+import { useQuery } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
+import { Spinner } from "~/components/ui/spinner"
 import { isRunnerFreshOnline } from "~/lib/setup/runner-status"
 import { createRunnerToken } from "~/sdk/runtime"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
@@ -23,6 +27,16 @@ function generateRunnerName(): string {
 function shellQuote(value: string): string {
   if (!value) return "''"
   return `'${value.replace(/'/g, `'"'"'`)}'`
+}
+
+function shellQuotePath(value: string): string {
+  const trimmed = String(value || "").trim()
+  if (!trimmed) return "''"
+  if (trimmed === "~") return "\"$HOME\""
+  if (trimmed.startsWith("~/")) {
+    return `"${"$HOME"}"${shellQuote(trimmed.slice(1))}`
+  }
+  return shellQuote(trimmed)
 }
 
 async function copyText(label: string, value: string): Promise<void> {
@@ -55,23 +69,34 @@ export function SetupStepRunner(props: {
   runners: RunnerRow[]
   onContinue: () => void
 }) {
-  const [runnerName, setRunnerName] = useState(() => generateRunnerName())
-  const [token, setToken] = useState("")
-  const wasReadyRef = useRef(false)
-
+  const [fallbackRunnerName] = useState(() => generateRunnerName())
+  const [tokenNonce, setTokenNonce] = useState(0)
+  const runnerName = useMemo(() => {
+    const fresh = props.runners.find((runner) => isRunnerFreshOnline(runner) && runner.runnerName.trim())
+    if (fresh) return fresh.runnerName.trim()
+    const latest = props.runners
+      .filter((runner) => runner.runnerName.trim())
+      .toSorted((a, b) => b.lastSeenAt - a.lastSeenAt)[0]
+    if (latest) return latest.runnerName.trim()
+    return fallbackRunnerName
+  }, [fallbackRunnerName, props.runners])
   const controlPlaneUrl = String(import.meta.env.VITE_CONVEX_SITE_URL || "").trim()
   const dashboardOrigin = typeof window === "undefined" ? "" : String(window.location.origin || "").trim()
 
-  useEffect(() => {
-    const ready = props.runnerOnline && props.repoProbeOk
-    if (props.isCurrentStep && ready && !wasReadyRef.current) {
-      props.onContinue()
-    }
-    wasReadyRef.current = ready
-  }, [props.isCurrentStep, props.onContinue, props.repoProbeOk, props.runnerOnline])
+  const repoProbeRequired = props.repoProbeState !== "idle"
+  const connected = props.runnerOnline
+  const readyToContinue = connected && props.repoProbeOk
 
-  const createToken = useMutation({
-    mutationFn: async () => {
+  const tokenQuery = useQuery({
+    queryKey: ["setup", "runner-token", props.projectId, runnerName, tokenNonce],
+    enabled: typeof window !== "undefined" && props.isCurrentStep && Boolean(runnerName.trim()),
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    queryFn: async () => {
       const trimmed = runnerName.trim()
       if (!trimmed) throw new Error("Runner name is required")
       return await createRunnerToken({
@@ -81,25 +106,19 @@ export function SetupStepRunner(props: {
         },
       })
     },
-    onSuccess: (res) => {
-      setToken(String(res.token || ""))
-      toast.success("Runner token created")
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
   })
+  const token = String(tokenQuery.data?.token || "")
 
   const startCommand = useMemo(() => {
     const lines: string[] = []
     const repoRoot = String(props.projectRunnerRepoPath || "").trim()
-    lines.push(`mkdir -p ${repoRoot ? shellQuote(repoRoot) : "<runner-repo-root>"}`)
-    lines.push(`cd ${repoRoot ? shellQuote(repoRoot) : "<runner-repo-root>"}`)
+    const repoRootArg = repoRoot ? shellQuotePath(repoRoot) : shellQuote("<runner-repo-root>")
+    lines.push(`mkdir -p ${repoRootArg}`)
     lines.push("clawlets runner start \\")
     lines.push(`  --project ${props.projectId} \\`)
     lines.push(`  --name ${shellQuote(runnerName.trim() || "<runner-name>")} \\`)
     lines.push(`  --token ${shellQuote(token || "<runner-token>")} \\`)
-    lines.push(`  --repoRoot ${shellQuote(repoRoot || "<runner-repo-root>")} \\`)
+    lines.push(`  --repoRoot ${repoRootArg} \\`)
     lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")} \\`)
     lines.push(`  --dashboardOrigin ${shellQuote(dashboardOrigin || "<dashboard-origin>")}`)
     return lines.join("\n")
@@ -118,49 +137,59 @@ export function SetupStepRunner(props: {
       : props.repoProbeState === "error"
         ? "Failed"
         : "Waiting"
-
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+    <div className="space-y-6">
+      <div className="space-y-2">
         <div className="text-sm font-medium">1. Install CLI</div>
-        <pre className="text-xs whitespace-pre-wrap break-words">npm install -g clawlets</pre>
+        <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">npm install -g clawlets</pre>
       </div>
 
-      <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+      <div className="space-y-3">
         <div className="text-sm font-medium">2. Create runner token</div>
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground" htmlFor="setup-runner-name">Runner name</label>
-          <Input
-            id="setup-runner-name"
-            value={runnerName}
-            onChange={(e) => setRunnerName(e.target.value)}
-            placeholder="setup-xxxxxx"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <AsyncButton
-            type="button"
-            disabled={createToken.isPending || !runnerName.trim()}
-            pending={createToken.isPending}
-            pendingText={token ? "Generating new token..." : "Creating token..."}
-            onClick={() => createToken.mutate()}
-          >
-            {token ? "Generate new token" : "Create token"}
-          </AsyncButton>
-          {token ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => void copyText("Token", token)}>
-              Copy token
-            </Button>
+          <label className="text-xs text-muted-foreground" htmlFor="setup-runner-token">Runner token</label>
+          <InputGroup>
+            <InputGroupInput
+              id="setup-runner-token"
+              value={token}
+              readOnly
+              placeholder={
+                tokenQuery.isPending
+                  ? "Generating token..."
+                  : tokenQuery.isError
+                    ? "Token generation failed"
+                    : "Token will appear here"
+              }
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                type="button"
+                variant="secondary"
+                pending={tokenQuery.isPending}
+                pendingText="Generating"
+                disabled={!runnerName.trim()}
+                onClick={() => {
+                  setTokenNonce((prev) => prev + 1)
+                  toast.success("Generating new runner token")
+                }}
+              >
+                <ArrowPathIcon />
+                {token ? "Regenerate token" : "Generate token"}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+          <div className="text-xs text-muted-foreground">
+            Runner: <code>{runnerName}</code>
+          </div>
+          {tokenQuery.isError ? (
+            <div className="text-xs text-destructive">
+              {tokenQuery.error instanceof Error ? tokenQuery.error.message : String(tokenQuery.error)}
+            </div>
           ) : null}
         </div>
-        {token ? (
-          <pre className="rounded-md border bg-background p-2 text-xs break-all">{token}</pre>
-        ) : (
-          <div className="text-xs text-muted-foreground">Create token to unlock the start command.</div>
-        )}
       </div>
 
-      <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-medium">3. Start runner</div>
           <Button
@@ -176,16 +205,16 @@ export function SetupStepRunner(props: {
         <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">{startCommand}</pre>
       </div>
 
-      <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+      <div className="space-y-3">
         <div className="text-sm font-medium">Readiness</div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span>Runner status:</span>
           <Badge variant={props.runnerOnline ? "secondary" : "outline"}>{runnerStatusLabel}</Badge>
           <span>Repo probe:</span>
           <Badge variant={props.repoProbeOk ? "secondary" : props.repoProbeState === "error" ? "destructive" : "outline"}>
+            {props.repoProbeState === "checking" ? <Spinner className="mr-1 size-3" /> : null}
             {repoStatusLabel}
           </Badge>
-          <span className="text-muted-foreground">(checks <code>hosts.{props.host}</code>)</span>
         </div>
         {props.repoProbeState === "error" ? (
           <div className="text-xs text-destructive">{String(props.repoProbeError || "Repo probe failed")}</div>
@@ -207,8 +236,32 @@ export function SetupStepRunner(props: {
         ) : null}
       </div>
 
-      {props.stepStatus === "done" ? (
-        <div className="text-xs text-muted-foreground">Runner connected. Setup unlocks automatically.</div>
+      {connected ? (
+        <div className="space-y-2">
+          <Alert className="border-emerald-500/35 bg-emerald-500/5">
+            <CheckCircleIcon className="text-emerald-600" />
+            <AlertTitle>Runner connected</AlertTitle>
+            <AlertDescription>
+              {repoProbeRequired
+                ? props.repoProbeOk
+                  ? "Connection is healthy. Repo probe passed."
+                  : props.repoProbeState === "checking"
+                    ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Spinner className="size-3" />
+                          Connection is healthy. Checking repo access...
+                        </span>
+                      )
+                    : "Connection is healthy."
+                : "Connection is healthy."}
+            </AlertDescription>
+          </Alert>
+          {readyToContinue ? (
+            <AsyncButton type="button" size="sm" onClick={props.onContinue}>
+              Continue
+            </AsyncButton>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

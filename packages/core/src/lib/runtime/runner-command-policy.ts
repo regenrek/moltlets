@@ -96,6 +96,7 @@ function ensureArgs(value: unknown): string[] | undefined {
   if (value.length > META_MAX.argsCount) throw new Error("payloadMeta.args too many items");
   const out: string[] = [];
   let totalBytes = 0;
+  const encoder = typeof TextEncoder === "function" ? new TextEncoder() : null;
   for (let i = 0; i < value.length; i += 1) {
     const token = value[i];
     if (typeof token !== "string") throw new Error(`payloadMeta.args[${i}] invalid`);
@@ -103,7 +104,9 @@ function ensureArgs(value: unknown): string[] | undefined {
     if (token === "--") throw new Error("payloadMeta.args cannot include `--`");
     if (hasForbiddenText(token)) throw new Error(`payloadMeta.args[${i}] contains forbidden characters`);
     if (token.length > META_MAX.argsToken) throw new Error(`payloadMeta.args[${i}] too long`);
-    totalBytes += Buffer.byteLength(token, "utf8");
+    // Must run in Convex (no Node Buffer); count UTF-8 bytes via TextEncoder.
+    // Fallback is conservative (ASCII) if TextEncoder is unavailable.
+    totalBytes += encoder ? encoder.encode(token).length : token.length;
     if (totalBytes > META_MAX.argsTotal) throw new Error("payloadMeta.args too large");
     out.push(token);
   }

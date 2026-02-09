@@ -20,6 +20,7 @@ import type * as controlPlane_projectErasureHelpers from "../controlPlane/projec
 import type * as controlPlane_projectPolicies from "../controlPlane/projectPolicies.js";
 import type * as controlPlane_projects from "../controlPlane/projects.js";
 import type * as controlPlane_runEvents from "../controlPlane/runEvents.js";
+import type * as controlPlane_runnerAuth from "../controlPlane/runnerAuth.js";
 import type * as controlPlane_runnerTokens from "../controlPlane/runnerTokens.js";
 import type * as controlPlane_runners from "../controlPlane/runners.js";
 import type * as controlPlane_runs from "../controlPlane/runs.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "controlPlane/projectPolicies": typeof controlPlane_projectPolicies;
   "controlPlane/projects": typeof controlPlane_projects;
   "controlPlane/runEvents": typeof controlPlane_runEvents;
+  "controlPlane/runnerAuth": typeof controlPlane_runnerAuth;
   "controlPlane/runnerTokens": typeof controlPlane_runnerTokens;
   "controlPlane/runners": typeof controlPlane_runners;
   "controlPlane/runs": typeof controlPlane_runs;

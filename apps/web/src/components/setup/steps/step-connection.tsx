@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
@@ -7,7 +7,8 @@ import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { addProjectSshKeys, configDotBatch } from "~/sdk/config"
+import { configDotBatch } from "~/sdk/config/dot"
+import { addProjectSshKeys } from "~/sdk/config/hosts"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 export function SetupStepConnection(props: {
@@ -45,6 +46,7 @@ function SetupStepConnectionForm(props: {
   stepStatus: SetupStepStatus
   onContinue: () => void
 }) {
+  const queryClient = useQueryClient()
   const [adminCidr, setAdminCidr] = useState(() => String(props.hostCfg?.provisioning?.adminCidr || ""))
   const [keyText, setKeyText] = useState("")
 
@@ -83,10 +85,13 @@ function SetupStepConnectionForm(props: {
       ]
       return await configDotBatch({ data: { projectId: props.projectId, ops } })
     },
-    onSuccess: (res: any) => {
+    onSuccess: async (res: any) => {
       if (res.ok) {
         toast.success("Saved")
         setKeyText("")
+        await queryClient.invalidateQueries({
+          queryKey: ["hostSetupConfig", props.projectId, props.host],
+        })
         props.onContinue()
         return
       }

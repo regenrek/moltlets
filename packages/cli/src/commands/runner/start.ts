@@ -143,10 +143,17 @@ async function executeJob(params: {
   let tempSecretsPath = "";
   try {
     if (secretsPlaceholderIdx >= 0 || inputPlaceholderIdx >= 0) {
+      // Dashboard-originated input jobs (__RUNNER_INPUT_JSON__) must never fall
+      // through to stdin. The browser POSTs secrets to the local endpoint right
+      // after enqueueing; if that POST didn't arrive in time, fail the job fast
+      // so the runner loop stays unblocked for other jobs (e.g. config reads).
+      const isDashboardInput = inputPlaceholderIdx >= 0;
       const secrets = await params.secrets.waitOrPrompt({
         jobId: params.job.jobId,
-        timeoutMs: params.secretsWaitMs,
-        allowPrompt: params.allowPrompt,
+        timeoutMs: isDashboardInput
+          ? Math.min(params.secretsWaitMs, 15_000)
+          : params.secretsWaitMs,
+        allowPrompt: isDashboardInput ? false : params.allowPrompt,
       });
       tempSecretsPath =
         secretsPlaceholderIdx >= 0

@@ -17,6 +17,16 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`
 }
 
+function shellQuotePath(value: string): string {
+  const trimmed = String(value || "").trim()
+  if (!trimmed) return "''"
+  if (trimmed === "~") return "\"$HOME\""
+  if (trimmed.startsWith("~/")) {
+    return `"${"$HOME"}"${shellQuote(trimmed.slice(1))}`
+  }
+  return shellQuote(trimmed)
+}
+
 async function copyText(label: string, value: string): Promise<void> {
   if (!value.trim()) {
     toast.error(`${label} is empty`)
@@ -65,14 +75,14 @@ function ImportProject() {
     const repoRoot = runnerRepoPathResolved || effectiveRunnerRepoPath
     const runnerName = runnerNameResolved || effectiveRunnerName
     const token = runnerToken || "<runner-token>"
+    const repoRootArg = repoRoot ? shellQuotePath(repoRoot) : shellQuote("<runner-repo-root>")
     const lines: string[] = []
-    lines.push(`mkdir -p ${shellQuote(repoRoot)}`)
-    lines.push(`cd ${shellQuote(repoRoot)}`)
+    lines.push(`mkdir -p ${repoRootArg}`)
     lines.push("clawlets runner start \\")
     lines.push(`  --project ${projectId || "<project-id>"} \\`)
     lines.push(`  --name ${shellQuote(runnerName)} \\`)
     lines.push(`  --token ${shellQuote(token)} \\`)
-    lines.push(`  --repoRoot ${shellQuote(repoRoot)} \\`)
+    lines.push(`  --repoRoot ${repoRootArg} \\`)
     lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")} \\`)
     lines.push(`  --dashboardOrigin ${shellQuote(dashboardOrigin || "<dashboard-origin>")}`)
     return lines.join("\n")

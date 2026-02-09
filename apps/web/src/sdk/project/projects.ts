@@ -260,3 +260,49 @@ export const projectImport = createServerFn({ method: "POST" })
       repoUrl: data.repoUrl,
     };
   });
+
+export const projectRetryInit = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    if (!data || typeof data !== "object") throw new Error("invalid input");
+    const d = data as Record<string, unknown>;
+    const projectId = coerceString(d["projectId"]).trim() as Id<"projects">;
+    if (!projectId) throw new Error("projectId required");
+    return {
+      projectId,
+      host: getHost(d["host"]),
+    };
+  })
+  .handler(async ({ data }) => {
+    const client = createConvexClient();
+    await client.mutation(api.controlPlane.projects.update, {
+      projectId: data.projectId,
+      status: "creating",
+    });
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
+      projectId: data.projectId,
+      kind: "project_init",
+      title: "Retry project init",
+      host: data.host,
+    });
+    await client.mutation(api.controlPlane.jobs.enqueue, {
+      projectId: data.projectId,
+      runId,
+      kind: "project_init",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
+      },
+      title: "Initialize project repo",
+    });
+    await client.mutation(api.controlPlane.runEvents.appendBatch, {
+      runId,
+      events: [
+        {
+          ts: Date.now(),
+          level: "info",
+          message: "Project init retry queued. Waiting for runner to lease the job.",
+        },
+      ],
+    });
+    return { runId: runId as Id<"runs"> };
+  });

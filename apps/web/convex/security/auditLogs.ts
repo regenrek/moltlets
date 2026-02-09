@@ -143,10 +143,14 @@ export const listByProjectPage = query({
 
         if (row.action === "deployCreds.update") {
           const updatedKeys = safeBoundedStringArray(rowData.updatedKeys);
+          const runId =
+            typeof rowData.runId === "string" && rowData.runId.trim()
+              ? (rowData.runId as Id<"runs">)
+              : undefined;
           return {
             ...base,
             target: { doc: ".clawlets/env" },
-            data: { updatedKeys },
+            data: runId ? { runId, updatedKeys } : { updatedKeys },
           };
         }
 
@@ -235,11 +239,17 @@ export const append = mutation({
         const t = asObject(targetRaw, "target");
         const d = asObject(dataRaw, "data");
         ensureNoExtraKeys(t, "target", ["doc"]);
-        ensureNoExtraKeys(d, "data", ["updatedKeys"]);
+        ensureNoExtraKeys(d, "data", ["runId", "updatedKeys"]);
         if (typeof t.doc !== "string") fail("conflict", "target.doc required");
+        const runId =
+          d.runId === undefined
+            ? undefined
+            : (typeof d.runId === "string" && d.runId.trim()
+                ? (d.runId as Id<"runs">)
+                : fail("conflict", "data.runId invalid"));
         const updatedKeys = normalizeBoundedStringArray(d.updatedKeys, "data.updatedKeys");
         target = { doc: ensureRepoRelativePath(t.doc, "target.doc", 128) };
-        data = { updatedKeys };
+        data = runId ? { runId, updatedKeys } : { updatedKeys };
         break;
       }
       case "gateway.openclaw.harden": {

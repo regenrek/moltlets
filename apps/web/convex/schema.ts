@@ -113,6 +113,7 @@ export const AuditData = v.union(
   v.object({ runId: v.id("runs"), scope: AuditSecretsScope }),
   v.object({ secrets: v.array(v.string()) }),
   v.object({ warnings: v.array(v.string()), runId: v.id("runs") }),
+  v.object({ runId: v.id("runs"), updatedKeys: v.array(v.string()) }),
   v.object({ updatedKeys: v.array(v.string()) }),
   v.object({ operatorIdHash: v.string() }),
   v.object({ preset: v.string(), runId: v.id("runs"), warnings: v.array(v.string()) }),

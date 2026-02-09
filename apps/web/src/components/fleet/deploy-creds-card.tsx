@@ -24,18 +24,33 @@ async function submitLocalRunnerUpdates(params: {
   nonce: string
   jobId: string
   updates: Record<string, string>
+  timeoutMs?: number
 }): Promise<void> {
-  const response = await fetch(`http://127.0.0.1:${params.port}/secrets/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-clawlets-nonce": params.nonce,
-    },
-    body: JSON.stringify({
-      jobId: params.jobId,
-      secrets: params.updates,
-    }),
-  })
+  const timeoutMs = Math.max(500, Math.trunc(params.timeoutMs ?? 5_000))
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  let response: Response
+  try {
+    response = await fetch(`http://127.0.0.1:${params.port}/secrets/submit`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-clawlets-nonce": params.nonce,
+      },
+      body: JSON.stringify({
+        jobId: params.jobId,
+        secrets: params.updates,
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(`runner local submit timed out after ${timeoutMs}ms`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
   if (response.ok) return
   let detail = ""
   try {
@@ -88,16 +103,21 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
       }
       const updatedKeys = Object.keys(updates).filter((key) => WEB_DEPLOY_CREDS_EDITABLE_KEY_SET.has(key))
       if (updatedKeys.length === 0) throw new Error("No changes to save")
+
+      // 1. Enqueue the job (returns jobId + local submit config)
       const queued = await updateDeployCreds({
         data: {
           projectId,
           updatedKeys,
         },
-      })
-      return { queued: queued as any, updates }
-    },
-    onSuccess: async ({ queued, updates }) => {
+      }) as any
+
+      // 2. POST secrets to runner local endpoint IMMEDIATELY after enqueue,
+      //    inside mutationFn (not onSuccess), so secrets are buffered before
+      //    the runner can lease and start waiting for them.
       const localSubmit = queued?.localSubmit
+      let localSubmitOk = false
+      let localSubmitError: string | null = null
       if (
         queued?.localSubmitRequired
         && localSubmit
@@ -112,18 +132,33 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
             jobId: queued.jobId,
             updates,
           })
-          toast.success("Queued and sent to local runner")
+          localSubmitOk = true
         } catch (err) {
-          toast.warning(err instanceof Error ? err.message : "Runner local submit failed; use runner prompt fallback")
+          localSubmitError = err instanceof Error ? err.message : "Runner local submit failed"
+        }
+      }
+
+      return { queued, updates, localSubmitOk, localSubmitError }
+    },
+    onSuccess: ({ localSubmitOk, localSubmitError }) => {
+      if (localSubmitOk) {
+        toast.success("Saved and sent to runner")
+      } else if (localSubmitError) {
+        if (localSubmitError.includes("origin forbidden")) {
+          toast.warning("Runner local submit origin mismatch. Restart runner from this dashboard URL.")
+        } else if (localSubmitError.includes("nonce mismatch")) {
+          toast.warning("Runner local submit nonce mismatch. Restart runner to refresh nonce.")
+        } else {
+          toast.warning(localSubmitError)
         }
       } else {
-        toast.info("Queued. Runner prompt/input may be required.")
+        toast.info("Queued. Check runner terminal for status.")
       }
       setHcloudToken("")
       setGithubToken("")
       setHcloudUnlocked(false)
       setGithubUnlocked(false)
-      await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
+      void queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
     },
     onError: (err) => {
       toast.error(String(err))

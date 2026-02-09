@@ -17,6 +17,7 @@ import {
   sanitizeHostPatch,
   validateMetadataSyncPayloadSizes,
 } from "./controlPlane/httpParsers";
+import { touchRunnerTokenLastUsed } from "./controlPlane/runnerAuth";
 
 const http = httpRouter();
 type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
@@ -75,10 +76,10 @@ async function requireRunnerAuth(
   ) {
     return null;
   }
-  void ctx.runMutation(internal.controlPlane.runnerTokens.touchLastUsedInternal, {
+  await touchRunnerTokenLastUsed(ctx, {
     tokenId: tokenDoc.tokenId,
     now: Date.now(),
-  }).catch(() => {});
+  });
   if (!runner) return null;
   return {
     tokenId: tokenDoc.tokenId,

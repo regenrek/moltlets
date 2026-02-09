@@ -25,6 +25,17 @@ const SAFE_ERROR_PATTERNS: RegExp[] = [
   /^missing origin remote/i,
   /^cannot push/i,
   /^git push failed$/i,
+  /^repoRoot missing:/i,
+  /^repoRoot must be empty/i,
+  /^repoRoot is not a directory:/i,
+  /^repoRoot check failed:/i,
+  /^repoRoot readability check failed:/i,
+  /^repoRoot required$/i,
+  /^job args empty$/i,
+  /^project_init requires/i,
+  /^project_import requires/i,
+  /^project_import forbids/i,
+  /^project_init forbids/i,
 ]
 
 export function sanitizeErrorMessage(err: unknown, fallback: string): string {
