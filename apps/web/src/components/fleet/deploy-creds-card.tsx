@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
@@ -173,13 +173,15 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
       title="Deploy credentials"
       description="Local-only operator tokens used by bootstrap, infra, and doctor."
       actions={
-        <Button
+        <AsyncButton
           type="button"
           disabled={save.isPending || creds.isPending || runnersQuery.isPending || !runnerOnline}
+          pending={save.isPending}
+          pendingText="Saving..."
           onClick={() => save.mutate()}
         >
           Save
-        </Button>
+        </AsyncButton>
       }
     >
       <RunnerStatusBanner
@@ -235,11 +237,21 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
                 placeholder=".clawlets/keys/operators/<user>.agekey"
               />
               <InputGroupAddon align="inline-end">
-                <InputGroupButton disabled={!runnerOnline || detectSops.isPending} onClick={() => detectSops.mutate()}>
-                  {detectSops.isPending ? "Finding…" : "Find"}
+                <InputGroupButton
+                  disabled={!runnerOnline || detectSops.isPending}
+                  pending={detectSops.isPending}
+                  pendingText="Finding..."
+                  onClick={() => detectSops.mutate()}
+                >
+                  Find
                 </InputGroupButton>
-                <InputGroupButton disabled={!runnerOnline || generateSops.isPending} onClick={() => generateSops.mutate()}>
-                  {generateSops.isPending ? "Generating…" : "Generate"}
+                <InputGroupButton
+                  disabled={!runnerOnline || generateSops.isPending}
+                  pending={generateSops.isPending}
+                  pendingText="Generating..."
+                  onClick={() => generateSops.mutate()}
+                >
+                  Generate
                 </InputGroupButton>
               </InputGroupAddon>
             </InputGroup>

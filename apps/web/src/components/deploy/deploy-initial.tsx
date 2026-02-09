@@ -9,6 +9,7 @@ import { RunLogTail } from "~/components/run-log-tail"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { BootstrapChecklist } from "~/components/hosts/bootstrap-checklist"
 import { BootstrapDeploySourceSection } from "~/components/hosts/bootstrap-deploy-source"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
@@ -302,20 +303,27 @@ export function DeployInitialInstall({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
+              <AsyncButton
                 type="button"
                 variant="outline"
                 disabled={doctorRun.isPending || !host || !runnerOnline}
+                pending={doctorRun.isPending}
+                pendingText="Running preflight..."
                 onClick={() => doctorRun.mutate()}
               >
                 Run preflight doctor
-              </Button>
+              </AsyncButton>
               <AlertDialog>
                 <AlertDialogTrigger
                   render={
-                    <Button type="button" disabled={start.isPending || !canBootstrap}>
+                    <AsyncButton
+                      type="button"
+                      disabled={start.isPending || !canBootstrap}
+                      pending={start.isPending}
+                      pendingText="Deploying..."
+                    >
                       Deploy (initial install)
-                    </Button>
+                    </AsyncButton>
                   }
                 />
                 <AlertDialogContent>
@@ -329,6 +337,8 @@ export function DeployInitialInstall({
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       disabled={start.isPending || !canBootstrap}
+                      pending={start.isPending}
+                      pendingText="Deploying..."
                       onClick={() => start.mutate()}
                     >
                       Deploy
@@ -365,18 +375,20 @@ export function DeployInitialInstall({
                   Initial install requires <code>HCLOUD_TOKEN</code> and a secure <code>.clawlets/env</code>.
                 </div>
               </div>
-              <Button
+              <AsyncButton
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={creds.isFetching || !runnerOnline}
+                pending={creds.isFetching}
+                pendingText="Refreshing..."
                 onClick={() => {
                   if (!runnerOnline) return
                   void creds.refetch()
                 }}
               >
                 Refresh
-              </Button>
+              </AsyncButton>
             </div>
             {!runnerOnline ? (
               <div className="text-muted-foreground text-sm">Runner offline. Start runner to read deploy credentials.</div>

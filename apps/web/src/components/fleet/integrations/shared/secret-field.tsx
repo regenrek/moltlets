@@ -1,4 +1,4 @@
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 
 export function SecretField(props: {
@@ -20,14 +20,16 @@ export function SecretField(props: {
         onChange={(e) => props.onChange(e.target.value)}
         placeholder={props.placeholder}
       />
-      <Button
+      <AsyncButton
         size="sm"
         variant="outline"
         disabled={props.disabled || props.pending}
+        pending={props.pending}
+        pendingText="Saving..."
         onClick={() => props.onSave(props.value)}
       >
         {props.buttonLabel}
-      </Button>
+      </AsyncButton>
     </div>
   )
 }

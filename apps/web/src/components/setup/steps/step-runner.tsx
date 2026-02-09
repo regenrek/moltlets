@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -135,9 +136,15 @@ export function SetupStepRunner(props: {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" disabled={createToken.isPending || !runnerName.trim()} onClick={() => createToken.mutate()}>
+          <AsyncButton
+            type="button"
+            disabled={createToken.isPending || !runnerName.trim()}
+            pending={createToken.isPending}
+            pendingText={token ? "Generating new token..." : "Creating token..."}
+            onClick={() => createToken.mutate()}
+          >
             {token ? "Generate new token" : "Create token"}
-          </Button>
+          </AsyncButton>
           {token ? (
             <Button type="button" size="sm" variant="outline" onClick={() => void copyText("Token", token)}>
               Copy token

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { Spinner } from "~/components/ui/spinner"
@@ -125,14 +126,17 @@ export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityP
                 <Button type="button" size="xs" variant="ghost" onClick={() => void copyValue(publicIpv4)}>
                   Copy
                 </Button>
-                <Button
+                <AsyncButton
                   type="button"
                   size="xs"
                   variant="secondary"
+                  disabled={setTargetHost.isPending}
+                  pending={setTargetHost.isPending}
+                  pendingText="Saving..."
                   onClick={() => setTargetHost.mutate(`admin@${publicIpv4}`)}
                 >
                   Use for targetHost
-                </Button>
+                </AsyncButton>
               </div>
             </div>
           ) : (
@@ -140,15 +144,17 @@ export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityP
               {publicIpv4Error || "No IPv4 detected"}
             </div>
           )}
-          <Button
+          <AsyncButton
             type="button"
             size="xs"
             variant="outline"
             disabled={publicIpv4Query.isFetching}
+            pending={publicIpv4Query.isFetching}
+            pendingText="Refreshing..."
             onClick={() => void publicIpv4Query.refetch()}
           >
-            {publicIpv4Query.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+            Refresh
+          </AsyncButton>
         </div>
 
         <div className="rounded-md border bg-muted/30 p-3 space-y-2">
@@ -165,14 +171,17 @@ export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityP
                 >
                   Copy
                 </Button>
-                <Button
+                <AsyncButton
                   type="button"
                   size="xs"
                   variant="secondary"
+                  disabled={setTargetHost.isPending}
+                  pending={setTargetHost.isPending}
+                  pendingText="Saving..."
                   onClick={() => setTargetHost.mutate(`admin@${tailscaleProbe.value}`)}
                 >
                   Use for targetHost
-                </Button>
+                </AsyncButton>
               </div>
             </div>
           ) : (
@@ -181,24 +190,28 @@ export function ConnectivityPanel({ projectId, host, targetHost }: ConnectivityP
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Button
+            <AsyncButton
               type="button"
               size="xs"
               variant="outline"
               disabled={tailscaleProbeRun.isPending || !targetHost?.trim()}
+              pending={tailscaleProbeRun.isPending}
+              pendingText="Probing..."
               onClick={() => tailscaleProbeRun.mutate()}
             >
-              {tailscaleProbeRun.isPending ? "Probing…" : "Probe tailscale"}
-            </Button>
-            <Button
+              Probe tailscale
+            </AsyncButton>
+            <AsyncButton
               type="button"
               size="xs"
               variant="outline"
               disabled={sshProbeRun.isPending || !targetHost?.trim()}
+              pending={sshProbeRun.isPending}
+              pendingText="Checking..."
               onClick={() => sshProbeRun.mutate()}
             >
-              {sshProbeRun.isPending ? "Checking…" : "Check SSH"}
-            </Button>
+              Check SSH
+            </AsyncButton>
           </div>
           {!targetHost?.trim() ? (
             <div className="text-xs text-muted-foreground">Set targetHost to probe.</div>

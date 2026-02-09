@@ -70,7 +70,7 @@ async function loadHostsSdk(params: {
 }
 
 describe("hosts add runner queue", () => {
-  it("queues canonical config host add command and upserts on quick success", async () => {
+  it("queues canonical host add command and upserts on quick success", async () => {
     const { mod, enqueueRunnerCommand, mutation } = await loadHostsSdk({ runnerOnline: true })
 
     const res = await runWithStartContext(startContext(), async () =>
@@ -81,7 +81,7 @@ describe("hosts add runner queue", () => {
     expect(enqueueRunnerCommand).toHaveBeenCalledWith(expect.objectContaining({
       projectId: "p1",
       runKind: "config_write",
-      args: ["config", "host", "add", "--host", "alpha"],
+      args: ["host", "add", "--host", "alpha"],
     }))
     expect(mutation).toHaveBeenCalledTimes(1)
   })

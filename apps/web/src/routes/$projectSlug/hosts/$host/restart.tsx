@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -114,9 +115,15 @@ function RestartOperate() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" disabled={start.isPending || !canRestart} onClick={() => start.mutate()}>
+              <AsyncButton
+                type="button"
+                disabled={start.isPending || !canRestart}
+                pending={start.isPending}
+                pendingText="Restarting..."
+                onClick={() => start.mutate()}
+              >
                 Restart
-              </Button>
+              </AsyncButton>
               <div className="text-xs text-muted-foreground">
                 Uses <code>--ssh-tty=false</code>.
               </div>

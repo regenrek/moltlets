@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -134,9 +135,15 @@ function LogsOperate() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" disabled={start.isPending || !host} onClick={() => start.mutate()}>
+              <AsyncButton
+                type="button"
+                disabled={start.isPending || !host}
+                pending={start.isPending}
+                pendingText={follow ? "Starting follow..." : "Fetching logs..."}
+                onClick={() => start.mutate()}
+              >
                 {follow ? "Start following" : "Fetch logs"}
-              </Button>
+              </AsyncButton>
               <div className="text-xs text-muted-foreground">
                 Uses <code>--ssh-tty=false</code>. Ensure passwordless sudo if required.
               </div>

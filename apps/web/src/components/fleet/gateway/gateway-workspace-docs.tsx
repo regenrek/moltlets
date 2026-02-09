@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { listWorkspaceDocs, resetWorkspaceDocOverride } from "~/sdk/workspace"
@@ -85,14 +86,16 @@ export function GatewayWorkspaceDocs(props: { projectId: string; gatewayId: stri
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {d.hasOverride ? (
-                    <Button
+                    <AsyncButton
                       type="button"
                       variant="outline"
                       disabled={!props.canEdit || reset.isPending}
+                      pending={reset.isPending}
+                      pendingText="Resetting..."
                       onClick={() => reset.mutate(d.name)}
                     >
                       Use default
-                    </Button>
+                    </AsyncButton>
                   ) : null}
                   <Button type="button" variant="outline" onClick={() => setOpenDoc(d.name)}>
                     Edit

@@ -1,4 +1,4 @@
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { SshPubkeyFileField } from "~/components/hosts/ssh-pubkey-file-field"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
@@ -26,7 +26,11 @@ function HostSshSection({
     <SettingsSection
       title="SSH Connectivity"
       description="Controls how operators reach this host via SSH (network exposure + which local public key file to use during provisioning)."
-      actions={<Button disabled={saving} onClick={onSave}>Save</Button>}
+      actions={
+        <AsyncButton disabled={saving} pending={saving} pendingText="Saving..." onClick={onSave}>
+          Save
+        </AsyncButton>
+      }
     >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">

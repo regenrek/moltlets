@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { Textarea } from "~/components/ui/textarea"
@@ -146,9 +146,15 @@ function SetupStepConnectionForm(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={save.isPending || !canSave} onClick={() => save.mutate()}>
+        <AsyncButton
+          type="button"
+          disabled={save.isPending || !canSave}
+          pending={save.isPending}
+          pendingText="Saving..."
+          onClick={() => save.mutate()}
+        >
           Save and continue
-        </Button>
+        </AsyncButton>
         {!canSave ? (
           <div className="text-xs text-muted-foreground">
             Fill the admin IP (CIDR) and add an SSH public key.

@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { RunLogTail } from "~/components/run-log-tail"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { configDotBatch } from "~/sdk/config"
 
@@ -32,9 +33,15 @@ export function OpenClawSetupStepEnable(props: {
         Enables OpenClaw for this host. If <code>fleet/openclaw.json</code> or the host entry is missing, this creates it.
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={enable.isPending || props.isComplete} onClick={() => enable.mutate()}>
+        <AsyncButton
+          type="button"
+          disabled={enable.isPending || props.isComplete}
+          pending={enable.isPending}
+          pendingText="Enabling OpenClaw..."
+          onClick={() => enable.mutate()}
+        >
           {props.isComplete ? "OpenClaw already enabled" : "Enable OpenClaw"}
-        </Button>
+        </AsyncButton>
         <Button type="button" variant="outline" disabled={!props.isComplete} onClick={props.onContinue}>
           Continue
         </Button>

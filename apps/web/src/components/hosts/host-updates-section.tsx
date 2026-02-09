@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -58,9 +59,9 @@ function HostUpdatesSection({
           >
             Open Deploy
           </Button>
-          <Button disabled={saving} onClick={onSave}>
+          <AsyncButton disabled={saving} pending={saving} pendingText="Saving..." onClick={onSave}>
             Save
-          </Button>
+          </AsyncButton>
         </div>
       }
     >

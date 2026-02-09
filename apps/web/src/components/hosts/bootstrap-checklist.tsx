@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { toast } from "sonner"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { RunLogTail } from "~/components/run-log-tail"
@@ -21,6 +21,8 @@ function ChecklistStep({
   description,
   actionLabel,
   actionDisabled,
+  actionPending,
+  actionPendingLabel,
   onAction,
   children,
 }: {
@@ -30,6 +32,8 @@ function ChecklistStep({
   description?: ReactNode
   actionLabel: string
   actionDisabled?: boolean
+  actionPending?: boolean
+  actionPendingLabel?: string
   onAction?: () => void
   children?: React.ReactNode
 }) {
@@ -41,9 +45,16 @@ function ChecklistStep({
       </div>
       {description ? <div className="text-xs text-muted-foreground">{description}</div> : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" disabled={actionDisabled} onClick={onAction}>
+        <AsyncButton
+          type="button"
+          size="sm"
+          disabled={actionDisabled}
+          pending={Boolean(actionPending)}
+          pendingText={actionPendingLabel ?? actionLabel}
+          onClick={onAction}
+        >
           {actionLabel}
-        </Button>
+        </AsyncButton>
         {children}
       </div>
     </div>
@@ -241,15 +252,17 @@ export function BootstrapChecklist({
           <div className="text-lg font-semibold">Post-bootstrap checklist</div>
           <div className="text-xs text-muted-foreground">Guided steps to lock down SSH safely.</div>
         </div>
-        <Button
+        <AsyncButton
           type="button"
           size="sm"
           variant="outline"
           disabled={publicIpv4Query.isFetching}
+          pending={publicIpv4Query.isFetching}
+          pendingText="Refreshing IP..."
           onClick={() => void publicIpv4Query.refetch()}
         >
-          {publicIpv4Query.isFetching ? "Refreshing…" : "Refresh IP"}
-        </Button>
+          Refresh IP
+        </AsyncButton>
       </div>
 
       {!targetHost.trim() ? (
@@ -268,7 +281,9 @@ export function BootstrapChecklist({
           statusVariant={publicStatus === "ok" ? "secondary" : "destructive"}
           description={publicIpv4 ? <code>{publicIpv4}</code> : "Fetch OpenTofu output or bootstrap logs."}
           actionLabel={`Set targetHost to admin@${publicIpv4 || "<ipv4>"}`}
-          actionDisabled={!canSetPublicTarget}
+          actionDisabled={!canSetPublicTarget || setConfig.isPending}
+          actionPending={setConfig.isPending}
+          actionPendingLabel="Saving..."
           onAction={() => setConfig.mutate({ path: `hosts.${host}.targetHost`, value: targetHostPublic })}
         />
 
@@ -277,7 +292,9 @@ export function BootstrapChecklist({
           statusLabel={enabled ? "enabled" : "disabled"}
           statusVariant={enabled ? "secondary" : "destructive"}
           actionLabel="Enable host"
-          actionDisabled={enabled}
+          actionDisabled={enabled || setConfig.isPending}
+          actionPending={setConfig.isPending}
+          actionPendingLabel="Saving..."
           onAction={() => setConfig.mutate({ path: `hosts.${host}.enable`, valueJson: "true" })}
         />
 
@@ -291,7 +308,9 @@ export function BootstrapChecklist({
             </span>
           }
           actionLabel="Apply now"
-          actionDisabled={!selfUpdateConfigured || !targetHost.trim()}
+          actionDisabled={!selfUpdateConfigured || !targetHost.trim() || applyStart.isPending}
+          actionPending={applyStart.isPending}
+          actionPendingLabel="Applying..."
           onAction={() => applyStart.mutate()}
         />
 
@@ -301,8 +320,10 @@ export function BootstrapChecklist({
             statusLabel={tailscaleSecretOk ? "ok" : "missing"}
             statusVariant={tailscaleSecretOk ? "secondary" : "destructive"}
             description={tailscaleSecretError || "Required for tailnet SSH + lockdown."}
-            actionLabel={tailscaleSecretCheck.isPending ? "Checking…" : "Check secrets"}
+            actionLabel="Check secrets"
             actionDisabled={tailscaleSecretCheck.isPending}
+            actionPending={tailscaleSecretCheck.isPending}
+            actionPendingLabel="Checking..."
             onAction={() => tailscaleSecretCheck.mutate()}
           />
         ) : null}
@@ -312,8 +333,10 @@ export function BootstrapChecklist({
           statusLabel={tailscaleIp ? "ok" : "blocked"}
           statusVariant={tailscaleIp ? "secondary" : "destructive"}
           description={tailscaleIp ? <code>{tailscaleIp}</code> : tailscaleError || "Requires targetHost."}
-          actionLabel={tailscaleProbeRun.isPending ? "Probing…" : "Probe tailscale"}
+          actionLabel="Probe tailscale"
           actionDisabled={!canProbeTailscale || tailscaleProbeRun.isPending}
+          actionPending={tailscaleProbeRun.isPending}
+          actionPendingLabel="Probing..."
           onAction={() => tailscaleProbeRun.mutate()}
         />
 
@@ -322,7 +345,9 @@ export function BootstrapChecklist({
           statusLabel={targetHost === targetHostTailnet ? "ok" : "pending"}
           statusVariant={targetHost === targetHostTailnet ? "secondary" : "destructive"}
           actionLabel={`Use admin@${tailscaleIp || "<tailnet-ip>"}`}
-          actionDisabled={!canUseTailscale}
+          actionDisabled={!canUseTailscale || setConfig.isPending}
+          actionPending={setConfig.isPending}
+          actionPendingLabel="Saving..."
           onAction={() => setConfig.mutate({ path: `hosts.${host}.targetHost`, value: targetHostTailnet })}
         />
 
@@ -332,7 +357,9 @@ export function BootstrapChecklist({
           statusVariant={sshExposure === "tailnet" ? "secondary" : "destructive"}
           description={canSwitchTailnet ? "Ready" : "Blocked: tailscale auth key missing"}
           actionLabel="Switch to tailnet"
-          actionDisabled={!canSwitchTailnet}
+          actionDisabled={!canSwitchTailnet || setConfig.isPending}
+          actionPending={setConfig.isPending}
+          actionPendingLabel="Saving..."
           onAction={() => setConfig.mutate({ path: `hosts.${host}.sshExposure.mode`, value: "tailnet" })}
         />
 
@@ -341,7 +368,9 @@ export function BootstrapChecklist({
           statusLabel={canLockdown ? "ready" : "blocked"}
           statusVariant={canLockdown ? "secondary" : "destructive"}
           actionLabel="Run lockdown"
-          actionDisabled={!canLockdown}
+          actionDisabled={!canLockdown || lockdownStartRun.isPending}
+          actionPending={lockdownStartRun.isPending}
+          actionPendingLabel="Running lockdown..."
           onAction={() => lockdownStartRun.mutate()}
         />
 
@@ -350,7 +379,9 @@ export function BootstrapChecklist({
           statusLabel={selfUpdateConfigured && targetHost.trim() ? "ready" : "blocked"}
           statusVariant={selfUpdateConfigured && targetHost.trim() ? "secondary" : "destructive"}
           actionLabel="Apply now"
-          actionDisabled={!selfUpdateConfigured || !targetHost.trim()}
+          actionDisabled={!selfUpdateConfigured || !targetHost.trim() || applyStart.isPending}
+          actionPending={applyStart.isPending}
+          actionPendingLabel="Applying..."
           onAction={() => applyStart.mutate()}
         />
       </div>

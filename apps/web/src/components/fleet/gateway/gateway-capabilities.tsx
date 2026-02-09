@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { listPinnedChannels } from "@clawlets/core/lib/openclaw/channel-registry"
 import { listEnabledChannels } from "../integrations/helpers"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
@@ -194,13 +195,15 @@ export function GatewayCapabilities(props: {
         ) : null}
 
         <div className="flex items-center gap-2">
-          <Button
+          <AsyncButton
             size="sm"
             disabled={!props.canEdit || !selected || applyPreset.isPending || preview.isPending || hasIssues}
+            pending={applyPreset.isPending}
+            pendingText="Applying..."
             onClick={() => applyPreset.mutate()}
           >
             Apply
-          </Button>
+          </AsyncButton>
           {hasIssues ? <span className="text-xs text-muted-foreground">Fix schema issues before applying.</span> : null}
         </div>
       </div>

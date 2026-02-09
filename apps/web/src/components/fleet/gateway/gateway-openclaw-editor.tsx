@@ -6,6 +6,7 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { getPinnedOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import type { lintOpenclawSecurityConfig } from "@clawlets/core/lib/openclaw/security-lint"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Switch } from "~/components/ui/switch"
 import { MonacoJsonEditor, type JsonEditorDiagnostic } from "~/components/editor/monaco-json-editor"
@@ -272,10 +273,17 @@ export function GatewayOpenclawEditor(props: {
           <Button type="button" variant="outline" onClick={format}>
             Format
           </Button>
-          <Button type="button" variant="outline" disabled={!props.canEdit || harden.isPending} onClick={() => harden.mutate()}>
+          <AsyncButton
+            type="button"
+            variant="outline"
+            disabled={!props.canEdit || harden.isPending}
+            pending={harden.isPending}
+            pendingText="Hardening..."
+            onClick={() => harden.mutate()}
+          >
             Harden
-          </Button>
-          <Button
+          </AsyncButton>
+          <AsyncButton
             type="button"
             disabled={shouldDisableSave({
               canEdit: props.canEdit,
@@ -283,10 +291,12 @@ export function GatewayOpenclawEditor(props: {
               parsedOk: parsed.ok,
               hasSchemaErrors,
             }) || hasInlineSecrets}
+            pending={save.isPending}
+            pendingText="Saving..."
             onClick={() => save.mutate()}
           >
             Save
-          </Button>
+          </AsyncButton>
         </div>
       </div>
 
@@ -323,15 +333,17 @@ export function GatewayOpenclawEditor(props: {
                 }}
               />
             </div>
-            <Button
+            <AsyncButton
               type="button"
               size="sm"
               variant="outline"
               disabled={!canUseLive || liveVerify.isPending}
+              pending={liveVerify.isPending}
+              pendingText="Verifying..."
               onClick={() => liveVerify.mutate()}
             >
               Verify vs live schema
-            </Button>
+            </AsyncButton>
           </div>
         </div>
         {!canUseLive ? (

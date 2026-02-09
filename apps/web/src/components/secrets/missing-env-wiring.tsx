@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import type { Id } from "../../../convex/_generated/dataModel"
 import type { MissingSecretConfig } from "@clawlets/core/lib/secrets/secrets-plan"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { suggestSecretNameForEnvVar } from "~/lib/secret-name-suggest"
@@ -138,15 +138,17 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
             These env vars are required but not wired to secret names yet. Wire them to show inputs below.
           </div>
         </div>
-        <Button
+        <AsyncButton
           size="sm"
           type="button"
           variant="outline"
           disabled={!canWireAll || wireAll.isPending}
+          pending={wireAll.isPending}
+          pendingText="Wiring all..."
           onClick={() => wireAll.mutate()}
         >
           Wire all (recommended)
-        </Button>
+        </AsyncButton>
       </div>
 
       <div className="space-y-4">
@@ -198,15 +200,17 @@ export function MissingEnvWiringPanel(props: MissingEnvWiringPanelProps) {
                       <div className="text-xs text-muted-foreground">
                         Writes to <code>{path}</code>
                       </div>
-                      <Button
+                      <AsyncButton
                         type="button"
                         variant="outline"
                         size="sm"
                         disabled={!draft.secretName.trim() || wireOne.isPending}
+                        pending={wireOne.isPending}
+                        pendingText="Wiring..."
                         onClick={() => wireOne.mutate({ entry, draft })}
                       >
                         Wire
-                      </Button>
+                      </AsyncButton>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Paths: {pathsLabel}

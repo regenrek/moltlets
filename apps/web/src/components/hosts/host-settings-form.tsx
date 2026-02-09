@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
@@ -254,7 +254,7 @@ export function HostSettingsForm(props: {
       <SettingsSection
         title="Host Theme"
         description="Shown in the sidebar and header when this host is active."
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -287,7 +287,7 @@ export function HostSettingsForm(props: {
         title="Infrastructure Provider"
         description="Web settings currently support the Hetzner production path."
         statusText="Day 0 infrastructure lifecycle"
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -307,7 +307,7 @@ export function HostSettingsForm(props: {
         title="Connection"
         description="SSH target and admin access settings."
         statusText="Used for provisioning access."
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -355,7 +355,7 @@ export function HostSettingsForm(props: {
       <SettingsSection
         title="Network"
         description="VPN and tailnet configuration."
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="space-y-2 max-w-xs">
           <LabelWithHelp htmlFor="tailnetMode" help={setupFieldHelp.hosts.tailnet}>
@@ -384,7 +384,7 @@ export function HostSettingsForm(props: {
       <SettingsSection
         title="NixOS Configuration"
         description="System-level NixOS settings."
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -406,7 +406,7 @@ export function HostSettingsForm(props: {
         title="Agent"
         description="AI agent model configuration."
         statusText="Format: provider/model"
-        actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
+        actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
         <div className="space-y-2 max-w-md">
           <LabelWithHelp htmlFor="model" help={setupFieldHelp.hosts.agentModelPrimary}>

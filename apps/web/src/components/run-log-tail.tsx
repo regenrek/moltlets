@@ -4,6 +4,7 @@ import { useRouter } from "@tanstack/react-router"
 import * as React from "react"
 import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { cancelRun } from "~/sdk/runtime"
 
@@ -23,6 +24,7 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
 
   type RunEventsPage = NonNullable<typeof pageQuery.data>
   const [olderPages, setOlderPages] = React.useState<RunEventsPage[]>([])
+  const [canceling, setCanceling] = React.useState(false)
   const firstPage = pageQuery.data
   const lastOlderPage = olderPages[olderPages.length - 1] ?? null
   const continueCursor = lastOlderPage ? lastOlderPage.continueCursor : firstPage?.continueCursor ?? null
@@ -82,25 +84,39 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
         </div>
         <div className="flex items-center gap-2">
           {canLoadOlder ? (
-            <Button
+            <AsyncButton
               size="sm"
               variant="outline"
               type="button"
               disabled={loadOlder.isPending}
+              pending={loadOlder.isPending}
+              pendingText="Loading..."
               onClick={() => loadOlder.mutate()}
             >
-              {loadOlder.isPending ? "Loading…" : "Load older"}
-            </Button>
+              Load older
+            </AsyncButton>
           ) : null}
           {run?.status === "running" ? (
-            <Button
+            <AsyncButton
               size="sm"
               variant="outline"
               type="button"
-              onClick={() => void cancelRun({ data: { runId } })}
+              disabled={canceling}
+              pending={canceling}
+              pendingText="Canceling..."
+              onClick={() => {
+                void (async () => {
+                  setCanceling(true)
+                  try {
+                    await cancelRun({ data: { runId } })
+                  } finally {
+                    setCanceling(false)
+                  }
+                })()
+              }}
             >
               Cancel
-            </Button>
+            </AsyncButton>
           ) : null}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
@@ -21,7 +21,11 @@ export function HostProviderSettingsSection(props: {
     <SettingsSection
       title="Hetzner Cloud"
       description="Provider-specific settings for Hetzner hosts."
-      actions={<Button disabled={props.saving} onClick={props.onSave}>Save</Button>}
+      actions={
+        <AsyncButton disabled={props.saving} pending={props.saving} pendingText="Saving..." onClick={props.onSave}>
+          Save
+        </AsyncButton>
+      }
     >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">

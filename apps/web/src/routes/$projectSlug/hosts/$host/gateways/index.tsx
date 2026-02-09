@@ -7,6 +7,7 @@ import { useConvexAuth } from "convex/react"
 import type { Id } from "../../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../../convex/_generated/api"
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
@@ -299,7 +300,7 @@ function GatewaysSetup() {
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline">Cancel</Button>} />
-          <Button
+          <AsyncButton
             type="button"
             disabled={
               !canEdit ||
@@ -308,6 +309,8 @@ function GatewaysSetup() {
               !SAFE_GATEWAY_ID_RE.test(effectiveGatewayId) ||
               takenIds.has(effectiveGatewayId)
             }
+            pending={addGatewayMutation.isPending}
+            pendingText="Adding gateway..."
             onClick={() => {
               if (!effectiveGatewayId) return
               if (!SAFE_GATEWAY_ID_RE.test(effectiveGatewayId)) {
@@ -322,7 +325,7 @@ function GatewaysSetup() {
             }}
           >
             Add
-          </Button>
+          </AsyncButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

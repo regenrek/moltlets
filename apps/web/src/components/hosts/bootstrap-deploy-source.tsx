@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "~/components/ui/alert-dialog"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible"
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldTitle } from "~/components/ui/field"
@@ -108,15 +109,17 @@ export function BootstrapDeploySourceSection(props: {
       <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="font-medium">{localSelected ? "Local status" : "Remote status"}</div>
-          <Button
+          <AsyncButton
             type="button"
             size="sm"
             variant="outline"
             disabled={repoStatus.isFetching}
+            pending={repoStatus.isFetching}
+            pendingText="Refreshing..."
             onClick={onRefresh}
           >
-            {repoStatus.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+            Refresh
+          </AsyncButton>
         </div>
 
         {repoStatus.isPending ? (
@@ -198,9 +201,16 @@ git push -u origin HEAD
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={
-                        <Button type="button" size="sm" variant="outline" disabled={isPushing}>
-                          {isPushing ? "Pushing…" : "Push now"}
-                        </Button>
+                        <AsyncButton
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isPushing}
+                          pending={isPushing}
+                          pendingText="Pushing..."
+                        >
+                          Push now
+                        </AsyncButton>
                       }
                     />
                     <AlertDialogContent>
@@ -212,8 +222,8 @@ git push -u origin HEAD
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={onPushNow}>
-                          {isPushing ? "Pushing…" : "Push now"}
+                        <AlertDialogAction onClick={onPushNow} disabled={isPushing} pending={isPushing} pendingText="Pushing...">
+                          Push now
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

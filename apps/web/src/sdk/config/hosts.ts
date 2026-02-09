@@ -55,7 +55,7 @@ export const addHost = createServerFn({ method: "POST" })
       projectId: data.projectId,
       runKind: "config_write",
       title: `host add ${host}`,
-      args: ["config", "host", "add", "--host", host],
+      args: ["host", "add", "--host", host],
       note: "dashboard host add",
     })
     const terminal = await waitForRunTerminal({

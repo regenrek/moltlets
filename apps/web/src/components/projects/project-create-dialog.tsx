@@ -7,6 +7,7 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { HostThemeBadge, HostThemeColorDropdown, HostThemeEmojiPicker, normalizeHostTheme, type HostThemeColor } from "~/components/hosts/host-theme"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
@@ -310,15 +311,17 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
               Cancel
             </Button>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
+              <AsyncButton
                 type="button"
                 variant="outline"
                 disabled={plan.isPending || !name.trim()}
+                pending={plan.isPending}
+                pendingText="Previewing files..."
                 onClick={() => plan.mutate()}
               >
                 Preview files
-              </Button>
-              <Button
+              </AsyncButton>
+              <AsyncButton
                 type="button"
                 disabled={
                   start.isPending ||
@@ -327,10 +330,12 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
                   !effectiveLocalPath.trim() ||
                   !effectiveHost.trim()
                 }
+                pending={start.isPending}
+                pendingText="Creating project..."
                 onClick={() => start.mutate()}
               >
                 Create
-              </Button>
+              </AsyncButton>
             </div>
           </div>
 

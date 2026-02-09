@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { LabelWithHelp } from "~/components/ui/label-help"
@@ -177,9 +178,15 @@ function DoctorSetup() {
                 </NativeSelect>
               </div>
             </div>
-            <Button type="button" disabled={run.isPending || !host} onClick={() => run.mutate()}>
+            <AsyncButton
+              type="button"
+              disabled={run.isPending || !host}
+              pending={run.isPending}
+              pendingText="Running doctor..."
+              onClick={() => run.mutate()}
+            >
               Run doctor
-            </Button>
+            </AsyncButton>
           </div>
 
           {result ? (

@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import type { ChannelUiModel } from "@clawlets/core/lib/openclaw/channel-ui-metadata"
 import { RunLogTail } from "~/components/run-log-tail"
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { serverChannelsExecute, serverChannelsStart } from "~/sdk/server"
 
 export function ChannelsRuntimeCard(props: {
@@ -63,24 +63,28 @@ export function ChannelsRuntimeCard(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button
+        <AsyncButton
           size="sm"
           variant="outline"
           disabled={!props.canEdit || runChannels.isPending || !props.host.trim()}
+          pending={runChannels.isPending}
+          pendingText="Running..."
           onClick={() => runChannels.mutate({ op: "status", probe: true })}
         >
           Channels status
-        </Button>
+        </AsyncButton>
         {runtimeChannels.flatMap((channel) =>
           channel.runtimeOps.map((op) => {
             const enabled = props.enabledChannels.includes(channel.id)
             const label = `${channel.name} ${op}`
             return (
-              <Button
+              <AsyncButton
                 key={`${channel.id}:${op}`}
                 size="sm"
                 variant="outline"
                 disabled={!props.canEdit || runChannels.isPending || !enabled || !props.host.trim()}
+                pending={runChannels.isPending}
+                pendingText="Running..."
                 onClick={() =>
                   runChannels.mutate({
                     op,
@@ -90,7 +94,7 @@ export function ChannelsRuntimeCard(props: {
                 }
               >
                 {label}
-              </Button>
+              </AsyncButton>
             )
           }),
         )}

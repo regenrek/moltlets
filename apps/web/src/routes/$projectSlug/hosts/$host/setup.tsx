@@ -93,7 +93,6 @@ function HostSetupPage() {
             <SetupStepHost
               projectId={projectId as Id<"projects">}
               config={setup.config}
-              selectedHost={null}
               onSelectHost={(nextHost) => {
                 const clean = String(nextHost || "").trim()
                 if (!clean) return
@@ -103,7 +102,6 @@ function HostSetupPage() {
                   search: { step: "connection" },
                 })
               }}
-              onContinue={() => {}}
             />
           </SetupSection>
         </Accordion>

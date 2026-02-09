@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Textarea } from "~/components/ui/textarea"
@@ -163,22 +164,26 @@ export function WorkspaceDocDialog(props: {
 
         <DialogFooter>
           {props.hasOverride ? (
-            <Button
+            <AsyncButton
               type="button"
               variant="outline"
               disabled={!props.canEdit || reset.isPending}
+              pending={reset.isPending}
+              pendingText="Resetting..."
               onClick={() => reset.mutate()}
             >
               Use default
-            </Button>
+            </AsyncButton>
           ) : null}
-          <Button
+          <AsyncButton
             type="button"
             disabled={!props.canEdit || save.isPending || !props.docName}
+            pending={save.isPending}
+            pendingText="Saving..."
             onClick={() => save.mutate()}
           >
             Save
-          </Button>
+          </AsyncButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

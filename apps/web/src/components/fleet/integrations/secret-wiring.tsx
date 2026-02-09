@@ -5,8 +5,8 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { suggestSecretNameForEnvVar } from "@clawlets/core/lib/secrets/env-vars"
 import { getKnownLlmProviders, getProviderRequiredEnvVars } from "@clawlets/shared/lib/llm-provider-env"
 import { SecretNameSchema } from "@clawlets/shared/lib/identifiers"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { configDotBatch, configDotSet } from "~/sdk/config"
 import { formatIssues, getEnvMapping } from "./helpers"
@@ -152,14 +152,16 @@ export function SecretWiringDetails(props: {
                           <>missing mapping</>
                         )}
                         {canPromote ? (
-                          <Button
+                          <AsyncButton
                             size="sm"
                             variant="outline"
                             disabled={!props.canEdit || promoteToFleet.isPending}
+                            pending={promoteToFleet.isPending}
+                            pendingText="Promoting..."
                             onClick={() => promoteToFleet.mutate({ envVar, secretName: mapping!.secretName })}
                           >
                             Promote to fleet
-                          </Button>
+                          </AsyncButton>
                         ) : null}
                       </div>
                     </div>
@@ -176,22 +178,26 @@ export function SecretWiringDetails(props: {
                           disabled={!props.canEdit}
                         />
                       </div>
-                      <Button
+                      <AsyncButton
                         size="sm"
                         variant="outline"
                         disabled={!props.canEdit || wireEnv.isPending || !draft || !isValidEnvVarName(envVar)}
+                        pending={wireEnv.isPending}
+                        pendingText="Mapping..."
                         onClick={() => wireEnv.mutate({ envVar, scope: "fleet", secretName: draft })}
                       >
                         Map (fleet)
-                      </Button>
-                      <Button
+                      </AsyncButton>
+                      <AsyncButton
                         size="sm"
                         variant="outline"
                         disabled={!props.canEdit || wireEnv.isPending || !draft || !isValidEnvVarName(envVar)}
+                        pending={wireEnv.isPending}
+                        pendingText="Mapping..."
                         onClick={() => wireEnv.mutate({ envVar, scope: "gateway", secretName: draft })}
                       >
                         Map (gateway)
-                      </Button>
+                      </AsyncButton>
                       {!isValidEnvVarName(envVar) ? (
                         <div className="md:col-span-3 text-xs text-muted-foreground">
                           Invalid env var name (expected <code>[A-Z_][A-Z0-9_]*</code>).

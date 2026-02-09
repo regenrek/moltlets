@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query"
 import { Link, useRouter } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 
 type RunsListProps = {
@@ -83,14 +84,16 @@ function RunsList({ projectSlug, projectId, host }: RunsListProps) {
         </Link>
       ))}
       {runs.hasNextPage ? (
-        <Button
+        <AsyncButton
           type="button"
           variant="outline"
           disabled={runs.isFetchingNextPage}
+          pending={runs.isFetchingNextPage}
+          pendingText="Loading..."
           onClick={() => void runs.fetchNextPage()}
         >
-          {runs.isFetchingNextPage ? "Loading…" : "Load more"}
-        </Button>
+          Load more
+        </AsyncButton>
       ) : null}
     </div>
   ) : (

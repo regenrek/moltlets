@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 import * as React from "react"
 import { authClient } from "~/lib/auth-client"
 import { currentUserQueryOptions } from "~/lib/query-options"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Card } from "~/components/ui/card"
 import { Input } from "~/components/ui/input"
@@ -39,6 +40,7 @@ function AccountSettingsForm(props: { name: string; email: string; role: string 
   const [nextPassword, setNextPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  const [signingOut, setSigningOut] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
 
@@ -168,9 +170,9 @@ function AccountSettingsForm(props: { name: string; email: string; role: string 
               placeholder="Your name"
             />
           </div>
-          <Button type="submit" variant="outline" disabled={busy}>
+          <AsyncButton type="submit" variant="outline" disabled={busy} pending={busy} pendingText="Updating name...">
             Update name
-          </Button>
+          </AsyncButton>
         </form>
         <Separator />
         <form onSubmit={onUpdateEmail} className="space-y-3">
@@ -188,9 +190,9 @@ function AccountSettingsForm(props: { name: string; email: string; role: string 
           <div className="text-xs text-muted-foreground">
             Email change may require verification depending on auth settings.
           </div>
-          <Button type="submit" variant="outline" disabled={busy}>
+          <AsyncButton type="submit" variant="outline" disabled={busy} pending={busy} pendingText="Updating email...">
             Update email
-          </Button>
+          </AsyncButton>
         </form>
         <Separator />
         <form onSubmit={onUpdatePassword} className="space-y-3">
@@ -222,27 +224,35 @@ function AccountSettingsForm(props: { name: string; email: string; role: string 
               onChange={(event) => setConfirmPassword(event.target.value)}
             />
           </div>
-          <Button type="submit" variant="outline" disabled={busy}>
+          <AsyncButton type="submit" variant="outline" disabled={busy} pending={busy} pendingText="Updating password...">
             Update password
-          </Button>
+          </AsyncButton>
         </form>
         <Separator />
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             Sign out from this device.
           </div>
-          <Button
+          <AsyncButton
             variant="outline"
+            disabled={signingOut}
+            pending={signingOut}
+            pendingText="Signing out..."
             onClick={() => {
               void (async () => {
-                await authClient.signOut()
-                await router.invalidate()
-                await router.navigate({ to: "/sign-in" })
+                setSigningOut(true)
+                try {
+                  await authClient.signOut()
+                  await router.invalidate()
+                  await router.navigate({ to: "/sign-in" })
+                } finally {
+                  setSigningOut(false)
+                }
               })()
             }}
           >
             Sign out
-          </Button>
+          </AsyncButton>
         </div>
       </Card>
     </div>

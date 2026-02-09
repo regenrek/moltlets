@@ -5,6 +5,7 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import type { MissingSecretConfig } from "@clawlets/core/lib/secrets/secrets-plan"
 import { RunLogTail } from "~/components/run-log-tail"
 import { SecretsInputs, type SecretsPlan, type SecretStatus } from "~/components/fleet/secrets-inputs"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { LabelWithHelp } from "~/components/ui/label-help"
@@ -216,14 +217,16 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                       Writes encrypted host secrets and extra-files scaffolds. Runs <code>clawlets secrets init</code>.
                     </div>
                   </div>
-                  <Button
+                  <AsyncButton
                     type="button"
                     variant="outline"
                     disabled={template.isFetching || !host}
+                    pending={template.isFetching}
+                    pendingText={hasTemplate ? "Refreshing..." : "Generating..."}
                     onClick={() => void template.refetch()}
                   >
                     {hasTemplate ? "Refresh template" : "Generate template"}
-                  </Button>
+                  </AsyncButton>
                 </div>
 
                 {template.isPending ? (
@@ -243,15 +246,17 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                     <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="font-medium">Stored secrets status</div>
-                          <Button
+                          <AsyncButton
                             type="button"
                             size="sm"
                             variant="outline"
                             disabled={verifyQuery.isFetching || !host}
+                            pending={verifyQuery.isFetching}
+                            pendingText="Checking..."
                             onClick={() => void verifyQuery.refetch()}
                           >
-                            {verifyQuery.isFetching ? "Checking…" : "Check stored secrets"}
-                          </Button>
+                            Check stored secrets
+                          </AsyncButton>
                         </div>
                       {verifySummary ? (
                         <div className="flex flex-wrap items-center gap-2">
@@ -370,9 +375,15 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                       secretStatusByName={secretStatusByName}
                     />
 
-                    <Button type="button" disabled={initStart.isPending || !host} onClick={() => initStart.mutate()}>
+                    <AsyncButton
+                      type="button"
+                      disabled={initStart.isPending || !host}
+                      pending={initStart.isPending}
+                      pendingText="Running secrets init..."
+                      onClick={() => initStart.mutate()}
+                    >
                       Run secrets init
-                    </Button>
+                    </AsyncButton>
                   </div>
                 ) : (
                   <div className="text-muted-foreground text-sm">
@@ -390,9 +401,15 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                 <div className="text-xs text-muted-foreground">
                   Runs <code>{`clawlets secrets verify --scope ${scope} --json`}</code> and summarizes missing secrets.
                 </div>
-                <Button type="button" disabled={verifyQuery.isFetching || !host} onClick={() => void verifyQuery.refetch()}>
-                  {verifyQuery.isFetching ? "Checking…" : "Run verify"}
-                </Button>
+                <AsyncButton
+                  type="button"
+                  disabled={verifyQuery.isFetching || !host}
+                  pending={verifyQuery.isFetching}
+                  pendingText="Checking..."
+                  onClick={() => void verifyQuery.refetch()}
+                >
+                  Run verify
+                </AsyncButton>
                 {verifyResult ? (
                   <Textarea
                     readOnly
@@ -411,12 +428,25 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                   Copies secrets to the server using <code>clawlets secrets sync</code>. Requires SSH access.
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="outline" disabled={syncPreviewRun.isPending || !host} onClick={() => syncPreviewRun.mutate()}>
+                  <AsyncButton
+                    type="button"
+                    variant="outline"
+                    disabled={syncPreviewRun.isPending || !host}
+                    pending={syncPreviewRun.isPending}
+                    pendingText="Previewing..."
+                    onClick={() => syncPreviewRun.mutate()}
+                  >
                     Preview files
-                  </Button>
-                  <Button type="button" disabled={syncStart.isPending || !host} onClick={() => syncStart.mutate()}>
+                  </AsyncButton>
+                  <AsyncButton
+                    type="button"
+                    disabled={syncStart.isPending || !host}
+                    pending={syncStart.isPending}
+                    pendingText="Syncing..."
+                    onClick={() => syncStart.mutate()}
+                  >
                     Sync now
-                  </Button>
+                  </AsyncButton>
                 </div>
 
                 {syncPreview ? (

@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import * as React from "react";
 import { authClient } from "~/lib/auth-client";
+import { AsyncButton } from "~/components/ui/async-button";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
@@ -109,9 +110,15 @@ function AuthEnabledSignIn() {
             <div className="text-sm text-destructive">{error}</div>
           ) : null}
 
-          <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? "Working…" : mode === "sign-up" ? "Create account" : "Sign in"}
-          </Button>
+          <AsyncButton
+            type="submit"
+            className="w-full"
+            disabled={busy}
+            pending={busy}
+            pendingText={mode === "sign-up" ? "Creating account..." : "Signing in..."}
+          >
+            {mode === "sign-up" ? "Create account" : "Sign in"}
+          </AsyncButton>
         </form>
 
         <div className="mt-6 flex items-center justify-between text-sm">

@@ -85,8 +85,14 @@ export function SshPubkeyFileField(props: {
           placeholder="~/.ssh/id_ed25519.pub"
         />
         <InputGroupAddon align="inline-end">
-          <InputGroupButton variant="secondary" disabled={detect.isPending} onClick={() => detect.mutate()}>
-            <ArrowPathIcon className={detect.isPending ? "animate-spin" : ""} />
+          <InputGroupButton
+            variant="secondary"
+            disabled={detect.isPending}
+            pending={detect.isPending}
+            pendingText="Detecting..."
+            onClick={() => detect.mutate()}
+          >
+            <ArrowPathIcon />
             Detect
           </InputGroupButton>
         </InputGroupAddon>
@@ -123,4 +129,3 @@ export function SshPubkeyFileField(props: {
     </div>
   )
 }
-

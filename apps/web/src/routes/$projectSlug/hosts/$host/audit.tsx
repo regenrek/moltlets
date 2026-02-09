@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -127,12 +128,25 @@ function AuditOperate() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" disabled={statusStart.isPending || !host} onClick={() => statusStart.mutate()}>
+              <AsyncButton
+                type="button"
+                variant="outline"
+                disabled={statusStart.isPending || !host}
+                pending={statusStart.isPending}
+                pendingText="Fetching status..."
+                onClick={() => statusStart.mutate()}
+              >
                 Server status
-              </Button>
-              <Button type="button" disabled={auditStart.isPending || !host} onClick={() => auditStart.mutate()}>
+              </AsyncButton>
+              <AsyncButton
+                type="button"
+                disabled={auditStart.isPending || !host}
+                pending={auditStart.isPending}
+                pendingText="Running audit..."
+                onClick={() => auditStart.mutate()}
+              >
                 Run server audit
-              </Button>
+              </AsyncButton>
               <div className="text-xs text-muted-foreground">
                 Uses <code>--ssh-tty=false</code>.
               </div>
@@ -160,15 +174,17 @@ function AuditOperate() {
           <div className="rounded-lg border bg-card p-6 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="font-medium">Audit log</div>
-              <Button
+              <AsyncButton
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={auditLogsQuery.isFetching}
+                pending={auditLogsQuery.isFetching}
+                pendingText="Refreshing..."
                 onClick={() => void auditLogsQuery.refetch()}
               >
                 Refresh
-              </Button>
+              </AsyncButton>
             </div>
             {auditLogsQuery.isPending ? (
               <div className="text-muted-foreground text-sm">Loading…</div>
@@ -192,15 +208,17 @@ function AuditOperate() {
                   </div>
                 ))}
                 {auditLogsQuery.hasNextPage ? (
-                  <Button
+                  <AsyncButton
                     type="button"
                     variant="outline"
                     size="sm"
                     disabled={auditLogsQuery.isFetchingNextPage}
+                    pending={auditLogsQuery.isFetchingNextPage}
+                    pendingText="Loading..."
                     onClick={() => void auditLogsQuery.fetchNextPage()}
                   >
-                    {auditLogsQuery.isFetchingNextPage ? "Loading…" : "Load more"}
-                  </Button>
+                    Load more
+                  </AsyncButton>
                 ) : null}
               </div>
             )}

@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
@@ -169,13 +170,15 @@ function HostsOverview() {
                   >
                     Cancel
                   </Button>
-                  <Button
+                  <AsyncButton
                     type="button"
                     disabled={addHostMutation.isPending || !newHost.trim() || !runnerOnline}
+                    pending={addHostMutation.isPending}
+                    pendingText="Adding host..."
                     onClick={() => addHostMutation.mutate()}
                   >
                     Add host
-                  </Button>
+                  </AsyncButton>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

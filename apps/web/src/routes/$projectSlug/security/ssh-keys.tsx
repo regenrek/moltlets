@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { Input } from "~/components/ui/input"
@@ -125,9 +126,14 @@ function SecuritySshKeys() {
         title="SSH Keys"
         description={<>Manage project-level authorized keys and known hosts shared across all hosts.</>}
         actions={
-          <Button disabled={addSsh.isPending} onClick={() => addSsh.mutate()}>
+          <AsyncButton
+            disabled={addSsh.isPending}
+            pending={addSsh.isPending}
+            pendingText="Adding SSH keys..."
+            onClick={() => addSsh.mutate()}
+          >
             Add SSH Keys
-          </Button>
+          </AsyncButton>
         }
       >
         <div className="space-y-6">
@@ -227,14 +233,16 @@ function SecuritySshKeys() {
                     {fleetSshKeys.authorized.map((k: string) => (
                       <div key={k} className="flex items-center justify-between gap-2">
                         <code className="text-xs break-all">{k}</code>
-                        <Button
+                        <AsyncButton
                           size="sm"
                           variant="secondary"
                           onClick={() => removeAuthorizedKey.mutate(k)}
                           disabled={removeAuthorizedKey.isPending}
+                          pending={removeAuthorizedKey.isPending}
+                          pendingText="Removing..."
                         >
                           Remove
-                        </Button>
+                        </AsyncButton>
                       </div>
                     ))}
                   </div>
@@ -252,14 +260,16 @@ function SecuritySshKeys() {
                     {fleetSshKeys.knownHosts.map((entry: string) => (
                       <div key={entry} className="flex items-center justify-between gap-2">
                         <code className="text-xs break-all">{entry}</code>
-                        <Button
+                        <AsyncButton
                           size="sm"
                           variant="secondary"
                           onClick={() => removeKnownHost.mutate(entry)}
                           disabled={removeKnownHost.isPending}
+                          pending={removeKnownHost.isPending}
+                          pendingText="Removing..."
                         >
                           Remove
-                        </Button>
+                        </AsyncButton>
                       </div>
                     ))}
                   </div>

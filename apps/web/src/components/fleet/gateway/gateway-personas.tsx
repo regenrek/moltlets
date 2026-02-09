@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
@@ -210,7 +211,7 @@ export function GatewayPersonas(props: {
 
             <DialogFooter>
               <DialogClose render={<Button variant="outline">Cancel</Button>} />
-              <Button
+              <AsyncButton
                 type="button"
                 disabled={
                   !props.canEdit ||
@@ -219,6 +220,8 @@ export function GatewayPersonas(props: {
                   !SAFE_AGENT_ID_RE.test(effectiveAgentId) ||
                   takenIds.has(effectiveAgentId)
                 }
+                pending={addAgent.isPending}
+                pendingText="Adding agent..."
                 onClick={() => {
                   if (!effectiveAgentId) return
                   if (!SAFE_AGENT_ID_RE.test(effectiveAgentId)) {
@@ -233,7 +236,7 @@ export function GatewayPersonas(props: {
                 }}
               >
                 Add agent
-              </Button>
+              </AsyncButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -257,10 +260,12 @@ export function GatewayPersonas(props: {
                     {entry.default ? <Badge variant="secondary">default</Badge> : null}
                   </div>
                 </div>
-                <Button
+                <AsyncButton
                   size="sm"
                   variant="outline"
                   disabled={!props.canEdit || removeAgent.isPending}
+                  pending={removeAgent.isPending}
+                  pendingText="Removing..."
                   onClick={() => {
                     if (!props.canEdit) return
                     const ok = window.confirm(`Remove agent ${id}?`)
@@ -269,7 +274,7 @@ export function GatewayPersonas(props: {
                   }}
                 >
                   Remove
-                </Button>
+                </AsyncButton>
               </div>
             )
           })}

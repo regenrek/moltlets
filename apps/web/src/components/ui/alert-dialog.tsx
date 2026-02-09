@@ -4,6 +4,7 @@ import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
 
 import { cn } from '~/lib/utils'
+import { AsyncButton, type AsyncButtonProps } from '~/components/ui/async-button'
 import { Button } from '~/components/ui/button'
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
@@ -132,9 +133,9 @@ function AlertDialogDescription({
 function AlertDialogAction({
   className,
   ...props
-}: React.ComponentProps<typeof Button>) {
+}: AsyncButtonProps) {
   return (
-    <Button
+    <AsyncButton
       data-slot="alert-dialog-action"
       className={cn(className)}
       {...props}

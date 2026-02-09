@@ -1,19 +1,21 @@
+import { ArrowPathIcon } from "@heroicons/react/24/outline"
 import { useMutation } from "@tanstack/react-query"
+import { generateHostName as generateRandomHostName } from "@clawlets/core/lib/host/host-name-generator"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { HostThemeBadge } from "~/components/hosts/host-theme"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Label } from "~/components/ui/label"
 import { addHost } from "~/sdk/config"
 
 export function SetupStepHost(props: {
   projectId: Id<"projects">
   config: any | null
-  selectedHost: string | null
   onSelectHost: (host: string) => void
-  onContinue: () => void
 }) {
   const hosts = useMemo(() => Object.keys(props.config?.hosts || {}).sort(), [props.config])
   const [query, setQuery] = useState("")
@@ -43,6 +45,15 @@ export function SetupStepHost(props: {
     },
   })
 
+  const onGenerateHost = () => {
+    try {
+      const generated = generateRandomHostName({ existingHosts: hosts })
+      setNewHost(generated)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   return (
     <div className="space-y-4">
       {hosts.length ? (
@@ -62,15 +73,12 @@ export function SetupStepHost(props: {
           {filteredHosts.map((host) => {
             const hostCfg = (props.config?.hosts as any)?.[host] || {}
             const enabled = hostCfg?.enable !== false
-            const isActive = host === props.selectedHost
             return (
               <button
                 key={host}
                 type="button"
                 onClick={() => props.onSelectHost(host)}
-                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
-                  isActive ? "bg-muted/40" : "hover:bg-muted/20"
-                }`}
+                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/20"
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <HostThemeBadge theme={hostCfg?.theme} size="xs" />
@@ -98,29 +106,36 @@ export function SetupStepHost(props: {
         <div className="font-medium">Add host</div>
         <div className="space-y-2">
           <Label htmlFor="setup-new-host">Host name</Label>
-          <Input
-            id="setup-new-host"
-            value={newHost}
-            onChange={(e) => setNewHost(e.target.value)}
-            placeholder="clawlets-prod-01"
-          />
+          <InputGroup>
+            <InputGroupInput
+              id="setup-new-host"
+              value={newHost}
+              onChange={(e) => setNewHost(e.target.value)}
+              placeholder="clawlets-prod-01"
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                type="button"
+                variant="secondary"
+                disabled={addHostMutation.isPending}
+                onClick={onGenerateHost}
+              >
+                <ArrowPathIcon />
+                Generate
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
+          <AsyncButton
             type="button"
-            variant="outline"
             disabled={addHostMutation.isPending || !newHost.trim()}
+            pending={addHostMutation.isPending}
+            pendingText="Adding..."
             onClick={() => addHostMutation.mutate()}
           >
             Add host
-          </Button>
-          <Button
-            type="button"
-            disabled={!props.selectedHost}
-            onClick={props.onContinue}
-          >
-            Continue
-          </Button>
+          </AsyncButton>
         </div>
       </div>
     </div>

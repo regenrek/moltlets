@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -52,13 +53,15 @@ function ImportProject() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
+          <AsyncButton
             type="button"
             disabled={importMutation.isPending || !name.trim() || !localPath.trim()}
+            pending={importMutation.isPending}
+            pendingText="Importing..."
             onClick={() => importMutation.mutate()}
           >
             Import
-          </Button>
+          </AsyncButton>
           <Button
             variant="ghost"
             nativeButton={false}

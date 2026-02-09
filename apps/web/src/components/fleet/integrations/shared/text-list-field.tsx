@@ -1,4 +1,4 @@
-import { Button } from "~/components/ui/button"
+import { AsyncButton } from "~/components/ui/async-button"
 import { parseTextList } from "../helpers"
 
 export function TextListField(props: {
@@ -24,14 +24,16 @@ export function TextListField(props: {
         disabled={props.disabled || props.pending}
         onChange={(e) => props.onChange(e.target.value)}
       />
-      <Button
+      <AsyncButton
         size="sm"
         variant="outline"
         disabled={props.disabled || props.pending}
+        pending={props.pending}
+        pendingText="Saving..."
         onClick={() => props.onSave(parseTextList(props.value))}
       >
         {props.buttonLabel ?? "Save"}
-      </Button>
+      </AsyncButton>
     </div>
   )
 }

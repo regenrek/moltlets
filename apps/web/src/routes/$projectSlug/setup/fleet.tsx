@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { HelpTooltip, LabelWithHelp } from "~/components/ui/label-help"
@@ -269,17 +270,25 @@ function FleetSetup() {
               ) : null}
 
               <div className="flex items-center gap-2">
-                <Button type="button" disabled={saveVisual.isPending} onClick={() => saveVisual.mutate()}>
+                <AsyncButton
+                  type="button"
+                  disabled={saveVisual.isPending}
+                  pending={saveVisual.isPending}
+                  pendingText="Saving..."
+                  onClick={() => saveVisual.mutate()}
+                >
                   Save
-                </Button>
-                <Button
+                </AsyncButton>
+                <AsyncButton
                   type="button"
                   variant="outline"
                   disabled={cfg.isPending}
+                  pending={cfg.isPending}
+                  pendingText="Reloading..."
                   onClick={() => void queryClient.invalidateQueries({ queryKey: configQueryKey })}
                 >
                   Reload
-                </Button>
+                </AsyncButton>
               </div>
             </div>
           </TabsContent>
@@ -309,9 +318,15 @@ function FleetSetup() {
                 </div>
               ) : null}
               <div className="flex items-center gap-2">
-                <Button type="button" disabled={saveJson.isPending} onClick={() => saveJson.mutate()}>
+                <AsyncButton
+                  type="button"
+                  disabled={saveJson.isPending}
+                  pending={saveJson.isPending}
+                  pendingText="Saving JSON..."
+                  onClick={() => saveJson.mutate()}
+                >
                   Save JSON
-                </Button>
+                </AsyncButton>
                 <Button
                   type="button"
                   variant="outline"
@@ -362,15 +377,35 @@ function FleetSetup() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" disabled={dotGet.isPending} onClick={() => dotGet.mutate()}>
+                <AsyncButton
+                  type="button"
+                  variant="outline"
+                  disabled={dotGet.isPending}
+                  pending={dotGet.isPending}
+                  pendingText="Getting..."
+                  onClick={() => dotGet.mutate()}
+                >
                   Get
-                </Button>
-                <Button type="button" disabled={dotSet.isPending} onClick={() => dotSet.mutate(false)}>
+                </AsyncButton>
+                <AsyncButton
+                  type="button"
+                  disabled={dotSet.isPending}
+                  pending={dotSet.isPending}
+                  pendingText="Setting..."
+                  onClick={() => dotSet.mutate(false)}
+                >
                   Set
-                </Button>
-                <Button type="button" variant="destructive" disabled={dotSet.isPending} onClick={() => dotSet.mutate(true)}>
+                </AsyncButton>
+                <AsyncButton
+                  type="button"
+                  variant="destructive"
+                  disabled={dotSet.isPending}
+                  pending={dotSet.isPending}
+                  pendingText="Deleting..."
+                  onClick={() => dotSet.mutate(true)}
+                >
                   Delete
-                </Button>
+                </AsyncButton>
               </div>
               {dotResult ? (
                 <pre className="rounded-md bg-muted/40 p-3 text-xs whitespace-pre-wrap break-words">

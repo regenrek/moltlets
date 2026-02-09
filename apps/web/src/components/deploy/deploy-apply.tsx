@@ -6,6 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { PageHeader } from "~/components/ui/page-header"
+import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -134,29 +135,35 @@ export function DeployApplyChanges({ projectSlug, host, variant = "page" }: Depl
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
+              <AsyncButton
                 type="button"
                 variant="outline"
                 disabled={applyStart.isPending || !host || applyConfirm.trim() !== expectedApplyConfirm}
+                pending={applyStart.isPending}
+                pendingText="Applying..."
                 onClick={() => applyStart.mutate()}
               >
                 Apply now
-              </Button>
-              <Button
+              </AsyncButton>
+              <AsyncButton
                 type="button"
                 variant="outline"
                 disabled={statusStart.isPending || !host}
+                pending={statusStart.isPending}
+                pendingText="Fetching status..."
                 onClick={() => statusStart.mutate()}
               >
                 Updater status
-              </Button>
-              <Button
+              </AsyncButton>
+              <AsyncButton
                 type="button"
                 disabled={logsStart.isPending || !host}
+                pending={logsStart.isPending}
+                pendingText={follow ? "Following logs..." : "Fetching logs..."}
                 onClick={() => logsStart.mutate()}
               >
                 {follow ? "Follow logs" : "Fetch logs"}
-              </Button>
+              </AsyncButton>
               <div className="text-xs text-muted-foreground">
                 Uses <code>--ssh-tty=false</code>.
               </div>

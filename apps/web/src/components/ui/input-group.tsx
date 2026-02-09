@@ -6,6 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { Spinner } from '~/components/ui/spinner'
 import { Textarea } from '~/components/ui/textarea'
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
@@ -93,10 +94,18 @@ function InputGroupButton({
   type = "button",
   variant = "ghost",
   size = "xs",
+  pending = false,
+  pendingText,
+  spinnerClassName,
+  disabled,
+  children,
   ...props
 }: Omit<React.ComponentProps<typeof Button>, "size" | "type"> &
   VariantProps<typeof inputGroupButtonVariants> & {
     type?: "button" | "submit" | "reset"
+    pending?: boolean
+    pendingText?: React.ReactNode
+    spinnerClassName?: string
   }) {
   return (
     <Button
@@ -104,8 +113,13 @@ function InputGroupButton({
       data-size={size}
       variant={variant}
       className={cn(inputGroupButtonVariants({ size }), className)}
+      aria-busy={pending || undefined}
+      disabled={Boolean(disabled) || pending}
       {...props}
-    />
+    >
+      {pending ? <Spinner data-icon="inline-start" className={cn("size-3", spinnerClassName)} /> : null}
+      {pending ? (pendingText ?? children) : children}
+    </Button>
   )
 }
 
