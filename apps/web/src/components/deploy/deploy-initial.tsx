@@ -29,7 +29,6 @@ import {
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
 import { WEB_DEPLOY_CREDS_VISIBLE_KEY_SET } from "~/lib/deploy-creds-ui"
 import { useProjectBySlug } from "~/lib/project-data"
-import { WEB_DEPLOY_CREDS_VISIBLE_KEY_SET } from "~/lib/deploy-creds-ui"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { getDeployCredsStatus } from "~/sdk/infra"
