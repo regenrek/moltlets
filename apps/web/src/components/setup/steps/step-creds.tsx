@@ -6,16 +6,7 @@ export function SetupStepCreds(props: {
   projectId: Id<"projects">
   isComplete: boolean
   onContinue: () => void
-  provider: "hetzner" | "aws"
 }) {
-  const providerTokenNode = props.provider === "aws"
-    ? (
-        <>
-          <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>
-        </>
-      )
-    : <code>HCLOUD_TOKEN</code>
-
   return (
     <div className="space-y-4">
       <DeployCredsCard projectId={props.projectId} />
@@ -25,7 +16,7 @@ export function SetupStepCreds(props: {
         </Button>
         {!props.isComplete ? (
           <div className="text-xs text-muted-foreground">
-            Set <code>SOPS_AGE_KEY_FILE</code> and {providerTokenNode}.
+            Set <code>SOPS_AGE_KEY_FILE</code> and <code>HCLOUD_TOKEN</code>.
           </div>
         ) : null}
       </div>

@@ -126,7 +126,7 @@ describe("deriveSetupModel", () => {
     expect(step5.steps.find((s) => s.id === "verify")?.status).toBe("pending")
   })
 
-  it("requires aws provider tokens for aws hosts", () => {
+  it("keeps hetzner token gate even when host provider is aws", () => {
     const config = {
       fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
       hosts: {
@@ -143,7 +143,6 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       deployCreds: {
         keys: [
-          { key: "HCLOUD_TOKEN", status: "set" as const },
           { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
         ],
       },
@@ -152,21 +151,20 @@ describe("deriveSetupModel", () => {
     })
     expect(missingAwsCreds.steps.find((s) => s.id === "creds")?.status).toBe("active")
 
-    const awsCreds = deriveSetupModel({
+    const hcloudCreds = deriveSetupModel({
       runnerOnline: true,
       repoProbeOk: true,
       config,
       hostFromRoute: "h1",
       deployCreds: {
         keys: [
-          { key: "AWS_ACCESS_KEY_ID", status: "set" as const },
-          { key: "AWS_SECRET_ACCESS_KEY", status: "set" as const },
+          { key: "HCLOUD_TOKEN", status: "set" as const },
           { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
         ],
       },
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(awsCreds.steps.find((s) => s.id === "creds")?.status).toBe("done")
+    expect(hcloudCreds.steps.find((s) => s.id === "creds")?.status).toBe("done")
   })
 })

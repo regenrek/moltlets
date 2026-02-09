@@ -25,7 +25,6 @@ import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
 import { configDotSet } from "~/sdk/config"
 
-type HostProvider = "hetzner" | "aws"
 type SshExposureMode = "tailnet" | "bootstrap" | "public"
 type TailnetMode = "tailscale" | "none"
 
@@ -33,7 +32,6 @@ type HostSettingsDraft = {
   enable: boolean
   diskDevice: string
   targetHost: string
-  provider: HostProvider
   adminCidr: string
   sshPubkeyFile: string
   sshExposure: SshExposureMode
@@ -42,13 +40,6 @@ type HostSettingsDraft = {
   hetznerImage: string
   hetznerLocation: string
   hetznerAllowTailscaleUdpIngress: boolean
-  awsRegion: string
-  awsInstanceType: string
-  awsAmiId: string
-  awsVpcId: string
-  awsSubnetId: string
-  awsUseDefaultVpc: boolean
-  awsAllowTailscaleUdpIngress: boolean
   flakeHost: string
   agentModelPrimary: string
   hostThemeEmoji: string
@@ -73,10 +64,6 @@ function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : []
 }
 
-function asProvider(value: unknown): HostProvider {
-  return value === "aws" ? "aws" : "hetzner"
-}
-
 function asSshExposureMode(value: unknown): SshExposureMode {
   return value === "tailnet" || value === "public" ? value : "bootstrap"
 }
@@ -98,14 +85,12 @@ function toHostSettingsDraft(hostCfg: Record<string, unknown>): HostSettingsDraf
   const sshExposure = asRecord(hostCfg.sshExposure) ?? {}
   const tailnet = asRecord(hostCfg.tailnet) ?? {}
   const hetzner = asRecord(hostCfg.hetzner) ?? {}
-  const aws = asRecord(hostCfg.aws) ?? {}
   const selfUpdate = asRecord(hostCfg.selfUpdate) ?? {}
   const theme = normalizeHostTheme(toHostThemeInput(hostCfg.theme))
   return {
     enable: Boolean(hostCfg.enable),
     diskDevice: asString(hostCfg.diskDevice, "/dev/sda"),
     targetHost: asString(hostCfg.targetHost),
-    provider: asProvider(provisioning.provider),
     adminCidr: asString(provisioning.adminCidr),
     sshPubkeyFile: asString(provisioning.sshPubkeyFile),
     sshExposure: asSshExposureMode(sshExposure.mode),
@@ -114,13 +99,6 @@ function toHostSettingsDraft(hostCfg: Record<string, unknown>): HostSettingsDraf
     hetznerImage: asString(hetzner.image),
     hetznerLocation: asString(hetzner.location, "nbg1"),
     hetznerAllowTailscaleUdpIngress: hetzner.allowTailscaleUdpIngress !== false,
-    awsRegion: asString(aws.region, "us-east-1"),
-    awsInstanceType: asString(aws.instanceType, "t3.large"),
-    awsAmiId: asString(aws.amiId),
-    awsVpcId: asString(aws.vpcId),
-    awsSubnetId: asString(aws.subnetId),
-    awsUseDefaultVpc: Boolean(aws.useDefaultVpc),
-    awsAllowTailscaleUdpIngress: aws.allowTailscaleUdpIngress !== false,
     flakeHost: asString(hostCfg.flakeHost),
     agentModelPrimary: asString(hostCfg.agentModelPrimary),
     hostThemeEmoji: theme.emoji,
@@ -160,7 +138,6 @@ export function HostSettingsForm(props: {
   const [enable, setEnable] = useState(initial.enable)
   const [diskDevice, setDiskDevice] = useState(initial.diskDevice)
   const [targetHost, setTargetHost] = useState(initial.targetHost)
-  const [provider, setProvider] = useState<HostProvider>(initial.provider)
   const [adminCidr, setAdminCidr] = useState(initial.adminCidr)
   const [sshPubkeyFile, setSshPubkeyFile] = useState(initial.sshPubkeyFile)
   const [sshExposure, setSshExposure] = useState<SshExposureMode>(initial.sshExposure)
@@ -169,13 +146,6 @@ export function HostSettingsForm(props: {
   const [hetznerImage, setHetznerImage] = useState(initial.hetznerImage)
   const [hetznerLocation, setHetznerLocation] = useState(initial.hetznerLocation)
   const [hetznerAllowTailscaleUdpIngress, setHetznerAllowTailscaleUdpIngress] = useState(initial.hetznerAllowTailscaleUdpIngress)
-  const [awsRegion, setAwsRegion] = useState(initial.awsRegion)
-  const [awsInstanceType, setAwsInstanceType] = useState(initial.awsInstanceType)
-  const [awsAmiId, setAwsAmiId] = useState(initial.awsAmiId)
-  const [awsVpcId, setAwsVpcId] = useState(initial.awsVpcId)
-  const [awsSubnetId, setAwsSubnetId] = useState(initial.awsSubnetId)
-  const [awsUseDefaultVpc, setAwsUseDefaultVpc] = useState(initial.awsUseDefaultVpc)
-  const [awsAllowTailscaleUdpIngress, setAwsAllowTailscaleUdpIngress] = useState(initial.awsAllowTailscaleUdpIngress)
   const [flakeHost, setFlakeHost] = useState(initial.flakeHost)
   const [agentModelPrimary, setAgentModelPrimary] = useState(initial.agentModelPrimary)
   const [hostThemeEmoji, setHostThemeEmoji] = useState(initial.hostThemeEmoji)
@@ -201,7 +171,6 @@ export function HostSettingsForm(props: {
       const sshExposureCfg = asRecord(props.hostCfg.sshExposure) ?? {}
       const tailnetCfg = asRecord(props.hostCfg.tailnet) ?? {}
       const hetznerCfg = asRecord(props.hostCfg.hetzner) ?? {}
-      const awsCfg = asRecord(props.hostCfg.aws) ?? {}
       const selfUpdateCfg = asRecord(props.hostCfg.selfUpdate) ?? {}
       const nextHost: Record<string, unknown> = {
         ...props.hostCfg,
@@ -212,7 +181,7 @@ export function HostSettingsForm(props: {
         theme: normalizedTheme,
         provisioning: {
           ...provisioning,
-          provider,
+          provider: "hetzner",
           adminCidr: adminCidr.trim(),
           sshPubkeyFile: sshPubkeyFileTrimmed,
         },
@@ -224,16 +193,6 @@ export function HostSettingsForm(props: {
           image: hetznerImage.trim(),
           location: hetznerLocation.trim(),
           allowTailscaleUdpIngress: Boolean(hetznerAllowTailscaleUdpIngress),
-        },
-        aws: {
-          ...awsCfg,
-          region: awsRegion.trim(),
-          instanceType: awsInstanceType.trim(),
-          amiId: awsAmiId.trim(),
-          vpcId: awsVpcId.trim(),
-          subnetId: awsSubnetId.trim(),
-          useDefaultVpc: Boolean(awsUseDefaultVpc),
-          allowTailscaleUdpIngress: Boolean(awsAllowTailscaleUdpIngress),
         },
         agentModelPrimary: agentModelPrimary.trim(),
         selfUpdate: {
@@ -326,7 +285,7 @@ export function HostSettingsForm(props: {
 
       <SettingsSection
         title="Infrastructure Provider"
-        description="Choose provider first, then fill provider-specific fields."
+        description="Web settings currently support the Hetzner production path."
         statusText="Day 0 infrastructure lifecycle"
         actions={<Button disabled={save.isPending} onClick={() => save.mutate()}>Save</Button>}
       >
@@ -335,10 +294,7 @@ export function HostSettingsForm(props: {
             <LabelWithHelp htmlFor="provider" help={setupFieldHelp.hosts.provider}>
               Provider
             </LabelWithHelp>
-            <NativeSelect id="provider" value={provider} onChange={(event) => setProvider(asProvider(event.target.value))}>
-              <NativeSelectOption value="hetzner">hetzner</NativeSelectOption>
-              <NativeSelectOption value="aws">aws</NativeSelectOption>
-            </NativeSelect>
+            <Input id="provider" value="hetzner" readOnly />
           </div>
           <div className="text-sm text-muted-foreground">
             Day 0 includes <code>bootstrap</code>/<code>infra</code>/<code>lockdown</code>.
@@ -413,7 +369,6 @@ export function HostSettingsForm(props: {
       </SettingsSection>
 
       <HostProviderSettingsSection
-        provider={provider}
         saving={save.isPending}
         onSave={() => save.mutate()}
         serverType={serverType}
@@ -424,20 +379,6 @@ export function HostSettingsForm(props: {
         setHetznerLocation={setHetznerLocation}
         hetznerAllowTailscaleUdpIngress={hetznerAllowTailscaleUdpIngress}
         setHetznerAllowTailscaleUdpIngress={setHetznerAllowTailscaleUdpIngress}
-        awsRegion={awsRegion}
-        setAwsRegion={setAwsRegion}
-        awsInstanceType={awsInstanceType}
-        setAwsInstanceType={setAwsInstanceType}
-        awsAmiId={awsAmiId}
-        setAwsAmiId={setAwsAmiId}
-        awsVpcId={awsVpcId}
-        setAwsVpcId={setAwsVpcId}
-        awsSubnetId={awsSubnetId}
-        setAwsSubnetId={setAwsSubnetId}
-        awsUseDefaultVpc={awsUseDefaultVpc}
-        setAwsUseDefaultVpc={setAwsUseDefaultVpc}
-        awsAllowTailscaleUdpIngress={awsAllowTailscaleUdpIngress}
-        setAwsAllowTailscaleUdpIngress={setAwsAllowTailscaleUdpIngress}
       />
 
       <SettingsSection

@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog"
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
+import { WEB_DEPLOY_CREDS_VISIBLE_KEY_SET } from "~/lib/deploy-creds-ui"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupFieldHelp } from "~/lib/setup-field-help"
@@ -385,7 +386,9 @@ export function DeployInitialInstall({
               <div className="text-sm text-destructive">{String(creds.error)}</div>
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
-                {(creds.data?.keys || []).map((k: any) => (
+                {(creds.data?.keys || [])
+                  .filter((k: any) => WEB_DEPLOY_CREDS_VISIBLE_KEY_SET.has(String(k?.key || "")))
+                  .map((k: any) => (
                   <div key={k.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
                     <div className="min-w-0">
                       <div className="text-sm font-medium">{k.key}</div>
@@ -398,7 +401,7 @@ export function DeployInitialInstall({
                       {k.status}
                     </div>
                   </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>

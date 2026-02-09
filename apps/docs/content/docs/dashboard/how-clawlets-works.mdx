@@ -50,7 +50,7 @@ Step order and gating:
 
 1. `Connect Runner` (`runner`): requires fresh online runner + successful repo probe.
 2. `Server Access` (`connection`): requires `provisioning.adminCidr` and at least one `fleet.sshAuthorizedKeys` entry.
-3. `Provider Tokens` (`creds`): requires `SOPS_AGE_KEY_FILE` and provider creds.
+3. `Provider Tokens` (`creds`): requires `SOPS_AGE_KEY_FILE` and `HCLOUD_TOKEN`.
 4. `Server Passwords` (`secrets`): requires successful run `secrets_verify_bootstrap`.
 5. `Install Server` (`deploy`): requires successful bootstrap run (`bootstrap`).
 6. `Secure and Verify` (`verify`): optional post-bootstrap hardening checklist.
@@ -58,7 +58,6 @@ Step order and gating:
 Canonical provider guidance:
 
 - [Hetzner (recommended)](/providers/hetzner)
-- [AWS (experimental)](/providers/aws)
 
 ## Stage 3: OpenClaw setup wizard (Day X app layer)
 

@@ -113,10 +113,9 @@ function HostSetupPage() {
   const activeHost = selectedHost ?? host
 
   const hostCfg = (setup.config?.hosts?.[activeHost] as
-    | { theme?: HostTheme; provisioning?: { provider?: string } }
+    | { theme?: HostTheme }
     | undefined) ?? null
   const selectedHostTheme: HostTheme | null = hostCfg?.theme ?? null
-  const provider = String(hostCfg?.provisioning?.provider || "hetzner") === "aws" ? "aws" : "hetzner"
 
   const deployHref = `${buildHostPath(projectSlug, activeHost)}/deploy`
   const visibleSteps = setup.model.steps.filter((s) => s.status !== "locked")
@@ -199,7 +198,6 @@ function HostSetupPage() {
               <SetupSection key={step.id} value={step.id} index={index} title={step.title} status={step.status}>
                 <SetupStepCreds
                   projectId={projectId as Id<"projects">}
-                  provider={provider}
                   isComplete={step.status === "done"}
                   onContinue={setup.advance}
                 />

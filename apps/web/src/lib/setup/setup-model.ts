@@ -1,3 +1,5 @@
+import { WEB_SETUP_REQUIRED_KEYS } from "../deploy-creds-ui"
+
 export const SETUP_STEP_IDS = [
   "runner",
   "connection",
@@ -71,16 +73,10 @@ export function coerceSetupStepId(value: unknown): SetupStepId | null {
   return (SETUP_STEP_IDS as readonly string[]).includes(value) ? (value as SetupStepId) : null
 }
 
-function resolveProviderCredsOk(params: {
-  provider: string
+function resolveSetupCredsOk(params: {
   credsByKey: Map<string, "set" | "unset">
 }): boolean {
-  if (params.provider === "aws") {
-    const hasAccessKey = params.credsByKey.get("AWS_ACCESS_KEY_ID") === "set"
-    const hasSecretKey = params.credsByKey.get("AWS_SECRET_ACCESS_KEY") === "set"
-    return hasAccessKey && hasSecretKey
-  }
-  return params.credsByKey.get("HCLOUD_TOKEN") === "set"
+  return WEB_SETUP_REQUIRED_KEYS.every((key) => params.credsByKey.get(key) === "set")
 }
 
 export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
@@ -96,7 +92,6 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
 
   const hostCfg = selectedHost ? input.config?.hosts?.[selectedHost] ?? null : null
   const provisioning = asRecord(hostCfg?.provisioning) ?? {}
-  const provider = asTrimmedString(provisioning.provider) || "hetzner"
   const adminCidrOk = Boolean(asTrimmedString(provisioning.adminCidr))
   const sshAuthorizedKeys = Array.isArray(input.config?.fleet?.sshAuthorizedKeys)
     ? input.config?.fleet?.sshAuthorizedKeys ?? []
@@ -108,9 +103,7 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
 
   const credsByKey = new Map((input.deployCreds?.keys || []).map((entry) => [entry.key, entry.status]))
-  const hasSopsAgeKey = credsByKey.get("SOPS_AGE_KEY_FILE") === "set"
-  const providerCredsOk = resolveProviderCredsOk({ provider, credsByKey })
-  const credsOk = Boolean(hasSopsAgeKey && providerCredsOk)
+  const credsOk = resolveSetupCredsOk({ credsByKey })
 
   const steps: SetupStep[] = [
     {
