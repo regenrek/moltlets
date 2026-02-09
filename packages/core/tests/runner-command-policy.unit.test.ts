@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveRunnerJobCommand, validateRunnerJobPayload } from "../src/lib/runtime/runner-command-policy";
+import { validateRunnerJobPayload } from "../src/lib/runtime/runner-command-policy";
+import { resolveRunnerJobCommand } from "../src/lib/runtime/runner-command-policy-resolve";
 
 describe("runner command policy", () => {
   it("rejects non-allowlisted custom commands", () => {

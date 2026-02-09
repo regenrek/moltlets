@@ -1,11 +1,10 @@
-import fs from "node:fs/promises";
 import { RUN_KINDS } from "./run-constants.js";
 import { CONTROL_PLANE_TEXT_LIMITS, SECRET_WIRING_SCOPES } from "./control-plane-constants.js";
 import { validateArgsForKind } from "./runner-command-policy-args.js";
 import { validateGitRepoUrlPolicy } from "@clawlets/shared/lib/repo-url-policy";
 
 type SecretScope = (typeof SECRET_WIRING_SCOPES)[number] | "all";
-type RunnerCommandExecutable = "clawlets" | "git";
+export type RunnerCommandExecutable = "clawlets" | "git";
 
 export type RunnerCommandPayloadMeta = {
   hostName?: string;
@@ -25,10 +24,6 @@ export type RunnerCommandPayloadMeta = {
 
 type PayloadValidationResult =
   | { ok: true; payloadMeta: RunnerCommandPayloadMeta; kind: string }
-  | { ok: false; error: string };
-
-type ResolveArgsResult =
-  | { ok: true; payloadMeta: RunnerCommandPayloadMeta; kind: string; exec: RunnerCommandExecutable; args: string[] }
   | { ok: false; error: string };
 
 const EXTRA_ALLOWED_JOB_KINDS = ["secrets_write"] as const;
@@ -225,7 +220,7 @@ function validateStructuredPayload(kind: string, payloadMeta: RunnerCommandPaylo
   return { ok: true };
 }
 
-function buildCreateImportCommand(
+export function buildCreateImportCommand(
   kind: string,
   payloadMeta: RunnerCommandPayloadMeta,
 ): { exec: RunnerCommandExecutable; args: string[] } | null {
@@ -272,26 +267,6 @@ export function buildDefaultArgsForJobKind(params: {
   }
 }
 
-async function ensureRepoRootEmpty(repoRoot: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const normalized = String(repoRoot || "").trim();
-  if (!normalized) return { ok: false, error: "repoRoot required" };
-  try {
-    const stat = await fs.stat(normalized);
-    if (!stat.isDirectory()) return { ok: false, error: `repoRoot is not a directory: ${normalized}` };
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === "ENOENT") return { ok: false, error: `repoRoot missing: ${normalized}` };
-    return { ok: false, error: `repoRoot check failed: ${String((err as Error)?.message || err)}` };
-  }
-  try {
-    const entries = await fs.readdir(normalized);
-    if (entries.length > 0) return { ok: false, error: `repoRoot must be empty for create/import: ${normalized}` };
-  } catch (err) {
-    return { ok: false, error: `repoRoot readability check failed: ${String((err as Error)?.message || err)}` };
-  }
-  return { ok: true };
-}
-
 export function validateRunnerJobPayload(params: {
   kind: string;
   payloadMeta?: unknown;
@@ -318,45 +293,6 @@ export function validateRunnerJobPayload(params: {
   } catch (err) {
     return { ok: false, error: String((err as Error)?.message || err) };
   }
-}
-
-export async function resolveRunnerJobCommand(params: {
-  kind: string;
-  payloadMeta?: unknown;
-  repoRoot: string;
-}): Promise<ResolveArgsResult> {
-  const validated = validateRunnerJobPayload({
-    kind: params.kind,
-    payloadMeta: params.payloadMeta,
-  });
-  if (!validated.ok) return validated;
-
-  const createImportCommand = buildCreateImportCommand(validated.kind, validated.payloadMeta);
-  const fallbackArgs =
-    validated.payloadMeta.args ||
-    buildDefaultArgsForJobKind({
-      kind: validated.kind,
-      payloadMeta: validated.payloadMeta,
-    });
-  const command =
-    createImportCommand ||
-    (fallbackArgs && fallbackArgs.length > 0
-      ? {
-          exec: "clawlets" as const,
-          args: fallbackArgs,
-        }
-      : null);
-  if (!command) return { ok: false, error: `job ${validated.kind} requires payloadMeta.args` };
-  if (command.exec === "clawlets") {
-    const commandValidation = validateArgsForKind(validated.kind, command.args);
-    if (!commandValidation.ok) return commandValidation;
-  }
-
-  if (validated.kind === "project_init" || validated.kind === "project_import") {
-    const emptyCheck = await ensureRepoRootEmpty(params.repoRoot);
-    if (!emptyCheck.ok) return emptyCheck;
-  }
-  return { ok: true, kind: validated.kind, payloadMeta: validated.payloadMeta, exec: command.exec, args: command.args };
 }
 
 export function __test_validateArgsForKind(params: { kind: string; args: string[] }): { ok: true } | { ok: false; error: string } {
