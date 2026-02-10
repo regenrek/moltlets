@@ -132,5 +132,50 @@ describe("jobs leaseNextInternal", () => {
     expect(jobs.get("job1")?.status).toBe("leased")
     expect(runs.get("run1")?.status).toBe("running")
   })
-})
 
+  it("requeues expired leased job and re-leases with incremented attempt", async () => {
+    vi.useFakeTimers()
+    const now = 3_000_000
+    vi.setSystemTime(now)
+    const { ctx, patches, jobs, runs } = makeCtx({
+      runs: [{ _id: "run1", projectId: "p1", status: "running", kind: "custom", createdAt: now - 500 }],
+      jobs: [
+        {
+          _id: "job1",
+          projectId: "p1",
+          runId: "run1",
+          kind: "custom",
+          status: "leased",
+          targetRunnerId: "r1",
+          leaseId: "expired-lease",
+          leasedByRunnerId: "r1",
+          leaseExpiresAt: now - 1,
+          attempt: 1,
+          createdAt: now - 400,
+        },
+      ],
+    })
+
+    const out = await __test_leaseNextInternalHandler(ctx as any, {
+      projectId: "p1" as any,
+      runnerId: "r1" as any,
+      leaseTtlMs: 30_000,
+    })
+
+    expect(out?.jobId).toBe("job1")
+    expect(out?.targetRunnerId).toBe("r1")
+    expect(out?.attempt).toBe(2)
+    expect(jobs.get("job1")?.status).toBe("leased")
+    expect(jobs.get("job1")?.attempt).toBe(2)
+    expect(runs.get("run1")?.status).toBe("running")
+
+    expect(patches[0]?.id).toBe("job1")
+    expect(patches[0]?.update).toMatchObject({
+      status: "queued",
+      leaseId: undefined,
+      leasedByRunnerId: undefined,
+      leaseExpiresAt: undefined,
+    })
+    vi.useRealTimers()
+  })
+})

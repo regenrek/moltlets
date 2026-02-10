@@ -53,6 +53,7 @@ function setupStatusMocks(params?: {
           upstream: { nixOpenclawRef: "main", openclawRev: "openclaw-main" },
         }
   })
+  const takeRunnerCommandResultBlobObject = vi.fn(async () => null)
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/server/convex", () => ({
@@ -67,10 +68,19 @@ function setupStatusMocks(params?: {
     listRunMessages,
     parseLastJsonMessage,
     takeRunnerCommandResultObject,
+    takeRunnerCommandResultBlobObject,
     lastErrorMessage,
   }))
 
-  return { requireAdminProjectAccess, mutation, enqueueRunnerCommand, waitForRunTerminal, listRunMessages }
+  return {
+    requireAdminProjectAccess,
+    mutation,
+    enqueueRunnerCommand,
+    waitForRunTerminal,
+    listRunMessages,
+    takeRunnerCommandResultObject,
+    takeRunnerCommandResultBlobObject,
+  }
 }
 
 describe("openclaw schema status cache", () => {
@@ -86,6 +96,8 @@ describe("openclaw schema status cache", () => {
     expect(first).toEqual(second)
     expect(mocks.requireAdminProjectAccess).toHaveBeenCalledTimes(2)
     expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
+    expect(mocks.takeRunnerCommandResultObject).toHaveBeenCalledTimes(1)
+    expect(mocks.takeRunnerCommandResultBlobObject).toHaveBeenCalledTimes(0)
     vi.useRealTimers()
   })
 
@@ -132,6 +144,20 @@ describe("openclaw schema status cache", () => {
     expect(first.ok).toBe(false)
     expect(second).toEqual(first)
     expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
+  })
+
+  it("fails closed when command result is missing and does not fall back to run messages", async () => {
+    vi.resetModules()
+    const mocks = setupStatusMocks()
+    mocks.takeRunnerCommandResultObject.mockResolvedValueOnce(null)
+    const { fetchOpenclawSchemaStatus } = await import("~/server/openclaw-schema.server")
+
+    const result = await fetchOpenclawSchemaStatus({ projectId: "p1" as any })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.message).toBe("Unable to fetch schema status. Check logs.")
+    expect(mocks.takeRunnerCommandResultObject).toHaveBeenCalledTimes(1)
+    expect(mocks.listRunMessages).toHaveBeenCalledTimes(0)
   })
 
   it("dedupes in-flight status fetches for same project", async () => {

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
 
+const VALID_SCHEMA = {
+  schema: { type: "object" },
+  uiHints: {},
+  version: "1.0.0",
+  generatedAt: "x",
+  openclawRev: "rev",
+}
+
 function mockRunnerSchema(params?: {
   adminDeny?: boolean
   guardError?: Error | null
@@ -19,6 +27,7 @@ function mockRunnerSchema(params?: {
   const waitForRunTerminal = vi.fn(async () => params?.terminal || ({ status: "succeeded" as const }))
   const listRunMessages = vi.fn(async () => params?.messages || [])
   const takeRunnerCommandResultBlobObject = vi.fn(async () => params?.resultJson || null)
+  const takeRunnerCommandResultObject = vi.fn(async () => params?.resultJson || null)
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/sdk/project", () => ({ requireAdminProjectAccess }))
@@ -28,89 +37,49 @@ function mockRunnerSchema(params?: {
     waitForRunTerminal,
     listRunMessages,
     takeRunnerCommandResultBlobObject,
+    takeRunnerCommandResultObject,
     lastErrorMessage,
   }))
 
-  return { requireAdminProjectAccess, mutation, enqueueRunnerCommand }
+  return {
+    requireAdminProjectAccess,
+    mutation,
+    enqueueRunnerCommand,
+    takeRunnerCommandResultBlobObject,
+    takeRunnerCommandResultObject,
+  }
 }
 
 describe("openclaw schema output parsing", () => {
-  it("rejects payloads larger than the limit", async () => {
-    const nonce = "big00001"
-    const raw = [
-      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      "a".repeat(6 * 1024 * 1024),
-      `__OPENCLAW_SCHEMA_END__${nonce}__`,
-    ].join("\n")
-    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-    expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("schema payload too large:")
-  }, 15_000)
-
-  it("accepts payloads above 2MB when below transport-aligned cap", async () => {
-    const nonce = "mid00001"
-    const payload = "a".repeat(3 * 1024 * 1024)
-    const raw = [
-      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      payload,
-      `__OPENCLAW_SCHEMA_END__${nonce}__`,
-    ].join("\n")
-    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-    const extracted = __test_extractJsonBlock(raw, nonce)
-    expect(extracted).toHaveLength(payload.length)
-  })
-
-  it("extracts JSON amid banners and noise", async () => {
-    const nonce = "deadbeef"
-    const raw = [
-      "Welcome to host",
-      "{ not json",
-      ">>> banner {with braces}",
-      "",
-      `__OPENCLAW_SCHEMA_BEGIN__${nonce}__`,
-      "{\"schema\":{\"type\":\"object\"},\"version\":\"1.0.0\"}",
-      `__OPENCLAW_SCHEMA_END__${nonce}__`,
-      "trailing noise {bad}",
-    ].join("\n")
-    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-    const extracted = __test_extractJsonBlock(raw, nonce)
-    expect(JSON.parse(extracted)).toMatchObject({ version: "1.0.0" })
-  })
-
-  it("rejects nested lookalike without markers", async () => {
-    const nonce = "c0ffee01"
-    const raw = [
-      "log line",
-      "{\"message\":\"nested {\\\"schema\\\":{\\\"type\\\":\\\"object\\\"},\\\"version\\\":\\\"x\\\",\\\"generatedAt\\\":\\\"x\\\",\\\"openclawRev\\\":\\\"rev\\\"}\"}",
-    ].join("\n")
-    const { __test_extractJsonBlock } = await import("~/server/openclaw-schema.server")
-    expect(() => __test_extractJsonBlock(raw, nonce)).toThrow("missing schema markers in output")
-  })
-
-  it("quotes gateway id in gateway schema command", async () => {
+  it("resolves command-result mode from shared runner policy", async () => {
     vi.resetModules()
-    vi.doMock("@clawlets/core/lib/security/ssh-remote", async () => {
-      const actual = await vi.importActual<typeof import("@clawlets/core/lib/security/ssh-remote")>(
-        "@clawlets/core/lib/security/ssh-remote",
-      )
-      return actual
+    const { __test_resolveStructuredCommandResultMode } = await import("~/server/openclaw-schema.server")
+    expect(
+      __test_resolveStructuredCommandResultMode([
+        "openclaw",
+        "schema",
+        "fetch",
+        "--host",
+        "h1",
+        "--gateway",
+        "g1",
+        "--ssh-tty=false",
+      ]),
+    ).toBe("large")
+    expect(__test_resolveStructuredCommandResultMode(["openclaw", "schema", "status", "--json"])).toBe("small")
+    expect(__test_resolveStructuredCommandResultMode(["doctor"])).toBeNull()
+  })
+
+  it("uses blob take path for live schema fetch", async () => {
+    vi.resetModules()
+    const mocks = mockRunnerSchema({
+      resultJson: VALID_SCHEMA,
     })
-    const [{ __test_buildGatewaySchemaCommand }, { shellQuote }] = await Promise.all([
-      import("~/server/openclaw-schema.server"),
-      import("@clawlets/core/lib/security/ssh-remote"),
-    ])
-    const cmd = __test_buildGatewaySchemaCommand({
-      gatewayId: "maren-1",
-      port: 1234,
-      sudo: true,
-      nonce: "nonce",
-    })
-    const envFile = "/srv/openclaw/maren-1/credentials/gateway.env"
-    const envFileQuoted = shellQuote(envFile).replace(/'/g, "'\\''")
-    expect(cmd).toContain(shellQuote("gateway-maren-1"))
-    expect(cmd).not.toContain(`source ${envFileQuoted}`)
-    expect(cmd).toContain("OPENCLAW_GATEWAY_TOKEN")
-    expect(cmd).toContain(`env OPENCLAW_GATEWAY_TOKEN="$token"`)
-    expect(cmd).not.toContain(`--token "$token"`)
+    const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
+    const result = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
+    expect(result.ok).toBe(true)
+    expect(mocks.takeRunnerCommandResultBlobObject).toHaveBeenCalledTimes(1)
+    expect(mocks.takeRunnerCommandResultObject).toHaveBeenCalledTimes(0)
   })
 
   it("returns schema parse failures from runner output", async () => {

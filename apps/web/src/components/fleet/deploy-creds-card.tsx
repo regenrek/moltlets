@@ -6,6 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { AsyncButton } from "~/components/ui/async-button"
+import { Button } from "~/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
@@ -24,9 +25,13 @@ import {
 type DeployCredsCardProps = {
   projectId: Id<"projects">
   setupHref?: string | null
+  setupAction?: {
+    isComplete: boolean
+    onContinue: () => void
+  }
 }
 
-export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCardProps) {
+export function DeployCredsCard({ projectId, setupHref = null, setupAction }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
@@ -189,22 +194,28 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
       title="Deploy credentials"
       description="Local-only operator tokens used by bootstrap, infra, and doctor."
       actions={
-        <AsyncButton
-          type="button"
-          disabled={
-            save.isPending
-            || creds.isPending
-            || runnersQuery.isPending
-            || !runnerOnline
-            || sealedRunners.length === 0
-            || (sealedRunners.length > 1 && !selectedRunnerId)
-          }
-          pending={save.isPending}
-          pendingText="Saving..."
-          onClick={() => save.mutate()}
-        >
-          Save
-        </AsyncButton>
+        setupAction?.isComplete ? (
+          <Button type="button" onClick={setupAction.onContinue}>
+            Continue
+          </Button>
+        ) : (
+          <AsyncButton
+            type="button"
+            disabled={
+              save.isPending
+              || creds.isPending
+              || runnersQuery.isPending
+              || !runnerOnline
+              || sealedRunners.length === 0
+              || (sealedRunners.length > 1 && !selectedRunnerId)
+            }
+            pending={save.isPending}
+            pendingText="Saving..."
+            onClick={() => save.mutate()}
+          >
+            {setupAction ? "Save and continue" : "Save"}
+          </AsyncButton>
+        )
       }
     >
       <RunnerStatusBanner

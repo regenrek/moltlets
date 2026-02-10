@@ -2,7 +2,7 @@ import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import type { OpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
 import { parseOpenclawSchemaArtifact } from "@clawlets/core/lib/openclaw/schema/artifact"
-import { shellQuote } from "@clawlets/core/lib/security/ssh-remote"
+import { resolveCommandSpecForKind } from "@clawlets/core/lib/runtime/runner-command-policy-args"
 import { GatewayIdSchema } from "@clawlets/shared/lib/identifiers"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
 import { createConvexClient } from "~/server/convex"
@@ -21,11 +21,6 @@ const STATUS_FAILURE_TTL_MS = 10 * 1000
 const LIVE_SCHEMA_TTL_MS = 15 * 1000
 const STATUS_CACHE_MAX = 128
 const LIVE_SCHEMA_CACHE_MAX = 256
-const SCHEMA_MARKER_BEGIN = "__OPENCLAW_SCHEMA_BEGIN__"
-const SCHEMA_MARKER_END = "__OPENCLAW_SCHEMA_END__"
-const LIVE_SCHEMA_MAX_OUTPUT_BYTES = 5 * 1024 * 1024
-const SCHEMA_MARKER_OVERHEAD_BYTES = 16 * 1024
-const SCHEMA_PAYLOAD_BYTES_MAX = LIVE_SCHEMA_MAX_OUTPUT_BYTES - SCHEMA_MARKER_OVERHEAD_BYTES
 
 const statusCache = new Map<string, { expiresAt: number; value: OpenclawSchemaStatusResult }>()
 const statusInFlight = new Map<string, Promise<OpenclawSchemaStatusResult>>()
@@ -49,80 +44,6 @@ function capCache<T>(cache: Map<string, T>, maxSize: number) {
   }
 }
 
-function extractJsonBlock(raw: string, nonce: string): string {
-  const begin = `${SCHEMA_MARKER_BEGIN}${nonce}__`
-  const end = `${SCHEMA_MARKER_END}${nonce}__`
-  const beginIndex = raw.indexOf(begin)
-  if (beginIndex === -1) throw new Error("missing schema markers in output")
-  const beginIsLineStart =
-    beginIndex === 0 || raw[beginIndex - 1] === "\n" || raw[beginIndex - 1] === "\r"
-  if (!beginIsLineStart) throw new Error("missing schema markers in output")
-  const beginLineEnd = raw.indexOf("\n", beginIndex)
-  if (beginLineEnd === -1) throw new Error("missing schema markers in output")
-
-  let endLineStart = raw.indexOf(`\n${end}`, beginLineEnd)
-  if (endLineStart === -1) throw new Error("missing schema markers in output")
-  endLineStart += 1
-  const endLineEnd = raw.indexOf("\n", endLineStart)
-  const endLine = raw.slice(endLineStart, endLineEnd === -1 ? raw.length : endLineEnd).replace(/\r$/, "")
-  if (endLine !== end) throw new Error("missing schema markers in output")
-
-  let payloadEnd = endLineStart - 1
-  if (payloadEnd > beginLineEnd && raw[payloadEnd - 1] === "\r") payloadEnd -= 1
-  const between = raw.slice(beginLineEnd + 1, payloadEnd).trim()
-  if (!between) throw new Error("empty schema payload in output")
-  const payloadBytes = Buffer.byteLength(between, "utf8")
-  if (payloadBytes > SCHEMA_PAYLOAD_BYTES_MAX) {
-    throw new Error(`schema payload too large: ${payloadBytes} bytes (max ${SCHEMA_PAYLOAD_BYTES_MAX} bytes)`)
-  }
-  return between
-}
-
-export function __test_extractJsonBlock(raw: string, nonce: string): string {
-  return extractJsonBlock(raw, nonce)
-}
-
-function buildGatewaySchemaCommand(params: {
-  gatewayId: string
-  port: number
-  sudo: boolean
-  nonce: string
-}): string {
-  const envFile = `/srv/openclaw/${params.gatewayId}/credentials/gateway.env`
-  const url = `ws://127.0.0.1:${params.port}`
-  const begin = `${SCHEMA_MARKER_BEGIN}${params.nonce}__`
-  const end = `${SCHEMA_MARKER_END}${params.nonce}__`
-  const beginQuoted = shellQuote(begin)
-  const endQuoted = shellQuote(end)
-  const envFileQuoted = shellQuote(envFile)
-  const tokenName = "OPENCLAW_GATEWAY_TOKEN"
-  const script = [
-    "set -euo pipefail",
-    `token="$(awk -F= '$1=="${tokenName}"{print substr($0,length($1)+2); exit}' ${envFileQuoted})"`,
-    'token="${token%$"\\r"}"',
-    `if [ -z "$token" ]; then echo "missing ${tokenName}" >&2; exit 2; fi`,
-    `printf '%s\\n' ${beginQuoted}`,
-    `env ${tokenName}="$token" openclaw gateway call config.schema --url ${url} --json`,
-    `printf '%s\\n' ${endQuoted}`,
-  ].join(" && ")
-  const args = [
-    ...(params.sudo ? ["sudo", "-n", "-u", `gateway-${params.gatewayId}`] : []),
-    "bash",
-    "-lc",
-    script,
-  ]
-  return args.map((a) => shellQuote(a)).join(" ")
-}
-
-export function __test_buildGatewaySchemaCommand(params: {
-  gatewayId: string
-  port: number
-  sudo: boolean
-  nonce: string
-}): string {
-  return buildGatewaySchemaCommand(params)
-}
-
 export type OpenclawSchemaLiveResult =
   | { ok: true; schema: OpenclawSchemaArtifact }
   | { ok: false; message: string }
@@ -136,15 +57,16 @@ export type OpenclawSchemaStatusResult =
     }
   | { ok: false; message: string }
 
-function isOpenclawSchemaStatusCommand(args: string[]): boolean {
-  if (args.length < 4) return false
-  if (args[0] !== "openclaw" || args[1] !== "schema" || args[2] !== "status") return false
-  return args.includes("--json")
+function resolveStructuredCommandResultMode(args: string[]): "small" | "large" | null {
+  const resolved = resolveCommandSpecForKind("custom", args)
+  if (!resolved.ok) return null
+  if (resolved.spec.resultMode === "json_small") return "small"
+  if (resolved.spec.resultMode === "json_large") return "large"
+  return null
 }
 
-function isOpenclawSchemaFetchCommand(args: string[]): boolean {
-  if (args.length < 6) return false
-  return args[0] === "openclaw" && args[1] === "schema" && args[2] === "fetch"
+export function __test_resolveStructuredCommandResultMode(args: string[]): "small" | "large" | null {
+  return resolveStructuredCommandResultMode(args)
 }
 
 async function runRunnerJsonCommand(params: {
@@ -154,6 +76,13 @@ async function runRunnerJsonCommand(params: {
   args: string[]
   timeoutMs: number
 }): Promise<{ ok: true; json: Record<string, unknown> } | { ok: false; message: string }> {
+  const commandResultMode = resolveStructuredCommandResultMode(params.args)
+  if (!commandResultMode) {
+    return {
+      ok: false as const,
+      message: "runner command is not configured for structured JSON results",
+    }
+  }
   const client = createConvexClient()
   const queued = await enqueueRunnerCommand({
     client,
@@ -171,8 +100,6 @@ async function runRunnerJsonCommand(params: {
     timeoutMs: params.timeoutMs,
     pollMs: 700,
   })
-  const commandResultMode =
-    isOpenclawSchemaStatusCommand(params.args) ? "small" : isOpenclawSchemaFetchCommand(params.args) ? "large" : "none"
   const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
   if (terminal.status !== "succeeded") {
     return {
@@ -187,14 +114,12 @@ async function runRunnerJsonCommand(params: {
         jobId: queued.jobId,
         runId: queued.runId,
       })
-    : commandResultMode === "large"
-      ? await takeRunnerCommandResultBlobObject({
-          client,
-          projectId: params.projectId,
-          jobId: queued.jobId,
-          runId: queued.runId,
-        })
-      : null
+    : await takeRunnerCommandResultBlobObject({
+        client,
+        projectId: params.projectId,
+        jobId: queued.jobId,
+        runId: queued.runId,
+      })
   if (!parsed) {
     return {
       ok: false as const,

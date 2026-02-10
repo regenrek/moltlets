@@ -210,6 +210,66 @@ describe("sealed finalize + lease", () => {
     vi.useRealTimers()
   })
 
+  it("rejects finalize replay and keeps original sealed payload", async () => {
+    vi.useFakeTimers()
+    const now = 7_500_000
+    vi.setSystemTime(now)
+    const { ctx, jobs } = makeCtx({
+      runs: [{ _id: "run1", projectId: "p1", status: "queued", kind: "secrets_init", createdAt: now - 100 }],
+      jobs: [
+        {
+          _id: "job1",
+          projectId: "p1",
+          runId: "run1",
+          kind: "secrets_init",
+          status: "sealed_pending",
+          targetRunnerId: "r1",
+          sealedInputRequired: true,
+          sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+          sealedInputKeyId: "kid123",
+          sealedPendingExpiresAt: now + 60_000,
+          attempt: 0,
+          createdAt: now - 50,
+        },
+      ],
+    })
+
+    await __test_finalizeSealedEnqueueInternalHandler(ctx as any, {
+      projectId: "p1" as any,
+      jobId: "job1" as any,
+      kind: "secrets_init",
+      sealedInputB64: "ciphertext-1",
+      sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+      sealedInputKeyId: "kid123",
+    })
+
+    await expect(
+      __test_finalizeSealedEnqueueInternalHandler(ctx as any, {
+        projectId: "p1" as any,
+        jobId: "job1" as any,
+        kind: "secrets_init",
+        sealedInputB64: "ciphertext-1",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "kid123",
+      }),
+    ).rejects.toThrow(/not awaiting sealed input/i)
+
+    await expect(
+      __test_finalizeSealedEnqueueInternalHandler(ctx as any, {
+        projectId: "p1" as any,
+        jobId: "job1" as any,
+        kind: "secrets_init",
+        sealedInputB64: "ciphertext-2",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "kid123",
+      }),
+    ).rejects.toThrow(/not awaiting sealed input/i)
+
+    expect(jobs.get("job1")?.status).toBe("queued")
+    expect(jobs.get("job1")?.sealedInputB64).toBe("ciphertext-1")
+    vi.useRealTimers()
+  })
+
   it("lease cleanup fails expired sealed_pending reservations", async () => {
     vi.useFakeTimers()
     const now = 8_000_000

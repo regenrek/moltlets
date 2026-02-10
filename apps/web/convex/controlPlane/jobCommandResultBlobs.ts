@@ -1,14 +1,10 @@
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx, MutationCtx } from "../_generated/server";
 import { fail } from "../shared/errors";
+import { utf8ByteLength } from "../shared/controlPlane";
 
 export const RUNNER_COMMAND_RESULT_BLOB_TTL_MS = 5 * 60_000;
 export const RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES = 5 * 1024 * 1024;
-
-function utf8ByteLength(value: string): number {
-  if (typeof TextEncoder === "function") return new TextEncoder().encode(value).length;
-  return value.length;
-}
 
 function normalizeRunnerCommandResultBlobJson(raw: string): { normalized: string; sizeBytes: number } {
   const value = String(raw || "").trim();

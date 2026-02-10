@@ -9,6 +9,7 @@ import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
+import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { isRunnerFreshOnline } from "~/lib/setup/runner-status"
 import { createRunnerToken } from "~/sdk/runtime"
@@ -135,132 +136,143 @@ export function SetupStepRunner(props: {
       : props.repoProbeState === "error"
         ? "Failed"
         : "Waiting"
+  const runnerStatusHint = readyToContinue
+    ? undefined
+    : repoProbeRequired
+      ? "Continue unlocks after runner is connected and repo probe passes."
+      : "Continue unlocks after runner connects."
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="text-sm font-medium">1. Install CLI</div>
-        <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">npm install -g clawlets</pre>
-      </div>
-
-      <div className="space-y-3">
-        <div className="text-sm font-medium">2. Create runner token</div>
+    <SettingsSection
+      title="Runner connection"
+      description="Install CLI, mint a runner token, and start a runner process."
+      statusText={runnerStatusHint}
+      actions={readyToContinue ? (
+        <AsyncButton type="button" size="sm" onClick={props.onContinue}>
+          Continue
+        </AsyncButton>
+      ) : undefined}
+    >
+      <div className="space-y-6">
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground" htmlFor="setup-runner-token">Runner token</label>
-          <InputGroup>
-            <InputGroupInput
-              id="setup-runner-token"
-              value={token}
-              readOnly
-              placeholder={
-                tokenQuery.isPending
-                  ? "Generating token..."
-                  : tokenQuery.isError
-                    ? "Token generation failed"
-                    : "Token will appear here"
-              }
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                type="button"
-                variant="secondary"
-                pending={tokenQuery.isPending}
-                pendingText="Generating"
-                disabled={!runnerName.trim()}
-                onClick={() => {
-                  setTokenNonce((prev) => prev + 1)
-                  toast.success("Generating new runner token")
-                }}
-              >
-                <ArrowPathIcon />
-                {token ? "Regenerate token" : "Generate token"}
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-          <div className="text-xs text-muted-foreground">
-            Runner: <code>{runnerName}</code>
+          <div className="text-sm font-medium">1. Install CLI</div>
+          <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">npm install -g clawlets</pre>
+        </div>
+
+        <div className="space-y-3">
+          <div className="text-sm font-medium">2. Create runner token</div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground" htmlFor="setup-runner-token">Runner token</label>
+            <InputGroup>
+              <InputGroupInput
+                id="setup-runner-token"
+                value={token}
+                readOnly
+                placeholder={
+                  tokenQuery.isPending
+                    ? "Generating token..."
+                    : tokenQuery.isError
+                      ? "Token generation failed"
+                      : "Token will appear here"
+                }
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  type="button"
+                  variant="secondary"
+                  pending={tokenQuery.isPending}
+                  pendingText="Generating"
+                  disabled={!runnerName.trim()}
+                  onClick={() => {
+                    setTokenNonce((prev) => prev + 1)
+                    toast.success("Generating new runner token")
+                  }}
+                >
+                  <ArrowPathIcon />
+                  {token ? "Regenerate token" : "Generate token"}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            <div className="text-xs text-muted-foreground">
+              Runner: <code>{runnerName}</code>
+            </div>
+            {tokenQuery.isError ? (
+              <div className="text-xs text-destructive">
+                {tokenQuery.error instanceof Error ? tokenQuery.error.message : String(tokenQuery.error)}
+              </div>
+            ) : null}
           </div>
-          {tokenQuery.isError ? (
-            <div className="text-xs text-destructive">
-              {tokenQuery.error instanceof Error ? tokenQuery.error.message : String(tokenQuery.error)}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium">3. Start runner</div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!token}
+              onClick={() => void copyText("Runner command", startCommand)}
+            >
+              Copy command
+            </Button>
+          </div>
+          <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">{startCommand}</pre>
+        </div>
+
+        <div className="space-y-3">
+          <div className="text-sm font-medium">Readiness</div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span>Runner status:</span>
+            <Badge variant={props.runnerOnline ? "secondary" : "outline"}>{runnerStatusLabel}</Badge>
+            <span>Repo probe:</span>
+            <Badge variant={props.repoProbeOk ? "secondary" : props.repoProbeState === "error" ? "destructive" : "outline"}>
+              {props.repoProbeState === "checking" ? <Spinner className="mr-1 size-3" /> : null}
+              {repoStatusLabel}
+            </Badge>
+          </div>
+          {props.repoProbeState === "error" ? (
+            <div className="text-xs text-destructive">{String(props.repoProbeError || "Repo probe failed")}</div>
+          ) : null}
+          {props.runners.length > 0 ? (
+            <div className="space-y-1">
+              {props.runners.slice(0, 5).map((runner) => {
+                const fresh = isRunnerFreshOnline(runner)
+                return (
+                  <div key={`${runner.runnerName}-${runner.lastSeenAt}`} className="flex items-center justify-between gap-2 text-xs rounded-md border bg-background px-2 py-1">
+                    <code>{runner.runnerName}</code>
+                    <span className="text-muted-foreground">
+                      {runner.lastStatus} · {fresh ? "fresh" : "stale"} · {new Date(runner.lastSeenAt).toLocaleTimeString()}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           ) : null}
         </div>
-      </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm font-medium">3. Start runner</div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!token}
-            onClick={() => void copyText("Runner command", startCommand)}
-          >
-            Copy command
-          </Button>
-        </div>
-        <pre className="rounded-md border bg-background p-2 text-xs whitespace-pre-wrap break-words">{startCommand}</pre>
-      </div>
-
-      <div className="space-y-3">
-        <div className="text-sm font-medium">Readiness</div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span>Runner status:</span>
-          <Badge variant={props.runnerOnline ? "secondary" : "outline"}>{runnerStatusLabel}</Badge>
-          <span>Repo probe:</span>
-          <Badge variant={props.repoProbeOk ? "secondary" : props.repoProbeState === "error" ? "destructive" : "outline"}>
-            {props.repoProbeState === "checking" ? <Spinner className="mr-1 size-3" /> : null}
-            {repoStatusLabel}
-          </Badge>
-        </div>
-        {props.repoProbeState === "error" ? (
-          <div className="text-xs text-destructive">{String(props.repoProbeError || "Repo probe failed")}</div>
-        ) : null}
-        {props.runners.length > 0 ? (
-          <div className="space-y-1">
-            {props.runners.slice(0, 5).map((runner) => {
-              const fresh = isRunnerFreshOnline(runner)
-              return (
-                <div key={`${runner.runnerName}-${runner.lastSeenAt}`} className="flex items-center justify-between gap-2 text-xs rounded-md border bg-background px-2 py-1">
-                  <code>{runner.runnerName}</code>
-                  <span className="text-muted-foreground">
-                    {runner.lastStatus} · {fresh ? "fresh" : "stale"} · {new Date(runner.lastSeenAt).toLocaleTimeString()}
-                  </span>
-                </div>
-              )
-            })}
+        {connected ? (
+          <div className="space-y-2">
+            <Alert className="border-emerald-500/35 bg-emerald-500/5">
+              <CheckCircleIcon className="text-emerald-600" />
+              <AlertTitle>Runner connected</AlertTitle>
+              <AlertDescription>
+                {repoProbeRequired
+                  ? props.repoProbeOk
+                    ? "Connection is healthy. Repo probe passed."
+                    : props.repoProbeState === "checking"
+                      ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Spinner className="size-3" />
+                            Connection is healthy. Checking repo access...
+                          </span>
+                        )
+                      : "Connection is healthy."
+                  : "Connection is healthy."}
+              </AlertDescription>
+            </Alert>
           </div>
         ) : null}
       </div>
-
-      {connected ? (
-        <div className="space-y-2">
-          <Alert className="border-emerald-500/35 bg-emerald-500/5">
-            <CheckCircleIcon className="text-emerald-600" />
-            <AlertTitle>Runner connected</AlertTitle>
-            <AlertDescription>
-              {repoProbeRequired
-                ? props.repoProbeOk
-                  ? "Connection is healthy. Repo probe passed."
-                  : props.repoProbeState === "checking"
-                    ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Spinner className="size-3" />
-                          Connection is healthy. Checking repo access...
-                        </span>
-                      )
-                    : "Connection is healthy."
-                : "Connection is healthy."}
-            </AlertDescription>
-          </Alert>
-          {readyToContinue ? (
-            <AsyncButton type="button" size="sm" onClick={props.onContinue}>
-              Continue
-            </AsyncButton>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    </SettingsSection>
   )
 }

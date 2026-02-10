@@ -1,14 +1,15 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { fail } from "../shared/errors";
+import { utf8ByteLength } from "../shared/controlPlane";
 
 export const RUNNER_COMMAND_RESULT_TTL_MS = 5 * 60_000;
-const RUNNER_COMMAND_RESULT_MAX_CHARS = 512 * 1024;
+const RUNNER_COMMAND_RESULT_MAX_BYTES = 512 * 1024;
 
 function normalizeRunnerCommandResultJson(raw: string): string {
   const value = String(raw || "").trim();
   if (!value) fail("conflict", "commandResultJson required");
-  if (value.length > RUNNER_COMMAND_RESULT_MAX_CHARS) fail("conflict", "commandResultJson too large");
+  if (utf8ByteLength(value) > RUNNER_COMMAND_RESULT_MAX_BYTES) fail("conflict", "commandResultJson too large");
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -19,7 +20,7 @@ function normalizeRunnerCommandResultJson(raw: string): string {
     fail("conflict", "commandResultJson must be a JSON object");
   }
   const normalized = JSON.stringify(parsed);
-  if (!normalized || normalized.length > RUNNER_COMMAND_RESULT_MAX_CHARS) {
+  if (!normalized || utf8ByteLength(normalized) > RUNNER_COMMAND_RESULT_MAX_BYTES) {
     fail("conflict", "commandResultJson too large");
   }
   return normalized;

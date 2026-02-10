@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { authComponent, createAuth } from "./auth";
 import {
   ensureBoundedString,
+  ensureBoundedUtf8String,
   ensureOptionalBoundedString,
   sha256Hex,
   CONTROL_PLANE_LIMITS,
@@ -22,8 +23,8 @@ import { touchRunnerTokenLastUsed } from "./controlPlane/runnerAuth";
 
 const http = httpRouter();
 type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
-const RUNNER_COMMAND_RESULT_MAX_CHARS = 512 * 1024;
-const RUNNER_COMMAND_RESULT_BLOB_MAX_CHARS = 5 * 1024 * 1024;
+const RUNNER_COMMAND_RESULT_MAX_BYTES = 512 * 1024;
+const RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES = 5 * 1024 * 1024;
 
 authComponent.registerRoutes(http, createAuth);
 
@@ -205,13 +206,17 @@ http.route({
       typeof payload.commandResultJson === "string" ? payload.commandResultJson.trim() : "";
     const commandResultJson =
       commandResultJsonRaw.length > 0
-        ? ensureBoundedString(commandResultJsonRaw, "commandResultJson", RUNNER_COMMAND_RESULT_MAX_CHARS)
+        ? ensureBoundedUtf8String(commandResultJsonRaw, "commandResultJson", RUNNER_COMMAND_RESULT_MAX_BYTES)
         : undefined;
     const commandResultLargeJsonRaw =
       typeof payload.commandResultLargeJson === "string" ? payload.commandResultLargeJson.trim() : "";
     const commandResultLargeJson =
       commandResultLargeJsonRaw.length > 0
-        ? ensureBoundedString(commandResultLargeJsonRaw, "commandResultLargeJson", RUNNER_COMMAND_RESULT_BLOB_MAX_CHARS)
+        ? ensureBoundedUtf8String(
+            commandResultLargeJsonRaw,
+            "commandResultLargeJson",
+            RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES,
+          )
         : undefined;
     if (!jobId || !leaseId) return json(400, { error: "jobId and leaseId required" });
     if (commandResultJson && commandResultLargeJson) {

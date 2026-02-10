@@ -391,6 +391,7 @@ const schema = defineSchema({
     sizeBytes: v.number(),
     createdAt: v.number(),
     expiresAt: v.number(),
+    consumedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
     .index("by_job", ["jobId"])

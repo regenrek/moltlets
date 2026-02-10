@@ -448,6 +448,80 @@ export const takeCommandResult = mutation({
   },
 });
 
+async function takeCommandResultBlobUrlInternalHandler(
+  ctx: MutationCtx,
+  {
+    projectId,
+    jobId,
+    now = Date.now(),
+  }: {
+    projectId: Id<"projects">;
+    jobId: Id<"jobs">;
+    now?: number;
+  },
+): Promise<
+  | {
+      runId: Id<"runs">;
+      url: string;
+      sizeBytes: number;
+    }
+  | null
+> {
+  const job = await ctx.db.get(jobId);
+  if (!job || job.projectId !== projectId) fail("not_found", "job not found");
+  await purgeExpiredRunnerCommandResultBlobs(ctx, now);
+  const rows = await ctx.db
+    .query("runnerCommandResultBlobs")
+    .withIndex("by_job", (q) => q.eq("jobId", jobId))
+    .collect();
+  if (rows.length === 0) return null;
+  const newest = [...rows]
+    .filter(
+      (row) =>
+        row.projectId === projectId &&
+        row.runId === job.runId &&
+        row.expiresAt > now &&
+        typeof row.consumedAt !== "number",
+    )
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+  for (const row of rows) {
+    if (!newest || row._id === newest._id || typeof row.consumedAt === "number") continue;
+    try {
+      await ctx.storage.delete(row.storageId);
+    } catch {
+      // best effort cleanup
+    }
+    await ctx.db.delete(row._id);
+  }
+  if (!newest) return null;
+  const url = await ctx.storage.getUrl(newest.storageId);
+  if (!url) {
+    await ctx.db.delete(newest._id);
+    return null;
+  }
+  await ctx.db.patch(newest._id, { consumedAt: now });
+  return {
+    runId: newest.runId,
+    url,
+    sizeBytes: newest.sizeBytes,
+  };
+}
+
+export async function __test_takeCommandResultBlobUrlInternalHandler(
+  ctx: MutationCtx,
+  {
+    projectId,
+    jobId,
+    now,
+  }: {
+    projectId: Id<"projects">;
+    jobId: Id<"jobs">;
+    now?: number;
+  },
+) {
+  return await takeCommandResultBlobUrlInternalHandler(ctx, { projectId, jobId, now });
+}
+
 export const takeCommandResultBlobUrl = mutation({
   args: {
     projectId: v.id("projects"),
@@ -470,38 +544,7 @@ export const takeCommandResultBlobUrl = mutation({
       limit: 240,
       windowMs: 60_000,
     });
-    const job = await ctx.db.get(jobId);
-    if (!job || job.projectId !== projectId) fail("not_found", "job not found");
-    const now = Date.now();
-    await purgeExpiredRunnerCommandResultBlobs(ctx, now);
-    const rows = await ctx.db
-      .query("runnerCommandResultBlobs")
-      .withIndex("by_job", (q) => q.eq("jobId", jobId))
-      .collect();
-    if (rows.length === 0) return null;
-    const newest = [...rows]
-      .filter((row) => row.projectId === projectId && row.runId === job.runId && row.expiresAt > now)
-      .sort((a, b) => b.createdAt - a.createdAt)[0];
-    for (const row of rows) {
-      if (newest && row._id === newest._id) continue;
-      try {
-        await ctx.storage.delete(row.storageId);
-      } catch {
-        // best effort cleanup
-      }
-      await ctx.db.delete(row._id);
-    }
-    if (!newest) return null;
-    const url = await ctx.storage.getUrl(newest.storageId);
-    if (!url) {
-      await ctx.db.delete(newest._id);
-      return null;
-    }
-    return {
-      runId: newest.runId,
-      url,
-      sizeBytes: newest.sizeBytes,
-    };
+    return await takeCommandResultBlobUrlInternalHandler(ctx, { projectId, jobId });
   },
 });
 

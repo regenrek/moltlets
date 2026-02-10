@@ -11,6 +11,10 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+  RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+} from "@clawlets/core/lib/runtime/runner-command-policy-args";
+import {
   loadOrCreateRunnerSealedInputKeypair,
   RUNNER_SEALED_INPUT_ALG,
 } from "../src/commands/runner/sealed-input.js";
@@ -101,6 +105,20 @@ async function loadRunnerStartWithMocks(params: {
 
   const mod = await import("../src/commands/runner/start.js");
   return { mod, run, capture, observed };
+}
+
+function jsonObjectWithExactBytes(maxBytes: number): string {
+  const prefix = "{\"x\":\"";
+  const suffix = "\"}";
+  const overhead = Buffer.byteLength(prefix + suffix, "utf8");
+  if (maxBytes < overhead) throw new Error(`maxBytes must be >= ${overhead}`);
+  return `${prefix}${"a".repeat(maxBytes - overhead)}${suffix}`;
+}
+
+function runEventMessages(appendRunEvents: { mock: { calls: Array<any[]> } }): string[] {
+  return appendRunEvents.mock.calls.flatMap((call: any[]) =>
+    (call?.[0]?.events || []).map((event: any) => String(event?.message || "")),
+  );
 }
 
 describe("runner sealed input execution", () => {
@@ -219,6 +237,79 @@ describe("runner sealed input execution", () => {
     ).rejects.toThrow(/more than once/i);
   });
 
+  it("binds secrets_write sealed payload to reserved jobId and suppresses local output", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-start-"));
+    try {
+      const keypair = await loadOrCreateRunnerSealedInputKeypair({
+        privateKeyPath: path.join(tempDir, "runner.pem"),
+      });
+      const projectId = "p1";
+      const targetRunnerId = "r1";
+      const kind = "secrets_write";
+      const plaintext = JSON.stringify({ DISCORD_TOKEN: "token-123" });
+      const jobA = "job-a";
+      const sealedInputB64 = buildEnvelope({
+        publicKeySpkiB64: keypair.publicKeySpkiB64,
+        keyId: keypair.keyId,
+        aad: `${projectId}:${jobA}:${kind}:${targetRunnerId}`,
+        plaintext,
+      });
+
+      const { mod, run } = await loadRunnerStartWithMocks({
+        resolvedKind: kind,
+        resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
+      });
+
+      await expect(
+        mod.__test_executeJob({
+          job: {
+            jobId: jobA,
+            runId: "run-a",
+            leaseId: "lease-a",
+            leaseExpiresAt: Date.now() + 30_000,
+            kind,
+            attempt: 1,
+            targetRunnerId,
+            sealedInputB64,
+            sealedInputAlg: RUNNER_SEALED_INPUT_ALG,
+            sealedInputKeyId: keypair.keyId,
+            payloadMeta: { secretNames: ["DISCORD_TOKEN"] },
+          },
+          repoRoot: "/tmp/repo",
+          projectId,
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+        }),
+      ).resolves.toEqual({});
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(run.mock.calls[0]?.[2]?.stdout).toBe("ignore");
+      expect(run.mock.calls[0]?.[2]?.stderr).toBe("ignore");
+
+      await expect(
+        mod.__test_executeJob({
+          job: {
+            jobId: "job-b",
+            runId: "run-b",
+            leaseId: "lease-b",
+            leaseExpiresAt: Date.now() + 30_000,
+            kind,
+            attempt: 1,
+            targetRunnerId,
+            sealedInputB64,
+            sealedInputAlg: RUNNER_SEALED_INPUT_ALG,
+            sealedInputKeyId: keypair.keyId,
+            payloadMeta: { secretNames: ["DISCORD_TOKEN"] },
+          },
+          repoRoot: "/tmp/repo",
+          projectId,
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+        }),
+      ).rejects.toThrow();
+      expect(run).toHaveBeenCalledTimes(1);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("returns machine JSON via commandResultJson and redacts run-event output", async () => {
     const { mod, run, capture } = await loadRunnerStartWithMocks({
       resolvedArgs: ["env", "show", "--json"],
@@ -248,6 +339,66 @@ describe("runner sealed input execution", () => {
 
     expect(capture).toHaveBeenCalledTimes(1);
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it("accepts json_small payload exactly at byte limit", async () => {
+    const payload = jsonObjectWithExactBytes(RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES);
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["env", "show", "--json"],
+      resolvedResultMode: "json_small",
+      captureOutput: payload,
+    });
+
+    const result = await mod.__test_executeJob({
+      job: {
+        jobId: "job-json-small-limit",
+        runId: "run-json-small-limit",
+        leaseId: "lease-json-small-limit",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["env", "show", "--json"] },
+      },
+      repoRoot: "/tmp/repo",
+      projectId: "p1",
+      runnerPrivateKeyPem: "pem",
+    });
+
+    expect(result.commandResultJson).toBe(payload);
+    expect(Buffer.byteLength(String(result.commandResultJson || ""), "utf8")).toBe(
+      RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+    );
+  });
+
+  it("fails closed when json_small payload exceeds byte limit", async () => {
+    const payload = jsonObjectWithExactBytes(RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES + 1);
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["env", "show", "--json"],
+      resolvedResultMode: "json_small",
+      captureOutput: payload,
+    });
+    const appendRunEvents = vi.fn(async () => ({ ok: true }));
+
+    const result = await mod.__test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents } as any,
+      projectId: "p1",
+      job: {
+        jobId: "job-json-small-over",
+        runId: "run-json-small-over",
+        leaseId: "lease-json-small-over",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["env", "show", "--json"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: mod.__test_executeJob,
+    });
+
+    expect(result.terminal).toBe("failed");
+    expect(result.commandResultJson).toBeUndefined();
+    const messages = runEventMessages(appendRunEvents);
+    expect(messages.some((message) => message.includes("\"x\":\""))).toBe(false);
   });
 
   it("emits only redaction marker in run-events for real structured executeJob", async () => {
@@ -283,6 +434,37 @@ describe("runner sealed input execution", () => {
     expect(events.some((event: any) => String(event?.message || "").includes("{\"ok\":true}"))).toBe(false);
   });
 
+  it("fails closed when structured output is non-JSON", async () => {
+    const rawOutput = "not-json output";
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["env", "show", "--json"],
+      resolvedResultMode: "json_small",
+      captureOutput: rawOutput,
+    });
+    const appendRunEvents = vi.fn(async () => ({ ok: true }));
+
+    const result = await mod.__test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents } as any,
+      projectId: "p1",
+      job: {
+        jobId: "job-json-invalid",
+        runId: "run-json-invalid",
+        leaseId: "lease-json-invalid",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["env", "show", "--json"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: mod.__test_executeJob,
+    });
+
+    expect(result.terminal).toBe("failed");
+    expect(result.commandResultJson).toBeUndefined();
+    const messages = runEventMessages(appendRunEvents);
+    expect(messages.some((message) => message.includes(rawOutput))).toBe(false);
+  });
+
   it("returns large structured JSON via commandResultLargeJson", async () => {
     const { mod, capture } = await loadRunnerStartWithMocks({
       resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
@@ -312,6 +494,135 @@ describe("runner sealed input execution", () => {
     });
 
     expect(capture).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts json_large payload exactly at byte limit", async () => {
+    const payload = jsonObjectWithExactBytes(RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES);
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
+      resolvedResultMode: "json_large",
+      resolvedResultMaxBytes: RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+      captureOutput: payload,
+    });
+
+    const result = await mod.__test_executeJob({
+      job: {
+        jobId: "job-json-large-limit",
+        runId: "run-json-large-limit",
+        leaseId: "lease-json-large-limit",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"] },
+      },
+      repoRoot: "/tmp/repo",
+      projectId: "p1",
+      runnerPrivateKeyPem: "pem",
+    });
+
+    expect(result.commandResultLargeJson).toBe(payload);
+    expect(Buffer.byteLength(String(result.commandResultLargeJson || ""), "utf8")).toBe(
+      RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+    );
+  });
+
+  it("emits only redaction marker in run-events for json_large structured executeJob", async () => {
+    const payload = "{\"ok\":true,\"schema\":{\"token\":\"sensitive\"}}";
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
+      resolvedResultMode: "json_large",
+      resolvedResultMaxBytes: RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+      captureOutput: payload,
+    });
+    const appendRunEvents = vi.fn(async () => ({ ok: true }));
+
+    const result = await mod.__test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents } as any,
+      projectId: "p1",
+      job: {
+        jobId: "job-run-events-large",
+        runId: "run-run-events-large",
+        leaseId: "lease-run-events-large",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: mod.__test_executeJob,
+    });
+
+    expect(result).toEqual({
+      terminal: "succeeded",
+      commandResultLargeJson: payload,
+    });
+    const messages = runEventMessages(appendRunEvents);
+    expect(messages.some((message) => message.includes("structured JSON result stored ephemerally"))).toBe(true);
+    expect(messages.some((message) => message.includes(payload))).toBe(false);
+  });
+
+  it("fails closed when json_large payload exceeds byte limit", async () => {
+    const payload = jsonObjectWithExactBytes(RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES + 1);
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
+      resolvedResultMode: "json_large",
+      resolvedResultMaxBytes: RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+      captureOutput: payload,
+    });
+    const appendRunEvents = vi.fn(async () => ({ ok: true }));
+
+    const result = await mod.__test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents } as any,
+      projectId: "p1",
+      job: {
+        jobId: "job-json-large-over",
+        runId: "run-json-large-over",
+        leaseId: "lease-json-large-over",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: mod.__test_executeJob,
+    });
+
+    expect(result.terminal).toBe("failed");
+    expect(result.commandResultLargeJson).toBeUndefined();
+    const messages = runEventMessages(appendRunEvents);
+    expect(messages.some((message) => message.includes("\"x\":\""))).toBe(false);
+  });
+
+  it("fails closed when json_large output has trailing noise", async () => {
+    const rawOutput = "{\"ok\":true}\ntrailing noise";
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
+      resolvedResultMode: "json_large",
+      resolvedResultMaxBytes: RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+      captureOutput: rawOutput,
+    });
+    const appendRunEvents = vi.fn(async () => ({ ok: true }));
+
+    const result = await mod.__test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents } as any,
+      projectId: "p1",
+      job: {
+        jobId: "job-json-large-trailing",
+        runId: "run-json-large-trailing",
+        leaseId: "lease-json-large-trailing",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: mod.__test_executeJob,
+    });
+
+    expect(result.terminal).toBe("failed");
+    expect(result.commandResultLargeJson).toBeUndefined();
+    const messages = runEventMessages(appendRunEvents);
+    expect(messages.some((message) => message.includes("trailing noise"))).toBe(false);
   });
 
   it("executes git jobs with stdin disabled", async () => {

@@ -38,6 +38,7 @@ function setupLiveMocks(params?: {
   })
   const listRunMessages = vi.fn(async () => params?.messages || [])
   const takeRunnerCommandResultBlobObject = vi.fn(async () => params?.resultJson || VALID_SCHEMA)
+  const takeRunnerCommandResultObject = vi.fn(async () => null)
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/server/convex", () => ({
@@ -51,6 +52,7 @@ function setupLiveMocks(params?: {
     waitForRunTerminal,
     listRunMessages,
     takeRunnerCommandResultBlobObject,
+    takeRunnerCommandResultObject,
     lastErrorMessage,
   }))
 
@@ -60,6 +62,8 @@ function setupLiveMocks(params?: {
     enqueueRunnerCommand,
     waitForRunTerminal,
     listRunMessages,
+    takeRunnerCommandResultObject,
+    takeRunnerCommandResultBlobObject,
   }
 }
 
@@ -79,6 +83,8 @@ describe("openclaw live schema cache", () => {
     expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
     expect(mocks.waitForRunTerminal).toHaveBeenCalledTimes(1)
     expect(mocks.listRunMessages).toHaveBeenCalledTimes(0)
+    expect(mocks.takeRunnerCommandResultBlobObject).toHaveBeenCalledTimes(1)
+    expect(mocks.takeRunnerCommandResultObject).toHaveBeenCalledTimes(0)
   })
 
   it("dedupes in-flight live schema fetches", async () => {

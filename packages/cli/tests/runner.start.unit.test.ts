@@ -3,6 +3,7 @@ import {
   __test_appendRunEventsBestEffort,
   __test_defaultArgsForJob,
   __test_executeLeasedJobWithRunEvents,
+  __test_parseStructuredJsonObject,
   __test_parseSealedInputStringMap,
   __test_shouldStopOnCompletionError,
   __test_validateSealedInputKeysForJob,
@@ -41,6 +42,14 @@ describe("runner job arg mapping", () => {
     expect(__test_shouldStopOnCompletionError("transient")).toBe(false);
     expect(__test_shouldStopOnCompletionError("unknown")).toBe(false);
     expect(__test_shouldStopOnCompletionError("malformed")).toBe(false);
+  });
+
+  it("enforces UTF-8 byte limits for structured JSON", () => {
+    expect(() => __test_parseStructuredJsonObject("{\"x\":\"é\"}", 9)).toThrow(/too large/i);
+  });
+
+  it("accepts structured JSON when UTF-8 bytes are within limit", () => {
+    expect(__test_parseStructuredJsonObject("{\"ok\":true}", 11)).toBe("{\"ok\":true}");
   });
 
   it("logs and suppresses append run-events failures", async () => {

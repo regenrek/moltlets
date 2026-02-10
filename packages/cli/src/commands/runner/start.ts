@@ -9,6 +9,10 @@ import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 import { DEPLOY_CREDS_KEYS } from "@clawlets/core/lib/infra/deploy-creds";
 import { buildDefaultArgsForJobKind } from "@clawlets/core/lib/runtime/runner-command-policy";
+import {
+  RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
+  RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+} from "@clawlets/core/lib/runtime/runner-command-policy-args";
 import { resolveRunnerJobCommand } from "@clawlets/core/lib/runtime/runner-command-policy-resolve";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import { classifyRunnerHttpError, RunnerApiClient, type RunnerLeaseJob } from "./client.js";
@@ -67,11 +71,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const RUNNER_COMMAND_RESULT_MAX_CHARS = 512 * 1024;
-const RUNNER_COMMAND_RESULT_LARGE_MAX_CHARS = 5 * 1024 * 1024;
+const RUNNER_COMMAND_RESULT_MAX_BYTES = RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES;
+const RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES_LIMIT = RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES;
 const RUNNER_LOG_CAPTURE_MAX_BYTES = 128 * 1024;
 
-function parseStructuredJsonObject(raw: string, maxChars: number): string {
+function parseStructuredJsonObject(raw: string, maxBytes: number): string {
   const trimmed = raw.trim();
   if (!trimmed) throw new Error("runner command output missing JSON payload");
   let parsed: unknown;
@@ -84,7 +88,8 @@ function parseStructuredJsonObject(raw: string, maxChars: number): string {
     throw new Error("runner command JSON payload must be an object");
   }
   const normalized = JSON.stringify(parsed);
-  if (!normalized || normalized.length > maxChars) {
+  const normalizedBytes = Buffer.byteLength(normalized, "utf8");
+  if (!normalized || normalizedBytes > maxBytes) {
     throw new Error("runner command JSON payload too large");
   }
   return normalized;
@@ -153,6 +158,10 @@ export async function __test_writeSecretsJsonTemp(jobId: string, values: Record<
 
 export async function __test_writeInputJsonTemp(jobId: string, values: Record<string, string>): Promise<string> {
   return await writeInputJsonTemp(jobId, values);
+}
+
+export function __test_parseStructuredJsonObject(raw: string, maxBytes: number): string {
+  return parseStructuredJsonObject(raw, maxBytes);
 }
 
 function parseSealedInputStringMap(rawJson: string): Record<string, string> {
@@ -252,6 +261,12 @@ async function executeJob(params: {
     throw new Error("job args cannot include both __RUNNER_SECRETS_JSON__ and __RUNNER_INPUT_JSON__");
   }
   const secretBearingJob = secretsPlaceholderIdx >= 0 || inputPlaceholderIdx >= 0;
+  const secretOutputPolicy = secretBearingJob
+    ? ({
+        stdout: "ignore",
+        stderr: "ignore",
+      } as const)
+    : ({} as const);
   let tempSecretsPath = "";
   try {
     if (secretBearingJob) {
@@ -290,8 +305,7 @@ async function executeJob(params: {
           cwd: params.repoRoot,
           env: runnerCommandEnv(),
           stdin: "ignore",
-          stdout: "ignore",
-          stderr: "ignore",
+          ...secretOutputPolicy,
         });
         return {};
       }
@@ -299,9 +313,15 @@ async function executeJob(params: {
       const structuredLargeResult = resolved.resultMode === "json_large";
       const captureLimit =
         structuredLargeResult
-          ? Math.max(1, Math.min(RUNNER_COMMAND_RESULT_LARGE_MAX_CHARS, Math.trunc(resolved.resultMaxBytes ?? RUNNER_COMMAND_RESULT_LARGE_MAX_CHARS)))
+          ? Math.max(
+              1,
+              Math.min(
+                RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES_LIMIT,
+                Math.trunc(resolved.resultMaxBytes ?? RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES_LIMIT),
+              ),
+            )
           : structuredSmallResult
-            ? RUNNER_COMMAND_RESULT_MAX_CHARS
+            ? RUNNER_COMMAND_RESULT_MAX_BYTES
             : RUNNER_LOG_CAPTURE_MAX_BYTES;
       const output = await capture(process.execPath, [entry, ...args], {
         cwd: params.repoRoot,
@@ -310,7 +330,7 @@ async function executeJob(params: {
         maxOutputBytes: captureLimit,
       });
       if (structuredSmallResult) {
-        const normalized = parseStructuredJsonObject(output, RUNNER_COMMAND_RESULT_MAX_CHARS);
+        const normalized = parseStructuredJsonObject(output, RUNNER_COMMAND_RESULT_MAX_BYTES);
         return { redactedOutput: true, commandResultJson: normalized };
       }
       if (structuredLargeResult) {
@@ -324,6 +344,7 @@ async function executeJob(params: {
         cwd: params.repoRoot,
         env: gitJobEnv(),
         stdin: "ignore",
+        ...secretOutputPolicy,
       });
       return {};
     }
@@ -331,6 +352,7 @@ async function executeJob(params: {
       cwd: params.repoRoot,
       env: runnerCommandEnv(),
       stdin: "ignore",
+      ...secretOutputPolicy,
     });
     return {};
   } finally {

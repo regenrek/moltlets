@@ -135,7 +135,7 @@ function CreatingView(props: {
 
         <StepperContent
           value="runner"
-          className="rounded-lg border bg-card p-4 text-card-foreground"
+          className="text-card-foreground"
         >
           <SetupStepRunner
             projectId={props.projectId}
@@ -334,7 +334,11 @@ function HostSetupPage() {
           <StepperContent
             key={step.id}
             value={step.id}
-            className="rounded-lg border bg-card p-4 text-card-foreground"
+            className={
+              ["runner", "host", "connection", "creds"].includes(step.id)
+                ? "text-card-foreground"
+                : "rounded-lg border bg-card p-4 text-card-foreground"
+            }
           >
             <StepContent
               stepId={step.id as SetupStepId}
