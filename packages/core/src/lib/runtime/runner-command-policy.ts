@@ -11,6 +11,7 @@ export type RunnerCommandPayloadMeta = {
   gatewayId?: string;
   scope?: SecretScope;
   secretNames?: string[];
+  updatedKeys?: string[];
   configPaths?: string[];
   args?: string[];
   note?: string;
@@ -32,6 +33,7 @@ const SECRET_SCOPES = new Set(["bootstrap", "updates", "openclaw", "all"]);
 const TEMPLATE_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const TEMPLATE_PATH_RE = /^[A-Za-z0-9._/-]+$/;
 const TEMPLATE_REF_RE = /^[A-Za-z0-9._/-]+$/;
+const JOB_KIND_RE = /^[A-Za-z0-9._-]+$/;
 
 const META_MAX = {
   note: 1024,
@@ -189,6 +191,12 @@ function normalizePayloadMeta(raw: unknown): RunnerCommandPayloadMeta {
       maxItems: 512,
       maxItemLen: META_MAX.secretName,
     }),
+    updatedKeys: ensureOptionalStringArray({
+      value: row.updatedKeys,
+      field: "payloadMeta.updatedKeys",
+      maxItems: 512,
+      maxItemLen: META_MAX.secretName,
+    }),
     configPaths: ensureOptionalStringArray({
       value: row.configPaths,
       field: "payloadMeta.configPaths",
@@ -280,6 +288,7 @@ export function validateRunnerJobPayload(params: {
       field: "kind",
       max: CONTROL_PLANE_TEXT_LIMITS.jobKind,
     });
+    if (!JOB_KIND_RE.test(kind)) return { ok: false, error: "kind invalid" };
     if (!ALLOWED_JOB_KINDS.has(kind)) return { ok: false, error: `job kind not allowlisted: ${kind}` };
     const payloadMeta = normalizePayloadMeta(params.payloadMeta);
 

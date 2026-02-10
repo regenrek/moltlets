@@ -84,23 +84,7 @@ clawlets server restart --target-host <host> --unit openclaw-melinda.service
 - Ensure `.minisig` exists at `.../latest.json.minisig`.
 - Re‑run the manifest workflow to republish signatures.
 
-## `clf` socket: permission denied / ENOENT
+## Experimental plugin issues
 
-This applies only when CLF plugin is enabled. See [CLF Orchestrator](/plugins/clf-orchestrator).
-
-- Verify socket exists:
-  - `ls -la /run/clf/orchestrator.sock`
-  - `systemctl status clf-orchestrator.socket`
-- Verify caller is allowed:
-  - `id` includes group `clf-gateways`
-  - or run as root
-
-## Cattle job stuck (queued/running)
-
-Check orchestrator logs and inspect the job payload to see where it stopped.
-- Orchestrator logs: `journalctl -u clf-orchestrator --since 30m --no-pager`
-- Job inspect: `clf jobs show --job-id <jobId> --json`
-- Common causes:
-  - Hetzner API rate limits / quota
-  - bad `cattle.hetzner.image`
-  - cattle didn’t join tailnet (bad `tailscale_auth_key`)
+CLF/cattle troubleshooting moved to the external experimental plugin docs.
+See [Plugins overview](/plugins) and the linked `clf-cattle` repository.

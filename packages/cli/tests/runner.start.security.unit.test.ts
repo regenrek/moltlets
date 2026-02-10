@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  __test_createLocalSecretsNonce,
   __test_writeInputJsonTemp,
   __test_writeSecretsJsonTemp,
 } from "../src/commands/runner/start.js";
@@ -23,14 +22,6 @@ describe("runner start security", () => {
     created.length = 0;
   });
 
-  it("generates cryptographically random nonce", () => {
-    const a = __test_createLocalSecretsNonce();
-    const b = __test_createLocalSecretsNonce();
-    expect(a).not.toBe(b);
-    expect(a.length).toBeGreaterThan(32);
-    expect(b.length).toBeGreaterThan(32);
-  });
-
   it("writes temp input files with 0600 permissions", async () => {
     const filePath = await __test_writeInputJsonTemp("job1", { A: "1" });
     created.push(filePath);
@@ -41,5 +32,17 @@ describe("runner start security", () => {
     const filePath = await __test_writeSecretsJsonTemp("job1", { adminPasswordHash: "hash", API_KEY: "secret" });
     created.push(filePath);
     expect(await modeBits(filePath)).toBe(0o600);
+  });
+
+  it("omits empty adminPasswordHash from secrets payload", async () => {
+    const filePath = await __test_writeSecretsJsonTemp("job1", {
+      adminPasswordHash: "",
+      API_KEY: "secret",
+    });
+    created.push(filePath);
+    const raw = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw) as { adminPasswordHash?: string; secrets?: Record<string, string> };
+    expect(parsed.adminPasswordHash).toBeUndefined();
+    expect(parsed.secrets).toEqual({ API_KEY: "secret" });
   });
 });

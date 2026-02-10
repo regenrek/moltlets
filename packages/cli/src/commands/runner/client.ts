@@ -1,5 +1,5 @@
 type RunnerStatus = "online" | "offline";
-type JobStatus = "queued" | "leased" | "running" | "succeeded" | "failed" | "canceled";
+type JobStatus = "sealed_pending" | "queued" | "leased" | "running" | "succeeded" | "failed" | "canceled";
 type SecretScope = "bootstrap" | "updates" | "openclaw" | "all";
 type SecretStatus = "configured" | "missing" | "placeholder" | "warn";
 type RunnerHttpErrorKind = "auth" | "permanent" | "transient" | "malformed";
@@ -10,11 +10,17 @@ export type RunnerLeaseJob = {
   leaseId: string;
   leaseExpiresAt: number;
   kind: string;
+  targetRunnerId?: string;
+  sealedInputB64?: string;
+  sealedInputAlg?: string;
+  sealedInputKeyId?: string;
+  sealedInputRequired?: boolean;
   payloadMeta?: {
     hostName?: string;
     gatewayId?: string;
     scope?: SecretScope;
     secretNames?: string[];
+    updatedKeys?: string[];
     configPaths?: string[];
     args?: string[];
     note?: string;
@@ -217,11 +223,11 @@ export class RunnerApiClient {
     runnerName: string;
     version?: string;
     capabilities?: {
-      supportsLocalSecretsSubmit?: boolean;
-      supportsInteractiveSecrets?: boolean;
+      supportsSealedInput?: boolean;
+      sealedInputAlg?: string;
+      sealedInputPubSpkiB64?: string;
+      sealedInputKeyId?: string;
       supportsInfraApply?: boolean;
-      localSecretsPort?: number;
-      localSecretsNonce?: string;
     };
     status?: RunnerStatus;
   }): Promise<{ ok: boolean; runnerId: string }> {
@@ -245,6 +251,8 @@ export class RunnerApiClient {
     leaseId: string;
     status: "succeeded" | "failed" | "canceled";
     errorMessage?: string;
+    commandResultJson?: string;
+    commandResultLargeJson?: string;
   }): Promise<{ ok: boolean }> {
     return await this.post("/runner/jobs/complete", params);
   }

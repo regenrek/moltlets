@@ -29,6 +29,7 @@ import {
   parseServerUpdateLogsExecuteInput,
   parseServerUpdateStatusStartInput,
   parseSecretsInitExecuteInput,
+  parseWriteHostSecretsFinalizeInput,
   parseWriteHostSecretsInput,
 } from "~/sdk/runtime"
 
@@ -318,7 +319,8 @@ describe("serverfn validators", () => {
         host: "alpha",
         scope: "updates",
         allowPlaceholders: true,
-        secrets: { discord_token: "abc" },
+        targetRunnerId: "rr1",
+        secretNames: ["discord_token"],
       }),
     ).toMatchObject({
       projectId: "p1",
@@ -326,19 +328,64 @@ describe("serverfn validators", () => {
       host: "alpha",
       scope: "updates",
       allowPlaceholders: true,
+      targetRunnerId: "rr1",
       secretNames: ["discord_token"],
     })
   })
 
   it("rejects invalid writeHostSecrets input", () => {
-    expect(() => parseWriteHostSecretsInput({ projectId: "p1", host: "alpha", secrets: [] })).toThrow()
+    expect(() =>
+      parseWriteHostSecretsInput({
+        projectId: "p1",
+        host: "alpha",
+        secretNames: [],
+        targetRunnerId: "",
+        sealedInputB64: "",
+        sealedInputAlg: "",
+        sealedInputKeyId: "",
+      }),
+    ).toThrow()
   })
 
   it("parses writeHostSecrets with safe secret names", () => {
-    expect(parseWriteHostSecretsInput({ projectId: "p1", host: "alpha", secrets: { discord_token: "abc" } })).toEqual({
+    expect(
+      parseWriteHostSecretsInput({
+        projectId: "p1",
+        host: "alpha",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+      }),
+    ).toEqual({
       projectId: "p1",
       host: "alpha",
       secretNames: ["discord_token"],
+      targetRunnerId: "rr1",
+    })
+  })
+
+  it("parses writeHostSecrets finalize with sealed fields", () => {
+    expect(
+      parseWriteHostSecretsFinalizeInput({
+        projectId: "p1",
+        host: "alpha",
+        jobId: "job1",
+        kind: "secrets_write",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+        sealedInputB64: "ciphertext",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "kid123",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      jobId: "job1",
+      kind: "secrets_write",
+      secretNames: ["discord_token"],
+      targetRunnerId: "rr1",
+      sealedInputB64: "ciphertext",
+      sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+      sealedInputKeyId: "kid123",
     })
   })
 

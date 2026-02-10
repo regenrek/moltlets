@@ -1,7 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { convexQuery } from "@convex-dev/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import type { MissingSecretConfig } from "@clawlets/core/lib/secrets/secrets-plan"
 import { RunLogTail } from "~/components/run-log-tail"
 import { SecretsInputs, type SecretsPlan, type SecretStatus } from "~/components/fleet/secrets-inputs"
@@ -14,9 +16,11 @@ import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
+import { sealForRunner } from "~/lib/security/sealed-input"
 import {
   getSecretsTemplate,
   secretsInitExecute,
+  secretsInitFinalize,
   secretsInitStart,
   secretsSyncExecute,
   secretsSyncPreview,
@@ -43,6 +47,30 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
     refetchOnReconnect: false,
   })
   const hasTemplate = Boolean(template.data)
+  const runnersQuery = useQuery({
+    ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
+  })
+  const sealedRunners = useMemo(
+    () =>
+      (runnersQuery.data ?? [])
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runnersQuery.data],
+  )
+  const [selectedRunnerId, setSelectedRunnerId] = useState<string>("")
+  useEffect(() => {
+    if (sealedRunners.length === 1) setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+  }, [sealedRunners])
 
   const [adminPassword, setAdminPassword] = useState("")
   const [adminUnlocked, setAdminUnlocked] = useState(false)
@@ -102,26 +130,61 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
   const initStart = useMutation({
     mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope } }),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setInitRunId(res.runId)
       const secretsPayload = Object.fromEntries(
         Object.entries(secrets)
           .map(([k, v]) => [k, String(v || "")])
           .filter(([name, value]) => value.trim() && allowedSecretNames.has(name)),
       )
-      void secretsInitExecute({
+      const runner =
+        sealedRunners.length === 1
+          ? sealedRunners[0]
+          : sealedRunners.find((row) => String(row._id) === selectedRunnerId)
+      if (!runner) {
+        toast.error("Select an online sealed-capable runner before starting secrets init")
+        return
+      }
+      const targetRunnerId = String(runner._id)
+      const inputPayload: Record<string, string> = {
+        ...Object.fromEntries(Object.entries(secretsPayload).map(([k, v]) => [String(k), String(v)])),
+        ...(adminPassword.trim() ? { adminPasswordHash: adminPassword.trim() } : {}),
+        ...(tailscaleAuthKey.trim() ? { tailscaleAuthKey: tailscaleAuthKey.trim() } : {}),
+      }
+      const secretNames = Object.keys(inputPayload)
+      const reserve = await secretsInitExecute({
         data: {
           projectId,
           runId: res.runId,
           host,
           scope,
           allowPlaceholders: false,
-          adminPassword,
-          tailscaleAuthKey,
-          secrets: secretsPayload,
+          secretNames,
+          targetRunnerId: targetRunnerId as Id<"runners">,
         },
       })
-      toast.info("Secrets init started")
+      const aad = `${projectId}:${reserve.jobId}:${reserve.kind}:${targetRunnerId}`
+      const reserveRunnerPub = String(reserve.sealedInputPubSpkiB64 || "").trim()
+      const reserveKeyId = String(reserve.sealedInputKeyId || runner.capabilities?.sealedInputKeyId || "").trim()
+      const reserveAlg = String(reserve.sealedInputAlg || runner.capabilities?.sealedInputAlg || "").trim()
+      const sealedInputB64 = await sealForRunner({
+        runnerPubSpkiB64: reserveRunnerPub || String(runner.capabilities?.sealedInputPubSpkiB64 || ""),
+        keyId: reserveKeyId,
+        alg: reserveAlg,
+        aad,
+        plaintextJson: JSON.stringify(inputPayload),
+      })
+      await secretsInitFinalize({
+        data: {
+          projectId,
+          jobId: reserve.jobId,
+          kind: reserve.kind,
+          sealedInputB64,
+          sealedInputAlg: reserveAlg,
+          sealedInputKeyId: reserveKeyId,
+        },
+      })
+      toast.info("Secrets init queued")
     },
   })
 
@@ -235,6 +298,31 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                   <div className="text-sm text-destructive">{String(template.error)}</div>
                 ) : template.data ? (
                   <div className="space-y-4">
+                    {sealedRunners.length === 0 ? (
+                      <div className="text-sm text-destructive">
+                        No online runner advertises sealed input. Upgrade runner before secrets init.
+                      </div>
+                    ) : null}
+                    {sealedRunners.length > 1 ? (
+                      <div className="space-y-2">
+                        <LabelWithHelp htmlFor="secretsInitRunner" help="Sealed-input jobs must target one runner.">
+                          Target runner
+                        </LabelWithHelp>
+                        <select
+                          id="secretsInitRunner"
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={selectedRunnerId}
+                          onChange={(e) => setSelectedRunnerId(e.target.value)}
+                        >
+                          <option value="">Select runner…</option>
+                          {sealedRunners.map((runner) => (
+                            <option key={runner._id} value={String(runner._id)}>
+                              {runner.runnerName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                     <div className="text-xs text-muted-foreground">
                       Template auto-loaded. Secrets are not shown; use Verify to check. Refresh if you changed config.
                     </div>
@@ -377,7 +465,12 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
 
                     <AsyncButton
                       type="button"
-                      disabled={initStart.isPending || !host}
+                      disabled={
+                        initStart.isPending
+                        || !host
+                        || sealedRunners.length === 0
+                        || (sealedRunners.length > 1 && !selectedRunnerId)
+                      }
                       pending={initStart.isPending}
                       pendingText="Running secrets init..."
                       onClick={() => initStart.mutate()}

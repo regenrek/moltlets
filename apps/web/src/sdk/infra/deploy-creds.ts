@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import {
   DEPLOY_CREDS_KEYS,
+  DEPLOY_CREDS_SECRET_KEYS,
 } from "@clawlets/core/lib/infra/deploy-creds"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
 
@@ -14,8 +15,8 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectIdInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
@@ -49,28 +50,7 @@ type KeyCandidate = {
   reason?: string
 }
 
-type LocalSubmitConfig = {
-  port: number
-  nonce: string
-}
-
-function parseRunnerJson(messages: string[]): Record<string, unknown> | null {
-  const direct = parseLastJsonMessage<Record<string, unknown>>(messages)
-  if (direct) return direct
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const raw = coerceTrimmedString(messages[i])
-    if (!raw) continue
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>
-      }
-    } catch {
-      continue
-    }
-  }
-  return null
-}
+const DEPLOY_CREDS_SECRET_KEY_SET = new Set<string>(DEPLOY_CREDS_SECRET_KEYS)
 
 async function runRunnerJsonCommand(params: {
   projectId: Id<"projects">
@@ -95,12 +75,17 @@ async function runRunnerJsonCommand(params: {
     timeoutMs: params.timeoutMs,
     pollMs: 700,
   })
-  const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+  const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
   if (terminal.status !== "succeeded") {
     throw new Error(terminal.errorMessage || lastErrorMessage(messages, "runner command failed"))
   }
-  const parsed = parseRunnerJson(messages)
-  if (!parsed) throw new Error("runner output missing JSON payload")
+  const parsed = await takeRunnerCommandResultObject({
+    client,
+    projectId: params.projectId,
+    jobId: queued.jobId,
+    runId: queued.runId,
+  })
+  if (!parsed) throw new Error("runner command result missing JSON payload")
   return { runId: queued.runId, jobId: queued.jobId, json: parsed }
 }
 
@@ -124,7 +109,10 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
               const key = coerceTrimmedString(entry.key)
               const source = (coerceTrimmedString(entry.source) || "unset") as DeployCredsStatusKey["source"]
               const status = (coerceTrimmedString(entry.status) || "unset") as DeployCredsStatusKey["status"]
-              const value = typeof entry.value === "string" ? entry.value : undefined
+              const value =
+                typeof entry.value === "string" && !DEPLOY_CREDS_SECRET_KEY_SET.has(key)
+                  ? entry.value
+                  : undefined
               return { key, source, status, ...(value ? { value } : {}) }
             })
             .filter((entry) => entry.key.length > 0)
@@ -155,6 +143,8 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
+    const targetRunnerIdRaw = typeof d["targetRunnerId"] === "string" ? d["targetRunnerId"].trim() : ""
+    if (!targetRunnerIdRaw) throw new Error("targetRunnerId required")
     const updatedKeysRaw = Array.isArray(d["updatedKeys"]) ? (d["updatedKeys"] as unknown[]) : []
     const allowedKeys = new Set<string>(DEPLOY_CREDS_KEYS)
     const out: string[] = []
@@ -166,55 +156,103 @@ export const updateDeployCreds = createServerFn({ method: "POST" })
       out.push(key)
     }
     if (out.length === 0) throw new Error("updatedKeys required")
-    return { ...base, updatedKeys: Array.from(new Set(out)) }
+    return {
+      ...base,
+      targetRunnerId: targetRunnerIdRaw as Id<"runners">,
+      updatedKeys: Array.from(new Set(out)),
+    }
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
     await requireAdminProjectAccess(client, data.projectId)
 
-    const runners = await client.query(api.controlPlane.runners.listByProject, { projectId: data.projectId })
-    const localSubmit = (runners || [])
-      .filter((runner) =>
-        runner.lastStatus === "online"
-        && runner.capabilities?.supportsLocalSecretsSubmit
-        && typeof runner.capabilities?.localSecretsPort === "number"
-        && typeof runner.capabilities?.localSecretsNonce === "string"
-        && runner.capabilities.localSecretsNonce.trim().length > 0,
-      )
-      .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0))
-      .map((runner) => ({
-        port: Math.trunc(Number(runner.capabilities?.localSecretsPort || 0)),
-        nonce: coerceTrimmedString(runner.capabilities?.localSecretsNonce),
-      }))
-      .find((row) => row.port >= 1024 && row.port <= 65535 && row.nonce.length > 0) || null
-
-    const queued = await enqueueRunnerCommand({
-      client,
+    const reserved = await client.mutation(api.controlPlane.jobs.reserveSealedInput, {
       projectId: data.projectId,
-      runKind: "custom",
+      kind: "custom",
       title: "Deploy creds update",
-      args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
-      note: "deploy creds values supplied directly to local runner submit endpoint or runner prompt",
+      targetRunnerId: data.targetRunnerId,
+      payloadMeta: {
+        args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        updatedKeys: data.updatedKeys,
+        note: "deploy creds sealed input attached at finalize",
+      },
     })
+    return {
+      ok: true as const,
+      reserved: true as const,
+      runId: reserved.runId,
+      jobId: reserved.jobId,
+      kind: reserved.kind,
+      sealedInputAlg: reserved.sealedInputAlg,
+      sealedInputKeyId: reserved.sealedInputKeyId,
+      sealedInputPubSpkiB64: reserved.sealedInputPubSpkiB64,
+      updatedKeys: data.updatedKeys,
+      targetRunnerId: data.targetRunnerId,
+    }
+  })
 
+export const finalizeDeployCreds = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    const base = parseProjectIdInput(data)
+    const d = data as Record<string, unknown>
+    const targetRunnerIdRaw = typeof d["targetRunnerId"] === "string" ? d["targetRunnerId"].trim() : ""
+    if (!targetRunnerIdRaw) throw new Error("targetRunnerId required")
+    const jobIdRaw = typeof d["jobId"] === "string" ? d["jobId"].trim() : ""
+    if (!jobIdRaw) throw new Error("jobId required")
+    const kindRaw = typeof d["kind"] === "string" ? d["kind"].trim() : ""
+    if (!kindRaw) throw new Error("kind required")
+    const sealedInputB64Raw = typeof d["sealedInputB64"] === "string" ? d["sealedInputB64"].trim() : ""
+    if (!sealedInputB64Raw) throw new Error("sealedInputB64 required")
+    const sealedInputAlgRaw = typeof d["sealedInputAlg"] === "string" ? d["sealedInputAlg"].trim() : ""
+    if (!sealedInputAlgRaw) throw new Error("sealedInputAlg required")
+    const sealedInputKeyIdRaw = typeof d["sealedInputKeyId"] === "string" ? d["sealedInputKeyId"].trim() : ""
+    if (!sealedInputKeyIdRaw) throw new Error("sealedInputKeyId required")
+    const updatedKeysRaw = Array.isArray(d["updatedKeys"]) ? (d["updatedKeys"] as unknown[]) : []
+    const updatedKeys = updatedKeysRaw
+      .map((row) => (typeof row === "string" ? row.trim() : ""))
+      .filter(Boolean)
+    if (updatedKeys.length === 0) throw new Error("updatedKeys required")
+    return {
+      ...base,
+      jobId: jobIdRaw as Id<"jobs">,
+      kind: kindRaw,
+      sealedInputB64: sealedInputB64Raw,
+      sealedInputAlg: sealedInputAlgRaw,
+      sealedInputKeyId: sealedInputKeyIdRaw,
+      targetRunnerId: targetRunnerIdRaw as Id<"runners">,
+      updatedKeys: Array.from(new Set(updatedKeys)),
+    }
+  })
+  .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
+    const queued = await client.mutation(api.controlPlane.jobs.finalizeSealedEnqueue, {
+      projectId: data.projectId,
+      jobId: data.jobId,
+      kind: data.kind,
+      sealedInputB64: data.sealedInputB64,
+      sealedInputAlg: data.sealedInputAlg,
+      sealedInputKeyId: data.sealedInputKeyId,
+    })
     await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "deployCreds.update",
       target: { doc: ".clawlets/env" },
       data: {
         runId: queued.runId,
+        jobId: queued.jobId,
+        targetRunnerId: data.targetRunnerId,
         updatedKeys: data.updatedKeys,
       },
     })
-
     return {
       ok: true as const,
       queued: true as const,
       runId: queued.runId,
       jobId: queued.jobId,
+      targetRunnerId: data.targetRunnerId,
       updatedKeys: data.updatedKeys,
-      localSubmitRequired: true as const,
-      localSubmit: localSubmit as LocalSubmitConfig | null,
     }
   })
 

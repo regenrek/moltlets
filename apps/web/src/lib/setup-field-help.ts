@@ -51,7 +51,7 @@ export const setupFieldHelp = {
   },
   doctor: {
     host: "Host to run checks against (defaults to config default host).",
-    scope: "Subset of checks to run (repo/bootstrap/updates/cattle/all).",
+    scope: "Subset of checks to run (repo/bootstrap/updates/all).",
   },
   bootstrap: {
     host: "Host entry to bootstrap/provision.",

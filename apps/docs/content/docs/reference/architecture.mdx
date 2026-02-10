@@ -10,9 +10,9 @@ these boundaries makes it easier to reason about what should be committed and wh
 must remain local.
 
 - **Clawlets (this repo)**: CLI, core Nix modules, docs.
-- **clf-cattle (plugin repo)**: `@clawlets/plugin-cattle` + `clf` queue/orchestrator stack (opt-in).
+- **clf-cattle (plugin repo)**: experimental external plugin repo for CLF/cattle workflows.
 - **clawlets-template**: project scaffolding used by `clawlets project init`.
-- **Project repo**: `flake.nix`, `fleet/`, `secrets/`, `cattle/personas/` (public-safe).
+- **Project repo**: `flake.nix`, `fleet/`, `secrets/` (public-safe).
 - **Runtime (`.clawlets/`)**: gitignored operator state + keys + provisioning artifacts.
 
 Rules:
@@ -27,7 +27,6 @@ state, and the runtime pieces implement it on the host.
 - **CLI (`clawlets`)**: bootstrap, deploy, secrets, server ops.
 - **Nix modules**: `clawletsProjectHost`, `openclawFleet`, `clawletsSelfUpdate`.
 - **Per-gateway instance**: one OpenClaw gateway per instance (user `gateway-<id>`, state `/srv/openclaw/<id>`).
-- **Orchestrator (`clf-orchestrator`, plugin)**: job queue + cattle worker, socket `/run/clf/orchestrator.sock`.
 - **Updater**: pulls signed manifests + optional secrets bundle, applies by store path.
 
 ## Data + secret flow
@@ -53,15 +52,10 @@ The dashboard mirrors this flow, while the CLI provides automation.
 7) `clawlets server update apply` → apply signed release.
 8) `clawlets host set --ssh-exposure tailnet` + `clawlets lockdown` → remove public SSH.
 
-## Cattle (ephemeral VMs)
+## Experimental plugins
 
-If you enable cattle, the orchestrator can spawn short-lived workers from a prebuilt
-image and inject the persona and task at runtime.
-
-- Enabled via `cattle.*` in `fleet/clawlets.json`.
-- Spawned via `clawlets cattle spawn` (plugin) or `clf jobs enqueue`.
-- Secrets fetched at runtime from tailnet-only HTTP (`/v1/cattle/env`).
-- Setup details: [CLF Orchestrator](/plugins/clf-orchestrator)
+CLF/cattle are external experimental plugins. Core architecture and operations docs
+focus on the default supported path. See [Plugins](/plugins) for external references.
 
 ## Single source of truth
 

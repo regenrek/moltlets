@@ -1,5 +1,5 @@
 import { ArrowPathIcon } from "@heroicons/react/24/outline"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { generateHostName as generateRandomHostName } from "@clawlets/core/lib/host/host-name-generator"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -26,6 +26,7 @@ export function SetupStepHost(props: {
   )
 
   const [newHost, setNewHost] = useState("")
+  const queryClient = useQueryClient()
   const addHostMutation = useMutation({
     mutationFn: async () => {
       const trimmed = newHost.trim()
@@ -38,7 +39,24 @@ export function SetupStepHost(props: {
       else toast.success("Host added")
       const nextHost = newHost.trim()
       setNewHost("")
-      if (nextHost && !result.queued) props.onSelectHost(nextHost)
+      if (nextHost) {
+        queryClient.setQueryData(
+          ["hostSetupConfig", props.projectId],
+          (prev: { hosts: Record<string, Record<string, unknown>>; fleet?: { sshAuthorizedKeys?: unknown[] } } | null) => {
+            if (!prev) return prev
+            if (prev.hosts?.[nextHost]) return prev
+            return {
+              ...prev,
+              hosts: {
+                ...prev.hosts,
+                [nextHost]: {},
+              },
+            }
+          },
+        )
+        void queryClient.invalidateQueries({ queryKey: ["hostSetupConfig", props.projectId] })
+        props.onSelectHost(nextHost)
+      }
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))

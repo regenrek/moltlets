@@ -8,7 +8,7 @@ const startStorage = globalObj[GLOBAL_STORAGE_KEY]
 const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
   startStorage?.run(context, fn) as Promise<T>
 
-async function loadSdk() {
+async function loadSdk(params: { commandResultJson?: Record<string, unknown> | null } = {}) {
   vi.resetModules()
   const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
   const config = {
@@ -18,7 +18,24 @@ async function loadSdk() {
   }
 
   vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any,
+    createConvexClient: () =>
+      ({
+        mutation: vi.fn(async (_mutation: unknown, payload: any) => {
+          const maybeTakeResult =
+            payload
+            && typeof payload === "object"
+            && typeof payload.projectId === "string"
+            && typeof payload.jobId === "string"
+            && !("kind" in payload)
+            && !("sealedInputB64" in payload)
+          if (maybeTakeResult) {
+            const result = params.commandResultJson || config
+            return { runId: "run_1", resultJson: JSON.stringify(result) }
+          }
+          return null
+        }),
+        query: vi.fn(),
+      }) as any,
   }))
   vi.doMock("~/sdk/project", () => ({
     requireAdminProjectAccess: async () => ({ role: "admin" }),
@@ -88,5 +105,26 @@ describe("secrets template runner queue", () => {
       projectId: "p1",
       args: ["config", "show", "--pretty=false"],
     }))
+  })
+
+  it("builds template from ephemeral command result", async () => {
+    const config = {
+      defaultHost: "alpha",
+      fleet: {},
+      hosts: { alpha: { gatewaysOrder: ["gateway-1"], gateways: { "gateway-1": {} } } },
+    }
+    const { mod } = await loadSdk({ commandResultJson: config })
+    const context = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    const res = await runWithStartContext(context, async () =>
+      await mod.getSecretsTemplate({
+        data: { projectId: "p1" as any, host: "alpha", scope: "all" },
+      }),
+    )
+    expect(res.host).toBe("alpha")
+    expect(res.requiredSecretNames).toEqual(["DISCORD_TOKEN"])
   })
 })

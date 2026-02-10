@@ -39,7 +39,7 @@ do not behave as expected:
     After bootstrap: confirm public SSH is closed again and SSH access is tailnet-only.
   </Step>
   <Step>
-    After deploying gateways: confirm orchestrator socket perms and that only intended users/groups can access it.
+    After deploying gateways: confirm gateway service permissions and that only intended users/groups can access runtime state.
   </Step>
   <Step>
     After secrets changes: confirm the host has the expected secrets digest and services restart cleanly.
@@ -48,4 +48,3 @@ do not behave as expected:
     After update pipeline changes: confirm updater status is clean and `releaseId` moves forward as expected.
   </Step>
 </Steps>
-

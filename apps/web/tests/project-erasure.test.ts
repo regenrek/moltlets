@@ -62,7 +62,7 @@ describe("project erasure primitives", () => {
   })
 
   it("advances through all deletion stages", () => {
-    expect(PROJECT_DELETION_STAGES).toHaveLength(16)
+    expect(PROJECT_DELETION_STAGES).toHaveLength(18)
     for (let i = 0; i < PROJECT_DELETION_STAGES.length - 1; i += 1) {
       const current = PROJECT_DELETION_STAGES[i]!
       const next = PROJECT_DELETION_STAGES[i + 1]!

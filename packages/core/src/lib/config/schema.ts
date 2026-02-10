@@ -3,7 +3,6 @@ import { HostNameSchema } from "@clawlets/shared/lib/identifiers";
 import { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 import { FleetSchema } from "./schema-fleet.js";
 import { HostSchema } from "./schema-host.js";
-import { CattleSchema } from "./schema-cattle.js";
 import { addOpenclawSchemaIssues } from "./openclaw-validation.js";
 export { InfraConfigSchema, InfraHostConfigSchema, type InfraConfig, type InfraHostConfig } from "./schema-infra.js";
 export { OpenClawConfigSchema, OpenClawHostConfigSchema, type OpenClawConfig, type OpenClawHostConfig } from "./schema-openclaw.js";
@@ -21,7 +20,7 @@ export const ClawletsConfigSchema = z
       codex: { enable: false, gateways: [] },
       backups: { restic: { enable: false, repository: "" } },
     })),
-    cattle: CattleSchema,
+    cattle: z.never().optional(),
     hosts: z.record(HostNameSchema, HostSchema).refine((value) => Object.keys(value).length > 0, {
       message: "hosts must not be empty",
     }),

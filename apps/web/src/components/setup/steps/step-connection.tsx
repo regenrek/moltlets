@@ -90,7 +90,7 @@ function SetupStepConnectionForm(props: {
         toast.success("Saved")
         setKeyText("")
         await queryClient.invalidateQueries({
-          queryKey: ["hostSetupConfig", props.projectId, props.host],
+          queryKey: ["hostSetupConfig", props.projectId],
         })
         props.onContinue()
         return

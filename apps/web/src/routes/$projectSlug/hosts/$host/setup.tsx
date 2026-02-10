@@ -265,104 +265,7 @@ function HostSetupPage() {
 
   const requiredSteps = setup.model.steps.filter((s) => !s.optional)
   const requiredDone = requiredSteps.filter((s) => s.status === "done").length
-  const runnerStep = setup.model.steps.find((step) => step.id === "runner") ?? null
   const selectedHost = setup.model.selectedHost
-  const holdRunnerUntilContinue = String(search.step || "").trim() === "runner"
-
-  if (!selectedHost && runnerStep?.status === "done" && holdRunnerUntilContinue) {
-    return (
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <SetupHeader
-          selectedHost={null}
-          selectedHostTheme={null}
-          requiredDone={requiredDone}
-          requiredTotal={requiredSteps.length}
-          deployHref={null}
-        />
-        <div className="rounded-lg border bg-card p-4 text-card-foreground">
-          <SetupStepRunner
-            projectId={projectId as Id<"projects">}
-            projectRunnerRepoPath={(setup.projectQuery.project as any)?.runnerRepoPath ?? null}
-            host={host}
-            stepStatus="done"
-            isCurrentStep={true}
-            runnerOnline={setup.runnerOnline}
-            repoProbeOk={setup.repoProbeOk}
-            repoProbeState={setup.repoProbeState}
-            repoProbeError={setup.repoProbeError}
-            runners={(setup.runners as any[]).map((runner: any) => ({
-              runnerName: String(runner.runnerName || ""),
-              lastStatus: String(runner.lastStatus || "offline"),
-              lastSeenAt: Number(runner.lastSeenAt || 0),
-            }))}
-            onContinue={() => {
-              void router.navigate({
-                to: "/$projectSlug/hosts/$host/setup",
-                params: { projectSlug, host },
-                search: { step: "host" },
-              } as any)
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // No host configured yet, show "Add First Host" in stepper
-  if (!selectedHost && runnerStep?.status === "done") {
-    return (
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <SetupHeader
-          selectedHost={null}
-          selectedHostTheme={null}
-          requiredDone={requiredDone}
-          requiredTotal={requiredSteps.length}
-          deployHref={null}
-        />
-        <Stepper defaultValue="host" orientation="vertical" nonInteractive>
-          <StepperList>
-            <StepperItem value="runner" completed>
-              <StepperTrigger className="not-last:pb-6">
-                <StepperIndicator />
-                <div className="flex flex-col gap-1">
-                  <StepperTitle>Connect Runner</StepperTitle>
-                  <StepperDescription>Runner connected</StepperDescription>
-                </div>
-              </StepperTrigger>
-              <StepperSeparator className="absolute inset-y-0 top-5 left-3.5 -z-10 -order-1 h-full -translate-x-1/2" />
-            </StepperItem>
-            <StepperItem value="host">
-              <StepperTrigger className="not-last:pb-6">
-                <StepperIndicator />
-                <div className="flex flex-col gap-1">
-                  <StepperTitle>Add First Host</StepperTitle>
-                  <StepperDescription>Configure a host entry</StepperDescription>
-                </div>
-              </StepperTrigger>
-            </StepperItem>
-          </StepperList>
-          <StepperContent
-            value="host"
-            className="rounded-lg border bg-card p-4 text-card-foreground"
-          >
-            <SetupStepHost
-              projectId={projectId as Id<"projects">}
-              config={setup.config}
-              onSelectHost={(nextHost) => {
-                const clean = String(nextHost || "").trim()
-                if (!clean) return
-                void router.navigate({
-                  to: "/$projectSlug/hosts/$host/setup",
-                  params: { projectSlug, host: clean },
-                  search: { step: "connection" },
-                } as any)
-              }}
-            />
-          </StepperContent>
-        </Stepper>
-      </div>
-    )
-  }
 
   const activeHost = selectedHost ?? host
 
@@ -460,6 +363,7 @@ function StepContent(props: {
   host: string
   setup: ReturnType<typeof useSetupModel>
 }) {
+  const router = useRouter()
   const { stepId, step, projectId, projectSlug, host, setup } = props
 
   if (stepId === "runner") {
@@ -492,6 +396,24 @@ function StepContent(props: {
         host={host}
         stepStatus={step.status as SetupStepStatus}
         onContinue={setup.advance}
+      />
+    )
+  }
+
+  if (stepId === "host") {
+    return (
+      <SetupStepHost
+        projectId={projectId}
+        config={setup.config}
+        onSelectHost={(nextHost) => {
+          const clean = String(nextHost || "").trim()
+          if (!clean) return
+          void router.navigate({
+            to: "/$projectSlug/hosts/$host/setup",
+            params: { projectSlug, host: clean },
+            search: { step: "connection" },
+          } as any)
+        }}
       />
     )
   }

@@ -81,7 +81,6 @@ export function SetupStepRunner(props: {
     return fallbackRunnerName
   }, [fallbackRunnerName, props.runners])
   const controlPlaneUrl = String(import.meta.env.VITE_CONVEX_SITE_URL || "").trim()
-  const dashboardOrigin = typeof window === "undefined" ? "" : String(window.location.origin || "").trim()
 
   const repoProbeRequired = props.repoProbeState !== "idle"
   const connected = props.runnerOnline
@@ -119,10 +118,9 @@ export function SetupStepRunner(props: {
     lines.push(`  --name ${shellQuote(runnerName.trim() || "<runner-name>")} \\`)
     lines.push(`  --token ${shellQuote(token || "<runner-token>")} \\`)
     lines.push(`  --repoRoot ${repoRootArg} \\`)
-    lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")} \\`)
-    lines.push(`  --dashboardOrigin ${shellQuote(dashboardOrigin || "<dashboard-origin>")}`)
+    lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")}`)
     return lines.join("\n")
-  }, [controlPlaneUrl, dashboardOrigin, props.projectId, props.projectRunnerRepoPath, runnerName, token])
+  }, [controlPlaneUrl, props.projectId, props.projectRunnerRepoPath, runnerName, token])
 
   const runnerStatusLabel = props.runnerOnline
     ? "Connected"

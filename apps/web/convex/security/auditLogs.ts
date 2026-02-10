@@ -147,10 +147,23 @@ export const listByProjectPage = query({
             typeof rowData.runId === "string" && rowData.runId.trim()
               ? (rowData.runId as Id<"runs">)
               : undefined;
+          const jobId =
+            typeof rowData.jobId === "string" && rowData.jobId.trim()
+              ? (rowData.jobId as Id<"jobs">)
+              : undefined;
+          const targetRunnerId =
+            typeof rowData.targetRunnerId === "string" && rowData.targetRunnerId.trim()
+              ? (rowData.targetRunnerId as Id<"runners">)
+              : undefined;
           return {
             ...base,
             target: { doc: ".clawlets/env" },
-            data: runId ? { runId, updatedKeys } : { updatedKeys },
+            data:
+              runId && jobId && targetRunnerId
+                ? { runId, jobId, targetRunnerId, updatedKeys }
+                : runId
+                  ? { runId, updatedKeys }
+                  : { updatedKeys },
           };
         }
 
@@ -239,17 +252,17 @@ export const append = mutation({
         const t = asObject(targetRaw, "target");
         const d = asObject(dataRaw, "data");
         ensureNoExtraKeys(t, "target", ["doc"]);
-        ensureNoExtraKeys(d, "data", ["runId", "updatedKeys"]);
+        ensureNoExtraKeys(d, "data", ["runId", "jobId", "targetRunnerId", "updatedKeys"]);
         if (typeof t.doc !== "string") fail("conflict", "target.doc required");
-        const runId =
-          d.runId === undefined
-            ? undefined
-            : (typeof d.runId === "string" && d.runId.trim()
-                ? (d.runId as Id<"runs">)
-                : fail("conflict", "data.runId invalid"));
+        if (typeof d.runId !== "string" || !d.runId.trim()) fail("conflict", "data.runId invalid");
+        if (typeof d.jobId !== "string" || !d.jobId.trim()) fail("conflict", "data.jobId invalid");
+        if (typeof d.targetRunnerId !== "string" || !d.targetRunnerId.trim()) fail("conflict", "data.targetRunnerId invalid");
+        const runId = d.runId as Id<"runs">;
+        const jobId = d.jobId as Id<"jobs">;
+        const targetRunnerId = d.targetRunnerId as Id<"runners">;
         const updatedKeys = normalizeBoundedStringArray(d.updatedKeys, "data.updatedKeys");
         target = { doc: ensureRepoRelativePath(t.doc, "target.doc", 128) };
-        data = runId ? { runId, updatedKeys } : { updatedKeys };
+        data = { runId, jobId, targetRunnerId, updatedKeys };
         break;
       }
       case "gateway.openclaw.harden": {
@@ -335,7 +348,39 @@ export const append = mutation({
         data = { retentionDays: d.retentionDays, gitWritePolicy };
         break;
       }
-      case "secrets.init":
+      case "secrets.init": {
+        const t = requireHostTarget(asObject(targetRaw, "target"));
+        const d = asObject(dataRaw, "data");
+        ensureNoExtraKeys(d, "data", ["runId", "scope", "jobId", "targetRunnerId"]);
+        const run = requireRunId({ runId: d.runId });
+        if (d.scope !== "bootstrap" && d.scope !== "updates" && d.scope !== "openclaw" && d.scope !== "all") {
+          fail("conflict", "data.scope invalid");
+        }
+        const scope = d.scope === "bootstrap"
+          ? "bootstrap"
+          : d.scope === "updates"
+            ? "updates"
+            : d.scope === "openclaw"
+              ? "openclaw"
+              : "all";
+        const hasJobContext = d.jobId !== undefined || d.targetRunnerId !== undefined;
+        if (hasJobContext) {
+          if (typeof d.jobId !== "string" || !d.jobId.trim()) fail("conflict", "data.jobId invalid");
+          if (typeof d.targetRunnerId !== "string" || !d.targetRunnerId.trim()) {
+            fail("conflict", "data.targetRunnerId invalid");
+          }
+        }
+        target = t;
+        data = hasJobContext
+          ? {
+              runId: run.runId,
+              jobId: d.jobId as Id<"jobs">,
+              targetRunnerId: d.targetRunnerId as Id<"runners">,
+              scope,
+            }
+          : { runId: run.runId, scope };
+        break;
+      }
       case "secrets.verify": {
         const t = requireHostTarget(asObject(targetRaw, "target"));
         const d = asObject(dataRaw, "data");
@@ -358,10 +403,18 @@ export const append = mutation({
       case "secrets.write": {
         const t = requireHostTarget(asObject(targetRaw, "target"));
         const d = asObject(dataRaw, "data");
-        ensureNoExtraKeys(d, "data", ["secrets"]);
+        ensureNoExtraKeys(d, "data", ["runId", "jobId", "targetRunnerId", "secrets"]);
+        const run = requireRunId({ runId: d.runId });
+        if (typeof d.jobId !== "string" || !d.jobId.trim()) fail("conflict", "data.jobId invalid");
+        if (typeof d.targetRunnerId !== "string" || !d.targetRunnerId.trim()) fail("conflict", "data.targetRunnerId invalid");
         const secrets = normalizeBoundedStringArray(d.secrets, "data.secrets");
         target = t;
-        data = { secrets };
+        data = {
+          runId: run.runId,
+          jobId: d.jobId as Id<"jobs">,
+          targetRunnerId: d.targetRunnerId as Id<"runners">,
+          secrets,
+        };
         break;
       }
       case "server.channels": {

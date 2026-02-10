@@ -6,12 +6,19 @@ type FlagSpec =
 
 type ParsedFlagValues = Map<string, string | true>;
 
+export type RunnerCommandResultMode = "log" | "json_small" | "json_large";
+
+export const RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES = 512 * 1024;
+export const RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES = 5 * 1024 * 1024;
+
 type CommandSpec = {
   id: string;
   prefix: readonly string[];
   flags: Record<string, FlagSpec>;
   required?: readonly string[];
   postValidate?: (values: ParsedFlagValues) => string | undefined;
+  resultMode?: RunnerCommandResultMode;
+  resultMaxBytes?: number;
 };
 
 const META_MAX = {
@@ -21,7 +28,7 @@ const META_MAX = {
   argsToken: 512 * 1024,
 } as const;
 
-const DOCTOR_SCOPES = new Set(["repo", "bootstrap", "updates", "cattle", "all"]);
+const DOCTOR_SCOPES = new Set(["repo", "bootstrap", "updates", "all"]);
 const SECRET_SCOPES = new Set(["bootstrap", "updates", "openclaw", "all"]);
 const MODE_SCOPES = new Set(["nixos-anywhere", "image"]);
 const TEMPLATE_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -79,6 +86,7 @@ const specGitPush: CommandSpec = {
   id: "git_push",
   prefix: ["git", "push"],
   flags: {},
+  resultMode: "log",
 };
 
 const specGitStatusJson: CommandSpec = {
@@ -86,6 +94,8 @@ const specGitStatusJson: CommandSpec = {
   prefix: ["git", "status"],
   flags: { "--json": { kind: "boolean" } },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specConfigShow: CommandSpec = {
@@ -95,6 +105,8 @@ const specConfigShow: CommandSpec = {
     "--pretty": { kind: "value", validate: validateEnum(new Set(["false"]), "--pretty") },
   },
   required: ["--pretty"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specConfigGet: CommandSpec = {
@@ -105,6 +117,8 @@ const specConfigGet: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--path", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specConfigReplace: CommandSpec = {
@@ -224,6 +238,8 @@ const specSecretsSyncPreview: CommandSpec = {
     "--preview-json": { kind: "boolean" },
   },
   required: ["--host", "--preview-json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specSecretsInit: CommandSpec = {
@@ -390,6 +406,8 @@ const specServerTailscaleIpv4: CommandSpec = {
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
   required: ["--host", "--target-host", "--json", "--ssh-tty"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specServerSshCheck: CommandSpec = {
@@ -402,6 +420,8 @@ const specServerSshCheck: CommandSpec = {
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
   required: ["--host", "--target-host", "--json", "--ssh-tty"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specEnvShow: CommandSpec = {
@@ -411,6 +431,8 @@ const specEnvShow: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specEnvApplyJson: CommandSpec = {
@@ -424,6 +446,8 @@ const specEnvApplyJson: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--from-json", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specEnvDetectAgeKey: CommandSpec = {
@@ -433,6 +457,8 @@ const specEnvDetectAgeKey: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specEnvGenerateAgeKey: CommandSpec = {
@@ -442,6 +468,8 @@ const specEnvGenerateAgeKey: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specOpenclawSchemaFetch: CommandSpec = {
@@ -453,6 +481,8 @@ const specOpenclawSchemaFetch: CommandSpec = {
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
   required: ["--host", "--gateway", "--ssh-tty"],
+  resultMode: "json_large",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
 };
 
 const specOpenclawSchemaStatus: CommandSpec = {
@@ -462,6 +492,8 @@ const specOpenclawSchemaStatus: CommandSpec = {
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
@@ -564,7 +596,16 @@ function matchesPrefix(args: string[], prefix: readonly string[]): boolean {
   return true;
 }
 
-export function validateArgsForKind(kind: string, args: string[]): { ok: true } | { ok: false; error: string } {
+export type ResolvedRunnerCommandSpec = {
+  id: string;
+  resultMode: RunnerCommandResultMode;
+  resultMaxBytes?: number;
+};
+
+export function resolveCommandSpecForKind(
+  kind: string,
+  args: string[],
+): { ok: true; spec: ResolvedRunnerCommandSpec } | { ok: false; error: string } {
   const specs = SPECS_BY_KIND[kind];
   if (!specs || specs.length === 0) {
     return { ok: false, error: `job ${kind} has no allowed command specification` };
@@ -576,9 +617,33 @@ export function validateArgsForKind(kind: string, args: string[]): { ok: true } 
   }
   for (const spec of prefixCandidates) {
     const parsed = parseFlags(args, spec);
-    if (parsed.ok) return { ok: true };
+    if (parsed.ok) {
+      return {
+        ok: true,
+        spec: {
+          id: spec.id,
+          resultMode: spec.resultMode ?? "log",
+          resultMaxBytes: spec.resultMaxBytes,
+        },
+      };
+    }
   }
   const fallback = parseFlags(args, prefixCandidates[0]!);
-  if (fallback.ok) return { ok: true };
+  if (fallback.ok) {
+    const spec = prefixCandidates[0]!;
+    return {
+      ok: true,
+      spec: {
+        id: spec.id,
+        resultMode: spec.resultMode ?? "log",
+        resultMaxBytes: spec.resultMaxBytes,
+      },
+    };
+  }
   return { ok: false, error: fallback.error };
+}
+
+export function validateArgsForKind(kind: string, args: string[]): { ok: true } | { ok: false; error: string } {
+  const resolved = resolveCommandSpecForKind(kind, args);
+  return resolved.ok ? { ok: true } : { ok: false, error: resolved.error };
 }

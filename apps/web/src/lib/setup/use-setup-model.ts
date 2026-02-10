@@ -7,7 +7,7 @@ import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { coerceSetupStepId, deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
 import type { DeployCredsStatus } from "~/sdk/infra"
 import { configDotGet } from "~/sdk/config/dot-get"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
@@ -44,14 +44,24 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
+function coerceHosts(value: unknown): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {}
+  const row = asRecord(value)
+  if (!row) return out
+  for (const [hostName, hostValue] of Object.entries(row)) {
+    const hostRow = asRecord(hostValue)
+    if (!hostRow) continue
+    out[hostName] = hostRow
+  }
+  return out
+}
+
 function decodeSetupConfig(params: {
-  host: string
-  hostValue: unknown
+  hostsValue: unknown
   sshKeysValue: unknown
 }): SetupConfig {
-  const hostCfg = asRecord(params.hostValue)
   return {
-    hosts: hostCfg ? { [params.host]: hostCfg } : {},
+    hosts: coerceHosts(params.hostsValue),
     fleet: {
       sshAuthorizedKeys: Array.isArray(params.sshKeysValue) ? params.sshKeysValue : [],
     },
@@ -80,18 +90,18 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   )
 
   const configQuery = useQuery({
-    queryKey: ["hostSetupConfig", projectId, params.host],
-    enabled: Boolean(projectId && isReady && params.host && runnerOnline),
+    queryKey: ["hostSetupConfig", projectId],
+    enabled: Boolean(projectId && isReady && runnerOnline),
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const [hostNode, sshKeysNode] = await withTimeout(
+      const [hostsNode, sshKeysNode] = await withTimeout(
         Promise.all([
           configDotGet({
             data: {
               projectId: projectId as Id<"projects">,
-              path: `hosts.${params.host}`,
+              path: "hosts",
             },
           }),
           configDotGet({
@@ -105,13 +115,14 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
         "Repo probe timed out while checking config access. Ensure runner is idle and retry.",
       )
       return decodeSetupConfig({
-        host: params.host,
-        hostValue: hostNode.value,
+        hostsValue: hostsNode.value,
         sshKeysValue: sshKeysNode.value,
       })
     },
   })
   const config = configQuery.data ?? null
+
+  const hasConfig = Boolean(configQuery.data)
 
   const deployCredsQuery = useQuery({
     ...deployCredsQueryOptions(projectId),
@@ -119,16 +130,14 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   })
   const deployCreds: DeployCredsStatus | null = deployCredsQuery.data ?? null
 
-  const repoProbeOk = runnerOnline && configQuery.isSuccess
+  const repoProbeOk = runnerOnline && hasConfig
   const repoProbeState: RepoProbeState = !runnerOnline
     ? "idle"
-    : configQuery.isPending
-      ? "checking"
-      : configQuery.isSuccess
-        ? "ok"
-        : configQuery.isError
-          ? "error"
-          : "checking"
+    : !hasConfig
+      ? configQuery.isError
+        ? "error"
+        : "checking"
+      : "ok"
   const repoProbeError = repoProbeState === "error" ? configQuery.error : null
 
   const latestBootstrapRunQuery = useQuery({
@@ -206,13 +215,6 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     const next = visible.slice(currentIndex + 1).find((step) => step.status !== "locked")?.id
     if (next) setStep(next)
   }, [model.activeStepId, model.steps, setStep])
-
-  React.useEffect(() => {
-    const requested = coerceSetupStepId(params.search.step)
-    if (!requested) {
-      setSearch({ step: model.activeStepId }, { replace: true })
-    }
-  }, [model.activeStepId, params.search.step, setSearch])
 
   return {
     projectQuery,

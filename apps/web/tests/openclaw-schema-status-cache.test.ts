@@ -43,6 +43,16 @@ function setupStatusMocks(params?: {
     }
     return null
   })
+  const takeRunnerCommandResultObject = vi.fn(async (args?: { projectId?: string }) => {
+    const projectId = String(args?.projectId || currentProjectId)
+    return params?.byProjectMessage
+      ? params.byProjectMessage(projectId)
+      : {
+          ok: true,
+          pinned: { nixOpenclawRev: "pin-default", openclawRev: "openclaw-pin" },
+          upstream: { nixOpenclawRef: "main", openclawRev: "openclaw-main" },
+        }
+  })
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/server/convex", () => ({
@@ -56,6 +66,7 @@ function setupStatusMocks(params?: {
     waitForRunTerminal,
     listRunMessages,
     parseLastJsonMessage,
+    takeRunnerCommandResultObject,
     lastErrorMessage,
   }))
 

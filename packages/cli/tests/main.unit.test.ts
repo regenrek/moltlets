@@ -76,18 +76,18 @@ describe("cli main", () => {
   it(
     "dispatches plugins when flags precede the command",
     async () => {
-    process.argv = ["node", "clawlets", "--runtime-dir", "/tmp/rt", "cattle", "--foo", "bar"];
+    process.argv = ["node", "clawlets", "--runtime-dir", "/tmp/rt", "sample", "--foo", "bar"];
     exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
       throw new Error(`exit:${code ?? 0}`);
     }) as any);
-    findPluginByCommandMock.mockReturnValue({ command: "cattle" });
+    findPluginByCommandMock.mockReturnValue({ command: "sample" });
     loadPluginCommandMock.mockResolvedValue({ name: "plugin-command" });
     const mod = await import("../src/main.ts");
     await mod.mainEntry();
     expect(findPluginByCommandMock).toHaveBeenCalledWith({
       cwd: process.cwd(),
       runtimeDir: "/tmp/rt",
-      command: "cattle",
+      command: "sample",
     });
     expect(runMainMock).toHaveBeenCalledWith({ name: "plugin-command" }, { rawArgs: ["--foo", "bar"] });
     },

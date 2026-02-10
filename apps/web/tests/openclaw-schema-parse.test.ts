@@ -5,6 +5,7 @@ function mockRunnerSchema(params?: {
   guardError?: Error | null
   terminal?: { status: "succeeded" | "failed" | "canceled"; errorMessage?: string }
   messages?: string[]
+  resultJson?: Record<string, unknown>
 }) {
   const requireAdminProjectAccess = vi.fn(async () => {
     if (params?.adminDeny) throw new Error("admin required")
@@ -17,18 +18,7 @@ function mockRunnerSchema(params?: {
   const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run-1" as any, jobId: "job-1" as any }))
   const waitForRunTerminal = vi.fn(async () => params?.terminal || ({ status: "succeeded" as const }))
   const listRunMessages = vi.fn(async () => params?.messages || [])
-  const parseLastJsonMessage = vi.fn((messages: string[]) => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const raw = String(messages[i] || "").trim()
-      if (!raw.startsWith("{") || !raw.endsWith("}")) continue
-      try {
-        return JSON.parse(raw)
-      } catch {
-        continue
-      }
-    }
-    return null
-  })
+  const takeRunnerCommandResultBlobObject = vi.fn(async () => params?.resultJson || null)
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/sdk/project", () => ({ requireAdminProjectAccess }))
@@ -37,7 +27,7 @@ function mockRunnerSchema(params?: {
     enqueueRunnerCommand,
     waitForRunTerminal,
     listRunMessages,
-    parseLastJsonMessage,
+    takeRunnerCommandResultBlobObject,
     lastErrorMessage,
   }))
 
@@ -126,13 +116,13 @@ describe("openclaw schema output parsing", () => {
   it("returns schema parse failures from runner output", async () => {
     vi.resetModules()
     mockRunnerSchema({
-      messages: [JSON.stringify({ ok: true })],
+      resultJson: { ok: true },
     })
     const { fetchOpenclawSchemaLive } = await import("~/server/openclaw-schema.server")
     const res = await fetchOpenclawSchemaLive({ projectId: "p1" as any, host: "h1", gatewayId: "gateway1" })
     expect(res.ok).toBe(false)
     if (!res.ok) {
-      expect(res.message).toContain("schema payload missing required fields")
+      expect(res.message).toBe("schema payload missing required fields")
     }
   })
 

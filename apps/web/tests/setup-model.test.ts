@@ -15,6 +15,7 @@ describe("deriveSetupModel", () => {
     expect(model.selectedHost).toBe(null)
     expect(model.activeStepId).toBe("runner")
     expect(model.steps.find((s) => s.id === "runner")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "host")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
   })
 
@@ -41,8 +42,24 @@ describe("deriveSetupModel", () => {
       latestBootstrapSecretsVerifyRun: { status: "succeeded" },
     })
     expect(model.steps.find((s) => s.id === "runner")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "host")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+  })
+
+  it("keeps host step active when no hosts exist", () => {
+    const model = deriveSetupModel({
+      runnerOnline: true,
+      repoProbeOk: true,
+      config: { hosts: {}, fleet: { sshAuthorizedKeys: [] } },
+      hostFromRoute: "setup-runner",
+      deployCreds: { keys: [] },
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+    expect(model.activeStepId).toBe("host")
+    expect(model.steps.find((s) => s.id === "host")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
   })
 
   it("walks through required setup steps for hetzner", () => {
@@ -61,6 +78,7 @@ describe("deriveSetupModel", () => {
       latestBootstrapSecretsVerifyRun: null,
     })
     expect(step1.activeStepId).toBe("connection")
+    expect(step1.steps.find((s) => s.id === "host")?.status).toBe("done")
 
     const connectionConfig = {
       ...baseConfig,

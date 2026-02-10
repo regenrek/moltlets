@@ -489,13 +489,16 @@ export function parseSecretsInitExecuteInput(data: unknown): {
   scope: "bootstrap" | "updates" | "openclaw" | "all"
   allowPlaceholders: boolean
   secretNames: string[]
+  targetRunnerId: Id<"runners">
 } {
   const base = parseProjectRunHostScopeInput(data)
   const d = requireObject(data)
+  const targetRunnerId = parseConvexId(d["targetRunnerId"], "targetRunnerId") as Id<"runners">
   return {
     ...base,
     allowPlaceholders: Boolean(d["allowPlaceholders"]),
-    secretNames: parseSecretNameList(d["secrets"]),
+    secretNames: parseSecretNameArray(d["secretNames"]),
+    targetRunnerId,
   }
 }
 
@@ -503,22 +506,66 @@ export function parseWriteHostSecretsInput(data: unknown): {
   projectId: Id<"projects">
   host: string
   secretNames: string[]
+  targetRunnerId: Id<"runners">
 } {
   const d = requireObject(data)
-  if (!d["secrets"] || typeof d["secrets"] !== "object" || Array.isArray(d["secrets"])) {
-    throw new Error("invalid secrets")
-  }
+  const targetRunnerId = parseConvexId(d["targetRunnerId"], "targetRunnerId") as Id<"runners">
   return {
     projectId: parseConvexId(d["projectId"], "projectId"),
     host: parseHostNameRequired(d["host"]),
-    secretNames: parseSecretNameList(d["secrets"]),
+    secretNames: parseSecretNameArray(d["secretNames"]),
+    targetRunnerId,
   }
 }
 
-function parseSecretNameList(input: unknown): string[] {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("invalid secrets");
-  const names = Object.keys(input as Record<string, unknown>)
-    .map((name) => name.trim())
-    .filter(Boolean);
-  return Array.from(new Set(names));
+export function parseWriteHostSecretsFinalizeInput(data: unknown): {
+  projectId: Id<"projects">
+  host: string
+  jobId: Id<"jobs">
+  kind: string
+  secretNames: string[]
+  targetRunnerId: Id<"runners">
+  sealedInputB64: string
+  sealedInputAlg: string
+  sealedInputKeyId: string
+} {
+  const d = requireObject(data)
+  const targetRunnerId = parseConvexId(d["targetRunnerId"], "targetRunnerId") as Id<"runners">
+  const jobId = parseConvexId(d["jobId"], "jobId") as Id<"jobs">
+  const kind = parseOptionalString(d["kind"], 128)
+  if (!kind) throw new Error("kind required")
+  const sealed = parseSealedInputFields(d)
+  return {
+    projectId: parseConvexId(d["projectId"], "projectId"),
+    host: parseHostNameRequired(d["host"]),
+    jobId,
+    kind,
+    secretNames: parseSecretNameArray(d["secretNames"]),
+    targetRunnerId,
+    sealedInputB64: sealed.sealedInputB64,
+    sealedInputAlg: sealed.sealedInputAlg,
+    sealedInputKeyId: sealed.sealedInputKeyId,
+  }
+}
+
+function parseSecretNameArray(input: unknown): string[] {
+  if (!Array.isArray(input)) throw new Error("invalid secretNames")
+  const names = input
+    .map((row) => (typeof row === "string" ? row.trim() : ""))
+    .filter(Boolean)
+  return Array.from(new Set(names))
+}
+
+function parseSealedInputFields(input: Record<string, unknown>): {
+  sealedInputB64: string
+  sealedInputAlg: string
+  sealedInputKeyId: string
+} {
+  const sealedInputB64 = parseOptionalString(input["sealedInputB64"], 2 * 1024 * 1024)
+  const sealedInputAlg = parseOptionalString(input["sealedInputAlg"], 128)
+  const sealedInputKeyId = parseOptionalString(input["sealedInputKeyId"], 128)
+  if (!sealedInputB64) throw new Error("sealedInputB64 required")
+  if (!sealedInputAlg) throw new Error("sealedInputAlg required")
+  if (!sealedInputKeyId) throw new Error("sealedInputKeyId required")
+  return { sealedInputB64, sealedInputAlg, sealedInputKeyId }
 }

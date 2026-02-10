@@ -7,8 +7,8 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectIdInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
@@ -37,13 +37,18 @@ export const configDotGet = createServerFn({ method: "POST" })
       runId: queued.runId,
       timeoutMs: 30_000,
     })
-    const messages = await listRunMessages({ client, runId: queued.runId })
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId })
     if (terminal.status !== "succeeded") {
       throw new Error(terminal.errorMessage || lastErrorMessage(messages, "config read failed"))
     }
-    const parsed = parseLastJsonMessage<{ path?: unknown; value?: unknown }>(messages)
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (!parsed) {
-      throw new Error(lastErrorMessage(messages, "config read output missing JSON payload"))
+      throw new Error("config read command result missing JSON payload")
     }
     const path =
       typeof parsed.path === "string" && parsed.path.trim()

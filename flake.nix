@@ -244,18 +244,6 @@
               sshKnownHosts = [ ];
               backups = { restic = { enable = false; repository = ""; }; };
             };
-            cattle = {
-              enabled = false;
-              hetzner = {
-                image = "";
-                serverType = "cx22";
-                location = "nbg1";
-                maxInstances = 10;
-                defaultTtl = "2h";
-                labels = { "managed-by" = "clawlets"; };
-              };
-              defaults = { autoShutdown = true; callbackUrl = ""; };
-            };
             hosts = {
               "openclaw-fleet-host" = {
                 enable = false;
@@ -402,7 +390,6 @@
 
       nixosModules = {
         clawletsProjectHost = import ./nix/hosts/project-host.nix;
-        clawletsCattleImage = import ./nix/openclaw/cattle/image.nix;
 
         # Advanced / reuse. Projects should generally import clawletsProjectHost only.
         clawletsHostMeta = import ./nix/infra/modules/clawlets-host-meta.nix;
@@ -413,7 +400,6 @@
         clawletsImageFormats = import ./nix/infra/modules/clawlets-image-formats.nix;
 
         openclawFleet = import ./nix/openclaw/modules/openclaw-fleet.nix;
-        openclawCattle = import ./nix/openclaw/modules/openclaw-cattle.nix;
 
         diskoHetznerExt4 = import ./nix/infra/disko/hetzner-ext4.nix;
       };

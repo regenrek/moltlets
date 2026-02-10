@@ -13,8 +13,14 @@ async function loadConfig() {
   const currentConfig = {
     hosts: { alpha: { gatewaysOrder: ["gateway1"], gateways: { gateway1: { openclaw: { ok: true } } } } },
   }
-  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
-    if (payload?.kind) return { runId: "run1", jobId: "job1" }
+  const mutation = vi.fn(async (_mutation: unknown, payload?: Record<string, unknown>) => {
+    if (payload?.["kind"]) return { runId: "run1", jobId: "job1" }
+    if (typeof payload?.["projectId"] === "string" && typeof payload?.["jobId"] === "string") {
+      return {
+        runId: "run1",
+        resultJson: JSON.stringify(currentConfig),
+      }
+    }
     return null
   })
   const query = vi.fn(async (_query: unknown, payload?: Record<string, unknown>) => {

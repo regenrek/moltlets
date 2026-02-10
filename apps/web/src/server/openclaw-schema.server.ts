@@ -11,7 +11,8 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
+  takeRunnerCommandResultBlobObject,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
@@ -135,22 +136,15 @@ export type OpenclawSchemaStatusResult =
     }
   | { ok: false; message: string }
 
-function parseRunnerJson(messages: string[]): Record<string, unknown> | null {
-  const direct = parseLastJsonMessage<Record<string, unknown>>(messages)
-  if (direct) return direct
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const raw = String(messages[i] || "").trim()
-    if (!raw) continue
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>
-      }
-    } catch {
-      continue
-    }
-  }
-  return null
+function isOpenclawSchemaStatusCommand(args: string[]): boolean {
+  if (args.length < 4) return false
+  if (args[0] !== "openclaw" || args[1] !== "schema" || args[2] !== "status") return false
+  return args.includes("--json")
+}
+
+function isOpenclawSchemaFetchCommand(args: string[]): boolean {
+  if (args.length < 6) return false
+  return args[0] === "openclaw" && args[1] === "schema" && args[2] === "fetch"
 }
 
 async function runRunnerJsonCommand(params: {
@@ -177,16 +171,35 @@ async function runRunnerJsonCommand(params: {
     timeoutMs: params.timeoutMs,
     pollMs: 700,
   })
-  const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+  const commandResultMode =
+    isOpenclawSchemaStatusCommand(params.args) ? "small" : isOpenclawSchemaFetchCommand(params.args) ? "large" : "none"
+  const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
   if (terminal.status !== "succeeded") {
     return {
       ok: false as const,
       message: terminal.errorMessage || lastErrorMessage(messages, "runner command failed"),
     }
   }
-  const parsed = parseRunnerJson(messages)
+  const parsed = commandResultMode === "small"
+    ? await takeRunnerCommandResultObject({
+        client,
+        projectId: params.projectId,
+        jobId: queued.jobId,
+        runId: queued.runId,
+      })
+    : commandResultMode === "large"
+      ? await takeRunnerCommandResultBlobObject({
+          client,
+          projectId: params.projectId,
+          jobId: queued.jobId,
+          runId: queued.runId,
+        })
+      : null
   if (!parsed) {
-    return { ok: false as const, message: "runner output missing JSON payload" }
+    return {
+      ok: false as const,
+      message: "runner command result missing JSON payload",
+    }
   }
   return { ok: true as const, json: parsed }
 }

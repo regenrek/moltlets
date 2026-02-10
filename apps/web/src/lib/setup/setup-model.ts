@@ -2,6 +2,7 @@ import { WEB_SETUP_REQUIRED_KEYS } from "../deploy-creds-ui"
 
 export const SETUP_STEP_IDS = [
   "runner",
+  "host",
   "connection",
   "creds",
   "secrets",
@@ -110,6 +111,11 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
       id: "runner",
       title: "Connect Runner",
       status: runnerReady ? "done" : "active",
+    },
+    {
+      id: "host",
+      title: "Add First Host",
+      status: !runnerReady ? "locked" : selectedHost ? "done" : "active",
     },
     {
       id: "connection",
