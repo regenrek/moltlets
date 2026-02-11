@@ -102,6 +102,7 @@ export const RunEventDoc = v.object({
   message: v.string(),
   meta: v.optional(RunEventMeta),
   redacted: v.optional(v.boolean()),
+  sanitized: v.optional(v.boolean()),
 });
 
 export const ProviderDoc = v.object({

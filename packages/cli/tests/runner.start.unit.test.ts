@@ -166,6 +166,36 @@ describe("runner job arg mapping", () => {
     ).toThrow(/not allowlisted/i);
   });
 
+  it("sanitizes non-structured command output before appending run-events", async () => {
+    const appendRunEvents = vi.fn(async () => {});
+    const executeJobFn = vi.fn(async () => ({
+      output: "Authorization: Bearer supersecret apiKey = abc123",
+    }));
+    const result = await __test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents },
+      projectId: "proj_1",
+      job: {
+        jobId: "job_1",
+        runId: "run_1",
+        leaseId: "lease_1",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["doctor"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: executeJobFn as any,
+    });
+    expect(result).toMatchObject({ terminal: "succeeded" });
+    const outputEvent = appendRunEvents.mock.calls
+      .flatMap((call) => (call?.[0]?.events || []) as Array<{ message?: string; redacted?: boolean }>)
+      .find((event) => typeof event?.message === "string" && event.message.includes("Authorization: Bearer"));
+    expect(outputEvent).toBeTruthy();
+    expect(outputEvent?.message).toContain("Authorization: Bearer <redacted>");
+    expect(outputEvent?.message).toContain("apiKey = <redacted>");
+    expect(outputEvent?.redacted).toBe(true);
+  });
+
   it("returns commandResultJson and appends redacted output marker", async () => {
     const appendRunEvents = vi.fn(async () => {});
     const executeJobFn = vi.fn(async () => ({

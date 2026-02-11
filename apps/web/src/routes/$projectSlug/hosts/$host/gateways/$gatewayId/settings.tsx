@@ -11,7 +11,7 @@ import { GatewayIntegrations } from "~/components/fleet/integrations/gateway-int
 import { GatewayWorkspaceDocs } from "~/components/fleet/gateway/gateway-workspace-docs"
 import { authClient } from "~/lib/auth-client"
 import { useProjectBySlug } from "~/lib/project-data"
-import { configDotGet } from "~/sdk/config"
+import { configDotMultiGet } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/gateways/$gatewayId/settings")({
   component: GatewaySettingsRoute,
@@ -75,24 +75,19 @@ function GatewaySettingsRoute() {
   const gatewayConfig = useQuery({
     queryKey: gatewayConfigQueryKey,
     queryFn: async () =>
-      await configDotGet({
-        data: { projectId: projectId as Id<"projects">, path: `hosts.${host}.gateways.${gatewayId}` },
+      await configDotMultiGet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          paths: [`hosts.${host}.gateways.${gatewayId}`, "fleet.secretEnv"],
+        },
       }),
-    enabled: Boolean(projectId) && canQuery,
-  })
-
-  const fleetSecretEnv = useQuery({
-    queryKey: ["fleetSecretEnv", projectId] as const,
-    queryFn: async () =>
-      await configDotGet({
-        data: { projectId: projectId as Id<"projects">, path: "fleet.secretEnv" },
-      }),
-    enabled: Boolean(projectId) && canQuery,
+    enabled: Boolean(projectId) && canQuery && canEdit,
   })
 
   const hostMeta = hosts.data?.find((row) => row.hostName === host)
   const gatewayMeta = gateways.data?.find((row) => row.gatewayId === gatewayId)
-  const gatewayCfg = asRecord(gatewayConfig.data?.value)
+  const gatewayPath = `hosts.${host}.gateways.${gatewayId}`
+  const gatewayCfg = asRecord(gatewayConfig.data?.values[gatewayPath])
   const gatewayBase = gatewayCfg ?? {}
   const openclawCfg = asRecord(gatewayBase.openclaw) ?? {}
   const channelsCfg = asRecord(gatewayBase.channels) ?? buildChannelsFromNames(gatewayMeta?.desired?.channels)
@@ -101,18 +96,20 @@ function GatewaySettingsRoute() {
   const skillsCfg = asRecord(gatewayBase.skills) ?? {}
   const pluginsCfg = asRecord(gatewayBase.plugins) ?? {}
   const profile = asRecord(gatewayBase.profile) ?? {}
-  const fleetSecretEnvCfg = asRecord(fleetSecretEnv.data?.value) ?? {}
+  const fleetSecretEnvCfg = asRecord(gatewayConfig.data?.values["fleet.secretEnv"]) ?? {}
 
   if (projectQuery.isPending) return <div className="text-muted-foreground">Loading…</div>
   if (projectQuery.error) return <div className="text-sm text-destructive">{String(projectQuery.error)}</div>
   if (!projectId) return <div className="text-muted-foreground">Project not found.</div>
-  if (hosts.isPending || gateways.isPending || gatewayConfig.isPending || fleetSecretEnv.isPending) {
+  if (!canQuery || project.isPending) return <div className="text-muted-foreground">Loading…</div>
+  if (project.error) return <div className="text-sm text-destructive">{String(project.error)}</div>
+  if (!canEdit) return <div className="text-sm text-muted-foreground">Admin access required to view gateway config.</div>
+  if (hosts.isPending || gateways.isPending || gatewayConfig.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
   }
   if (hosts.error) return <div className="text-sm text-destructive">{String(hosts.error)}</div>
   if (gateways.error) return <div className="text-sm text-destructive">{String(gateways.error)}</div>
   if (gatewayConfig.error) return <div className="text-sm text-destructive">{String(gatewayConfig.error)}</div>
-  if (fleetSecretEnv.error) return <div className="text-sm text-destructive">{String(fleetSecretEnv.error)}</div>
   if (!hostMeta && !gatewayCfg) return <div className="text-muted-foreground">Host not found.</div>
   if (!gatewayMeta && !gatewayCfg) return <div className="text-muted-foreground">Gateway not found.</div>
 

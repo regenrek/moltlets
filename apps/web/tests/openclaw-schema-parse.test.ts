@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { resolveCommandSpecForKind } from "@clawlets/core/lib/runtime/runner-command-policy-args"
 
 const VALID_SCHEMA = {
   schema: { type: "object" },
@@ -52,22 +53,18 @@ function mockRunnerSchema(params?: {
 
 describe("openclaw schema output parsing", () => {
   it("resolves command-result mode from shared runner policy", async () => {
-    vi.resetModules()
-    const { __test_resolveStructuredCommandResultMode } = await import("~/server/openclaw-schema.server")
-    expect(
-      __test_resolveStructuredCommandResultMode([
-        "openclaw",
-        "schema",
-        "fetch",
-        "--host",
-        "h1",
-        "--gateway",
-        "g1",
-        "--ssh-tty=false",
-      ]),
-    ).toBe("large")
-    expect(__test_resolveStructuredCommandResultMode(["openclaw", "schema", "status", "--json"])).toBe("small")
-    expect(__test_resolveStructuredCommandResultMode(["doctor"])).toBeNull()
+    const resolveMode = (args: string[]) => {
+      const resolved = resolveCommandSpecForKind("custom", args)
+      if (!resolved.ok) return null
+      if (resolved.spec.resultMode === "json_small") return "small"
+      if (resolved.spec.resultMode === "json_large") return "large"
+      return null
+    }
+    expect(resolveMode(["openclaw", "schema", "fetch", "--host", "h1", "--gateway", "g1", "--ssh-tty=false"])).toBe(
+      "large",
+    )
+    expect(resolveMode(["openclaw", "schema", "status", "--json"])).toBe("small")
+    expect(resolveMode(["doctor"])).toBeNull()
   })
 
   it("uses blob take path for live schema fetch", async () => {

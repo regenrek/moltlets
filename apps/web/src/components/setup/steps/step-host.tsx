@@ -11,6 +11,7 @@ import { Input } from "~/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Label } from "~/components/ui/label"
 import { SettingsSection } from "~/components/ui/settings-section"
+import { setupConfigProbeQueryKey } from "~/lib/setup/repo-probe"
 import { addHost } from "~/sdk/config"
 
 export function SetupStepHost(props: {
@@ -42,7 +43,7 @@ export function SetupStepHost(props: {
       setNewHost("")
       if (nextHost) {
         queryClient.setQueryData(
-          ["hostSetupConfig", props.projectId],
+          setupConfigProbeQueryKey(props.projectId),
           (prev: { hosts: Record<string, Record<string, unknown>>; fleet?: { sshAuthorizedKeys?: unknown[] } } | null) => {
             if (!prev) return prev
             if (prev.hosts?.[nextHost]) return prev
@@ -55,7 +56,7 @@ export function SetupStepHost(props: {
             }
           },
         )
-        void queryClient.invalidateQueries({ queryKey: ["hostSetupConfig", props.projectId] })
+        void queryClient.invalidateQueries({ queryKey: setupConfigProbeQueryKey(props.projectId) })
         props.onSelectHost(nextHost)
       }
     },

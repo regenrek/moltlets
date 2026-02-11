@@ -1,5 +1,6 @@
 import { HOST_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { RUN_STATUSES } from "@clawlets/core/lib/runtime/run-constants";
+import { RUN_EVENT_LEVELS } from "@clawlets/core/lib/runtime/run-constants";
 import { Base64 } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import {
@@ -11,6 +12,7 @@ import {
 
 const HOST_STATUS_SET = new Set<string>(HOST_STATUSES);
 const RUN_STATUS_SET = new Set<string>(RUN_STATUSES);
+const RUN_EVENT_LEVEL_SET = new Set<string>(RUN_EVENT_LEVELS);
 
 export const METADATA_SYNC_LIMITS = {
   projectConfigs: 500,
@@ -19,6 +21,83 @@ export const METADATA_SYNC_LIMITS = {
   secretWiring: 2000,
   secretWiringPerHost: 500,
 } as const;
+
+const RUNNER_EVENT_AUTH_BEARER_RE = /(Authorization:\s*Bearer\s+)([^\s]+)/gi;
+const RUNNER_EVENT_AUTH_BASIC_RE = /(Authorization:\s*Basic\s+)([^\s]+)/gi;
+const RUNNER_EVENT_URL_CREDENTIALS_RE = /(https?:\/\/)([^/\s@]+@)/g;
+const RUNNER_EVENT_QUERY_SECRET_RE = /([?&](?:access_token|token|auth|api_key|apikey|apiKey)=)([^&\s]+)/gi;
+const RUNNER_EVENT_ASSIGNMENT_SECRET_RE =
+  /\b((?:access|refresh|id)?_?token|token|api_key|apikey|apiKey|secret|password)\s*[:=]\s*([^\s]+)/gi;
+
+function redactRunnerEventCommonSecrets(input: string): { message: string; redacted: boolean } {
+  let output = input;
+  const before = output;
+  output = output.replace(RUNNER_EVENT_AUTH_BEARER_RE, "$1<redacted>");
+  output = output.replace(RUNNER_EVENT_AUTH_BASIC_RE, "$1<redacted>");
+  output = output.replace(RUNNER_EVENT_URL_CREDENTIALS_RE, "$1<redacted>@");
+  output = output.replace(RUNNER_EVENT_QUERY_SECRET_RE, "$1<redacted>");
+  output = output.replace(RUNNER_EVENT_ASSIGNMENT_SECRET_RE, "$1=<redacted>");
+  return { message: output, redacted: output !== before };
+}
+
+export function sanitizeRunnerEventMessageForStorage(raw: unknown): { message: string; redacted: boolean } {
+  const message = typeof raw === "string" ? raw.trim() : "";
+  if (!message) return { message: "", redacted: false };
+  return redactRunnerEventCommonSecrets(message);
+}
+
+type RunEventPhaseMeta = { kind: "phase"; phase: "command_start" | "command_end" | "post_run_cleanup" | "truncated" };
+type RunEventExitMeta = { kind: "exit"; code: number };
+
+export type RunnerRunEventForStorage = {
+  ts: number;
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  meta?: RunEventPhaseMeta | RunEventExitMeta;
+  redacted?: boolean;
+};
+
+function sanitizeRunnerEventMeta(value: unknown): RunEventPhaseMeta | RunEventExitMeta | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Record<string, unknown>;
+  if (row.kind === "phase") {
+    if (
+      row.phase === "command_start" ||
+      row.phase === "command_end" ||
+      row.phase === "post_run_cleanup" ||
+      row.phase === "truncated"
+    ) {
+      return { kind: "phase", phase: row.phase };
+    }
+    return undefined;
+  }
+  if (row.kind === "exit") {
+    if (typeof row.code !== "number" || !Number.isFinite(row.code) || !Number.isInteger(row.code)) return undefined;
+    if (row.code < -1 || row.code > 255) return undefined;
+    return { kind: "exit", code: row.code };
+  }
+  return undefined;
+}
+
+export function sanitizeRunnerRunEventsForStorage(events: unknown[], now = Date.now()): RunnerRunEventForStorage[] {
+  const safeEvents: RunnerRunEventForStorage[] = [];
+  for (const row of events.slice(0, 200)) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const eventObj = row as Record<string, unknown>;
+    const levelRaw = typeof eventObj.level === "string" ? eventObj.level : "";
+    if (!RUN_EVENT_LEVEL_SET.has(levelRaw)) continue;
+    const { message, redacted } = sanitizeRunnerEventMessageForStorage(eventObj.message);
+    if (!message) continue;
+    safeEvents.push({
+      ts: typeof eventObj.ts === "number" && Number.isFinite(eventObj.ts) ? Math.trunc(eventObj.ts) : now,
+      level: levelRaw as RunnerRunEventForStorage["level"],
+      message,
+      meta: sanitizeRunnerEventMeta(eventObj.meta),
+      redacted: Boolean(eventObj.redacted) || redacted || undefined,
+    });
+  }
+  return safeEvents;
+}
 
 function asBoundedOptional(value: unknown, field: string, max = CONTROL_PLANE_LIMITS.hash): string | undefined {
   return ensureOptionalBoundedString(typeof value === "string" ? value : undefined, field, max);

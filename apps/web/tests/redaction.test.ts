@@ -38,4 +38,14 @@ describe("redactLine", () => {
     const input = "fetch https://user:pass123@github.com/org/repo.git"
     expect(redactLine(input, [])).toBe("fetch https://<redacted>@github.com/org/repo.git")
   })
+
+  it("preserves separators for key-value redaction", () => {
+    const input = "token: abc apiKey = xyz password=secret"
+    expect(redactLine(input, [])).toBe("token: <redacted> apiKey = <redacted> password=<redacted>")
+  })
+
+  it("redacts token-like blobs even with unknown key names", () => {
+    const input = "custom=AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789"
+    expect(redactLine(input, [])).toBe("custom=<redacted>")
+  })
 })

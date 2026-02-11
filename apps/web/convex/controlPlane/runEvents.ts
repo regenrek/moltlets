@@ -1,4 +1,5 @@
 import { RUN_EVENT_LEVELS } from "@clawlets/core/lib/runtime/run-constants";
+import { sanitizeRunEventMessage } from "@clawlets/core/lib/runtime/run-event-sanitize";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
@@ -54,17 +55,21 @@ export const pageByRun = query({
       .paginate({ ...paginationOpts, numItems });
     return {
       ...res,
-      page: res.page.map((row) => ({
-        _id: row._id,
-        _creationTime: row._creationTime,
-        projectId: row.projectId,
-        runId: row.runId,
-        ts: row.ts,
-        level: row.level,
-        message: row.message,
-        meta: sanitizeMeta(row.meta),
-        redacted: row.redacted,
-      })),
+      page: res.page.map((row) => {
+        const sanitized = sanitizeRunEventMessage(row.message);
+        return {
+          _id: row._id,
+          _creationTime: row._creationTime,
+          projectId: row.projectId,
+          runId: row.runId,
+          ts: row.ts,
+          level: row.level,
+          message: sanitized.message,
+          meta: sanitizeMeta(row.meta),
+          redacted: Boolean(row.redacted) || sanitized.redacted,
+          sanitized: row.sanitized === true,
+        };
+      }),
     };
   },
 });
@@ -93,16 +98,17 @@ export const appendBatch = mutation({
 
     const safeEvents = events.slice(0, 200);
     for (const ev of safeEvents) {
-      const message = ev.message.trim();
-      if (!message) continue;
+      const sanitized = sanitizeRunEventMessage(ev.message);
+      if (!sanitized.message) continue;
       await ctx.db.insert("runEvents", {
         projectId: run.projectId,
         runId,
         ts: ev.ts,
         level: ev.level,
-        message: message.length > 4000 ? `${message.slice(0, 3997)}...` : message,
+        message: sanitized.message,
         meta: sanitizeMeta(ev.meta),
-        redacted: ev.redacted,
+        redacted: Boolean(ev.redacted) || sanitized.redacted,
+        sanitized: true,
       });
     }
     return null;
@@ -128,16 +134,17 @@ export const appendBatchInternal = internalMutation({
     if (!run) return null;
     const safeEvents = events.slice(0, 200);
     for (const ev of safeEvents) {
-      const message = ev.message.trim();
-      if (!message) continue;
+      const sanitized = sanitizeRunEventMessage(ev.message);
+      if (!sanitized.message) continue;
       await ctx.db.insert("runEvents", {
         projectId: run.projectId,
         runId,
         ts: ev.ts,
         level: ev.level,
-        message: message.length > 4000 ? `${message.slice(0, 3997)}...` : message,
+        message: sanitized.message,
         meta: sanitizeMeta(ev.meta),
-        redacted: ev.redacted,
+        redacted: Boolean(ev.redacted) || sanitized.redacted,
+        sanitized: true,
       });
     }
     return null;

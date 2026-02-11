@@ -19,7 +19,7 @@ import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { loadSetupConfig } from "~/lib/setup/repo-probe"
+import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
 import { deriveDeploySshKeyReadiness } from "~/lib/setup/deploy-ssh-key-readiness"
 import { gitRepoStatus } from "~/sdk/vcs"
 import { lockdownExecute, lockdownStart } from "~/sdk/infra"
@@ -36,11 +36,6 @@ import {
   type FinalizeStepId,
   type FinalizeStepStatus,
 } from "~/components/deploy/deploy-setup-model"
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
 
 function formatShortSha(sha?: string | null): string {
   const value = String(sha || "").trim()
@@ -115,12 +110,8 @@ export function DeployInitialInstallSetup(props: {
     enabled: Boolean(projectId && runnerOnline),
   })
   const setupConfigQuery = useQuery({
-    queryKey: ["hostSetupConfig", projectId],
+    ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && runnerOnline),
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => await loadSetupConfig(projectId as Id<"projects">),
   })
 
   const selectedRev = repoStatus.data?.originHead
@@ -137,11 +128,8 @@ export function DeployInitialInstallSetup(props: {
   const repoGateBlocked = readiness.blocksDeploy
   const statusReason = readiness.message
   const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
-  const setupHostCfg = setupConfigQuery.data?.hosts?.[props.host]
-  const hostProvisioning = asRecord(setupHostCfg ? setupHostCfg["provisioning"] : null)
   const sshKeyReadiness = deriveDeploySshKeyReadiness({
     fleetSshAuthorizedKeys: setupConfigQuery.data?.fleet?.sshAuthorizedKeys,
-    hostProvisioningSshPubkeyFile: hostProvisioning?.["sshPubkeyFile"],
   })
   const sshKeyGateBlocked = runnerOnline && (
     setupConfigQuery.isPending
@@ -156,7 +144,7 @@ export function DeployInitialInstallSetup(props: {
         ? "Unable to read SSH key settings. Open Server Access and retry."
         : sshKeyReadiness.ready
           ? null
-          : "SSH key required before deploy. Add a key in Server Access or set provisioning.sshPubkeyFile."
+          : "SSH key required before deploy. Add at least one fleet SSH key in Server Access."
   const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked
   const deployStatusReason = repoGateBlocked ? statusReason : (sshKeyGateMessage || statusReason)
 
@@ -345,7 +333,7 @@ export function DeployInitialInstallSetup(props: {
       setFinalizeState("succeeded")
       toast.success("Server hardening queued")
       void queryClient.invalidateQueries({
-        queryKey: ["hostSetupConfig", projectId],
+        queryKey: setupConfigProbeQueryKey(projectId),
       })
       void queryClient.invalidateQueries({
         queryKey: ["gitRepoStatus", projectId],

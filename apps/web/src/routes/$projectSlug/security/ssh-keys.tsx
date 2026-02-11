@@ -11,7 +11,7 @@ import { Textarea } from "~/components/ui/textarea"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { addProjectSshKeys, configDotGet, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
+import { addProjectSshKeys, configDotMultiGet, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
   component: SecuritySshKeys,
@@ -35,13 +35,15 @@ function SecuritySshKeys() {
   const cfg = useQuery({
     queryKey: sshKeysQueryKey,
     queryFn: async () => {
-      const [authorized, knownHosts] = await Promise.all([
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet.sshAuthorizedKeys" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet.sshKnownHosts" } }),
-      ])
+      const nodes = await configDotMultiGet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          paths: ["fleet.sshAuthorizedKeys", "fleet.sshKnownHosts"],
+        },
+      })
       return {
-        authorized: normalizeStringArray(authorized.value),
-        knownHosts: normalizeStringArray(knownHosts.value),
+        authorized: normalizeStringArray(nodes.values["fleet.sshAuthorizedKeys"]),
+        knownHosts: normalizeStringArray(nodes.values["fleet.sshKnownHosts"]),
       }
     },
     enabled: Boolean(projectId),

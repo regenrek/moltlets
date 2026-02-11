@@ -7,6 +7,7 @@ import { defineCommand } from "citty";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
+import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import { DEPLOY_CREDS_KEYS } from "@clawlets/core/lib/infra/deploy-creds";
 import { buildDefaultArgsForJobKind } from "@clawlets/core/lib/runtime/runner-command-policy";
 import {
@@ -74,6 +75,105 @@ function sleep(ms: number): Promise<void> {
 const RUNNER_COMMAND_RESULT_MAX_BYTES = RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES;
 const RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES_LIMIT = RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES;
 const RUNNER_LOG_CAPTURE_MAX_BYTES = 128 * 1024;
+const RUNNER_TEMP_FILE_STALE_MAX_AGE_MS = 24 * 60 * 60_000;
+const RUNNER_TEMP_FILE_PREFIXES = ["clawlets-runner-secrets.", "clawlets-runner-input."] as const;
+const RUNNER_ERROR_AUTH_BEARER_RE = /(Authorization:\s*Bearer\s+)([^\s]+)/gi;
+const RUNNER_ERROR_AUTH_BASIC_RE = /(Authorization:\s*Basic\s+)([^\s]+)/gi;
+const RUNNER_ERROR_URL_CREDENTIALS_RE = /(https?:\/\/)([^/\s@]+@)/g;
+const RUNNER_ERROR_QUERY_SECRET_RE = /([?&](?:access_token|token|auth|api_key|apikey|apiKey)=)([^&\s]+)/gi;
+const RUNNER_ERROR_ASSIGNMENT_SECRET_RE =
+  /\b((?:access|refresh|id)?_?token|token|api_key|apikey|apiKey|secret|password)\s*[:=]\s*([^\s]+)/gi;
+
+function redactRunnerErrorSecrets(input: string): string {
+  let output = input;
+  output = output.replace(RUNNER_ERROR_AUTH_BEARER_RE, "$1<redacted>");
+  output = output.replace(RUNNER_ERROR_AUTH_BASIC_RE, "$1<redacted>");
+  output = output.replace(RUNNER_ERROR_URL_CREDENTIALS_RE, "$1<redacted>@");
+  output = output.replace(RUNNER_ERROR_QUERY_SECRET_RE, "$1<redacted>");
+  output = output.replace(RUNNER_ERROR_ASSIGNMENT_SECRET_RE, "$1=<redacted>");
+  return output;
+}
+
+function sanitizeRunnerControlPlaneErrorMessage(raw: unknown, fallback: string): string {
+  const message = raw instanceof Error ? raw.message : String(raw || "");
+  const trimmed = message.trim();
+  if (!trimmed) return fallback;
+  const redacted = redactRunnerErrorSecrets(trimmed);
+  return redacted || fallback;
+}
+
+function currentUidOrNull(): number | null {
+  if (typeof process.getuid !== "function") return null;
+  return process.getuid();
+}
+
+async function assertSecureRunnerTempFile(filePath: string): Promise<void> {
+  const stat = await fs.stat(filePath);
+  if (!stat.isFile()) throw new Error("runner temp file invalid");
+  const ownerUid = currentUidOrNull();
+  if (ownerUid !== null && typeof stat.uid === "number" && stat.uid !== ownerUid) {
+    throw new Error("runner temp file ownership mismatch");
+  }
+  if ((stat.mode & 0o777) !== 0o600) throw new Error("runner temp file mode must be 0600");
+}
+
+function extractRunnerTempPid(fileName: string): number | null {
+  const match = fileName.match(/\.(\d+)\.[^.]+\.json$/);
+  if (!match?.[1]) return null;
+  const pid = Number(match[1]);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  return pid;
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ESRCH") return false;
+    return true;
+  }
+}
+
+async function cleanupRunnerTempFile(filePath: string): Promise<void> {
+  try {
+    await fs.rm(filePath, { force: true });
+  } catch {
+    // best effort
+  }
+}
+
+async function cleanupStaleRunnerTempFiles(now = Date.now()): Promise<void> {
+  const tempDir = os.tmpdir();
+  const ownerUid = currentUidOrNull();
+  let entries: string[] = [];
+  try {
+    entries = await fs.readdir(tempDir);
+  } catch {
+    return;
+  }
+
+  for (const fileName of entries) {
+    if (!fileName.endsWith(".json")) continue;
+    if (!RUNNER_TEMP_FILE_PREFIXES.some((prefix) => fileName.startsWith(prefix))) continue;
+    const filePath = path.join(tempDir, fileName);
+    let stat: Awaited<ReturnType<typeof fs.stat>>;
+    try {
+      stat = await fs.stat(filePath);
+    } catch {
+      continue;
+    }
+    if (!stat.isFile()) continue;
+    if (ownerUid !== null && typeof stat.uid === "number" && stat.uid !== ownerUid) continue;
+    const pid = extractRunnerTempPid(fileName);
+    if (pid !== null && isProcessAlive(pid)) continue;
+    if (pid === null) {
+      const ageMs = Math.max(0, now - stat.mtimeMs);
+      if (ageMs < RUNNER_TEMP_FILE_STALE_MAX_AGE_MS) continue;
+    }
+    await cleanupRunnerTempFile(filePath);
+  }
+}
 
 function parseStructuredJsonObject(raw: string, maxBytes: number): string {
   const trimmed = raw.trim();
@@ -122,12 +222,14 @@ async function writeSecretsJsonTemp(jobId: string, values: Record<string, string
   };
   const filePath = path.join(os.tmpdir(), `clawlets-runner-secrets.${jobId}.${process.pid}.${randomUUID()}.json`);
   await fs.writeFile(filePath, `${JSON.stringify(body, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  await assertSecureRunnerTempFile(filePath);
   return filePath;
 }
 
 async function writeInputJsonTemp(jobId: string, values: Record<string, string>): Promise<string> {
   const filePath = path.join(os.tmpdir(), `clawlets-runner-input.${jobId}.${process.pid}.${randomUUID()}.json`);
   await fs.writeFile(filePath, `${JSON.stringify(values, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  await assertSecureRunnerTempFile(filePath);
   return filePath;
 }
 
@@ -158,6 +260,18 @@ export async function __test_writeSecretsJsonTemp(jobId: string, values: Record<
 
 export async function __test_writeInputJsonTemp(jobId: string, values: Record<string, string>): Promise<string> {
   return await writeInputJsonTemp(jobId, values);
+}
+
+export async function __test_assertSecureRunnerTempFile(filePath: string): Promise<void> {
+  await assertSecureRunnerTempFile(filePath);
+}
+
+export function __test_sanitizeRunnerControlPlaneErrorMessage(raw: unknown, fallback: string): string {
+  return sanitizeRunnerControlPlaneErrorMessage(raw, fallback);
+}
+
+export async function __test_cleanupStaleRunnerTempFiles(now?: number): Promise<void> {
+  await cleanupStaleRunnerTempFiles(now ?? Date.now());
 }
 
 export function __test_parseStructuredJsonObject(raw: string, maxBytes: number): string {
@@ -357,11 +471,7 @@ async function executeJob(params: {
     return {};
   } finally {
     if (tempSecretsPath) {
-      try {
-        await fs.rm(tempSecretsPath, { force: true });
-      } catch {
-        // best effort
-      }
+      await cleanupRunnerTempFile(tempSecretsPath);
     }
   }
 }
@@ -387,7 +497,7 @@ async function appendRunEventsBestEffort(params: {
       events: params.events,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = sanitizeRunnerControlPlaneErrorMessage(err, "run-events append failed");
     console.error(`runner run-events append failed (${params.context}): ${message}`);
   }
 }
@@ -442,6 +552,7 @@ async function executeLeasedJobWithRunEvents(params: {
         ],
       });
     } else if (result.output) {
+      const sanitizedOutput = redactKnownSecrets(result.output);
       await appendRunEventsBestEffort({
         client: params.client,
         projectId: params.projectId,
@@ -451,7 +562,8 @@ async function executeLeasedJobWithRunEvents(params: {
           {
             ts: Date.now(),
             level: "info",
-            message: result.output,
+            message: sanitizedOutput.text,
+            redacted: sanitizedOutput.redacted ? true : undefined,
           },
         ],
       });
@@ -555,6 +667,12 @@ export const runnerStart = defineCommand({
     const maxAttempts = toInt((args as any).maxAttempts, 3, 1, 25);
     const repoRoot = String((args as any).repoRoot || "").trim() || findRepoRoot(process.cwd());
     const runtimeDir = coerceTrimmedString((args as any).runtimeDir);
+    try {
+      await cleanupStaleRunnerTempFiles();
+    } catch (err) {
+      const message = sanitizeRunnerControlPlaneErrorMessage(err, "temp file cleanup failed");
+      console.error(`runner temp-file cleanup failed: ${message}`);
+    }
     const sealedKeyPath = await resolveRunnerSealedInputKeyPath({
       runtimeDir: runtimeDir || undefined,
       projectId,
@@ -605,7 +723,7 @@ export const runnerStart = defineCommand({
           },
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = sanitizeRunnerControlPlaneErrorMessage(err, "heartbeat failed");
         console.error(`runner heartbeat error: ${message}`);
       }
     };
@@ -624,7 +742,7 @@ export const runnerStart = defineCommand({
           leaseErrorStreak = 0;
         } catch (err) {
           const kind = classifyRunnerHttpError(err);
-          const message = err instanceof Error ? err.message : String(err);
+          const message = sanitizeRunnerControlPlaneErrorMessage(err, "lease request failed");
           if (kind === "auth" || kind === "permanent") {
             console.error(`runner lease failed (${kind}); stopping: ${message}`);
             break;
@@ -645,7 +763,10 @@ export const runnerStart = defineCommand({
         const beat = setInterval(() => {
           void client
             .heartbeatJob({ projectId, jobId: job.jobId, leaseId: job.leaseId, leaseTtlMs })
-            .catch((err) => console.error(`runner job heartbeat failed (${job.jobId}): ${String((err as Error)?.message || err)}`));
+            .catch((err) => {
+              const message = sanitizeRunnerControlPlaneErrorMessage(err, "job heartbeat failed");
+              console.error(`runner job heartbeat failed (${job.jobId}): ${message}`);
+            });
         }, Math.max(2000, Math.floor(leaseTtlMs / 2)));
 
         let terminal: "succeeded" | "failed" | "canceled" = "failed";
@@ -685,7 +806,7 @@ export const runnerStart = defineCommand({
           }
         } catch (err) {
           const kind = classifyRunnerHttpError(err);
-          const message = err instanceof Error ? err.message : String(err);
+          const message = sanitizeRunnerControlPlaneErrorMessage(err, "completion failed");
           if (shouldStopOnCompletionError(kind)) {
             stopAfterCompletionError = true;
             console.error(`runner completion failed (${kind}); stopping: ${message}`);
@@ -705,7 +826,8 @@ export const runnerStart = defineCommand({
             payload: snapshot,
           });
         } catch (err) {
-          console.error(`metadata sync failed (${job.jobId}): ${String((err as Error)?.message || err)}`);
+          const message = sanitizeRunnerControlPlaneErrorMessage(err, "metadata sync failed");
+          console.error(`metadata sync failed (${job.jobId}): ${message}`);
         }
 
         if (stopAfterCompletionError) {

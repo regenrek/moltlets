@@ -14,6 +14,7 @@ import {
   isRunnerTokenUsable,
   METADATA_SYNC_LIMITS,
   parseRunnerHeartbeatCapabilities,
+  sanitizeRunnerRunEventsForStorage,
   sanitizeGatewayPatch,
   sanitizeHostPatch,
   validateMetadataSyncPayloadSizes,
@@ -282,17 +283,11 @@ http.route({
     const events = Array.isArray(payload.events) ? payload.events : [];
     if (!runId) return json(400, { error: "runId required" });
 
+    const safeEvents = sanitizeRunnerRunEventsForStorage(events);
+
     await ctx.runMutation(internal.controlPlane.runEvents.appendBatchInternal, {
       runId: runId as Id<"runs">,
-      events: events as Array<{
-        ts: number;
-        level: string;
-        message: string;
-        meta?:
-          | { kind: "phase"; phase: "command_start" | "command_end" | "post_run_cleanup" | "truncated" }
-          | { kind: "exit"; code: number };
-        redacted?: boolean;
-      }>,
+      events: safeEvents,
     });
     return json(200, { ok: true });
   }),

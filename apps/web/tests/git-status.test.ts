@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { __test_parsePorcelainStatus } from "~/server/git.server"
 
 type CaptureConfig = {
   statusOutput: string
@@ -36,7 +37,6 @@ async function loadWithCapture(config: CaptureConfig) {
 
 describe("git status parsing", () => {
   it("parses upstream ahead/behind and detached states", async () => {
-    const { __test_parsePorcelainStatus } = await loadWithCapture({ statusOutput: "" })
     expect(
       __test_parsePorcelainStatus(
         ["# branch.oid local-head", "# branch.head main", "# branch.upstream origin/main", "# branch.ab +2 -0"].join("\n"),
@@ -84,7 +84,6 @@ describe("git status parsing", () => {
   })
 
   it("stops parsing after first dirty entry", async () => {
-    const { __test_parsePorcelainStatus } = await loadWithCapture({ statusOutput: "" })
     const raw = [
       "# branch.oid local-head",
       "# branch.head main",
@@ -103,7 +102,6 @@ describe("git status parsing", () => {
   })
 
   it("avoids splitting large status output", async () => {
-    const { __test_parsePorcelainStatus } = await loadWithCapture({ statusOutput: "" })
     const splitSpy = vi.spyOn(String.prototype, "split")
     try {
       __test_parsePorcelainStatus(["# branch.oid local-head", "# branch.head main"].join("\n"))

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
+import fs from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix } from "../src/lib/security/sops-config";
@@ -213,8 +214,29 @@ describe("doctor", () => {
     delete process.env.SOPS_AGE_KEY_FILE;
     const { collectDoctorChecks } = await import("../src/doctor.js");
     const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host" });
+    const assetsCheck = checks.find((c) => c.label === "opentofu assets (hetzner)");
+    expect(assetsCheck?.status).toBe("ok");
     expect(checks.filter((c) => c.status === "missing")).toEqual([]);
   }, 15_000);
+
+  it("flags missing bundled OpenTofu assets for bootstrap provider", async () => {
+    process.env.HCLOUD_TOKEN = "abc";
+    const existsSync = fs.existsSync;
+    const spy = vi.spyOn(fs, "existsSync").mockImplementation((p: fs.PathLike) => {
+      const candidate = String(p);
+      if (candidate.includes(`${path.sep}assets${path.sep}opentofu${path.sep}providers${path.sep}hetzner`)) return false;
+      return existsSync(p);
+    });
+    try {
+      const { collectDoctorChecks } = await import("../src/doctor.js");
+      const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "bootstrap" });
+      const assetsCheck = checks.find((c) => c.label === "opentofu assets (hetzner)");
+      expect(assetsCheck?.status).toBe("missing");
+      expect(String(assetsCheck?.detail || "")).toContain("missing bundled hetzner OpenTofu assets");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 
   it("uses openclaw config for services.openclawFleet.enable (not infra host.enable)", async () => {
     const openclawPath = path.join(repoRoot, "fleet", "openclaw.json");

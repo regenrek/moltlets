@@ -1,12 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { AwsProvisionSpec, ProvisionerRuntime } from "../../types.js";
 import { capture, run } from "../../../runtime/run.js";
 import { withFlakesEnv } from "../../../nix/nix-flakes.js";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
-
-const AWS_ASSET_SEGMENTS = ["assets", "opentofu", "providers", "aws"] as const;
+import { resolveBundledOpenTofuAssetDir } from "../../opentofu-assets.js";
 
 function trimOrEmpty(value: unknown): string {
   return coerceTrimmedString(value);
@@ -16,23 +14,16 @@ export function resolveAwsOpenTofuWorkDir(runtime: ProvisionerRuntime): string {
   return path.join(runtime.opentofuDir, "providers", "aws");
 }
 
-function resolveBundledAwsAssetDir(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.resolve(here, "..", "..", "..", "..", ...AWS_ASSET_SEGMENTS),
-    path.resolve(here, "..", "..", "..", ...AWS_ASSET_SEGMENTS),
-    path.resolve(here, "..", "..", ...AWS_ASSET_SEGMENTS),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-
-  throw new Error(`missing bundled aws OpenTofu assets: ${candidates.join(", ")}`);
+function resolveBundledAwsAssetDir(runtime: ProvisionerRuntime): string {
+  return resolveBundledOpenTofuAssetDir({
+    provider: "aws",
+    runtime,
+    moduleUrl: import.meta.url,
+  });
 }
 
 function ensureAwsOpenTofuWorkDir(runtime: ProvisionerRuntime): string {
-  const srcDir = resolveBundledAwsAssetDir();
+  const srcDir = resolveBundledAwsAssetDir(runtime);
   const workDir = resolveAwsOpenTofuWorkDir(runtime);
 
   fs.mkdirSync(workDir, { recursive: true });
