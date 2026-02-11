@@ -47,6 +47,16 @@ describe("runner command policy args parser", () => {
     if (!result.ok) expect(result.error).toMatch(/does not take a value/i);
   });
 
+  it("accepts secrets verify --json for secrets_verify kinds", () => {
+    for (const kind of ["secrets_verify", "secrets_verify_bootstrap", "secrets_verify_openclaw"]) {
+      const result = __test_validateArgsForKind({
+        kind,
+        args: ["secrets", "verify", "--host", "alpha", "--scope", "bootstrap", "--json"],
+      });
+      expect(result).toEqual({ ok: true });
+    }
+  });
+
   it("resolves json_large mode for openclaw schema fetch", () => {
     const resolved = resolveCommandSpecForKind("custom", [
       "openclaw",

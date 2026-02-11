@@ -1,0 +1,81 @@
+---
+title: GitHub token
+description: Create and validate GITHUB_TOKEN for Clawlets setup.
+---
+
+Clawlets uses <code>GITHUB_TOKEN</code> during setup/deploy to read your base flake repository.
+If that repository is private, setup fails without a valid token.
+
+Use this page as the canonical operator flow for creating the token and saving it in the dashboard.
+
+## Prereqs
+
+- GitHub account with read access to your base flake repository.
+- Project setup route open in dashboard: <code>/$projectSlug/hosts/$host/setup?step=creds</code>.
+- Preferred: a fine-grained personal access token (PAT).
+
+## Create token (recommended: fine-grained PAT)
+
+<Steps>
+  <Step>
+    Open GitHub token settings:
+    <br />
+    https://github.com/settings/personal-access-tokens/new
+  </Step>
+  <Step>
+    Set a clear token name (example: <code>clawlets-setup</code>) and a reasonable expiration.
+  </Step>
+  <Step>
+    Under repository access, select only the repository Clawlets needs to read.
+  </Step>
+  <Step>
+    Under permissions, grant read access for repository contents and metadata.
+  </Step>
+  <Step>
+    Create the token and copy it immediately (GitHub shows it once).
+  </Step>
+</Steps>
+
+If your organization policy blocks fine-grained PATs, use a classic PAT as fallback and grant only what your repository access requires.
+
+## Save token in Clawlets
+
+<Steps>
+  <Step>
+    Open <code>/$projectSlug/security/api-keys</code>.
+  </Step>
+  <Step>
+    Set <code>GITHUB_TOKEN</code> and save.
+  </Step>
+  <Step>
+    Return to Setup and confirm <code>Provider Tokens</code> is complete.
+  </Step>
+</Steps>
+
+Related: [Deploy credentials](/dashboard/deploy-credentials)
+
+## Verify
+
+- Setup no longer blocks on missing deploy credentials.
+- Optional CLI check:
+
+```bash
+clawlets env show --json
+```
+
+## Troubleshooting
+
+### `base flake repo appears private (404). Set GITHUB_TOKEN in your environment and retry.`
+
+- Token is missing, expired, or lacks access to the target repo.
+- Reissue token and confirm repository access includes the base flake repo.
+
+### `GITHUB_TOKEN rejected by GitHub (401).`
+
+- Token value is invalid/revoked, or copied with trailing whitespace.
+- Regenerate token and paste again.
+
+### Setup still says token missing
+
+- Reopen `/$projectSlug/security/api-keys` and verify `GITHUB_TOKEN` is marked as set.
+- Save again, then refresh Setup.

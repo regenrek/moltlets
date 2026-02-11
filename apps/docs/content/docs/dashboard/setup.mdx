@@ -45,7 +45,7 @@ Open:
     <strong>Deploy credentials</strong>
     <br />
     Configure local-only credentials in <code>.clawlets/env</code>. Setup requires{" "}
-    <code>SOPS_AGE_KEY_FILE</code> plus <code>HCLOUD_TOKEN</code>.
+    <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and <code>SOPS_AGE_KEY_FILE</code>.
   </Step>
   <Step>
     <strong>Server passwords</strong>
@@ -99,4 +99,5 @@ These are local-only and must not be committed.
 Recommended path:
 
 - Set `HCLOUD_TOKEN` (Hetzner): https://docs.hetzner.com/cloud/api/getting-started/generating-api-token
+- Set `GITHUB_TOKEN`: [GitHub token setup](/dashboard/github-token)
 - See provider docs: [Hetzner](/providers/hetzner)
