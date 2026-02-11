@@ -8,64 +8,12 @@ import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { deriveRepoProbeState, loadSetupConfig, type RepoProbeState, type SetupConfig } from "~/lib/setup/repo-probe"
 import type { DeployCredsStatus } from "~/sdk/infra"
-import { configDotGet } from "~/sdk/config/dot-get"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type SetupSearch = {
   step?: string
-}
-
-export type RepoProbeState = "idle" | "checking" | "ok" | "error"
-
-type SetupConfig = {
-  hosts: Record<string, Record<string, unknown>>
-  fleet: {
-    sshAuthorizedKeys: unknown[]
-  }
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), timeoutMs)
-      }),
-    ])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
-function coerceHosts(value: unknown): Record<string, Record<string, unknown>> {
-  const out: Record<string, Record<string, unknown>> = {}
-  const row = asRecord(value)
-  if (!row) return out
-  for (const [hostName, hostValue] of Object.entries(row)) {
-    const hostRow = asRecord(hostValue)
-    if (!hostRow) continue
-    out[hostName] = hostRow
-  }
-  return out
-}
-
-function decodeSetupConfig(params: {
-  hostsValue: unknown
-  sshKeysValue: unknown
-}): SetupConfig {
-  return {
-    hosts: coerceHosts(params.hostsValue),
-    fleet: {
-      sshAuthorizedKeys: Array.isArray(params.sshKeysValue) ? params.sshKeysValue : [],
-    },
-  }
 }
 
 export function useSetupModel(params: { projectSlug: string; host: string; search: SetupSearch }) {
@@ -95,30 +43,7 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    queryFn: async () => {
-      const [hostsNode, sshKeysNode] = await withTimeout(
-        Promise.all([
-          configDotGet({
-            data: {
-              projectId: projectId as Id<"projects">,
-              path: "hosts",
-            },
-          }),
-          configDotGet({
-            data: {
-              projectId: projectId as Id<"projects">,
-              path: "fleet.sshAuthorizedKeys",
-            },
-          }),
-        ]),
-        35_000,
-        "Repo probe timed out while checking config access. Ensure runner is idle and retry.",
-      )
-      return decodeSetupConfig({
-        hostsValue: hostsNode.value,
-        sshKeysValue: sshKeysNode.value,
-      })
-    },
+    queryFn: async () => await loadSetupConfig(projectId as Id<"projects">),
   })
   const config = configQuery.data ?? null
 
@@ -131,13 +56,11 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const deployCreds: DeployCredsStatus | null = deployCredsQuery.data ?? null
 
   const repoProbeOk = runnerOnline && hasConfig
-  const repoProbeState: RepoProbeState = !runnerOnline
-    ? "idle"
-    : !hasConfig
-      ? configQuery.isError
-        ? "error"
-        : "checking"
-      : "ok"
+  const repoProbeState: RepoProbeState = deriveRepoProbeState({
+    runnerOnline,
+    hasConfig,
+    hasError: configQuery.isError,
+  })
   const repoProbeError = repoProbeState === "error" ? configQuery.error : null
 
   const latestBootstrapRunQuery = useQuery({

@@ -84,6 +84,7 @@ export function DeployCredsCard({ projectId, setupHref = null, setupAction }: De
     credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "",
   )
   const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
+  const githubTokenRequired = Boolean(setupAction)
 
   const save = useMutation({
     mutationFn: async () => {
@@ -273,12 +274,36 @@ export function DeployCredsCard({ projectId, setupHref = null, setupAction }: De
             />
           </StackedField>
 
-          <StackedField id="githubToken" label="GitHub token" help="GitHub token (GITHUB_TOKEN).">
+          <StackedField
+            id="githubToken"
+            label="GitHub token"
+            help={githubTokenRequired
+              ? "GitHub token (GITHUB_TOKEN). Required for Setup."
+              : "GitHub token (GITHUB_TOKEN)."}
+            description={(
+              <>
+                Need help creating one?{" "}
+                <a
+                  className="underline underline-offset-3 hover:text-foreground"
+                  href="https://docs.clawlets.com/dashboard/github-token"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open GitHub token guide
+                </a>
+                .
+              </>
+            )}
+          >
             <SecretInput
               id="githubToken"
               value={githubToken}
               onValueChange={setGithubToken}
-              placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(recommended)"}
+              placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set"
+                ? "set (click Remove to edit)"
+                : githubTokenRequired
+                  ? "(required)"
+                  : "(recommended)"}
               locked={credsByKey["GITHUB_TOKEN"]?.status === "set" && !githubUnlocked}
               onUnlock={() => setGithubUnlocked(true)}
             />

@@ -218,6 +218,7 @@ const specSecretsVerify: CommandSpec = {
   flags: {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--scope": { kind: "value", validate: validateEnum(SECRET_SCOPES, "--scope") },
+    "--json": { kind: "boolean" },
   },
 };
 

@@ -16,8 +16,22 @@ export function SetupStepCreds(props: {
         }}
       />
       {!props.isComplete ? (
-        <div className="text-xs text-muted-foreground">
-          Set <code>SOPS_AGE_KEY_FILE</code> and <code>HCLOUD_TOKEN</code>.
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <div>
+            Set <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and <code>SOPS_AGE_KEY_FILE</code>.
+          </div>
+          <div>
+            Need a GitHub token?{" "}
+            <a
+              className="underline underline-offset-3 hover:text-foreground"
+              href="https://docs.clawlets.com/dashboard/github-token"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How to create GitHub token
+            </a>
+            .
+          </div>
         </div>
       ) : null}
     </div>

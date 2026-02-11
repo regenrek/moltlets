@@ -81,7 +81,7 @@ function resolveSetupCredsOk(params: {
 }
 
 export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
-  const runnerReady = input.runnerOnline && input.repoProbeOk
+  const runnerReady = input.runnerOnline
   const hosts = input.config?.hosts && typeof input.config.hosts === "object"
     ? Object.keys(input.config.hosts)
     : []
@@ -145,11 +145,10 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     },
   ]
 
-  const visible = (step: SetupStep) => step.status !== "locked"
   const requested = coerceSetupStepId(input.stepFromSearch)
-  const requestedStep = requested && steps.find((step) => step.id === requested && visible(step)) ? requested : null
-  const firstIncomplete = steps.find((step) => visible(step) && step.status !== "done")?.id
-    ?? steps.find((step) => visible(step))?.id
+  const requestedStep = requested && steps.find((step) => step.id === requested) ? requested : null
+  const firstIncomplete = steps.find((step) => step.status !== "done")?.id
+    ?? steps[0]?.id
     ?? "runner"
   const requiredSteps = steps.filter((step) => !step.optional)
   const showCelebration = requiredSteps.every((step) => step.status === "done")
@@ -161,4 +160,19 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     steps,
     showCelebration,
   }
+}
+
+export function deriveHostSetupStepper(input: {
+  steps: SetupStep[]
+  activeStepId: SetupStepId
+}): { steps: SetupStep[]; activeStepId: SetupStepId } {
+  const steps = input.steps
+  const allowed = new Set(steps.map((step) => step.id))
+  const activeStepId = allowed.has(input.activeStepId)
+    ? input.activeStepId
+    : steps.find((step) => step.status !== "done")?.id
+      ?? steps[0]?.id
+      ?? input.activeStepId
+
+  return { steps, activeStepId }
 }

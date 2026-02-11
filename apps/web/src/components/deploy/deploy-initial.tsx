@@ -34,11 +34,13 @@ import { setupFieldHelp } from "~/lib/setup-field-help"
 import { getDeployCredsStatus } from "~/sdk/infra"
 import { gitPushExecute, gitRepoStatus } from "~/sdk/vcs"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
+import { DeployInitialInstallSetup } from "~/components/deploy/deploy-initial-setup"
 
 type DeployInitialInstallProps = {
   projectSlug: string
   host: string
-  variant?: "page" | "embedded"
+  variant?: "page" | "embedded" | "setup"
+  hasBootstrapped?: boolean
   onBootstrapped?: () => void
 }
 
@@ -46,8 +48,36 @@ export function DeployInitialInstall({
   projectSlug,
   host,
   variant = "page",
+  hasBootstrapped = false,
   onBootstrapped,
 }: DeployInitialInstallProps) {
+  if (variant === "setup") {
+    return (
+      <DeployInitialInstallSetup
+        projectSlug={projectSlug}
+        host={host}
+        hasBootstrapped={hasBootstrapped}
+        onContinue={onBootstrapped}
+      />
+    )
+  }
+
+  return (
+    <DeployInitialInstallDefault
+      projectSlug={projectSlug}
+      host={host}
+      variant={variant}
+      onBootstrapped={onBootstrapped}
+    />
+  )
+}
+
+function DeployInitialInstallDefault({
+  projectSlug,
+  host,
+  variant = "page",
+  onBootstrapped,
+}: Omit<DeployInitialInstallProps, "hasBootstrapped">) {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
