@@ -35,8 +35,8 @@
   "dependencies": {
     "@clawlets/shared": "workspace:*",
     "ajv": "^8.17.1",
-    "dotenv": "^17.2.3",
-    "giget": "^3.1.1",
+    "dotenv": "^17.2.4",
+    "giget": "^3.1.2",
     "yaml": "^2.8.0",
     "zod": "^4.3.6"
   },
