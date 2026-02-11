@@ -5,7 +5,9 @@ import * as React from "react"
 import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
 import { AsyncButton } from "~/components/ui/async-button"
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { Button } from "~/components/ui/button"
+import { deriveRunLogDiagnostics } from "~/lib/setup/run-log-diagnostics"
 import { cancelRun } from "~/sdk/runtime"
 
 type RunDoneStatus = "succeeded" | "failed" | "canceled"
@@ -59,6 +61,7 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
       seen.add(event._id)
       return true
     })
+  const diagnostics = deriveRunLogDiagnostics(events.map((event) => event.message))
 
   const run = runQuery.data?.run
   const runStatus = run?.status
@@ -121,6 +124,27 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
         </div>
       </div>
       <div className="p-4">
+        {diagnostics.length ? (
+          <div className="space-y-2 pb-3">
+            {diagnostics.map((d) => (
+              <Alert
+                key={d.id}
+                variant={d.severity === "error" ? "destructive" : "default"}
+                className={d.severity === "warning"
+                  ? "border-amber-300/50 bg-amber-50/50 text-amber-900 [&_[data-slot=alert-description]]:text-amber-900/90"
+                  : d.severity === "info"
+                    ? "border-sky-300/50 bg-sky-50/50 text-sky-900 [&_[data-slot=alert-description]]:text-sky-900/90"
+                    : undefined}
+              >
+                <AlertTitle>{d.title}</AlertTitle>
+                <AlertDescription>
+                  <div>{d.description}</div>
+                  {d.detail ? <div className="pt-1">{d.detail}</div> : null}
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        ) : null}
         <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words max-h-[420px] overflow-auto">
           {pageQuery.isPending ? (
             <span className="text-muted-foreground">Loading…</span>

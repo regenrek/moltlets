@@ -92,6 +92,7 @@ export function DeployInitialInstallSetup(props: {
   )
   const tailnetMode = String(hostSummary?.desired?.tailnetMode || "none")
   const isTailnet = tailnetMode === "tailscale"
+  const desiredSshExposureMode = String(hostSummary?.desired?.sshExposureMode || "").trim()
   const configuredSecrets = useMemo(() => {
     const names = new Set<string>()
     for (const row of wiringQuery.data ?? []) {
@@ -116,12 +117,13 @@ export function DeployInitialInstallSetup(props: {
 
   const selectedRev = repoStatus.data?.originHead
   const missingRev = !selectedRev
+  const needsPush = Boolean(repoStatus.data?.needsPush)
   const readiness = deriveDeployReadiness({
     runnerOnline,
     repoPending: repoStatus.isPending,
     repoError: repoStatus.error,
     missingRev,
-    needsPush: false,
+    needsPush,
     localSelected: false,
     allowLocalDeploy: false,
   })
@@ -147,6 +149,8 @@ export function DeployInitialInstallSetup(props: {
           : "SSH key required before deploy. Add at least one fleet SSH key in Server Access."
   const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked
   const deployStatusReason = repoGateBlocked ? statusReason : (sshKeyGateMessage || statusReason)
+
+  const canAutoLockdown = isTailnet && hasTailscaleSecret
 
   const [bootstrapRunId, setBootstrapRunId] = useState<Id<"runs"> | null>(null)
   const [bootstrapStatus, setBootstrapStatus] = useState<"idle" | "running" | "succeeded" | "failed">("idle")
@@ -379,7 +383,7 @@ export function DeployInitialInstallSetup(props: {
           mode: "nixos-anywhere",
           force: false,
           dryRun: false,
-          lockdownAfter: true,
+          lockdownAfter: canAutoLockdown,
           rev: selectedRev,
         },
       })
@@ -451,6 +455,27 @@ export function DeployInitialInstallSetup(props: {
         <div className="rounded-md border bg-muted/30 p-3 text-sm">
           Host: <code>{props.host}</code>
         </div>
+
+        {isBootstrapped && desiredSshExposureMode !== "tailnet" ? (
+          <Alert variant="destructive">
+            <AlertTitle>SSH may still be publicly exposed</AlertTitle>
+            <AlertDescription>
+              <div>SSH exposure is not set to <code>tailnet</code> (current: <code>{desiredSshExposureMode || "unknown"}</code>).</div>
+              <div className="pt-1">Enable tailnet mode and run lockdown to close public SSH access.</div>
+            </AlertDescription>
+          </Alert>
+        ) : !isBootstrapped && !canAutoLockdown ? (
+          <Alert
+            variant="default"
+            className="border-amber-300/50 bg-amber-50/50 text-amber-900 [&_[data-slot=alert-description]]:text-amber-900/90"
+          >
+            <AlertTitle>Auto-lockdown disabled</AlertTitle>
+            <AlertDescription>
+              <div>Deploy can leave SSH (22) open until tailnet mode is enabled and a Tailscale auth key is configured.</div>
+              <div className="pt-1">Tailnet mode: <code>{tailnetMode || "unknown"}</code>. Tailscale auth key: <code>{hasTailscaleSecret ? "configured" : "missing"}</code>.</div>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="space-y-2">
           <div className="text-sm font-medium">Git readiness</div>

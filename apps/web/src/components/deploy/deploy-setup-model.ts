@@ -124,11 +124,22 @@ export function deriveDeployReadiness(params: {
     }
   }
   if (params.needsPush) {
+    if (params.localSelected) {
+      return {
+        reason: "needs_push",
+        message: "Local deploy requires pushing your commit first.",
+        title: "Local commit not on remote",
+        detail: "Push required so the host can fetch this revision.",
+        severity: "warning",
+        blocksDeploy: true,
+        showFirstPushGuidance: true,
+      }
+    }
     return {
       reason: "needs_push",
-      message: "Local deploy requires pushing your commit first.",
-      title: "Local commit not on remote",
-      detail: "Push required so the host can fetch this revision.",
+      message: "Unpushed commits detected. Push before deploying.",
+      title: "Push required",
+      detail: "Remote deploy uses the last pushed revision, not your local commit.",
       severity: "warning",
       blocksDeploy: true,
       showFirstPushGuidance: true,
