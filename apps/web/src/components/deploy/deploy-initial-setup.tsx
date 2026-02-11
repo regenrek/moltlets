@@ -19,7 +19,7 @@ import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { loadSetupConfig } from "~/lib/setup/repo-probe"
+import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
 import { deriveDeploySshKeyReadiness } from "~/lib/setup/deploy-ssh-key-readiness"
 import { gitRepoStatus } from "~/sdk/vcs"
 import { lockdownExecute, lockdownStart } from "~/sdk/infra"
@@ -115,12 +115,8 @@ export function DeployInitialInstallSetup(props: {
     enabled: Boolean(projectId && runnerOnline),
   })
   const setupConfigQuery = useQuery({
-    queryKey: ["hostSetupConfig", projectId],
+    ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && runnerOnline),
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => await loadSetupConfig(projectId as Id<"projects">),
   })
 
   const selectedRev = repoStatus.data?.originHead
@@ -345,7 +341,7 @@ export function DeployInitialInstallSetup(props: {
       setFinalizeState("succeeded")
       toast.success("Server hardening queued")
       void queryClient.invalidateQueries({
-        queryKey: ["hostSetupConfig", projectId],
+        queryKey: setupConfigProbeQueryKey(projectId),
       })
       void queryClient.invalidateQueries({
         queryKey: ["gitRepoStatus", projectId],

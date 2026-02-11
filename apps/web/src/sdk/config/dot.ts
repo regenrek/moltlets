@@ -12,7 +12,12 @@ import {
   parseProjectIdInput,
   waitForRunTerminal,
 } from "~/sdk/runtime"
-export { configDotGet } from "./dot-get"
+export {
+  configDotGet,
+  configDotMultiGet,
+  type ConfigDotGetResponse,
+  type ConfigDotMultiGetResponse,
+} from "./dot-get"
 
 type ConfigDotOp = {
   path: string

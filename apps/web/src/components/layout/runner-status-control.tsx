@@ -16,7 +16,7 @@ import {
   RUNNER_CONNECTION_TOAST_MESSAGES,
 } from "~/lib/setup/runner-connection-toast"
 import { deriveRunnerDialogView } from "~/lib/setup/runner-dialog-view"
-import { deriveRepoProbeState, deriveRunnerHeaderState, loadSetupConfig } from "~/lib/setup/repo-probe"
+import { deriveRepoProbeState, deriveRunnerHeaderState, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
 import { buildRunnerStartCommand } from "~/lib/setup/runner-start-command"
 import { isProjectRunnerOnline, isRunnerFreshOnline, pickRunnerName } from "~/lib/setup/runner-status"
 import { createRunnerToken } from "~/sdk/runtime"
@@ -78,14 +78,8 @@ export function RunnerStatusControl(props: RunnerStatusControlProps) {
   const runnerOnline = isProjectRunnerOnline(runners)
 
   const repoProbeQuery = useQuery({
-    queryKey: ["headerRepoProbe", props.projectId],
+    ...setupConfigProbeQueryOptions(props.projectId),
     enabled: props.projectStatus === "ready" && runnerOnline,
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => await loadSetupConfig(props.projectId),
   })
   const repoProbeState = deriveRepoProbeState({
     runnerOnline,

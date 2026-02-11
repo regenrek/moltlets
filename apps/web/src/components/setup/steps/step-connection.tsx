@@ -10,6 +10,7 @@ import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
+import { setupConfigProbeQueryKey } from "~/lib/setup/repo-probe"
 import { resolveConnectionStepMissingRequirements, shouldShowConnectionSshKeyEditor } from "~/lib/setup/connection-step"
 import { configDotBatch } from "~/sdk/config/dot"
 import { addProjectSshKeys } from "~/sdk/config/hosts"
@@ -105,7 +106,7 @@ function SetupStepConnectionForm(props: {
         setKeyText("")
         setShowKeyEditor(false)
         await queryClient.invalidateQueries({
-          queryKey: ["hostSetupConfig", props.projectId],
+          queryKey: setupConfigProbeQueryKey(props.projectId),
         })
         props.onContinue()
         return

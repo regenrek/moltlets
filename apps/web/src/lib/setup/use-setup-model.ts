@@ -8,7 +8,7 @@ import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
-import { deriveRepoProbeState, loadSetupConfig, type RepoProbeState, type SetupConfig } from "~/lib/setup/repo-probe"
+import { deriveRepoProbeState, setupConfigProbeQueryOptions, type RepoProbeState } from "~/lib/setup/repo-probe"
 import type { DeployCredsStatus } from "~/sdk/infra"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
@@ -38,12 +38,8 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   )
 
   const configQuery = useQuery({
-    queryKey: ["hostSetupConfig", projectId],
+    ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && isReady && runnerOnline),
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: async () => await loadSetupConfig(projectId as Id<"projects">),
   })
   const config = configQuery.data ?? null
 
