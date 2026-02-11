@@ -37,11 +37,6 @@ import {
   type FinalizeStepStatus,
 } from "~/components/deploy/deploy-setup-model"
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
 function formatShortSha(sha?: string | null): string {
   const value = String(sha || "").trim()
   return value ? value.slice(0, 7) : "none"
@@ -137,11 +132,8 @@ export function DeployInitialInstallSetup(props: {
   const repoGateBlocked = readiness.blocksDeploy
   const statusReason = readiness.message
   const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
-  const setupHostCfg = setupConfigQuery.data?.hosts?.[props.host]
-  const hostProvisioning = asRecord(setupHostCfg ? setupHostCfg["provisioning"] : null)
   const sshKeyReadiness = deriveDeploySshKeyReadiness({
     fleetSshAuthorizedKeys: setupConfigQuery.data?.fleet?.sshAuthorizedKeys,
-    hostProvisioningSshPubkeyFile: hostProvisioning?.["sshPubkeyFile"],
   })
   const sshKeyGateBlocked = runnerOnline && (
     setupConfigQuery.isPending
@@ -156,7 +148,7 @@ export function DeployInitialInstallSetup(props: {
         ? "Unable to read SSH key settings. Open Server Access and retry."
         : sshKeyReadiness.ready
           ? null
-          : "SSH key required before deploy. Add a key in Server Access or set provisioning.sshPubkeyFile."
+          : "SSH key required before deploy. Add at least one fleet SSH key in Server Access."
   const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked
   const deployStatusReason = repoGateBlocked ? statusReason : (sshKeyGateMessage || statusReason)
 

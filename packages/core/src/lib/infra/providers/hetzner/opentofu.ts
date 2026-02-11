@@ -1,34 +1,25 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { ensureHcloudSshKeyId } from "./hcloud.js";
 import type { HetznerProvisionSpec, ProvisionerRuntime } from "../../types.js";
 import { capture, run } from "../../../runtime/run.js";
 import { withFlakesEnv } from "../../../nix/nix-flakes.js";
-
-const HETZNER_ASSET_SEGMENTS = ["assets", "opentofu", "providers", "hetzner"] as const;
+import { resolveBundledOpenTofuAssetDir } from "../../opentofu-assets.js";
 
 export function resolveHetznerOpenTofuWorkDir(runtime: ProvisionerRuntime): string {
   return path.join(runtime.opentofuDir, "providers", "hetzner");
 }
 
-function resolveBundledHetznerAssetDir(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.resolve(here, "..", "..", "..", "..", ...HETZNER_ASSET_SEGMENTS),
-    path.resolve(here, "..", "..", "..", ...HETZNER_ASSET_SEGMENTS),
-    path.resolve(here, "..", "..", ...HETZNER_ASSET_SEGMENTS),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-
-  throw new Error(`missing bundled hetzner OpenTofu assets: ${candidates.join(", ")}`);
+function resolveBundledHetznerAssetDir(runtime: ProvisionerRuntime): string {
+  return resolveBundledOpenTofuAssetDir({
+    provider: "hetzner",
+    runtime,
+    moduleUrl: import.meta.url,
+  });
 }
 
 function ensureHetznerOpenTofuWorkDir(runtime: ProvisionerRuntime): string {
-  const srcDir = resolveBundledHetznerAssetDir();
+  const srcDir = resolveBundledHetznerAssetDir(runtime);
   const workDir = resolveHetznerOpenTofuWorkDir(runtime);
 
   fs.mkdirSync(workDir, { recursive: true });

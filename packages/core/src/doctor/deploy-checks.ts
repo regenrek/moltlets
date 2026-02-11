@@ -34,6 +34,8 @@ import { readYamlScalarFromMapping } from "../lib/storage/yaml-scalar.js";
 import { mapWithConcurrency } from "../lib/runtime/concurrency.js";
 import type { DoctorPush } from "./types.js";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
+import { resolveBundledOpenTofuAssetDir } from "../lib/infra/opentofu-assets.js";
+import type { ProvisionerRuntime } from "../lib/infra/types.js";
 
 export async function addDeployChecks(params: {
   cwd: string;
@@ -194,6 +196,35 @@ export async function addDeployChecks(params: {
         label: "provisioning.provider",
         detail: provider || "(unset)",
       });
+
+      const runtimeForAssets: ProvisionerRuntime = {
+        repoRoot: params.repoRoot,
+        opentofuDir: "",
+        nixBin: params.nixBin,
+        dryRun: true,
+        redact: [],
+        credentials: {},
+      };
+      if (provider === "aws" || provider === "hetzner") {
+        try {
+          const assetsDir = resolveBundledOpenTofuAssetDir({
+            provider,
+            runtime: runtimeForAssets,
+            moduleUrl: import.meta.url,
+          });
+          push({
+            status: "ok",
+            label: `opentofu assets (${provider})`,
+            detail: assetsDir,
+          });
+        } catch (err) {
+          push({
+            status: "missing",
+            label: `opentofu assets (${provider})`,
+            detail: String((err as Error)?.message || err),
+          });
+        }
+      }
 
       if (provider === "aws") {
         const region = String(clawletsHostCfg.aws?.region || "").trim();
