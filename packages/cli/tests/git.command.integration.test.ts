@@ -18,14 +18,21 @@ describe("git command", () => {
     vi.clearAllMocks();
   });
 
+  it("does not expose a clone subcommand", async () => {
+    const { git } = await import("../src/commands/git/index.js");
+    expect((git as any).subCommands?.clone).toBeUndefined();
+  });
+
   it("prints status JSON for deploy metadata", async () => {
     captureMock.mockImplementation(async (_cmd: string, args: string[]) => {
-      if (args[0] === "rev-parse" && args[1] === "--abbrev-ref" && args[2] === "HEAD") return "main\n";
-      if (args[0] === "rev-parse" && args[1] === "HEAD") return "local-head\n";
-      if (args[0] === "rev-parse" && args[1] === "--abbrev-ref" && String(args[2] || "").includes("@{upstream}")) return "origin/main\n";
+      if (args[0] === "symbolic-ref") return "main\n";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(objectname)" && args[3] === "refs/heads/main") return "local-head\n";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(upstream:short)" && args[3] === "refs/heads/main") return "origin/main\n";
       if (args[0] === "rev-list") return "1 2\n";
       if (args[0] === "status") return "";
-      if (args[0] === "for-each-ref") return "origin/main origin-head\n";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(refname:short) %(objectname)" && args[3] === "refs/remotes/origin/HEAD") {
+        return "origin/main origin-head\n";
+      }
       return "";
     });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -45,6 +52,40 @@ describe("git command", () => {
       detached: false,
       needsPush: true,
       canPush: true,
+    });
+    logSpy.mockRestore();
+  });
+
+  it("handles unborn HEAD without throwing and reports missing commit state", async () => {
+    captureMock.mockImplementation(async (_cmd: string, args: string[]) => {
+      if (args[0] === "symbolic-ref") return "main\n";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(objectname)" && args[3] === "refs/heads/main") return "";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(upstream:short)" && args[3] === "refs/heads/main") return "";
+      if (args[0] === "status") return "";
+      if (args[0] === "for-each-ref" && args[1] === "--format" && args[2] === "%(refname:short) %(objectname)" && args[3] === "refs/remotes/origin/HEAD") {
+        return "";
+      }
+      if (args[0] === "config" && args[1] === "--get" && args[2] === "remote.origin.url") return "git@github.com:example/repo.git\n";
+      return "";
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { git } = await import("../src/commands/git/index.js");
+    await git.subCommands.status.run({ args: { json: true } } as any);
+
+    const payloadRaw = String(logSpy.mock.calls[0]?.[0] || "{}");
+    expect(JSON.parse(payloadRaw)).toEqual({
+      branch: "main",
+      upstream: null,
+      localHead: null,
+      originDefaultRef: null,
+      originHead: null,
+      dirty: false,
+      ahead: null,
+      behind: null,
+      detached: false,
+      needsPush: false,
+      canPush: false,
+      pushBlockedReason: "No commits yet. Create the first commit before pushing.",
     });
     logSpy.mockRestore();
   });

@@ -6,6 +6,8 @@ export type RunOpts = {
   dryRun?: boolean;
   redact?: string[];
   stdin?: "inherit" | "ignore";
+  stdout?: "inherit" | "ignore";
+  stderr?: "inherit" | "ignore";
   timeoutMs?: number;
   maxOutputBytes?: number;
   redactOutput?: boolean;
@@ -46,10 +48,18 @@ export async function run(
       if (err) reject(err);
       else resolve();
     };
+    const stdinMode = opts.stdin ?? "inherit";
+    const stdoutMode = opts.stdout ?? "inherit";
+    const stderrMode = opts.stderr ?? "inherit";
+    const stdio: ["inherit" | "ignore", "inherit" | "ignore", "inherit" | "ignore"] = [
+      stdinMode,
+      stdoutMode,
+      stderrMode,
+    ];
     const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: opts.env,
-      stdio: "inherit",
+      stdio,
     });
     timeout = opts.timeoutMs
       ? setTimeout(() => {

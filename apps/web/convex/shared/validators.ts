@@ -50,6 +50,7 @@ export const ProjectDoc = v.object({
   workspaceRef: WorkspaceRef,
   workspaceRefKey: v.string(),
   localPath: v.optional(v.string()),
+  runnerRepoPath: v.optional(v.string()),
   status: ProjectStatus,
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -184,6 +185,12 @@ export const JobDoc = v.object({
   status: JobStatus,
   payload: v.optional(JobPayloadMeta),
   payloadHash: v.optional(v.string()),
+  targetRunnerId: v.optional(v.id("runners")),
+  sealedInputB64: v.optional(v.string()),
+  sealedInputAlg: v.optional(v.string()),
+  sealedInputKeyId: v.optional(v.string()),
+  sealedInputRequired: v.optional(v.boolean()),
+  sealedPendingExpiresAt: v.optional(v.number()),
   leaseId: v.optional(v.string()),
   leasedByRunnerId: v.optional(v.id("runners")),
   leaseExpiresAt: v.optional(v.number()),
@@ -192,6 +199,29 @@ export const JobDoc = v.object({
   startedAt: v.optional(v.number()),
   finishedAt: v.optional(v.number()),
   errorMessage: v.optional(v.string()),
+});
+
+export const RunnerCommandResultDoc = v.object({
+  _id: v.id("runnerCommandResults"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  runId: v.id("runs"),
+  jobId: v.id("jobs"),
+  resultJson: v.string(),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+});
+
+export const RunnerCommandResultBlobDoc = v.object({
+  _id: v.id("runnerCommandResultBlobs"),
+  _creationTime: v.number(),
+  projectId: v.id("projects"),
+  runId: v.id("runs"),
+  jobId: v.id("jobs"),
+  storageId: v.id("_storage"),
+  sizeBytes: v.number(),
+  createdAt: v.number(),
+  expiresAt: v.number(),
 });
 
 export const AuditLogDoc = v.object({

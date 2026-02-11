@@ -2,5 +2,5 @@
   "title": "Plugins",
   "description": "Optional extensions to Clawlets workflows",
   "icon": "Plug",
-  "pages": ["index", "hetzner-cattle", "clf-orchestrator", "clf-queue", "cattle-runtime-layout"]
+  "pages": ["index"]
 }

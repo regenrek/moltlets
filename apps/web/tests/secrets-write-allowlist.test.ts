@@ -8,18 +8,6 @@ describe("secrets write allowlist", () => {
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
       baseFlake: "",
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
-      },
       fleet: { secretEnv: {}, secretFiles: {} },
       hosts: {
         alpha: {
@@ -44,18 +32,6 @@ describe("secrets write allowlist", () => {
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
       baseFlake: "",
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
-      },
       fleet: {
         secretEnv: {},
         secretFiles: {},

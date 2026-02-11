@@ -12,22 +12,28 @@ export const Route = createFileRoute("/$projectSlug/setup/")({
     const project = projects.find((item) => slugifyProjectName(String(item?.name || "")) === params.projectSlug) || null
     const projectId = project?._id ?? null
 
-    if (!projectId || project?.status !== "ready") {
+    const status = project?.status
+    if (!projectId || (status !== "ready" && status !== "creating")) {
       throw redirect({
         to: "/$projectSlug/hosts",
         params: { projectSlug: params.projectSlug },
       })
     }
 
-    const hosts = await context.queryClient.ensureQueryData(
-      convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    )
-    const defaultHost = resolveSetupHost(hosts.map((row) => row.hostName))
+    let defaultHost: string
+    if (status === "ready") {
+      const hosts = (await context.queryClient.ensureQueryData(
+        convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+      )) as Array<{ hostName: string }>
+      defaultHost = resolveSetupHost(hosts.map((row) => row.hostName))
+    } else {
+      defaultHost = resolveSetupHost([])
+    }
 
     throw redirect({
-      to: "/$projectSlug/hosts/$host/setup",
+      to: "/$projectSlug/hosts/$host/setup" as any,
       params: { projectSlug: params.projectSlug, host: defaultHost },
-    })
+    } as any)
   },
   component: () => null,
 })

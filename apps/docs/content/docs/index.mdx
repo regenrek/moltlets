@@ -85,8 +85,7 @@ https://github.com/regenrek/clawlets/issues
 
 Clawlets centers the local dashboard for setup and day-2 operations, then backs that
 with a single configuration file and a secrets workflow that stays out of the Nix
-store. It renders per-gateway services, workspaces, and gateways via NixOS modules, and
-it can also spin up short-lived cattle instances when you need additional workers.
+store. It renders per-gateway services, workspaces, and gateways via NixOS modules.
 
 ## Lifecycle you will follow
 
@@ -113,7 +112,7 @@ installs.
 
 The project repo is the canonical source of truth and is intended to be committed:
 `fleet/clawlets.json` for config, `fleet/workspaces/**` for gateway docs, `secrets/**`
-for sops-encrypted secrets, and `cattle/personas/**` for cattle definitions. The
+for sops-encrypted secrets. The
 runtime directory `.clawlets/` is local-only and gitignored; it stores operator
 keys, extra-files payloads, provisioning state, and image build artifacts.
 

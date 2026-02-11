@@ -6,8 +6,12 @@ import {
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { createConvexClient } from "~/server/convex"
-import { enqueueRunnerJobForRun } from "~/sdk/runtime"
-import { parseProjectHostRequiredInput, parseProjectHostTargetInput } from "~/sdk/runtime"
+import {
+  enqueueRunnerJobForRun,
+  parseProjectHostRequiredInput,
+  parseProjectHostTargetInput,
+  takeRunnerCommandResultObject,
+} from "~/sdk/runtime"
 
 export type PublicIpv4Result =
   | { ok: true; ipv4: string; source: "bootstrap_logs" }
@@ -43,7 +47,7 @@ async function enqueueCustomProbe(params: {
   host: string
   title: string
   args: string[]
-}): Promise<{ runId: Id<"runs"> }> {
+}): Promise<{ runId: Id<"runs">; jobId: Id<"jobs"> }> {
   const client = createConvexClient()
   const { runId } = await client.mutation(api.controlPlane.runs.create, {
     projectId: params.projectId,
@@ -51,7 +55,7 @@ async function enqueueCustomProbe(params: {
     title: params.title,
     host: params.host,
   })
-  await enqueueRunnerJobForRun({
+  const queued = await enqueueRunnerJobForRun({
     client,
     projectId: params.projectId,
     runId,
@@ -64,7 +68,7 @@ async function enqueueCustomProbe(params: {
       note: "web connectivity probe",
     },
   })
-  return { runId }
+  return { runId, jobId: queued.jobId }
 }
 
 async function waitForRunTerminal(params: {
@@ -102,22 +106,6 @@ async function listRunMessages(runId: Id<"runs">): Promise<string[]> {
     paginationOpts: { numItems: 200, cursor: null },
   })
   return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
-}
-
-function parseLastJsonMessage<T extends Record<string, unknown>>(messages: string[]): T | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i]?.trim() || ""
-    if (!message || !message.startsWith("{") || !message.endsWith("}")) continue
-    try {
-      const parsed = JSON.parse(message) as unknown
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as T
-      }
-    } catch {
-      continue
-    }
-  }
-  return null
 }
 
 function lastErrorMessage(messages: string[]): string {
@@ -180,15 +168,21 @@ export const probeHostTailscaleIpv4 = createServerFn({ method: "POST" })
       ],
     })
     const terminal = await waitForRunTerminal({ projectId: data.projectId, runId: queued.runId })
-    const messages = await listRunMessages(queued.runId)
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages(queued.runId)
     if (terminal.status !== "succeeded") {
       return { ok: false as const, error: terminal.errorMessage || lastErrorMessage(messages) }
     }
-    const parsed = parseLastJsonMessage<{ ok?: boolean; ipv4?: string; error?: string }>(messages)
+    const client = createConvexClient()
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (parsed?.ok && typeof parsed.ipv4 === "string" && parsed.ipv4.trim()) {
       return { ok: true as const, ipv4: parsed.ipv4.trim() }
     }
-    return { ok: false as const, error: parsed?.error || "tailscale probe output missing ipv4" }
+    return { ok: false as const, error: typeof parsed?.error === "string" ? parsed.error : "tailscale probe output missing ipv4" }
   })
 
 export const probeSshReachability = createServerFn({ method: "POST" })
@@ -213,13 +207,19 @@ export const probeSshReachability = createServerFn({ method: "POST" })
       ],
     })
     const terminal = await waitForRunTerminal({ projectId: data.projectId, runId: queued.runId })
-    const messages = await listRunMessages(queued.runId)
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages(queued.runId)
     if (terminal.status !== "succeeded") {
       return { ok: false as const, error: terminal.errorMessage || lastErrorMessage(messages) }
     }
-    const parsed = parseLastJsonMessage<{ ok?: boolean; hostname?: string | null; error?: string }>(messages)
+    const client = createConvexClient()
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (parsed?.ok) {
       return { ok: true as const, hostname: typeof parsed.hostname === "string" ? parsed.hostname : undefined }
     }
-    return { ok: false as const, error: parsed?.error || "ssh probe output missing" }
+    return { ok: false as const, error: typeof parsed?.error === "string" ? parsed.error : "ssh probe output missing" }
   })

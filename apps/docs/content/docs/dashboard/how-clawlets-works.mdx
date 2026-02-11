@@ -30,9 +30,10 @@ flowchart LR
 ## Stage 1: First login and project creation
 
 1. Sign in at `http://localhost:3000`.
-2. Create project and choose repo/template source.
-3. Wait for project init run to finish.
-4. Open host setup at `/<projectSlug>/hosts/<host>/setup`.
+2. Create project (or import) and set runner repo path (default: `~/.clawlets/projects/<slug>`).
+3. Start runner with the token/command shown in the dialog.
+4. Wait for project init/import run to finish.
+5. Open host setup at `/<projectSlug>/hosts/<host>/setup`.
 
 For UI details: [First login](/dashboard/first-login).
 
@@ -50,7 +51,7 @@ Step order and gating:
 
 1. `Connect Runner` (`runner`): requires fresh online runner + successful repo probe.
 2. `Server Access` (`connection`): requires `provisioning.adminCidr` and at least one `fleet.sshAuthorizedKeys` entry.
-3. `Provider Tokens` (`creds`): requires `SOPS_AGE_KEY_FILE` and `HCLOUD_TOKEN`.
+3. `Provider Tokens` (`creds`): requires `HCLOUD_TOKEN`, `GITHUB_TOKEN`, and `SOPS_AGE_KEY_FILE`.
 4. `Server Passwords` (`secrets`): requires successful run `secrets_verify_bootstrap`.
 5. `Install Server` (`deploy`): requires successful bootstrap run (`bootstrap`).
 6. `Secure and Verify` (`verify`): optional post-bootstrap hardening checklist.
@@ -83,7 +84,7 @@ Details: [Deploy](/operations/deploy), [Deployment scenarios](/operations/deploy
 
 ## Verify by stage
 
-- Stage 1 complete: project status is `ready`; init run is successful.
+- Stage 1 complete: project status is `ready`; init/import run is successful.
 - Stage 2 complete: latest `bootstrap` run for host is `succeeded`.
 - Stage 3 complete: latest `server_update_apply` run for host is `succeeded` after OpenClaw changes.
 - Stage 4 healthy: repeated update applies succeed with no secrets digest or signature failures.

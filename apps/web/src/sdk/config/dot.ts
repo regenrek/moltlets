@@ -9,10 +9,10 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectIdInput,
   waitForRunTerminal,
 } from "~/sdk/runtime"
+export { configDotGet } from "./dot-get"
 
 type ConfigDotOp = {
   path: string
@@ -27,46 +27,6 @@ function toFailure(message: string): { ok: false; issues: ValidationIssue[] } {
     issues: [{ code: "error", path: [], message }],
   }
 }
-
-export const configDotGet = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    return { ...base, path: coerceString(d["path"]) }
-  })
-  .handler(async ({ data }) => {
-    const client = createConvexClient()
-    await requireAdminProjectAccess(client, data.projectId)
-    const parts = splitDotPath(data.path)
-    const normalizedPath = parts.join(".")
-    const queued = await enqueueRunnerCommand({
-      client,
-      projectId: data.projectId,
-      runKind: "custom",
-      title: `config get ${normalizedPath}`,
-      args: ["config", "get", "--path", normalizedPath, "--json"],
-      note: "control-plane config read",
-    })
-    const terminal = await waitForRunTerminal({
-      client,
-      projectId: data.projectId,
-      runId: queued.runId,
-      timeoutMs: 30_000,
-    })
-    const messages = await listRunMessages({ client, runId: queued.runId })
-    if (terminal.status !== "succeeded") {
-      throw new Error(terminal.errorMessage || lastErrorMessage(messages, "config read failed"))
-    }
-    const parsed = parseLastJsonMessage<{ path?: unknown; value?: unknown }>(messages)
-    if (!parsed) {
-      throw new Error(lastErrorMessage(messages, "config read output missing JSON payload"))
-    }
-    const path =
-      typeof parsed.path === "string" && parsed.path.trim()
-        ? parsed.path.trim()
-        : normalizedPath
-    return { path, value: parsed.value as any }
-  })
 
 export const configDotSet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {

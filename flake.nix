@@ -17,7 +17,7 @@
     nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
 
     openclaw-src = {
-      url = "github:openclaw/openclaw/28e1a65ebc580f07533966f5693f4df0a18d7085";
+      url = "github:openclaw/openclaw/aade133978cde403f55213bdd4ebeb2ab2f0dceb";
       flake = false;
     };
 
@@ -67,7 +67,7 @@
             fetcherVersion = 3;
             pnpmWorkspaces = pnpmWorkspacesOpenclaw;
             # Update this when the OpenClaw pnpm-lock.yaml changes
-            hash = "sha256-vnnuR6JH3xtr0eItSuZu5FWvmcLReQP7QmDRKT+bVdQ=";
+            hash = "sha256-y3GPrZ0OJJaocAR6yLTSjgJPgNJ4Z6uPm0+K33PXAqQ=";
           };
 
           openclawSrcWithDeps = pkgs.buildNpmPackage {
@@ -244,18 +244,6 @@
               sshKnownHosts = [ ];
               backups = { restic = { enable = false; repository = ""; }; };
             };
-            cattle = {
-              enabled = false;
-              hetzner = {
-                image = "";
-                serverType = "cx22";
-                location = "nbg1";
-                maxInstances = 10;
-                defaultTtl = "2h";
-                labels = { "managed-by" = "clawlets"; };
-              };
-              defaults = { autoShutdown = true; callbackUrl = ""; };
-            };
             hosts = {
               "openclaw-fleet-host" = {
                 enable = false;
@@ -402,7 +390,6 @@
 
       nixosModules = {
         clawletsProjectHost = import ./nix/hosts/project-host.nix;
-        clawletsCattleImage = import ./nix/openclaw/cattle/image.nix;
 
         # Advanced / reuse. Projects should generally import clawletsProjectHost only.
         clawletsHostMeta = import ./nix/infra/modules/clawlets-host-meta.nix;
@@ -413,7 +400,6 @@
         clawletsImageFormats = import ./nix/infra/modules/clawlets-image-formats.nix;
 
         openclawFleet = import ./nix/openclaw/modules/openclaw-fleet.nix;
-        openclawCattle = import ./nix/openclaw/modules/openclaw-cattle.nix;
 
         diskoHetznerExt4 = import ./nix/infra/disko/hetzner-ext4.nix;
       };

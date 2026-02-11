@@ -33,6 +33,11 @@ describe("execute admin guard", () => {
     vi.doMock("~/server/redaction", () => ({ readClawletsEnvTokens: async () => [] }))
     vi.doMock("~/server/clawlets-cli", () => ({ resolveClawletsCliEntry: () => "cli.js" }))
     vi.doMock("~/server/convex", () => ({ createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any }))
+    vi.doMock("~/sdk/project", () => ({
+      requireAdminProjectAccess: async () => {
+        throw new Error("admin required")
+      },
+    }))
 
     const mod = await import("~/sdk/server")
 
@@ -103,11 +108,10 @@ describe("execute admin guard", () => {
             projectId: "p1" as any,
             runId: "run1" as any,
             host: "alpha",
+            scope: "all",
             allowPlaceholders: true,
-            adminPassword: "",
-            adminPasswordHash: "",
-            tailscaleAuthKey: "",
-            secrets: {},
+            secretNames: [],
+            targetRunnerId: "r1" as any,
           },
         }),
       ),

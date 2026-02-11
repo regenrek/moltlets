@@ -6,6 +6,7 @@ export const WEB_DEPLOY_CREDS_EDITABLE_KEYS = [
 
 export const WEB_SETUP_REQUIRED_KEYS = [
   "HCLOUD_TOKEN",
+  "GITHUB_TOKEN",
   "SOPS_AGE_KEY_FILE",
 ] as const
 

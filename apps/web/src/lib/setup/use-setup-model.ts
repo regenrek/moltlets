@@ -7,41 +7,13 @@ import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { coerceSetupStepId, deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { deriveRepoProbeState, loadSetupConfig, type RepoProbeState, type SetupConfig } from "~/lib/setup/repo-probe"
 import type { DeployCredsStatus } from "~/sdk/infra"
-import { configDotGet } from "~/sdk/config"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type SetupSearch = {
   step?: string
-}
-
-export type RepoProbeState = "idle" | "checking" | "ok" | "error"
-
-type SetupConfig = {
-  hosts: Record<string, Record<string, unknown>>
-  fleet: {
-    sshAuthorizedKeys: unknown[]
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
-function decodeSetupConfig(params: {
-  host: string
-  hostValue: unknown
-  sshKeysValue: unknown
-}): SetupConfig {
-  const hostCfg = asRecord(params.hostValue)
-  return {
-    hosts: hostCfg ? { [params.host]: hostCfg } : {},
-    fleet: {
-      sshAuthorizedKeys: Array.isArray(params.sshKeysValue) ? params.sshKeysValue : [],
-    },
-  }
 }
 
 export function useSetupModel(params: { projectSlug: string; host: string; search: SetupSearch }) {
@@ -50,12 +22,14 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const projectId = projectQuery.projectId
   const projectStatus = projectQuery.project?.status
   const isReady = projectStatus === "ready"
+  const isCreating = projectStatus === "creating"
+  const isError = projectStatus === "error"
 
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, {
       projectId: projectId as Id<"projects">,
     }),
-    enabled: Boolean(projectId && isReady),
+    enabled: Boolean(projectId && (isReady || isCreating)),
   })
   const runners = runnersQuery.data ?? []
   const runnerOnline = React.useMemo(
@@ -64,31 +38,16 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   )
 
   const configQuery = useQuery({
-    queryKey: ["hostSetupConfig", projectId, params.host],
-    enabled: Boolean(projectId && isReady && params.host && runnerOnline),
-    queryFn: async () => {
-      const [hostNode, sshKeysNode] = await Promise.all([
-        configDotGet({
-          data: {
-            projectId: projectId as Id<"projects">,
-            path: `hosts.${params.host}`,
-          },
-        }),
-        configDotGet({
-          data: {
-            projectId: projectId as Id<"projects">,
-            path: "fleet.sshAuthorizedKeys",
-          },
-        }),
-      ])
-      return decodeSetupConfig({
-        host: params.host,
-        hostValue: hostNode.value,
-        sshKeysValue: sshKeysNode.value,
-      })
-    },
+    queryKey: ["hostSetupConfig", projectId],
+    enabled: Boolean(projectId && isReady && runnerOnline),
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => await loadSetupConfig(projectId as Id<"projects">),
   })
   const config = configQuery.data ?? null
+
+  const hasConfig = Boolean(configQuery.data)
 
   const deployCredsQuery = useQuery({
     ...deployCredsQueryOptions(projectId),
@@ -96,16 +55,12 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   })
   const deployCreds: DeployCredsStatus | null = deployCredsQuery.data ?? null
 
-  const repoProbeOk = runnerOnline && configQuery.isSuccess
-  const repoProbeState: RepoProbeState = !runnerOnline
-    ? "idle"
-    : configQuery.isPending
-      ? "checking"
-      : configQuery.isSuccess
-        ? "ok"
-        : configQuery.isError
-          ? "error"
-          : "checking"
+  const repoProbeOk = runnerOnline && hasConfig
+  const repoProbeState: RepoProbeState = deriveRepoProbeState({
+    runnerOnline,
+    hasConfig,
+    hasError: configQuery.isError,
+  })
   const repoProbeError = repoProbeState === "error" ? configQuery.error : null
 
   const latestBootstrapRunQuery = useQuery({
@@ -124,6 +79,14 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
       kind: SECRETS_VERIFY_BOOTSTRAP_RUN_KIND,
     }),
     enabled: Boolean(projectId && params.host),
+  })
+
+  const projectInitRunsPageQuery = useQuery({
+    ...convexQuery(api.controlPlane.runs.listByProjectPage, {
+      projectId: projectId as Id<"projects">,
+      paginationOpts: { numItems: 50, cursor: null as string | null },
+    }),
+    enabled: Boolean(projectId && isError),
   })
 
   const model: SetupModel = React.useMemo(
@@ -176,13 +139,6 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     if (next) setStep(next)
   }, [model.activeStepId, model.steps, setStep])
 
-  React.useEffect(() => {
-    const requested = coerceSetupStepId(params.search.step)
-    if (!requested) {
-      setSearch({ step: model.activeStepId }, { replace: true })
-    }
-  }, [model.activeStepId, params.search.step, setSearch])
-
   return {
     projectQuery,
     projectId,
@@ -200,6 +156,7 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     deployCreds,
     latestBootstrapRunQuery,
     latestBootstrapSecretsVerifyRunQuery,
+    projectInitRunsPageQuery,
     model,
     selectedHost: model.selectedHost,
     setStep,

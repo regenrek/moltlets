@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { authComponent, createAuth } from "./auth";
 import {
   ensureBoundedString,
+  ensureBoundedUtf8String,
   ensureOptionalBoundedString,
   sha256Hex,
   CONTROL_PLANE_LIMITS,
@@ -17,9 +18,13 @@ import {
   sanitizeHostPatch,
   validateMetadataSyncPayloadSizes,
 } from "./controlPlane/httpParsers";
+import { storeRunnerCommandResultBlob } from "./controlPlane/jobCommandResultBlobs";
+import { touchRunnerTokenLastUsed } from "./controlPlane/runnerAuth";
 
 const http = httpRouter();
 type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
+const RUNNER_COMMAND_RESULT_MAX_BYTES = 512 * 1024;
+const RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES = 5 * 1024 * 1024;
 
 authComponent.registerRoutes(http, createAuth);
 
@@ -75,10 +80,10 @@ async function requireRunnerAuth(
   ) {
     return null;
   }
-  void ctx.runMutation(internal.controlPlane.runnerTokens.touchLastUsedInternal, {
+  await touchRunnerTokenLastUsed(ctx, {
     tokenId: tokenDoc.tokenId,
     now: Date.now(),
-  }).catch(() => {});
+  });
   if (!runner) return null;
   return {
     tokenId: tokenDoc.tokenId,
@@ -112,7 +117,7 @@ http.route({
       "version",
       CONTROL_PLANE_LIMITS.hash,
     );
-    const parsedCapabilities = parseRunnerHeartbeatCapabilities(payload.capabilities);
+    const parsedCapabilities = await parseRunnerHeartbeatCapabilities(payload.capabilities);
     if (!parsedCapabilities.ok) return json(400, { error: parsedCapabilities.error });
     const res = await ctx.runMutation(internal.controlPlane.runners.upsertHeartbeatInternal, {
       projectId: auth.projectId,
@@ -197,18 +202,66 @@ http.route({
     const leaseId = typeof payload.leaseId === "string" ? payload.leaseId.trim() : "";
     const status = typeof payload.status === "string" ? payload.status : "";
     const errorMessage = typeof payload.errorMessage === "string" ? payload.errorMessage : undefined;
+    const commandResultJsonRaw =
+      typeof payload.commandResultJson === "string" ? payload.commandResultJson.trim() : "";
+    const commandResultJson =
+      commandResultJsonRaw.length > 0
+        ? ensureBoundedUtf8String(commandResultJsonRaw, "commandResultJson", RUNNER_COMMAND_RESULT_MAX_BYTES)
+        : undefined;
+    const commandResultLargeJsonRaw =
+      typeof payload.commandResultLargeJson === "string" ? payload.commandResultLargeJson.trim() : "";
+    const commandResultLargeJson =
+      commandResultLargeJsonRaw.length > 0
+        ? ensureBoundedUtf8String(
+            commandResultLargeJsonRaw,
+            "commandResultLargeJson",
+            RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES,
+          )
+        : undefined;
     if (!jobId || !leaseId) return json(400, { error: "jobId and leaseId required" });
+    if (commandResultJson && commandResultLargeJson) {
+      return json(400, { error: "command result payload conflict" });
+    }
     if (status !== "succeeded" && status !== "failed" && status !== "canceled") {
       return json(400, { error: "invalid status" });
     }
 
-    const result = await ctx.runMutation(internal.controlPlane.jobs.completeInternal, {
-      jobId: jobId as Id<"jobs">,
-      leaseId,
-      status,
-      errorMessage,
-    });
-    return json(200, result);
+    let commandResultLargeStorageId: Id<"_storage"> | undefined;
+    let commandResultLargeSizeBytes: number | undefined;
+    if (commandResultLargeJson) {
+      const stored = await storeRunnerCommandResultBlob({ ctx, commandResultLargeJson });
+      commandResultLargeStorageId = stored.storageId;
+      commandResultLargeSizeBytes = stored.sizeBytes;
+    }
+
+    try {
+      const result = await ctx.runMutation(internal.controlPlane.jobs.completeInternal, {
+        jobId: jobId as Id<"jobs">,
+        leaseId,
+        status,
+        errorMessage,
+        commandResultJson,
+        commandResultLargeStorageId,
+        commandResultLargeSizeBytes,
+      });
+      if (commandResultLargeStorageId && !result.ok) {
+        try {
+          await ctx.storage.delete(commandResultLargeStorageId);
+        } catch {
+          // best effort cleanup
+        }
+      }
+      return json(200, result);
+    } catch (error) {
+      if (commandResultLargeStorageId) {
+        try {
+          await ctx.storage.delete(commandResultLargeStorageId);
+        } catch {
+          // best effort cleanup
+        }
+      }
+      throw error;
+    }
   }),
 });
 

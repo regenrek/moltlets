@@ -20,8 +20,8 @@ local repo access.
 - Secret values are handled by the runner path, not persisted in control-plane storage.
 
 <Callout type="info" title="Execution mode matters">
-  This split assumes projects running in <code>executionMode=remote_runner</code> (no <code>localPath</code> on the dashboard host).
-  The current Create Project dialog scaffolds <code>executionMode=local</code> projects, which require the dashboard server to have repo access for some operations (scaffolding and workspace docs).
+  Use projects with <code>executionMode=remote_runner</code> and set <code>runnerRepoPath</code>.
+  Dashboard create/import now queues <code>project_init</code>/<code>project_import</code> for the runner and does not write repo files on the dashboard host.
 </Callout>
 
 Recommended deployment split:

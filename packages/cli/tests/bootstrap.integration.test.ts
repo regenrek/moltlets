@@ -34,7 +34,8 @@ const checkGithubRepoVisibilityMock = vi.fn().mockResolvedValue({ ok: true, stat
 const tryParseGithubFlakeUriMock = vi.fn().mockReturnValue(null);
 const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((value: string) => value);
-const findRepoRootMock = vi.fn().mockReturnValue("/repo");
+let repoRoot = "/repo";
+const findRepoRootMock = vi.fn(() => repoRoot);
 const evalFleetConfigMock = vi.fn().mockResolvedValue({ gateways: [] });
 const withFlakesEnvMock = vi.fn((env: NodeJS.ProcessEnv) => env);
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "" });
@@ -134,15 +135,22 @@ const baseHost = {
 let defaultPubkeyFile = "";
 let tempDir = "";
 
-function setConfig(hostOverrides: Partial<typeof baseHost>) {
+function setConfig(
+  hostOverrides: Partial<typeof baseHost>,
+  options?: {
+    repoRoot?: string;
+    fleetSshAuthorizedKeys?: string[];
+  },
+) {
+  const configRepoRoot = options?.repoRoot || repoRoot;
   const provisioning = {
     ...baseHost.provisioning,
     sshPubkeyFile: defaultPubkeyFile,
     ...hostOverrides.provisioning,
   };
   loadClawletsConfigMock.mockReturnValue({
-    layout: getRepoLayout("/repo"),
-    configPath: "/repo/fleet/clawlets.json",
+    layout: getRepoLayout(configRepoRoot),
+    configPath: path.join(configRepoRoot, "fleet/clawlets.json"),
     config: {
       schemaVersion: 2,
       defaultHost: hostName,
@@ -150,22 +158,10 @@ function setConfig(hostOverrides: Partial<typeof baseHost>) {
       fleet: {
         secretEnv: {},
         secretFiles: {},
-        sshAuthorizedKeys: [],
+        sshAuthorizedKeys: options?.fleetSshAuthorizedKeys || [],
         sshKnownHosts: [],
         codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
-      },
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
       },
       hosts: {
         [hostName]: { ...baseHost, ...hostOverrides, provisioning },
@@ -180,6 +176,7 @@ describe("bootstrap command", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    repoRoot = "/repo";
     tempDir = fs.mkdtempSync(path.join(tmpdir(), "clawlets-bootstrap-"));
     defaultPubkeyFile = path.join(tempDir, "id_ed25519.pub");
     fs.writeFileSync(defaultPubkeyFile, "ssh-ed25519 AAAATEST bootstrap-test", "utf8");
@@ -369,6 +366,38 @@ describe("bootstrap command", () => {
     await expect(
       bootstrap.run({ args: { host: hostName, flake: "github:owner/repo", force: true, dryRun: true } as any }),
     ).rejects.toThrow(/ssh pubkey file not found/i);
+  });
+
+  it("uses fleet sshAuthorizedKeys when host sshPubkeyFile is empty", async () => {
+    const repoDir = path.join(tempDir, "repo");
+    fs.mkdirSync(repoDir, { recursive: true });
+    repoRoot = repoDir;
+    setConfig(
+      { provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "" } },
+      {
+        repoRoot: repoDir,
+        fleetSshAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P bootstrap-fallback"],
+      },
+    );
+
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
+    await bootstrap.run({
+      args: {
+        host: hostName,
+        flake: "github:owner/repo",
+        rev: "",
+        ref: "",
+        force: true,
+        dryRun: true,
+      } as any,
+    });
+
+    expect(provisionMock).toHaveBeenCalledTimes(1);
+    const spec = provisionMock.mock.calls[0]?.[0]?.spec;
+    expect(spec?.ssh?.publicKey).toContain("ssh-ed25519");
+    expect(String(spec?.ssh?.publicKeyPath || "")).toContain(
+      `${path.sep}.clawlets${path.sep}keys${path.sep}provisioning${path.sep}${hostName}.pub`,
+    );
   });
 
   it("rejects missing base flake", async () => {

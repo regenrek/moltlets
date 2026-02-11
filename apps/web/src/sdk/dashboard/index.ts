@@ -24,6 +24,7 @@ export type DashboardProjectSummary = {
   executionMode: "local" | "remote_runner"
   workspaceRef: { kind: "local" | "git"; id: string; relPath?: string }
   localPath: string | null
+  runnerRepoPath: string | null
   updatedAt: number
   lastSeenAt: number | null
   cfg: DashboardProjectConfigSummary
@@ -48,6 +49,7 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
           executionMode: p.executionMode,
           workspaceRef: p.workspaceRef,
           localPath: typeof p.localPath === "string" && p.localPath.trim() ? p.localPath : null,
+          runnerRepoPath: typeof p.runnerRepoPath === "string" && p.runnerRepoPath.trim() ? p.runnerRepoPath : null,
           updatedAt: p.updatedAt,
           lastSeenAt: typeof p.lastSeenAt === "number" ? p.lastSeenAt : null,
         }

@@ -26,19 +26,74 @@ type GitStatusResult = {
   pushBlockedReason?: string;
 };
 
+async function readSymbolicBranch(cwd: string): Promise<string | null> {
+  try {
+    const value = (await capture("git", ["symbolic-ref", "--short", "-q", "HEAD"], { cwd, env: gitEnv() })).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readLocalHead(cwd: string): Promise<string | null> {
+  const symbolicBranch = await readSymbolicBranch(cwd);
+  if (symbolicBranch) {
+    return await readBranchHead(cwd, symbolicBranch);
+  }
+  return await readDetachedHead(cwd);
+}
+
+async function readDetachedHead(cwd: string): Promise<string | null> {
+  try {
+    const value = (await capture("git", ["rev-parse", "--verify", "HEAD"], { cwd, env: gitEnv() })).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readBranchHead(cwd: string, branch: string): Promise<string | null> {
+  try {
+    const value = (
+      await capture("git", ["for-each-ref", "--format", "%(objectname)", `refs/heads/${branch}`], { cwd, env: gitEnv() })
+    ).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readBranchUpstream(cwd: string, branch: string): Promise<string | null> {
+  try {
+    const value = (
+      await capture("git", ["for-each-ref", "--format", "%(upstream:short)", `refs/heads/${branch}`], { cwd, env: gitEnv() })
+    ).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readRemoteRefHead(cwd: string, shortRef: string): Promise<string | null> {
+  const normalized = shortRef.trim();
+  if (!normalized) return null;
+  const refPath = normalized.startsWith("refs/") ? normalized : `refs/remotes/${normalized}`;
+  try {
+    const value = (await capture("git", ["for-each-ref", "--format", "%(objectname)", refPath], { cwd, env: gitEnv() })).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveCurrentBranch(cwd: string): Promise<string> {
-  const branch = (await capture("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, env: gitEnv() })).trim();
-  if (!branch || branch === "HEAD") throw new Error("detached HEAD; checkout a branch before pushing");
+  const branch = await readSymbolicBranch(cwd);
+  if (!branch) throw new Error("detached HEAD; checkout a branch before pushing");
   return branch;
 }
 
 async function hasUpstream(cwd: string, branch: string): Promise<boolean> {
-  try {
-    const upstream = (await capture("git", ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], { cwd, env: gitEnv() })).trim();
-    return Boolean(upstream);
-  } catch {
-    return false;
-  }
+  return Boolean(await readBranchUpstream(cwd, branch));
 }
 
 async function readOriginHeadFromRefs(cwd: string): Promise<{ originDefaultRef: string | null; originHead: string | null }> {
@@ -56,34 +111,34 @@ async function readOriginHeadFromRefs(cwd: string): Promise<{ originDefaultRef: 
 }
 
 async function readOriginDefaultRefFromRemoteShow(cwd: string): Promise<string | null> {
-  try {
-    const remoteShow = await capture("git", ["remote", "show", "-n", "origin"], { cwd, env: gitEnv() });
-    const match = remoteShow.match(/HEAD branch:\s+([^\s]+)/);
-    if (match?.[1]) return `origin/${match[1]}`;
-  } catch {
-    return null;
-  }
+  const symbolic = await readSymbolicRef(cwd, "refs/remotes/origin/HEAD");
+  if (symbolic?.startsWith("origin/")) return symbolic;
   return null;
 }
 
+async function readSymbolicRef(cwd: string, ref: string): Promise<string | null> {
+  try {
+    const value = (await capture("git", ["symbolic-ref", "--short", "-q", ref], { cwd, env: gitEnv() })).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
 async function readGitStatusJson(cwd: string): Promise<GitStatusResult> {
-  const branchRaw = (await capture("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, env: gitEnv() })).trim();
-  const detached = !branchRaw || branchRaw === "HEAD";
-  const branch = detached ? "HEAD" : branchRaw;
-  const localHead = (await capture("git", ["rev-parse", "HEAD"], { cwd, env: gitEnv() })).trim() || null;
+  const symbolicBranch = await readSymbolicBranch(cwd);
+  const detached = !symbolicBranch;
+  const branch = detached ? "HEAD" : symbolicBranch;
+  const localHead = await readLocalHead(cwd);
 
   let upstream: string | null = null;
   if (!detached) {
-    try {
-      upstream = (await capture("git", ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], { cwd, env: gitEnv() })).trim() || null;
-    } catch {
-      upstream = null;
-    }
+    upstream = await readBranchUpstream(cwd, branch);
   }
 
   let ahead: number | null = null;
   let behind: number | null = null;
-  if (upstream) {
+  if (upstream && localHead) {
     try {
       const counts = (await capture("git", ["rev-list", "--left-right", "--count", `${upstream}...HEAD`], { cwd, env: gitEnv() })).trim();
       const [behindText, aheadText] = counts.split(/\s+/, 2);
@@ -101,15 +156,14 @@ async function readGitStatusJson(cwd: string): Promise<GitStatusResult> {
   const dirty = porcelain.trim().length > 0;
 
   let { originDefaultRef, originHead } = await readOriginHeadFromRefs(cwd);
+  if (!originDefaultRef && upstream?.startsWith("origin/")) {
+    originDefaultRef = upstream;
+  }
   if (!originDefaultRef) {
     originDefaultRef = await readOriginDefaultRefFromRemoteShow(cwd);
-    if (originDefaultRef) {
-      try {
-        originHead = (await capture("git", ["rev-parse", originDefaultRef], { cwd, env: gitEnv() })).trim() || null;
-      } catch {
-        originHead = null;
-      }
-    }
+  }
+  if (!originHead && originDefaultRef) {
+    originHead = await readRemoteRefHead(cwd, originDefaultRef);
   }
 
   let originRemote = Boolean(upstream || originDefaultRef);
@@ -121,10 +175,12 @@ async function readGitStatusJson(cwd: string): Promise<GitStatusResult> {
     }
   }
 
-  const needsPush = !detached && (upstream ? (ahead ?? 0) > 0 : true);
-  const canPush = !detached && Boolean(branch && branch !== "HEAD") && (Boolean(upstream) || originRemote);
+  const hasLocalCommit = Boolean(localHead);
+  const needsPush = !detached && hasLocalCommit && (upstream ? (ahead ?? 0) > 0 : true);
+  const canPush = !detached && hasLocalCommit && Boolean(branch && branch !== "HEAD") && (Boolean(upstream) || originRemote);
   let pushBlockedReason: string | undefined;
   if (detached) pushBlockedReason = "Detached HEAD; checkout a branch to push.";
+  else if (!hasLocalCommit) pushBlockedReason = "No commits yet. Create the first commit before pushing.";
   else if (!branch || branch === "HEAD") pushBlockedReason = "Unknown branch.";
   else if (!upstream && !originRemote) pushBlockedReason = "Missing origin remote.";
 
@@ -152,6 +208,9 @@ const gitPush = defineCommand({
   async run() {
     const cwd = findRepoRoot(process.cwd());
     const branch = await resolveCurrentBranch(cwd);
+    if (!(await readLocalHead(cwd))) {
+      throw new Error("no commits yet; create the first commit before pushing");
+    }
     const upstream = await hasUpstream(cwd, branch);
     const args = upstream ? ["push"] : ["push", "--set-upstream", "origin", branch];
     await run("git", args, { cwd, env: gitEnv() });

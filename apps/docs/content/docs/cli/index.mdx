@@ -10,9 +10,6 @@ important as soon as you want reproducible runs or bulk changes.
 
 Canonical source: `clawlets --help`.
 
-Related:
-- `clf` is the gateway‑facing CLI (`clf jobs ...`). See [CLF Orchestrator](/plugins/clf-orchestrator).
-
 ## Core workflow (project repo)
 
 A typical flow looks like this:
@@ -61,25 +58,10 @@ safe to run repeatedly and are the same actions the dashboard triggers internall
 - restart: `clawlets server restart --host <host> --unit openclaw-<gatewayId>.service`
 - updater: `clawlets server update apply|status|logs --host <host>`
 
-## Cattle (optional plugin)
+## Plugins (experimental)
 
-If you plan to use short-lived cattle instances, install the plugin once and then
-use it for spawns.
-Install once:
-
-<Callout type="warning" title="Experimental">
-Cattle is optional and not the common path yet. Expect workflows and flags to change.
-</Callout>
-
-```bash
-clawlets plugin add cattle
-```
-
-Then use:
-
-```bash
-clawlets cattle spawn --persona <name> --task-file ./task.json --ttl 2h
-```
+External CLF/cattle plugins are experimental and not part of the core supported path.
+See [Plugins overview](/plugins).
 
 ## Justfile shortcuts
 

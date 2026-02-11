@@ -1,8 +1,15 @@
+import path from 'node:path'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig } from 'vitest/config'
 import tsConfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '~': path.resolve(__dirname, 'src'),
+      src: path.resolve(__dirname, 'src'),
+    },
+  },
   plugins: [
     tsConfigPaths({
       projects: ['./tsconfig.json'],

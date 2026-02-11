@@ -12,12 +12,64 @@ import {
   requireProjectAccessQuery,
   requireAdmin,
 } from "../shared/auth";
+import { CONTROL_PLANE_LIMITS, ensureOptionalBoundedString } from "../shared/controlPlane";
 import { fail } from "../shared/errors";
 import { rateLimit } from "../shared/rateLimit";
 import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
 import { normalizeWorkspaceRef } from "../shared/workspaceRef";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
+const RUNNER_REPO_PATH_MAX_LEN = CONTROL_PLANE_LIMITS.projectConfigPath;
+
+function normalizeRepoPathSlashes(value: string): string {
+  const normalized = value
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+function hasTraversalPathSegment(value: string): boolean {
+  return value.split("/").some((segment) => segment === "..");
+}
+
+function normalizeRunnerRepoPath(input: unknown): string | undefined {
+  const value = ensureOptionalBoundedString(
+    typeof input === "string" ? input : undefined,
+    "runnerRepoPath",
+    RUNNER_REPO_PATH_MAX_LEN,
+  );
+  if (!value) return undefined;
+  if (value.includes("\0") || value.includes("\n") || value.includes("\r")) {
+    fail("conflict", "runnerRepoPath contains forbidden characters");
+  }
+  const normalized = normalizeRepoPathSlashes(value);
+  if (hasTraversalPathSegment(normalized)) {
+    fail("conflict", "runnerRepoPath cannot contain '..' path segments");
+  }
+  return normalized;
+}
+
+export function __test_normalizeRunnerRepoPath(input: unknown): string | undefined {
+  return normalizeRunnerRepoPath(input);
+}
+
+export function validateProjectCreateMode(params: {
+  executionMode: "local" | "remote_runner";
+  localPath: string;
+  runnerRepoPath?: string;
+  workspaceRefKind: "local" | "git";
+}): void {
+  if (params.executionMode === "local") {
+    if (!params.localPath) fail("conflict", "localPath required");
+    if (params.runnerRepoPath) fail("conflict", "runnerRepoPath forbidden for local execution mode");
+    if (params.workspaceRefKind !== "local") fail("conflict", "workspaceRef.kind must be local for local execution");
+    return;
+  }
+  if (params.localPath) fail("conflict", "localPath forbidden for remote_runner execution mode");
+  if (!params.runnerRepoPath) fail("conflict", "runnerRepoPath required for remote_runner execution mode");
+  if (params.workspaceRefKind !== "git") fail("conflict", "workspaceRef.kind must be git for remote_runner execution");
+}
 
 export function parseLiveSchemaTarget(args: { host: string; gatewayId: string }): { host: string; gatewayId: string } {
   const host = args.host.trim();
@@ -78,6 +130,7 @@ export const create = mutation({
     executionMode: ExecutionMode,
     workspaceRef: WorkspaceRef,
     localPath: v.optional(v.string()),
+    runnerRepoPath: v.optional(v.string()),
   },
   returns: v.object({ projectId: v.id("projects") }),
   handler: async (ctx, args) => {
@@ -89,14 +142,14 @@ export const create = mutation({
     const executionMode = args.executionMode;
     const workspaceRef = normalizeWorkspaceRef(args.workspaceRef);
     const localPath = typeof args.localPath === "string" ? args.localPath.trim() : "";
+    const runnerRepoPath = normalizeRunnerRepoPath(args.runnerRepoPath);
     if (!name) fail("conflict", "name required");
-    if (executionMode === "local") {
-      if (!localPath) fail("conflict", "localPath required");
-      if (workspaceRef.kind !== "local") fail("conflict", "workspaceRef.kind must be local for local execution");
-    } else {
-      if (localPath) fail("conflict", "localPath forbidden for remote_runner execution mode");
-      if (workspaceRef.kind !== "git") fail("conflict", "workspaceRef.kind must be git for remote_runner execution");
-    }
+    validateProjectCreateMode({
+      executionMode,
+      localPath,
+      runnerRepoPath,
+      workspaceRefKind: workspaceRef.kind,
+    });
 
     const existingByName = await ctx.db
       .query("projects")
@@ -125,6 +178,7 @@ export const create = mutation({
       workspaceRef: { kind: workspaceRef.kind, id: workspaceRef.id, relPath: workspaceRef.relPath },
       workspaceRefKey: workspaceRef.key,
       localPath: localPath || undefined,
+      runnerRepoPath: runnerRepoPath || undefined,
       status: "creating",
       createdAt: now,
       updatedAt: now,
@@ -148,6 +202,7 @@ export const update = mutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     localPath: v.optional(v.string()),
+    runnerRepoPath: v.optional(v.string()),
     workspaceRef: v.optional(WorkspaceRef),
     status: v.optional(v.union(v.literal("creating"), v.literal("ready"), v.literal("error"))),
   },
@@ -163,6 +218,7 @@ export const update = mutation({
       updatedAt: now,
     };
     if (project.executionMode === "remote_runner") next["localPath"] = undefined;
+    if (project.executionMode === "local") next["runnerRepoPath"] = undefined;
     if (typeof patch.name === "string") {
       const name = patch.name.trim();
       if (!name) fail("conflict", "name required");
@@ -218,6 +274,15 @@ export const update = mutation({
         }
       }
       next["localPath"] = localPath;
+    }
+
+    if (typeof patch.runnerRepoPath === "string") {
+      if (project.executionMode !== "remote_runner") {
+        fail("conflict", "runnerRepoPath forbidden for local execution mode");
+      }
+      const runnerRepoPath = normalizeRunnerRepoPath(patch.runnerRepoPath);
+      if (!runnerRepoPath) fail("conflict", "runnerRepoPath required for remote_runner execution mode");
+      next["runnerRepoPath"] = runnerRepoPath;
     }
 
     await ctx.db.patch(projectId, next);

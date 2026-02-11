@@ -9,11 +9,11 @@ export type ProjectDocValue = Infer<typeof ProjectDoc>;
 // API types, it's helpful to avoid returning `{ field: undefined }` and instead
 // omit the key when absent.
 export function toProjectDocValue(project: Doc<"projects">): ProjectDocValue {
-  const { localPath, lastSeenAt, ...rest } = project;
+  const { localPath, runnerRepoPath, lastSeenAt, ...rest } = project;
   return {
     ...rest,
     ...(typeof localPath === "string" ? { localPath } : {}),
+    ...(typeof runnerRepoPath === "string" ? { runnerRepoPath } : {}),
     ...(typeof lastSeenAt === "number" ? { lastSeenAt } : {}),
   };
 }
-

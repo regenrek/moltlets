@@ -11,7 +11,7 @@ import {
   type OpenClawSetupModel,
   type OpenClawSetupStepId,
 } from "~/lib/setup/openclaw-setup-model"
-import { configDotGet } from "~/sdk/config"
+import { configDotGet } from "~/sdk/config/dot-get"
 import { SECRETS_VERIFY_OPENCLAW_RUN_KIND } from "~/sdk/secrets/run-kind"
 
 export type OpenClawSetupSearch = {

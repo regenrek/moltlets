@@ -1,13 +1,18 @@
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { AsyncButton } from "~/components/ui/async-button"
+import { Button } from "~/components/ui/button"
 import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { LabelWithHelp } from "~/components/ui/label-help"
+import { SettingsSection } from "~/components/ui/settings-section"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { addProjectSshKeys, configDotBatch } from "~/sdk/config"
+import { resolveConnectionStepMissingRequirements, shouldShowConnectionSshKeyEditor } from "~/lib/setup/connection-step"
+import { configDotBatch } from "~/sdk/config/dot"
+import { addProjectSshKeys } from "~/sdk/config/hosts"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 export function SetupStepConnection(props: {
@@ -45,20 +50,31 @@ function SetupStepConnectionForm(props: {
   stepStatus: SetupStepStatus
   onContinue: () => void
 }) {
+  const queryClient = useQueryClient()
   const [adminCidr, setAdminCidr] = useState(() => String(props.hostCfg?.provisioning?.adminCidr || ""))
+  const hasProjectSshKeys = props.fleetSshKeys.length > 0
+  const [showKeyEditor, setShowKeyEditor] = useState(() => !hasProjectSshKeys)
   const [keyText, setKeyText] = useState("")
 
-  const canSave = useMemo(() => {
-    if (!props.host.trim()) return false
-    if (!adminCidr.trim()) return false
-    if (props.fleetSshKeys.length === 0 && !keyText.trim()) return false
-    return true
-  }, [adminCidr, keyText, props.fleetSshKeys.length, props.host])
+  const missingRequirements = useMemo(() => {
+    return resolveConnectionStepMissingRequirements({
+      host: props.host,
+      adminCidr,
+      hasProjectSshKeys,
+      keyText,
+    })
+  }, [adminCidr, hasProjectSshKeys, keyText, props.host])
+  const canSave = missingRequirements.length === 0
+  const showSshKeyEditor = shouldShowConnectionSshKeyEditor({
+    hasProjectSshKeys,
+    showKeyEditor,
+    keyText,
+  })
 
   const save = useMutation({
     mutationFn: async () => {
       if (!props.host.trim()) throw new Error("missing host")
-      if (props.fleetSshKeys.length === 0 && !keyText.trim()) {
+      if (!hasProjectSshKeys && !keyText.trim()) {
         throw new Error("Add at least one SSH public key to continue.")
       }
       if (keyText.trim()) {
@@ -83,10 +99,14 @@ function SetupStepConnectionForm(props: {
       ]
       return await configDotBatch({ data: { projectId: props.projectId, ops } })
     },
-    onSuccess: (res: any) => {
+    onSuccess: async (res: any) => {
       if (res.ok) {
         toast.success("Saved")
         setKeyText("")
+        setShowKeyEditor(false)
+        await queryClient.invalidateQueries({
+          queryKey: ["hostSetupConfig", props.projectId],
+        })
         props.onContinue()
         return
       }
@@ -99,7 +119,22 @@ function SetupStepConnectionForm(props: {
   })
 
   return (
-    <div className="space-y-4">
+    <SettingsSection
+      title="Server access"
+      description="Network and SSH settings required for bootstrap."
+      statusText={!canSave ? `Missing: ${missingRequirements.join(", ")}.` : undefined}
+      actions={(
+        <AsyncButton
+          type="button"
+          disabled={save.isPending || !canSave}
+          pending={save.isPending}
+          pendingText="Saving..."
+          onClick={() => save.mutate()}
+        >
+          Save and continue
+        </AsyncButton>
+      )}
+    >
       <div className="space-y-4">
         <AdminCidrField
           id="setup-admin-cidr"
@@ -113,54 +148,79 @@ function SetupStepConnectionForm(props: {
 
         <div className="space-y-2">
           <LabelWithHelp htmlFor="setup-ssh-key-text" help={setupFieldHelp.hosts.sshKeyPaste}>
-            SSH public key (required)
+            SSH public key {hasProjectSshKeys ? "(optional)" : "(required)"}
           </LabelWithHelp>
-          <Textarea
-            id="setup-ssh-key-text"
-            value={keyText}
-            onChange={(e) => setKeyText(e.target.value)}
-            className="font-mono min-h-[90px]"
-            placeholder="ssh-ed25519 AAAA... user@host"
-          />
-
-          {props.fleetSshKeys.length > 0 ? (
-            <div className="text-xs text-muted-foreground">
-              Already configured: <strong>{props.fleetSshKeys.length}</strong> project SSH key(s).
-              {keyText.trim() ? " Pasted keys will be added too." : null}
-            </div>
+          {hasProjectSshKeys && !showSshKeyEditor ? (
+            <>
+              <InputGroup>
+                <InputGroupInput
+                  id="setup-ssh-key-text"
+                  readOnly
+                  value={`${props.fleetSshKeys.length} project SSH key${props.fleetSshKeys.length === 1 ? "" : "s"} configured`}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowKeyEditor(true)}
+                  >
+                    Add key
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <div className="text-xs text-muted-foreground">
+                Existing keys satisfy this step. Continue without pasting a new key.
+              </div>
+            </>
           ) : (
-            <div className="text-xs text-muted-foreground">
-              If you don’t have one yet, generate it with{" "}
-              <a
-                className="underline underline-offset-3 hover:text-foreground"
-                href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
-                target="_blank"
-                rel="noreferrer"
-              >
-                GitHub’s guide
-              </a>
-              .
-            </div>
+            <>
+              <Textarea
+                id="setup-ssh-key-text"
+                value={keyText}
+                onChange={(e) => setKeyText(e.target.value)}
+                className="font-mono min-h-[90px]"
+                placeholder="ssh-ed25519 AAAA... user@host"
+              />
+
+              {hasProjectSshKeys ? (
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>
+                    Already configured: <strong>{props.fleetSshKeys.length}</strong> project SSH key(s).
+                    {keyText.trim() ? " Pasted keys will be added too." : null}
+                  </span>
+                  {showKeyEditor ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => {
+                        setKeyText("")
+                        setShowKeyEditor(false)
+                      }}
+                    >
+                      Done editing
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  If you don’t have one yet, generate it with{" "}
+                  <a
+                    className="underline underline-offset-3 hover:text-foreground"
+                    href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    GitHub’s guide
+                  </a>
+                  .
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <AsyncButton
-          type="button"
-          disabled={save.isPending || !canSave}
-          pending={save.isPending}
-          pendingText="Saving..."
-          onClick={() => save.mutate()}
-        >
-          Save and continue
-        </AsyncButton>
-        {!canSave ? (
-          <div className="text-xs text-muted-foreground">
-            Fill the admin IP (CIDR) and add an SSH public key.
-          </div>
-        ) : null}
-      </div>
-    </div>
+    </SettingsSection>
   )
 }

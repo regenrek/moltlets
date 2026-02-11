@@ -12,6 +12,9 @@ import type * as auth from "../auth.js";
 import type * as controlPlane_gateways from "../controlPlane/gateways.js";
 import type * as controlPlane_hosts from "../controlPlane/hosts.js";
 import type * as controlPlane_httpParsers from "../controlPlane/httpParsers.js";
+import type * as controlPlane_jobCommandResultBlobs from "../controlPlane/jobCommandResultBlobs.js";
+import type * as controlPlane_jobCommandResults from "../controlPlane/jobCommandResults.js";
+import type * as controlPlane_jobLeaseOrder from "../controlPlane/jobLeaseOrder.js";
 import type * as controlPlane_jobState from "../controlPlane/jobState.js";
 import type * as controlPlane_jobs from "../controlPlane/jobs.js";
 import type * as controlPlane_projectConfigs from "../controlPlane/projectConfigs.js";
@@ -20,6 +23,7 @@ import type * as controlPlane_projectErasureHelpers from "../controlPlane/projec
 import type * as controlPlane_projectPolicies from "../controlPlane/projectPolicies.js";
 import type * as controlPlane_projects from "../controlPlane/projects.js";
 import type * as controlPlane_runEvents from "../controlPlane/runEvents.js";
+import type * as controlPlane_runnerAuth from "../controlPlane/runnerAuth.js";
 import type * as controlPlane_runnerTokens from "../controlPlane/runnerTokens.js";
 import type * as controlPlane_runners from "../controlPlane/runners.js";
 import type * as controlPlane_runs from "../controlPlane/runs.js";
@@ -52,6 +56,9 @@ declare const fullApi: ApiFromModules<{
   "controlPlane/gateways": typeof controlPlane_gateways;
   "controlPlane/hosts": typeof controlPlane_hosts;
   "controlPlane/httpParsers": typeof controlPlane_httpParsers;
+  "controlPlane/jobCommandResultBlobs": typeof controlPlane_jobCommandResultBlobs;
+  "controlPlane/jobCommandResults": typeof controlPlane_jobCommandResults;
+  "controlPlane/jobLeaseOrder": typeof controlPlane_jobLeaseOrder;
   "controlPlane/jobState": typeof controlPlane_jobState;
   "controlPlane/jobs": typeof controlPlane_jobs;
   "controlPlane/projectConfigs": typeof controlPlane_projectConfigs;
@@ -60,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "controlPlane/projectPolicies": typeof controlPlane_projectPolicies;
   "controlPlane/projects": typeof controlPlane_projects;
   "controlPlane/runEvents": typeof controlPlane_runEvents;
+  "controlPlane/runnerAuth": typeof controlPlane_runnerAuth;
   "controlPlane/runnerTokens": typeof controlPlane_runnerTokens;
   "controlPlane/runners": typeof controlPlane_runners;
   "controlPlane/runs": typeof controlPlane_runs;

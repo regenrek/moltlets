@@ -42,21 +42,21 @@ describe("plugin dispatch integration", () => {
     fs.mkdirSync(path.join(repoRoot, "scripts"), { recursive: true });
 
     const runtimeDir = ".clawlets";
-    const pluginInstallDir = path.join(repoRoot, runtimeDir, "plugins", "cattle");
+    const pluginInstallDir = path.join(repoRoot, runtimeDir, "plugins", "sample");
     const pluginPackageDir = path.join(
       pluginInstallDir,
       "node_modules",
-      "@clawlets",
-      "plugin-cattle",
+      "@acme",
+      "clawlets-plugin-sample",
     );
     writeFile(
       path.join(pluginInstallDir, "clawlets-plugin.json"),
       JSON.stringify(
         {
-          slug: "cattle",
-          packageName: "@clawlets/plugin-cattle",
+          slug: "sample",
+          packageName: "@acme/clawlets-plugin-sample",
           version: "0.0.0",
-          command: "cattle",
+          command: "sample",
           entry: "./dist/plugin.mjs",
         },
         null,
@@ -65,7 +65,7 @@ describe("plugin dispatch integration", () => {
     );
     writeFile(
       path.join(pluginPackageDir, "package.json"),
-      JSON.stringify({ name: "@clawlets/plugin-cattle", version: "0.0.0", type: "module" }, null, 2),
+      JSON.stringify({ name: "@acme/clawlets-plugin-sample", version: "0.0.0", type: "module" }, null, 2),
     );
     const outPath = path.join(repoRoot, "plugin-out.json");
     writeFile(
@@ -74,7 +74,7 @@ describe("plugin dispatch integration", () => {
         "import fs from \"node:fs\";",
         "import path from \"node:path\";",
         "export const command = {",
-        "  meta: { name: \"cattle\" },",
+        "  meta: { name: \"sample\" },",
         "  args: { foo: { type: \"string\" } },",
         "  async run({ args }) {",
         "    const payload = { ok: true, foo: String(args.foo || \"\") };",
@@ -86,7 +86,7 @@ describe("plugin dispatch integration", () => {
     );
 
     process.chdir(repoRoot);
-    process.argv = ["node", "clawlets", `--runtime-dir=${runtimeDir}`, "cattle", "--foo", "bar"];
+    process.argv = ["node", "clawlets", `--runtime-dir=${runtimeDir}`, "sample", "--foo", "bar"];
     vi.resetModules();
     const mod = await import("../src/main.ts");
     await mod.mainEntry();

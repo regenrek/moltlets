@@ -11,7 +11,7 @@ export type RepoRootOptions = {
 }
 
 function requireLocalRepoRoot(
-  project: { executionMode: "local" | "remote_runner"; localPath?: string },
+  project: { executionMode: "local" | "remote_runner"; localPath?: string; runnerRepoPath?: string },
   options: RepoRootOptions,
 ): string {
   if (project.executionMode !== "local") {

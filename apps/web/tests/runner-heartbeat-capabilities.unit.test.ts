@@ -2,38 +2,52 @@ import { describe, expect, it } from "vitest";
 import { parseRunnerHeartbeatCapabilities } from "../convex/controlPlane/httpParsers";
 
 describe("runner heartbeat capabilities", () => {
-  it("accepts a valid nonce and port", () => {
-    expect(
+  it("accepts valid sealed-input capabilities", async () => {
+    await expect(
       parseRunnerHeartbeatCapabilities({
-        supportsLocalSecretsSubmit: true,
-        supportsInteractiveSecrets: false,
+        supportsSealedInput: true,
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputPubSpkiB64: "AQID",
+        sealedInputKeyId: "A5BYxvLAy0ksUzsKTRTvd8wPeKvMztUofYShogEc-4E",
         supportsInfraApply: true,
-        localSecretsPort: 43110,
-        localSecretsNonce: " nonce-123 ",
       }),
-    ).toEqual({
+    ).resolves.toEqual({
       ok: true,
       capabilities: {
-        supportsLocalSecretsSubmit: true,
-        supportsInteractiveSecrets: false,
+        supportsSealedInput: true,
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputPubSpkiB64: "AQID",
+        sealedInputKeyId: "A5BYxvLAy0ksUzsKTRTvd8wPeKvMztUofYShogEc-4E",
         supportsInfraApply: true,
-        localSecretsPort: 43110,
-        localSecretsNonce: "nonce-123",
       },
     });
   });
 
-  it("rejects blank nonce when provided", () => {
-    expect(parseRunnerHeartbeatCapabilities({ localSecretsNonce: "   " })).toEqual({
+  it("rejects supportsSealedInput without required fields", async () => {
+    await expect(parseRunnerHeartbeatCapabilities({ supportsSealedInput: true })).resolves.toEqual({
       ok: false,
-      error: "invalid capabilities.localSecretsNonce",
+      error: "invalid capabilities.supportsSealedInput",
     });
   });
 
-  it("rejects oversized nonce", () => {
-    expect(parseRunnerHeartbeatCapabilities({ localSecretsNonce: "x".repeat(129) })).toEqual({
+  it("rejects invalid sealed-input key id", async () => {
+    await expect(parseRunnerHeartbeatCapabilities({ sealedInputKeyId: "   " })).resolves.toEqual({
       ok: false,
-      error: "invalid capabilities.localSecretsNonce",
+      error: "invalid capabilities.sealedInputKeyId",
+    });
+  });
+
+  it("rejects sealed-input key id mismatch against SPKI", async () => {
+    await expect(
+      parseRunnerHeartbeatCapabilities({
+        supportsSealedInput: true,
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputPubSpkiB64: "AQID",
+        sealedInputKeyId: "wrong",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "invalid capabilities.sealedInputKeyId",
     });
   });
 });

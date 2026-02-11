@@ -18,6 +18,7 @@ import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host/host-resolve";
 import { extractFirstIpv4, isTailscaleIpv4, normalizeSingleLineOutput } from "@clawlets/core/lib/host/host-connectivity";
 import { assertProvisionerBootstrapMode, BOOTSTRAP_MODES, buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra/infra";
+import { resolveHostProvisioningConfig } from "../../lib/provisioning-ssh-pubkey-file.js";
 import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 async function sleep(ms: number): Promise<void> {
@@ -119,9 +120,15 @@ export const bootstrap = defineCommand({
 	    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
 	    if (!hostName) return;
     const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
-    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
+    const hostCfgBase = clawletsConfig.hosts[hostName];
+    if (!hostCfgBase) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    const hostProvisioningConfig = resolveHostProvisioningConfig({
+      repoRoot,
+      layout,
+      config: clawletsConfig,
+      hostName,
+    });
+    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: hostProvisioningConfig.hostCfg });
     const sshExposureMode = spec.sshExposureMode;
     const tailnetMode = spec.tailnetMode;
 	    const lockdownAfter = Boolean((args as any).lockdownAfter);
@@ -205,7 +212,7 @@ export const bootstrap = defineCommand({
     const ref = String(args.ref || "").trim();
     if (rev && ref) throw new Error("use either --rev or --ref (not both)");
 
-	    const requestedHost = String(hostCfg.flakeHost || hostName).trim() || hostName;
+	    const requestedHost = String(hostCfgBase.flakeHost || hostName).trim() || hostName;
     const hostFromFlake = resolveHostFromFlake(flakeBase);
     if (hostFromFlake && hostFromFlake !== requestedHost) throw new Error(`flake host mismatch: ${hostFromFlake} vs ${requestedHost}`);
 
@@ -267,8 +274,8 @@ export const bootstrap = defineCommand({
       }
     }
 
-    const extraSubstituters = hostCfg.cache.substituters.join(" ");
-    const extraTrustedPublicKeys = hostCfg.cache.trustedPublicKeys.join(" ");
+    const extraSubstituters = hostCfgBase.cache.substituters.join(" ");
+    const extraTrustedPublicKeys = hostCfgBase.cache.trustedPublicKeys.join(" ");
 
     const nixosAnywhereArgs = [
       "run",
@@ -351,7 +358,7 @@ export const bootstrap = defineCommand({
         });
         console.log(`Tailnet IPv4: ${tailscaleIpv4}`);
 
-        const nextHostCfg = structuredClone(hostCfg) as any;
+        const nextHostCfg = structuredClone(hostCfgBase) as any;
         nextHostCfg.targetHost = `admin@${tailscaleIpv4}`;
         nextHostCfg.sshExposure = { ...nextHostCfg.sshExposure, mode: "tailnet" };
         nextHostCfg.tailnet = { ...nextHostCfg.tailnet, mode: "tailscale" };
@@ -362,7 +369,13 @@ export const bootstrap = defineCommand({
         await writeClawletsConfig({ configPath, config: nextConfig });
         console.log(`ok: updated fleet/clawlets.json (targetHost + sshExposure=tailnet)`);
 
-        const lockdownSpec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: nextHostCfg });
+        const nextHostProvisioningConfig = resolveHostProvisioningConfig({
+          repoRoot,
+          layout,
+          config: nextConfig,
+          hostName,
+        });
+        const lockdownSpec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: nextHostProvisioningConfig.hostCfg });
         const lockdownDriver = getProvisionerDriver(lockdownSpec.provider);
         await lockdownDriver.lockdown({ spec: lockdownSpec, runtime });
 

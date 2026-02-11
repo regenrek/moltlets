@@ -62,7 +62,9 @@ function ProjectSettings() {
             <CardContent className="space-y-2 text-sm">
               <div className="font-medium">{p.name}</div>
               <div className="text-muted-foreground">
-                {p.localPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`}
+                {p.executionMode === "remote_runner"
+                  ? p.runnerRepoPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`
+                  : p.localPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`}
               </div>
               <div className="text-muted-foreground">Status: {p.status}</div>
             </CardContent>

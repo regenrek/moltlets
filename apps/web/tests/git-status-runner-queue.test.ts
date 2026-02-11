@@ -11,9 +11,36 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
 async function loadSdk() {
   vi.resetModules()
   const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
+  const runnerJson = {
+    branch: "main",
+    upstream: "origin/main",
+    localHead: "abc123",
+    originDefaultRef: "origin/main",
+    originHead: "def456",
+    dirty: false,
+    ahead: 2,
+    behind: 0,
+    detached: false,
+    needsPush: true,
+    canPush: true,
+  }
 
   vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any,
+    createConvexClient: () =>
+      ({
+        mutation: vi.fn(async (_mutation: unknown, payload: any) => {
+          const maybeTakeResult =
+            payload
+            && typeof payload === "object"
+            && typeof payload.projectId === "string"
+            && typeof payload.jobId === "string"
+            && !("kind" in payload)
+            && !("sealedInputB64" in payload)
+          if (maybeTakeResult) return { runId: "run_1", resultJson: JSON.stringify(runnerJson) }
+          return null
+        }),
+        query: vi.fn(),
+      }) as any,
   }))
   vi.doMock("~/sdk/project", () => ({
     requireAdminProjectAccess: async () => ({ role: "admin" }),
@@ -24,20 +51,7 @@ async function loadSdk() {
       ...actual,
       enqueueRunnerCommand,
       waitForRunTerminal: async () => ({ status: "succeeded" }),
-      listRunMessages: async () =>
-        [JSON.stringify({
-          branch: "main",
-          upstream: "origin/main",
-          localHead: "abc123",
-          originDefaultRef: "origin/main",
-          originHead: "def456",
-          dirty: false,
-          ahead: 2,
-          behind: 0,
-          detached: false,
-          needsPush: true,
-          canPush: true,
-        })],
+      listRunMessages: async () => [JSON.stringify(runnerJson)],
       parseLastJsonMessage: (messages: string[]) => JSON.parse(messages[messages.length - 1] || "{}"),
       lastErrorMessage: () => "git status failed",
     }

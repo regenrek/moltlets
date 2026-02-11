@@ -20,6 +20,7 @@ export const RunEventLevel = v.union(...literals(RUN_EVENT_LEVELS));
 export const HostStatus = v.union(...literals(HOST_STATUSES));
 export const RunnerStatus = v.union(...literals(RUNNER_STATUSES));
 export const SecretWiringScope = v.union(...literals(SECRET_WIRING_SCOPES));
+export const JobSecretScope = v.union(SecretWiringScope, v.literal("all"));
 export const SecretWiringStatus = v.union(...literals(SECRET_WIRING_STATUSES));
 export const JobStatus = v.union(...literals(JOB_STATUSES));
 export const RunEventMeta = v.union(
@@ -110,8 +111,12 @@ export const AuditTarget = v.union(
 export const AuditData = v.union(
   v.object({ runId: v.id("runs") }),
   v.object({ runId: v.id("runs"), scope: AuditSecretsScope }),
+  v.object({ runId: v.id("runs"), jobId: v.id("jobs"), targetRunnerId: v.id("runners"), scope: AuditSecretsScope }),
   v.object({ secrets: v.array(v.string()) }),
+  v.object({ runId: v.id("runs"), jobId: v.id("jobs"), targetRunnerId: v.id("runners"), secrets: v.array(v.string()) }),
   v.object({ warnings: v.array(v.string()), runId: v.id("runs") }),
+  v.object({ runId: v.id("runs"), updatedKeys: v.array(v.string()) }),
+  v.object({ runId: v.id("runs"), jobId: v.id("jobs"), targetRunnerId: v.id("runners"), updatedKeys: v.array(v.string()) }),
   v.object({ updatedKeys: v.array(v.string()) }),
   v.object({ operatorIdHash: v.string() }),
   v.object({ preset: v.string(), runId: v.id("runs"), warnings: v.array(v.string()) }),
@@ -160,18 +165,25 @@ export const ProviderConfigSummary = v.object({
 export const JobPayloadMeta = v.object({
   hostName: v.optional(v.string()),
   gatewayId: v.optional(v.string()),
-  scope: v.optional(SecretWiringScope),
+  scope: v.optional(JobSecretScope),
   secretNames: v.optional(v.array(v.string())),
+  updatedKeys: v.optional(v.array(v.string())),
   configPaths: v.optional(v.array(v.string())),
   args: v.optional(v.array(v.string())),
   note: v.optional(v.string()),
+  repoUrl: v.optional(v.string()),
+  branch: v.optional(v.string()),
+  depth: v.optional(v.number()),
+  templateRepo: v.optional(v.string()),
+  templatePath: v.optional(v.string()),
+  templateRef: v.optional(v.string()),
 });
 export const RunnerCapabilities = v.object({
-  supportsLocalSecretsSubmit: v.optional(v.boolean()),
-  supportsInteractiveSecrets: v.optional(v.boolean()),
+  supportsSealedInput: v.optional(v.boolean()),
+  sealedInputAlg: v.optional(v.string()),
+  sealedInputPubSpkiB64: v.optional(v.string()),
+  sealedInputKeyId: v.optional(v.string()),
   supportsInfraApply: v.optional(v.boolean()),
-  localSecretsPort: v.optional(v.number()),
-  localSecretsNonce: v.optional(v.string()),
 });
 
 const schema = defineSchema({
@@ -194,6 +206,7 @@ const schema = defineSchema({
     workspaceRef: WorkspaceRef,
     workspaceRefKey: v.string(),
     localPath: v.optional(v.string()),
+    runnerRepoPath: v.optional(v.string()),
     status: ProjectStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -336,6 +349,12 @@ const schema = defineSchema({
     status: JobStatus,
     payload: v.optional(JobPayloadMeta),
     payloadHash: v.optional(v.string()),
+    targetRunnerId: v.optional(v.id("runners")),
+    sealedInputB64: v.optional(v.string()),
+    sealedInputAlg: v.optional(v.string()),
+    sealedInputKeyId: v.optional(v.string()),
+    sealedInputRequired: v.optional(v.boolean()),
+    sealedPendingExpiresAt: v.optional(v.number()),
     leaseId: v.optional(v.string()),
     leasedByRunnerId: v.optional(v.id("runners")),
     leaseExpiresAt: v.optional(v.number()),
@@ -347,7 +366,37 @@ const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_project_status", ["projectId", "status"])
+    .index("by_project_status_targetRunner", ["projectId", "status", "targetRunnerId"])
+    .index("by_project_status_targetRunner_createdAt", ["projectId", "status", "targetRunnerId", "createdAt"])
     .index("by_project_createdAt", ["projectId", "createdAt"]),
+
+  runnerCommandResults: defineTable({
+    projectId: v.id("projects"),
+    runId: v.id("runs"),
+    jobId: v.id("jobs"),
+    resultJson: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_job", ["jobId"])
+    .index("by_run", ["runId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  runnerCommandResultBlobs: defineTable({
+    projectId: v.id("projects"),
+    runId: v.id("runs"),
+    jobId: v.id("jobs"),
+    storageId: v.id("_storage"),
+    sizeBytes: v.number(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_job", ["jobId"])
+    .index("by_run", ["runId"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   auditLogs: defineTable({
     ts: v.number(),

@@ -20,6 +20,23 @@ describe("runner auth token validation", () => {
     ).toBe(true);
   });
 
+  it("accepts legacy non-expiring tokens when not revoked", () => {
+    expect(
+      isRunnerTokenUsable({
+        tokenDoc: {
+          projectId: "p1",
+          runnerId: "r1",
+        },
+        runner: {
+          projectId: "p1",
+          runnerName: "runner-a",
+        },
+        expectedProjectId: "p1",
+        now: 100,
+      }),
+    ).toBe(true);
+  });
+
   it("rejects expired or revoked tokens", () => {
     expect(
       isRunnerTokenUsable({

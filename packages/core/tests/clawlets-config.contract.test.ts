@@ -326,8 +326,6 @@ describe("clawlets config schema", () => {
     expect(Object.keys(cfg.hosts["openclaw-fleet-host"].gateways)).toEqual(["maren", "sonja"]);
     expect(cfg.fleet.secretEnv).toEqual({ ZAI_API_KEY: "z_ai_api_key" });
     expect(cfg.hosts["openclaw-fleet-host"].gateways.maren.profile.secretEnv).toEqual({});
-    expect(cfg.cattle.enabled).toBe(false);
-    expect(cfg.cattle.hetzner.defaultTtl).toBe("2h");
     expect(cfg.hosts["openclaw-fleet-host"].openclaw.enable).toBe(false);
     expect(cfg.hosts["openclaw-fleet-host"].sshExposure?.mode).toBe("bootstrap");
     expect(cfg.hosts["openclaw-fleet-host"].cache?.netrc?.enable).toBe(false);
@@ -499,43 +497,38 @@ describe("clawlets config schema", () => {
     ).toThrow(/invalid (env var name|secret name)/i);
   });
 
-  it("rejects invalid cattle ttl strings", async () => {
+  it("rejects legacy cattle config key", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
         schemaVersion: 2,
-        cattle: { enabled: true, hetzner: { image: "img-1", defaultTtl: "2 hours" } },
+        cattle: {},
         hosts: {
           "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
         },
       }),
-    ).toThrow(/invalid ttl/i);
+    ).toThrow(/cattle/i);
   });
 
-  it("rejects cattle enabled without image", async () => {
+  it("rejects legacy gateway clf key", async () => {
     const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
     expect(() =>
       ClawletsConfigSchema.parse({
         schemaVersion: 2,
-        cattle: { enabled: true, hetzner: { image: "" } },
         hosts: {
-          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
+          "openclaw-fleet-host": {
+            tailnet: { mode: "none" },
+            agentModelPrimary: "zai/glm-4.7",
+            gatewaysOrder: ["maren"],
+            gateways: {
+              maren: {
+                clf: {},
+              },
+            },
+          },
         },
       }),
-    ).toThrow(/cattle\.hetzner\.image must be set/i);
-  });
-
-  it("rejects invalid cattle labels", async () => {
-    const { ClawletsConfigSchema } = await import("../src/lib/config/clawlets-config");
-    expect(() =>
-      ClawletsConfigSchema.parse({
-        schemaVersion: 2,
-        cattle: { enabled: false, hetzner: { labels: { "bad key": "x" } } },
-        hosts: {
-          "openclaw-fleet-host": { tailnet: { mode: "none" }, agentModelPrimary: "zai/glm-4.7" },
-        },
-      }),
-    ).toThrow(/invalid label key/i);
+    ).toThrow(/clf/i);
   });
 
   it("getTailnetMode normalizes to none/tailscale", async () => {

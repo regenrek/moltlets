@@ -5,8 +5,8 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectIdInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
@@ -44,12 +44,17 @@ export const gitRepoStatus = createServerFn({ method: "POST" })
       runId: queued.runId,
       timeoutMs: 25_000,
     })
-    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
     if (terminal.status !== "succeeded") {
       throw new Error(terminal.errorMessage || lastErrorMessage(messages, "git status failed"))
     }
-    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
-    if (!parsed) throw new Error(lastErrorMessage(messages, "git status output missing JSON payload"))
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
+    if (!parsed) throw new Error("git status command result missing JSON payload")
 
     const aheadRaw = parsed.ahead
     const behindRaw = parsed.behind

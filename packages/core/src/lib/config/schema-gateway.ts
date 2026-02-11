@@ -187,7 +187,7 @@ export const FleetGatewaySchema = z
     skills: FleetGatewaySkillsSchema,
     plugins: FleetGatewayPluginsSchema,
     openclaw: JsonObjectSchema.default(() => ({})),
-    clf: JsonObjectSchema.default(() => ({})),
+    clf: z.never().optional(),
   })
   .superRefine((gateway, ctx) => {
     // Hard reject legacy gateway key - no backwards compatibility.
@@ -241,5 +241,4 @@ export const FleetGatewaySchema = z
     skills: {},
     plugins: {},
     openclaw: {},
-    clf: {},
   }));

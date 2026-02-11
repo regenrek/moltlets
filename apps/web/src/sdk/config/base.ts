@@ -8,8 +8,8 @@ import {
   enqueueRunnerCommand,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectIdInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 import type { ValidationIssue } from "~/sdk/runtime"
@@ -47,7 +47,7 @@ export const getClawletsConfig = createServerFn({ method: "POST" })
       runId: queued.runId,
       timeoutMs: 30_000,
     })
-    const messages = await listRunMessages({ client, runId: queued.runId })
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId })
     if (terminal.status !== "succeeded") {
       const message = terminal.errorMessage || lastErrorMessage(messages, "config read failed")
       if (/missing clawlets config|missing config|not found/i.test(message)) {
@@ -60,9 +60,14 @@ export const getClawletsConfig = createServerFn({ method: "POST" })
       }
       throw new Error(message)
     }
-    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (!parsed) {
-      throw new Error(lastErrorMessage(messages, "config show output missing JSON payload"))
+      throw new Error("config show command result missing JSON payload")
     }
     const json = `${JSON.stringify(parsed, null, 2)}\n`
     return {
@@ -112,9 +117,14 @@ export const writeClawletsConfigFile = createServerFn({ method: "POST" })
       runId: currentRead.runId,
       timeoutMs: 30_000,
     })
-    const currentMessages = await listRunMessages({ client, runId: currentRead.runId })
+    const currentMessages = currentTerminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: currentRead.runId })
     if (currentTerminal.status === "succeeded") {
-      const currentConfig = parseLastJsonMessage<Record<string, unknown>>(currentMessages)
+      const currentConfig = await takeRunnerCommandResultObject({
+        client,
+        projectId: data.projectId,
+        jobId: currentRead.jobId,
+        runId: currentRead.runId,
+      })
       if (currentConfig) {
         const blocked = findGatewayOpenclawChanges(currentConfig, parsed.data)
         if (blocked) {

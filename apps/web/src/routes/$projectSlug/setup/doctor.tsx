@@ -91,7 +91,7 @@ function DoctorSetup() {
       return hosts[0] || ""
     })
   }, [hosts])
-  const [scope, setScope] = useState<"repo" | "bootstrap" | "updates" | "cattle" | "all">("all")
+  const [scope, setScope] = useState<"repo" | "bootstrap" | "updates" | "all">("all")
   const [result, setResult] = useState<null | { runId: Id<"runs">; checks: any[]; ok: boolean }>(null)
 
   const run = useMutation({
@@ -174,7 +174,6 @@ function DoctorSetup() {
                   <NativeSelectOption value="repo">repo</NativeSelectOption>
                   <NativeSelectOption value="bootstrap">bootstrap</NativeSelectOption>
                   <NativeSelectOption value="updates">updates</NativeSelectOption>
-                  <NativeSelectOption value="cattle">cattle</NativeSelectOption>
                 </NativeSelect>
               </div>
             </div>

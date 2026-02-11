@@ -2,7 +2,6 @@ import { z } from "zod";
 import { HostNameSchema, SecretNameSchema } from "@clawlets/shared/lib/identifiers";
 import { INFRA_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 import { SecretEnvSchema, SecretFilesSchema } from "../secrets/secret-wiring.js";
-import { CattleSchema } from "./schema-cattle.js";
 import { isValidTargetHost } from "../security/ssh-remote.js";
 import { HOST_THEME_COLORS, HOST_THEME_DEFAULT_COLOR, HOST_THEME_DEFAULT_EMOJI } from "../host/host-theme.js";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "../nix/nix-cache.js";
@@ -244,7 +243,7 @@ export const InfraConfigSchema = z
       sshKnownHosts: [],
       backups: { restic: { enable: false, repository: "" } },
     })),
-    cattle: CattleSchema,
+    cattle: z.never().optional(),
     hosts: z.record(HostNameSchema, InfraHostConfigSchema).refine((value) => Object.keys(value).length > 0, {
       message: "hosts must not be empty",
     }),

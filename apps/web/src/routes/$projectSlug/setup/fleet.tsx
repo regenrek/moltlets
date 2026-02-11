@@ -33,12 +33,11 @@ function FleetSetup() {
     queryKey: configQueryKey,
     enabled: Boolean(projectId),
     queryFn: async () => {
-      const [schemaVersionNode, defaultHostNode, baseFlakeNode, fleetNode, cattleNode, hostsNode] = await Promise.all([
+      const [schemaVersionNode, defaultHostNode, baseFlakeNode, fleetNode, hostsNode] = await Promise.all([
         configDotGet({ data: { projectId: projectId as Id<"projects">, path: "schemaVersion" } }),
         configDotGet({ data: { projectId: projectId as Id<"projects">, path: "defaultHost" } }),
         configDotGet({ data: { projectId: projectId as Id<"projects">, path: "baseFlake" } }),
         configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "cattle" } }),
         configDotGet({ data: { projectId: projectId as Id<"projects">, path: "hosts" } }),
       ])
       const schemaVersion = typeof schemaVersionNode.value === "string" ? schemaVersionNode.value : "v1"
@@ -49,7 +48,6 @@ function FleetSetup() {
         defaultHost,
         baseFlake,
         fleet: fleetNode.value && typeof fleetNode.value === "object" && !Array.isArray(fleetNode.value) ? fleetNode.value : {},
-        cattle: cattleNode.value && typeof cattleNode.value === "object" && !Array.isArray(cattleNode.value) ? cattleNode.value : {},
         hosts: hostsNode.value && typeof hostsNode.value === "object" && !Array.isArray(hostsNode.value) ? hostsNode.value : {},
       }
       return {

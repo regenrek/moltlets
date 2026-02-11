@@ -103,18 +103,6 @@ describe("doctor", () => {
         codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },
       },
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
-      },
       hosts: {
         "openclaw-fleet-host": {
           enable: false,

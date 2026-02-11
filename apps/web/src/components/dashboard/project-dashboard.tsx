@@ -104,7 +104,9 @@ export function ProjectDashboard(props: {
   const hostsValue = project.cfg.error
     ? "—"
     : `${project.cfg.hostsEnabled.toLocaleString()} / ${project.cfg.hostsTotal.toLocaleString()}`
-  const projectLocation = project.localPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
+  const projectLocation = project.executionMode === "remote_runner"
+    ? project.runnerRepoPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
+    : project.localPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
   const defaultHost = project.cfg.error ? "—" : project.cfg.defaultHost || "—"
   const defaultHostName = project.cfg.error ? "" : project.cfg.defaultHost || ""
   const defaultHostBase = defaultHostName

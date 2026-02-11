@@ -4,7 +4,7 @@ description: Sign in and create your first project.
 ---
 
 After Convex is wired, the first dashboard session establishes your project and
-connects it to a local repo.
+queues repo creation/import for a runner.
 
 ## 1) Sign in
 
@@ -16,14 +16,14 @@ Subsequent users default to `viewer` unless promoted by an admin.
 
 ## 2) Create a project
 
-From the Projects screen, create a new project and point it at your local repo. The
-template source defaults to `config/template-source.json`, which the dashboard uses
-to discover the starter files and expected layout.
+From the Projects screen, create or import a project, set the runner repo path, and
+start a runner. Default repo path is `~/.clawlets/projects/<project-slug>`.
 
 1. Create a new project.
-2. Configure the repo root and template source (defaults to `config/template-source.json`).
-3. Wait for the project init run to finish.
-4. Continue to **Setup** (the dashboard redirects there automatically).
+2. Configure runner repo path, runner name, and optional template override (`owner/repo`, path, ref).
+3. Copy token + runner command and run it on the runner host.
+4. Wait for project init/import run to finish.
+5. Continue to **Setup** (dashboard redirects automatically on success).
 
 ## 3) Run through Setup
 

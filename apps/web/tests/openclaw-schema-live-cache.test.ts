@@ -14,6 +14,7 @@ function setupLiveMocks(params?: {
   terminal?: { status: "succeeded" | "failed" | "canceled"; errorMessage?: string }
   messages?: string[]
   delayedTerminalMs?: number
+  resultJson?: Record<string, unknown>
 }) {
   const mutation = vi.fn(async () => {
     if (params?.guardError) throw params.guardError
@@ -35,19 +36,9 @@ function setupLiveMocks(params?: {
     }
     return params?.terminal || ({ status: "succeeded" } as const)
   })
-  const listRunMessages = vi.fn(async () => params?.messages || [JSON.stringify(VALID_SCHEMA)])
-  const parseLastJsonMessage = vi.fn((messages: string[]) => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const raw = String(messages[i] || "").trim()
-      if (!raw.startsWith("{") || !raw.endsWith("}")) continue
-      try {
-        return JSON.parse(raw)
-      } catch {
-        continue
-      }
-    }
-    return null
-  })
+  const listRunMessages = vi.fn(async () => params?.messages || [])
+  const takeRunnerCommandResultBlobObject = vi.fn(async () => params?.resultJson || VALID_SCHEMA)
+  const takeRunnerCommandResultObject = vi.fn(async () => null)
   const lastErrorMessage = vi.fn((_messages: string[], fallback?: string) => fallback || "runner command failed")
 
   vi.doMock("~/server/convex", () => ({
@@ -60,7 +51,8 @@ function setupLiveMocks(params?: {
     enqueueRunnerCommand,
     waitForRunTerminal,
     listRunMessages,
-    parseLastJsonMessage,
+    takeRunnerCommandResultBlobObject,
+    takeRunnerCommandResultObject,
     lastErrorMessage,
   }))
 
@@ -70,6 +62,8 @@ function setupLiveMocks(params?: {
     enqueueRunnerCommand,
     waitForRunTerminal,
     listRunMessages,
+    takeRunnerCommandResultObject,
+    takeRunnerCommandResultBlobObject,
   }
 }
 
@@ -88,7 +82,9 @@ describe("openclaw live schema cache", () => {
     expect(mocks.mutation).toHaveBeenCalledTimes(1)
     expect(mocks.enqueueRunnerCommand).toHaveBeenCalledTimes(1)
     expect(mocks.waitForRunTerminal).toHaveBeenCalledTimes(1)
-    expect(mocks.listRunMessages).toHaveBeenCalledTimes(1)
+    expect(mocks.listRunMessages).toHaveBeenCalledTimes(0)
+    expect(mocks.takeRunnerCommandResultBlobObject).toHaveBeenCalledTimes(1)
+    expect(mocks.takeRunnerCommandResultObject).toHaveBeenCalledTimes(0)
   })
 
   it("dedupes in-flight live schema fetches", async () => {

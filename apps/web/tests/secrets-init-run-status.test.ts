@@ -15,9 +15,15 @@ const startContext = {
 }
 
 describe("secrets init execute queueing", () => {
-  it("queues secrets init job with local-submit marker", async () => {
+  it("reserves secrets init sealed-input job", async () => {
     vi.resetModules()
-    const mutation = vi.fn(async () => ({ runId: "run1", jobId: "job1" }))
+    const mutation = vi.fn(async () => ({
+      runId: "run1",
+      jobId: "job1",
+      kind: "secrets_init",
+      sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+      sealedInputKeyId: "kid123",
+    }))
     const query = vi.fn(async () => ({
       role: "admin",
       run: { projectId: "p1", kind: "secrets_init", status: "running" },
@@ -36,18 +42,74 @@ describe("secrets init execute queueing", () => {
           host: "alpha",
           scope: "bootstrap",
           allowPlaceholders: true,
-          adminPassword: "pw",
-          adminPasswordHash: "",
-          tailscaleAuthKey: "",
-          secrets: { DISCORD_TOKEN: "secret" },
+          secretNames: ["DISCORD_TOKEN"],
+          targetRunnerId: "r1",
         },
       }),
     )
 
     expect(res.ok).toBe(true)
-    expect(res.queued).toBe(true)
-    expect(res.localSubmitRequired).toBe(true)
+    expect(res.reserved).toBe(true)
     expect(res.jobId).toBe("job1")
-    expect(mutation).toHaveBeenCalledTimes(1)
+    expect(mutation).toHaveBeenCalledTimes(2)
+    const auditPayload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "secrets.init")?.[1]
+    expect(auditPayload).toEqual({
+      projectId: "p1",
+      action: "secrets.init",
+      target: { host: "alpha" },
+      data: { runId: "run1", jobId: "job1", targetRunnerId: "r1", scope: "bootstrap" },
+    })
+  })
+
+  it("finalizes reserved secrets init job with sealed payload", async () => {
+    vi.resetModules()
+    const mutation: any = vi.fn(async (_mutation: unknown, _payload?: unknown) => null)
+    mutation
+      .mockResolvedValueOnce({
+        runId: "run1",
+        jobId: "job1",
+        kind: "secrets_init",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "kid123",
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ runId: "run1", jobId: "job1" })
+    const query = vi.fn(async () => ({
+      role: "admin",
+      run: { projectId: "p1", kind: "secrets_init", status: "running" },
+    }))
+
+    vi.doMock("~/server/convex", () => ({
+      createConvexClient: () => ({ mutation, query }) as any,
+    }))
+
+    const mod = await import("~/sdk/secrets")
+    const reserved = await runWithStartContext(startContext, async () =>
+      await mod.secretsInitExecute({
+        data: {
+          projectId: "p1" as any,
+          runId: "run1" as any,
+          host: "alpha",
+          scope: "all",
+          allowPlaceholders: false,
+          secretNames: ["DISCORD_TOKEN"],
+          targetRunnerId: "r1",
+        },
+      }),
+    )
+    const queued = await runWithStartContext(startContext, async () =>
+      await mod.secretsInitFinalize({
+        data: {
+          projectId: "p1" as any,
+          jobId: reserved.jobId,
+          kind: reserved.kind,
+          sealedInputB64: "ciphertext",
+          sealedInputAlg: reserved.sealedInputAlg,
+          sealedInputKeyId: reserved.sealedInputKeyId,
+        },
+      }),
+    )
+
+    expect(queued).toEqual({ runId: "run1", jobId: "job1" })
   })
 })

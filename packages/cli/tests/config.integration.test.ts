@@ -84,8 +84,7 @@ describe("config set", () => {
 
   it("can fix an invalid config by applying a valid update", async () => {
     const baseConfig = createDefaultClawletsConfig({ host: "openclaw-fleet-host", gateways: ["maren"] });
-    baseConfig.cattle.enabled = true;
-    baseConfig.cattle.hetzner.image = "";
+    baseConfig.hosts["openclaw-fleet-host"].targetHost = "bad host";
     loadFullConfigMock.mockReturnValue({
       infraConfigPath: "/repo/fleet/clawlets.json",
       config: baseConfig,
@@ -93,12 +92,12 @@ describe("config set", () => {
 
     const { config } = await import("../src/commands/config");
     await config.subCommands.set.run({
-      args: { path: "cattle.enabled", "value-json": "false" } as any,
+      args: { path: "hosts.openclaw-fleet-host.targetHost", value: "admin@127.0.0.1" } as any,
     });
 
     expect(writeClawletsConfigMock).toHaveBeenCalledTimes(1);
     const call = writeClawletsConfigMock.mock.calls[0][0];
-    expect(call.config.cattle.enabled).toBe(false);
+    expect(call.config.hosts["openclaw-fleet-host"].targetHost).toBe("admin@127.0.0.1");
   });
 
   it("set fails on invalid JSON", async () => {

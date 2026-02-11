@@ -38,7 +38,9 @@ export function ProjectsTable(props: {
           const hosts = p.cfg.error
             ? "—"
             : `${p.cfg.hostsEnabled.toLocaleString()} / ${p.cfg.hostsTotal.toLocaleString()}`
-          const projectLocation = p.localPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`
+          const projectLocation = p.executionMode === "remote_runner"
+            ? p.runnerRepoPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`
+            : p.localPath || `${p.workspaceRef.kind}:${p.workspaceRef.id}`
           const projectSlug = slugifyProjectName(p.name)
 
           return (

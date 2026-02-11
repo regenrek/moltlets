@@ -1,63 +1,135 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createHash } from "node:crypto";
-import { planProjectInit, initProject } from "@clawlets/core/lib/project/project-init";
-import { HOST_THEME_COLORS, type HostTheme, type HostThemeColor } from "@clawlets/core/lib/host/host-theme";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { createConvexClient } from "~/server/convex";
-import { resolveWorkspacePath } from "~/server/paths";
-import { readClawletsEnvTokens } from "~/server/redaction";
-import { runWithEvents } from "~/server/run-manager";
-import { resolveTemplateSpec } from "~/server/template-spec";
-import { getAdminProjectContext } from "./repo-context";
-import { coerceString, parseProjectIdInput } from "~/sdk/runtime";
+import { coerceString, coerceTrimmedString } from "~/sdk/runtime/strings";
+import { validateGitRepoUrlPolicy, parseGitRemote } from "@clawlets/shared/lib/repo-url-policy";
+
+const HOST_DEFAULT = "openclaw-fleet-host";
+const RUNNER_REPO_PATH_MAX = 512;
+const RUNNER_NAME_MAX = 128;
+const TEMPLATE_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const TEMPLATE_PATH_RE = /^[A-Za-z0-9._/-]+$/;
+const TEMPLATE_REF_RE = /^[A-Za-z0-9._/-]+$/;
+
+function forbidMultilineNul(value: string, field: string): void {
+  if (value.includes("\0") || value.includes("\n") || value.includes("\r")) {
+    throw new Error(`${field} contains forbidden characters`);
+  }
+}
 
 function getHost(input?: unknown): string {
-  const raw = typeof input === "string" ? input.trim() : "";
-  return raw || "openclaw-fleet-host";
+  const value = coerceTrimmedString(input) || HOST_DEFAULT;
+  forbidMultilineNul(value, "host");
+  if (value.length > 128) throw new Error("host too long");
+  return value;
 }
 
-const HOST_THEME_COLOR_SET = new Set<string>(HOST_THEME_COLORS)
-
-function getHostTheme(input?: unknown):
-  | Partial<HostTheme>
-  | undefined {
-  if (!input || typeof input !== "object") return undefined
-  const data = input as Record<string, unknown>
-  const emoji = typeof data["emoji"] === "string" ? data["emoji"] : undefined
-  const colorRaw = typeof data["color"] === "string" ? data["color"] : undefined
-  const color = colorRaw && HOST_THEME_COLOR_SET.has(colorRaw)
-    ? (colorRaw as HostThemeColor)
-    : undefined
-  if (!emoji && !color) return undefined
-  return { emoji, color }
+function normalizeRunnerRepoPath(input: unknown): string {
+  const raw = coerceString(input).trim();
+  if (!raw) throw new Error("runnerRepoPath required");
+  forbidMultilineNul(raw, "runnerRepoPath");
+  const normalized = raw
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/+$/, "");
+  const out = normalized || "/";
+  if (out.split("/").includes("..")) {
+    throw new Error("runnerRepoPath cannot contain '..' path segments");
+  }
+  if (out.length > RUNNER_REPO_PATH_MAX) throw new Error("runnerRepoPath too long");
+  return out;
 }
 
-function buildLocalWorkspaceRef(localPath: string): { kind: "local"; id: string } {
-  const normalized = localPath.trim().toLowerCase();
-  const digest = createHash("sha256").update(normalized, "utf8").digest("hex");
-  return { kind: "local", id: `sha256:${digest}` };
+function normalizeRunnerName(input: unknown): string {
+  const value = coerceString(input).trim();
+  if (!value) throw new Error("runnerName required");
+  forbidMultilineNul(value, "runnerName");
+  if (value.length > RUNNER_NAME_MAX) throw new Error("runnerName too long");
+  return value;
 }
 
-export const projectInitPlan = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input");
-    const d = data as Record<string, unknown>;
-    return {
-      localPath: coerceString(d["localPath"]),
-      host: getHost(d["host"]),
-      templateSpec: resolveTemplateSpec(d["templateSpec"]),
-      theme: getHostTheme(d["theme"]),
-    };
-  })
-  .handler(async ({ data }) => {
-    const destDir = resolveWorkspacePath(data.localPath, { allowMissing: true });
-    return await planProjectInit({
-      destDir,
-      host: data.host,
-      templateSpec: data.templateSpec,
-    });
-  });
+function normalizeTemplateRepo(input: unknown): string | undefined {
+  const value = coerceString(input).trim();
+  if (!value) return undefined;
+  forbidMultilineNul(value, "templateRepo");
+  if (!TEMPLATE_REPO_RE.test(value)) throw new Error("templateRepo must be owner/repo");
+  return value;
+}
+
+function normalizeTemplatePath(input: unknown): string | undefined {
+  const value = coerceString(input).trim();
+  if (!value) return undefined;
+  forbidMultilineNul(value, "templatePath");
+  if (value.startsWith("/")) throw new Error("templatePath must be relative");
+  if (value.includes("..") || !TEMPLATE_PATH_RE.test(value)) throw new Error("templatePath invalid");
+  return value;
+}
+
+function normalizeTemplateRef(input: unknown): string | undefined {
+  const value = coerceString(input).trim();
+  if (!value) return undefined;
+  forbidMultilineNul(value, "templateRef");
+  if (!TEMPLATE_REF_RE.test(value)) throw new Error("templateRef invalid");
+  return value;
+}
+
+function normalizeCloneRepoUrl(input: unknown): string {
+  const value = coerceString(input).trim();
+  if (!value) throw new Error("repoUrl required");
+  const validated = validateGitRepoUrlPolicy(value);
+  if (!validated.ok) {
+    if (validated.error.code === "file_forbidden") throw new Error("repoUrl file: urls are not allowed");
+    if (validated.error.code === "invalid_protocol") throw new Error("repoUrl invalid protocol");
+    if (validated.error.code === "host_not_allowed") throw new Error("repoUrl host is not allowed");
+    if (validated.error.code === "invalid_host") throw new Error("repoUrl invalid host");
+    throw new Error("repoUrl invalid");
+  }
+  return validated.repoUrl;
+}
+
+function canonicalizeRepoIdentity(repoUrl: string): string {
+  const remote = parseGitRemote(repoUrl);
+  if (remote?.kind === "scp") {
+    const [lhs, rhs] = repoUrl.split(":", 2);
+    const [user, host] = (lhs ?? "").split("@", 2);
+    const cleanPath = (rhs || "")
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "")
+      .replace(/\.git$/i, "");
+    if (!user || !host || !cleanPath) throw new Error("repoUrl invalid");
+    return `${user}@${host.toLowerCase()}:${cleanPath}`;
+  }
+  const parsed = new URL(repoUrl);
+  const pathname = (parsed.pathname || "/")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/i, "") || "/";
+  return `${parsed.protocol}//${parsed.host.toLowerCase()}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function parseDepth(input: unknown): number | undefined {
+  if (input === undefined || input === null || input === "") return undefined;
+  const value = typeof input === "number" ? input : Number.parseInt(coerceString(input).trim(), 10);
+  if (!Number.isFinite(value)) throw new Error("depth invalid");
+  const depth = Math.trunc(value);
+  if (depth < 1 || depth > 1000) throw new Error("depth must be between 1 and 1000");
+  return depth;
+}
+
+function parseBranch(input: unknown): string | undefined {
+  const branch = coerceString(input).trim();
+  if (!branch) return undefined;
+  forbidMultilineNul(branch, "branch");
+  if (branch.length > 256) throw new Error("branch too long");
+  if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new Error("branch invalid");
+  return branch;
+}
+
+function buildSeededWorkspaceRef(runnerRepoPath: string): { kind: "git"; id: string } {
+  const digest = createHash("sha256").update(runnerRepoPath, "utf8").digest("hex");
+  return { kind: "git", id: `seeded:sha256:${digest}` };
+}
 
 export const projectCreateStart = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
@@ -65,133 +137,172 @@ export const projectCreateStart = createServerFn({ method: "POST" })
     const d = data as Record<string, unknown>;
     return {
       name: coerceString(d["name"]),
-      localPath: coerceString(d["localPath"]),
+      runnerRepoPath: normalizeRunnerRepoPath(d["runnerRepoPath"]),
       host: getHost(d["host"]),
-      templateSpec: resolveTemplateSpec(d["templateSpec"]),
-      theme: getHostTheme(d["theme"]),
-      gitInit: d["gitInit"] === undefined ? true : Boolean(d["gitInit"]),
+      runnerName: normalizeRunnerName(d["runnerName"]),
+      templateRepo: normalizeTemplateRepo(d["templateRepo"]),
+      templatePath: normalizeTemplatePath(d["templatePath"]),
+      templateRef: normalizeTemplateRef(d["templateRef"]),
     };
   })
   .handler(async ({ data }) => {
     const client = createConvexClient();
-    const localPath = resolveWorkspacePath(data.localPath, { allowMissing: true });
+    const workspaceRef = buildSeededWorkspaceRef(data.runnerRepoPath);
 
     const { projectId } = await client.mutation(api.controlPlane.projects.create, {
       name: data.name,
-      executionMode: "local",
-      workspaceRef: buildLocalWorkspaceRef(localPath),
-      localPath,
+      executionMode: "remote_runner",
+      workspaceRef,
+      runnerRepoPath: data.runnerRepoPath,
     });
     const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId,
       kind: "project_init",
-      title: `Create project`,
+      title: "Create project",
+      host: data.host,
     });
-
+    await client.mutation(api.controlPlane.jobs.enqueue, {
+      projectId,
+      runId,
+      kind: "project_init",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
+        templateRepo: data.templateRepo,
+        templatePath: data.templatePath,
+        templateRef: data.templateRef,
+      },
+      title: "Initialize project repo",
+    });
     await client.mutation(api.controlPlane.runEvents.appendBatch, {
       runId,
-      events: [{ ts: Date.now(), level: "info", message: "Starting project init…" }],
+      events: [
+        {
+          ts: Date.now(),
+          level: "info",
+          message: "Project init queued. Waiting for runner to start and lease the job.",
+        },
+      ],
     });
-
+    const tokenResult = await client.mutation(api.controlPlane.runnerTokens.create, {
+      projectId,
+      runnerName: data.runnerName,
+    });
     return {
       projectId: projectId as Id<"projects">,
       runId: runId as Id<"runs">,
       host: data.host,
-      templateSpec: data.templateSpec,
-      theme: data.theme,
-      gitInit: data.gitInit,
+      runnerName: data.runnerName,
+      runnerRepoPath: data.runnerRepoPath,
+      token: tokenResult.token,
     };
-  });
-
-export const projectCreateExecute = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    if (!data || typeof data !== "object") throw new Error("invalid input");
-    const d = data as Record<string, unknown>;
-    const base = parseProjectIdInput(d);
-    const runIdRaw = d["runId"];
-    if (typeof runIdRaw !== "string" || !runIdRaw.trim()) throw new Error("invalid runId");
-    return {
-      ...base,
-      runId: runIdRaw.trim() as Id<"runs">,
-      host: getHost(d["host"]),
-      templateSpec: resolveTemplateSpec(d["templateSpec"]),
-      theme: getHostTheme(d["theme"]),
-      gitInit: d["gitInit"] === undefined ? true : Boolean(d["gitInit"]),
-    };
-  })
-  .handler(async ({ data }) => {
-    const client = createConvexClient();
-    const context = await getAdminProjectContext(client, data.projectId, { allowMissing: true });
-    const run = await client.query(api.controlPlane.runs.get, { runId: data.runId });
-    if (run.run.projectId !== data.projectId) throw new Error("runId does not match project");
-    const repoRoot = context.repoRoot;
-    const redactTokens = await readClawletsEnvTokens(repoRoot);
-
-    try {
-      await runWithEvents({
-        client,
-        runId: data.runId,
-        redactTokens,
-        fn: async (emit) => {
-          await emit({ level: "info", message: `Creating project in ${repoRoot}` });
-          const result = await initProject({
-            destDir: repoRoot,
-            host: data.host,
-            templateSpec: data.templateSpec,
-            theme: data.theme,
-            gitInit: data.gitInit,
-          });
-          await emit({ level: "info", message: `Wrote ${result.plannedFiles.length} files.` });
-          for (const step of result.nextSteps) {
-            await emit({ level: "info", message: step });
-          }
-        },
-      });
-
-      await client.mutation(api.controlPlane.projects.update, { projectId: data.projectId, status: "ready" });
-      await client.mutation(api.controlPlane.runs.setStatus, { runId: data.runId, status: "succeeded" });
-      return { ok: true as const };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await client.mutation(api.controlPlane.projects.update, { projectId: data.projectId, status: "error" });
-      await client.mutation(api.controlPlane.runs.setStatus, { runId: data.runId, status: "failed", errorMessage: message });
-      return { ok: false as const, message };
-    }
   });
 
 export const projectImport = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     if (!data || typeof data !== "object") throw new Error("invalid input");
     const d = data as Record<string, unknown>;
+    const repoUrl = normalizeCloneRepoUrl(d["repoUrl"]);
     return {
       name: coerceString(d["name"]),
-      localPath: coerceString(d["localPath"]),
+      repoUrl,
+      repoIdentity: canonicalizeRepoIdentity(repoUrl),
+      runnerRepoPath: normalizeRunnerRepoPath(d["runnerRepoPath"]),
+      runnerName: normalizeRunnerName(d["runnerName"]),
+      branch: parseBranch(d["branch"]),
+      depth: parseDepth(d["depth"]),
     };
   })
   .handler(async ({ data }) => {
     const client = createConvexClient();
-    const localPath = resolveWorkspacePath(data.localPath, { requireRepoLayout: true });
-
     const { projectId } = await client.mutation(api.controlPlane.projects.create, {
       name: data.name,
-      executionMode: "local",
-      workspaceRef: buildLocalWorkspaceRef(localPath),
-      localPath,
+      executionMode: "remote_runner",
+      workspaceRef: { kind: "git", id: data.repoIdentity },
+      runnerRepoPath: data.runnerRepoPath,
     });
-    await client.mutation(api.controlPlane.projects.update, { projectId, status: "ready" });
-
     const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId,
       kind: "project_import",
       title: "Import project",
     });
+    await client.mutation(api.controlPlane.jobs.enqueue, {
+      projectId,
+      runId,
+      kind: "project_import",
+      payloadMeta: {
+        repoUrl: data.repoUrl,
+        branch: data.branch,
+        depth: data.depth,
+      },
+      title: "Clone project repo",
+    });
     await client.mutation(api.controlPlane.runEvents.appendBatch, {
       runId,
       events: [
-        { ts: Date.now(), level: "info", message: `Imported project at ${localPath}` },
+        {
+          ts: Date.now(),
+          level: "info",
+          message: "Project import queued. Waiting for runner to start and lease the job.",
+        },
       ],
     });
-    await client.mutation(api.controlPlane.runs.setStatus, { runId, status: "succeeded" });
+    const tokenResult = await client.mutation(api.controlPlane.runnerTokens.create, {
+      projectId,
+      runnerName: data.runnerName,
+    });
+    return {
+      projectId: projectId as Id<"projects">,
+      runId: runId as Id<"runs">,
+      runnerName: data.runnerName,
+      runnerRepoPath: data.runnerRepoPath,
+      token: tokenResult.token,
+      repoUrl: data.repoUrl,
+    };
+  });
 
-    return { projectId: projectId as Id<"projects">, runId: runId as Id<"runs"> };
+export const projectRetryInit = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    if (!data || typeof data !== "object") throw new Error("invalid input");
+    const d = data as Record<string, unknown>;
+    const projectId = coerceString(d["projectId"]).trim() as Id<"projects">;
+    if (!projectId) throw new Error("projectId required");
+    return {
+      projectId,
+      host: getHost(d["host"]),
+    };
+  })
+  .handler(async ({ data }) => {
+    const client = createConvexClient();
+    await client.mutation(api.controlPlane.projects.update, {
+      projectId: data.projectId,
+      status: "creating",
+    });
+    const { runId } = await client.mutation(api.controlPlane.runs.create, {
+      projectId: data.projectId,
+      kind: "project_init",
+      title: "Retry project init",
+      host: data.host,
+    });
+    await client.mutation(api.controlPlane.jobs.enqueue, {
+      projectId: data.projectId,
+      runId,
+      kind: "project_init",
+      host: data.host,
+      payloadMeta: {
+        hostName: data.host,
+      },
+      title: "Initialize project repo",
+    });
+    await client.mutation(api.controlPlane.runEvents.appendBatch, {
+      runId,
+      events: [
+        {
+          ts: Date.now(),
+          level: "info",
+          message: "Project init retry queued. Waiting for runner to lease the job.",
+        },
+      ],
+    });
+    return { runId: runId as Id<"runs"> };
   });

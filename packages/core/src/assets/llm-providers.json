@@ -259,6 +259,17 @@
       }
     ]
   },
+  "together": {
+    "auth": "apiKey",
+    "credentials": [
+      {
+        "id": "api_key",
+        "anyOfEnv": [
+          "TOGETHER_API_KEY"
+        ]
+      }
+    ]
+  },
   "venice": {
     "auth": "apiKey",
     "credentials": [

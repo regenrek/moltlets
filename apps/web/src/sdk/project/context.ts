@@ -5,6 +5,7 @@ export type ProjectAccess = {
   project: {
     executionMode: "local" | "remote_runner"
     localPath?: string
+    runnerRepoPath?: string
     workspaceRef: { kind: "local" | "git"; id: string; relPath?: string }
   }
   role: "admin" | "viewer"

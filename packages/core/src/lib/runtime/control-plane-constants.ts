@@ -3,7 +3,7 @@ export const GATEWAY_STATUSES = HOST_STATUSES;
 export const RUNNER_STATUSES = ["online", "offline"] as const;
 export const SECRET_WIRING_SCOPES = ["bootstrap", "updates", "openclaw"] as const;
 export const SECRET_WIRING_STATUSES = ["configured", "missing", "placeholder", "warn"] as const;
-export const JOB_STATUSES = ["queued", "leased", "running", "succeeded", "failed", "canceled"] as const;
+export const JOB_STATUSES = ["sealed_pending", "queued", "leased", "running", "succeeded", "failed", "canceled"] as const;
 
 export const CONTROL_PLANE_TEXT_LIMITS = {
   hostName: 128,

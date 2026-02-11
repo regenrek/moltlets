@@ -1,6 +1,5 @@
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
-import { Button } from "~/components/ui/button"
 
 export function SetupStepCreds(props: {
   projectId: Id<"projects">
@@ -9,17 +8,32 @@ export function SetupStepCreds(props: {
 }) {
   return (
     <div className="space-y-4">
-      <DeployCredsCard projectId={props.projectId} />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={!props.isComplete} onClick={props.onContinue}>
-          Continue
-        </Button>
-        {!props.isComplete ? (
-          <div className="text-xs text-muted-foreground">
-            Set <code>SOPS_AGE_KEY_FILE</code> and <code>HCLOUD_TOKEN</code>.
+      <DeployCredsCard
+        projectId={props.projectId}
+        setupAction={{
+          isComplete: props.isComplete,
+          onContinue: props.onContinue,
+        }}
+      />
+      {!props.isComplete ? (
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <div>
+            Set <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and <code>SOPS_AGE_KEY_FILE</code>.
           </div>
-        ) : null}
-      </div>
+          <div>
+            Need a GitHub token?{" "}
+            <a
+              className="underline underline-offset-3 hover:text-foreground"
+              href="https://docs.clawlets.com/dashboard/github-token"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How to create GitHub token
+            </a>
+            .
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

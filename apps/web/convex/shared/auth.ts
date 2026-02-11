@@ -38,10 +38,19 @@ async function ensureUserByAuthUser(ctx: MutationCtx, authUser: { _id: string; n
 
   if (existing) {
     const nextRole = !hasAdmin ? "admin" : existing.role;
+    const nextName = typeof authUser.name === "string" ? authUser.name : undefined;
+    const nextEmail = typeof authUser.email === "string" ? authUser.email : undefined;
+    const nextPictureUrl = typeof authUser.image === "string" ? authUser.image : undefined;
+    const shouldPatch =
+      existing.role !== nextRole ||
+      existing.name !== nextName ||
+      existing.email !== nextEmail ||
+      existing.pictureUrl !== nextPictureUrl;
+    if (!shouldPatch) return { user: existing };
     await ctx.db.patch(existing._id, {
-      name: typeof authUser.name === "string" ? authUser.name : undefined,
-      email: typeof authUser.email === "string" ? authUser.email : undefined,
-      pictureUrl: typeof authUser.image === "string" ? authUser.image : undefined,
+      name: nextName,
+      email: nextEmail,
+      pictureUrl: nextPictureUrl,
       role: nextRole,
       updatedAt: now,
     });

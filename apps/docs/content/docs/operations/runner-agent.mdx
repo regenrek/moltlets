@@ -13,8 +13,7 @@ Create a runner token from the dashboard/admin surface, then start the runner:
 clawlets runner start \
   --project <projectId> \
   --token <runner-token> \
-  --control-plane-url <https://dashboard-host> \
-  --dashboardOrigin <https://dashboard-origin>
+  --control-plane-url <https://dashboard-host>
 ```
 
 Optional flags:
@@ -25,11 +24,8 @@ Optional flags:
 - `--leaseTtlMs <ttl>`
 - `--heartbeatMs <ttl>`
 - `--maxAttempts <n>`
-- `--localSecretsPort <1024-65535>`
-- `--nonce <csrf-nonce>`
-- `--secretsWaitMs <ms>`
 
-## Heartbeats, capabilities, and local submit handshake
+## Heartbeats and capabilities
 
 Runner sends:
 
@@ -40,33 +36,20 @@ If heartbeat goes stale, jobs become lease-eligible again after TTL expiry.
 
 Runner heartbeat capabilities include:
 
-- `supportsLocalSecretsSubmit`
-- `supportsInteractiveSecrets`
 - `supportsInfraApply`
-- `localSecretsPort`
-- `localSecretsNonce`
-
-Control plane validation:
-
-- `localSecretsPort` must be an integer in `1024..65535`.
-- `localSecretsNonce` is trimmed and must be non-empty (when provided) and bounded.
+- `supportsSealedInput`
+- `sealedInputAlg`
+- `sealedInputPubSpkiB64`
+- `sealedInputKeyId`
 
 ## Secrets handling
 
 Default secure path:
 
-- Browser submits secret values to local runner endpoint (`127.0.0.1`) when available.
-- Runner stores plaintext in memory with TTL and writes encrypted artifacts only.
-
-Handshake requirements for local submit:
-
-- Request path: `POST /secrets/submit`
-- Origin must exactly match `--dashboardOrigin`
-- Header `x-clawlets-nonce` must equal heartbeat `localSecretsNonce`
-
-Fallback:
-
-- Runner-side interactive prompt when local submit is unavailable.
+- Browser encrypts secret payload for the target runner and sends ciphertext only to control plane.
+- Jobs are reserved first (`sealed_pending`) and become leasable only after ciphertext finalize.
+- Runner decrypts sealed payload locally and executes command non-interactively.
+- Placeholder jobs fail fast when sealed input is missing/invalid.
 
 Control plane never stores plaintext secret values.
 
@@ -115,6 +98,6 @@ Control plane should not mount or require repo-root paths.
 - **Runner offline:** verify process is running and token is not revoked.
 - **Jobs stuck queued:** check runner project id, token scope, and lease endpoints reachability.
 - **Lease expired mid-run:** ensure heartbeat interval is below lease TTL.
-- **Local secrets submit denied (`403`):** verify `Origin` equals `--dashboardOrigin` and `x-clawlets-nonce` matches runner nonce.
+- **No sealed-capable runner available:** upgrade runner and confirm heartbeat includes `supportsSealedInput`, `sealedInputPubSpkiB64`, and `sealedInputKeyId`.
 - **Metadata sync rejected (`400`):** reduce payload array sizes to documented limits.
 - **Repeated failures:** inspect run logs (`runs` + `runEvents`) and adjust command args/config.
