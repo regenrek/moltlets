@@ -7,7 +7,7 @@ Setup is a command center for getting a new project to its first successful depl
 It is derived from real state (config, secrets, local deploy credentials, and runs),
 so you can stop halfway and resume later.
 
-<Callout type="note" title="Runner comes first">
+<Callout type="info" title="Runner comes first">
   Setup now starts with **Connect Runner**. The runner must be online and repo-reachable
   before server access, credentials, secrets, or deploy steps unlock.
   See [Runner Agent](/operations/runner-agent).
@@ -25,41 +25,41 @@ Open:
 
 <Steps>
   <Step>
-    <strong>Connect runner</strong>
+    <strong>Connect Runner</strong>
     <br />
     Create a runner token inline, copy the generated <code>clawlets runner start</code> command,
     and start a runner on a machine that has access to your project repo.
   </Step>
   <Step>
-    <strong>Choose host</strong>
+    <strong>Add First Host</strong>
     <br />
     Select which host you will deploy first. If the project has no hosts yet, add one inline.
   </Step>
   <Step>
-    <strong>Server access</strong>
+    <strong>Server Access</strong>
     <br />
     Fill <code>provisioning.adminCidr</code> and add at least one SSH key to{" "}
-    <code>fleet.sshAuthorizedKeys</code>.
+    <code>fleet.sshAuthorizedKeys</code>. You can add keys inline in Setup or from [SSH keys](/dashboard/ssh-keys).
   </Step>
   <Step>
-    <strong>Deploy credentials</strong>
+    <strong>Provider Tokens</strong>
     <br />
     Configure local-only credentials in <code>.clawlets/env</code>. Setup requires{" "}
-    <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and <code>SOPS_AGE_KEY_FILE</code>.
+    <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and <code>SOPS_AGE_KEY_FILE</code> from [Deploy credentials](/dashboard/deploy-credentials).
   </Step>
   <Step>
-    <strong>Server passwords</strong>
+    <strong>Server Passwords</strong>
     <br />
     Initialize and verify bootstrap-scope host secrets. Setup requires a successful{" "}
     <code>secrets_verify_bootstrap</code> run before install.
   </Step>
   <Step>
-    <strong>Deploy</strong>
+    <strong>Install Server</strong>
     <br />
     Use the canonical Deploy surface. It automatically switches between initial install (bootstrap) and apply changes (updates).
   </Step>
   <Step>
-    <strong>Verify + hardening</strong>
+    <strong>Secure and Verify</strong>
     <br />
     Run the post-bootstrap checklist (tailnet switch, SSH lockdown) and confirm the host is stable.
   </Step>

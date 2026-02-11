@@ -4,7 +4,8 @@ description: Create and validate GITHUB_TOKEN for Clawlets setup.
 ---
 
 Clawlets uses <code>GITHUB_TOKEN</code> during setup/deploy to read your base flake repository.
-If that repository is private, setup fails without a valid token.
+If that repository is private, the Setup <code>Provider Tokens</code> step stays blocked
+without a valid token.
 
 Use this page as the canonical operator flow for creating the token and saving it in the dashboard.
 
@@ -69,7 +70,7 @@ Related: [Deploy credentials](/dashboard/deploy-credentials)
 
 ## Verify
 
-- Setup no longer blocks on missing deploy credentials.
+- Setup <code>Provider Tokens</code> no longer blocks on <code>GITHUB_TOKEN</code>.
 - Optional CLI check:
 
 ```bash

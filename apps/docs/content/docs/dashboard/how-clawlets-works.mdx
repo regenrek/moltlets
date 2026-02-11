@@ -42,19 +42,25 @@ For UI details: [First login](/dashboard/first-login).
 Route: `/<projectSlug>/hosts/<host>/setup`
 
 <Callout type="warning" title="Connect runner first">
-  Stage 2 starts with a required **Connect Runner** step. Until a fresh runner heartbeat
-  and repo probe succeed, all other setup steps remain locked.
+  Stage 2 starts with a required **Connect Runner** step. A runner heartbeat is treated as
+  fresh for about 30 seconds. Until the runner is online, all later steps stay locked.
   See [Runner Agent](/operations/runner-agent).
 </Callout>
 
 Step order and gating:
 
-1. `Connect Runner` (`runner`): requires fresh online runner + successful repo probe.
-2. `Server Access` (`connection`): requires `provisioning.adminCidr` and at least one `fleet.sshAuthorizedKeys` entry.
-3. `Provider Tokens` (`creds`): requires `HCLOUD_TOKEN`, `GITHUB_TOKEN`, and `SOPS_AGE_KEY_FILE`.
-4. `Server Passwords` (`secrets`): requires successful run `secrets_verify_bootstrap`.
-5. `Install Server` (`deploy`): requires successful bootstrap run (`bootstrap`).
-6. `Secure and Verify` (`verify`): optional post-bootstrap hardening checklist.
+1. `Connect Runner` (`runner`): requires a fresh online runner heartbeat.
+2. `Add First Host` (`host`): choose an existing host or add one.
+3. `Server Access` (`connection`): requires `provisioning.adminCidr` and at least one `fleet.sshAuthorizedKeys` entry.
+4. `Provider Tokens` (`creds`): requires `HCLOUD_TOKEN`, `GITHUB_TOKEN`, and `SOPS_AGE_KEY_FILE`.
+5. `Server Passwords` (`secrets`): requires successful run `secrets_verify_bootstrap`.
+6. `Install Server` (`deploy`): requires successful bootstrap run (`bootstrap`).
+7. `Secure and Verify` (`verify`): optional post-bootstrap hardening checklist.
+
+Project security surfaces used during this stage:
+
+- [SSH keys](/dashboard/ssh-keys) (`/$projectSlug/security/ssh-keys`)
+- [Deploy credentials](/dashboard/deploy-credentials) (`/$projectSlug/security/api-keys`)
 
 Canonical provider guidance:
 

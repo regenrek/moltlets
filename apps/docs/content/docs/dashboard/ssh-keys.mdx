@@ -1,0 +1,65 @@
+---
+title: SSH keys
+description: Manage project-level SSH authorized keys and known_hosts entries.
+---
+
+The SSH keys page manages `fleet.sshAuthorizedKeys` and `fleet.sshKnownHosts` for a
+project. These values are shared across hosts in the project and are used by Setup and
+bootstrap flows.
+
+UI route: `/<projectSlug>/security/ssh-keys`
+
+## Why this page matters
+
+Setup `Server Access` requires:
+
+- `hosts.<host>.provisioning.adminCidr`
+- at least one key in `fleet.sshAuthorizedKeys`
+
+Without a project SSH key, setup cannot continue to Provider Tokens, secrets, or deploy.
+
+## Recommended flow
+
+<Steps>
+  <Step>
+    Open <code>/$projectSlug/security/ssh-keys</code>.
+  </Step>
+  <Step>
+    Add one or more SSH public keys (paste text or upload a <code>.pub</code> file).
+  </Step>
+  <Step>
+    Optional: add <code>known_hosts</code> entries (paste text or upload file).
+  </Step>
+  <Step>
+    Click <strong>Add SSH Keys</strong>.
+  </Step>
+  <Step>
+    Return to host Setup and confirm <code>Server Access</code> can complete.
+  </Step>
+</Steps>
+
+## Verify
+
+- Page shows at least one configured authorized key.
+- Setup `Server Access` no longer blocks on missing SSH key.
+- Config includes `fleet.sshAuthorizedKeys` entries.
+
+## Troubleshooting
+
+### "Server Access" still locked in Setup
+
+- Confirm selected host has `provisioning.adminCidr` set.
+- Confirm `fleet.sshAuthorizedKeys` has at least one valid key.
+- Refresh Setup after saving SSH keys.
+
+### Upload did nothing
+
+- Re-open `/$projectSlug/security/ssh-keys` and verify keys appear in the list.
+- Retry with a plain text public key file (`ssh-ed25519 ...` or `ssh-rsa ...`).
+
+### Added wrong key
+
+- Remove the key from the authorized list on this page.
+- Add the correct public key and verify Setup again.
+
+Related: [Setup](/dashboard/setup), [How Clawlets works](/dashboard/how-clawlets-works)

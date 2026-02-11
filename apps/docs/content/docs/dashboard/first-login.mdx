@@ -27,13 +27,14 @@ start a runner. Default repo path is `~/.clawlets/projects/<project-slug>`.
 
 ## 3) Run through Setup
 
-Setup is a Vercel-style command center for the first deploy. It is derived from real
-state (config, secrets, local deploy creds, and runs), so you can close it and resume
-later. After host setup completes, continue with OpenClaw setup for gateway/app wiring.
+Setup is a command center for the first deploy. It is derived from real state
+(config, secrets, local deploy creds, and runs), so you can close it and resume later.
+After host setup completes, continue with OpenClaw setup for gateway/app wiring.
 
 First step is **Connect Runner**. Setup now creates a runner token inline and gives
-you the exact command to run locally. Remaining steps stay locked until runner
-connection and repo probe are green. See [Runner Agent](/operations/runner-agent).
+you the exact command to run locally. Next required step is **Add First Host**. The
+remaining setup stages unlock in order from that point. See [Runner Agent](/operations/runner-agent)
+and [Setup](/dashboard/setup).
 
 Use this as the full lifecycle map:
 

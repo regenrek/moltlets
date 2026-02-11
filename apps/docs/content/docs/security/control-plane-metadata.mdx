@@ -28,6 +28,18 @@ Control-plane storage is metadata that helps with coordination and observability
 - runner heartbeat and capability flags
 - queued/running/completed job state for scheduling and retries
 
+## Bounded metadata constraints
+
+Runner metadata sync payloads are size-limited. Current limits:
+
+- `projectConfigs <= 500`
+- `hosts <= 200`
+- `gateways <= 500`
+- `secretWiring <= 2000`
+- per-host `secretWiring <= 500` (extra entries are dropped)
+
+Oversized payloads are rejected by the control plane with `400`.
+
 ## What the control plane must not store
 
 - plaintext secret values
@@ -80,6 +92,13 @@ are outside this erasure boundary.
 - In setup/credentials UI, confirm provider tokens stay local (`.clawlets/env`) and are shown as status only.
 - In run history, verify events are redacted and do not include plaintext tokens/keys.
 - In troubleshooting, treat any secret-like appearance as an incident and rotate immediately.
+
+Redaction currently covers common leak paths such as:
+
+- `Authorization: Bearer ...` / `Authorization: Basic ...`
+- URL userinfo (`https://user:pass@...`)
+- query token params (`token`, `access_token`, `api_key`, ...)
+- simple token/password assignment patterns in log lines
 
 ## Troubleshooting
 

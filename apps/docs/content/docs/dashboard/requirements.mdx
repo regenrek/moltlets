@@ -23,8 +23,13 @@ resolution and project templates.
 - **Git** for workspace and template resolution
 - **clawlets CLI** for running the local runner agent (`npm install -g clawlets` or `./scripts/dev-install-clawlets-wrapper.sh` from this repo)
 
-<Callout type="note" title="Runner required for Setup">
+<Callout type="info" title="Runner required for Setup">
   Dashboard Setup uses a project runner agent for config, secrets, and deploy actions.
   Connect a runner during Setup before continuing to provider tokens, secrets, and deploy.
   See [Runner Agent](/operations/runner-agent).
 </Callout>
+
+During setup you will also use project security tabs:
+
+- API keys: `/$projectSlug/security/api-keys` ([Deploy credentials](/dashboard/deploy-credentials))
+- SSH keys: `/$projectSlug/security/ssh-keys` ([SSH keys](/dashboard/ssh-keys))

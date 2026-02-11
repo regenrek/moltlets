@@ -5,6 +5,12 @@ description: Pair, start, and operate runner agents.
 
 Runner agents execute jobs for a project and report metadata back to the control plane.
 
+## Control-plane freshness model
+
+Dashboard setup checks for a **fresh** runner heartbeat. Current freshness window is
+about 30 seconds. If no heartbeat lands in that window, the runner is treated as
+offline for setup gating.
+
 ## Pairing
 
 Create a runner token from the dashboard/admin surface, then start the runner:
@@ -48,7 +54,7 @@ Current sealed-input algorithm: `rsa-oaep-3072/aes-256-gcm`.
 
 Default secure path:
 
-- Browser encrypts secret payload for the target runner and sends ciphertext only to control plane.
+- Browser encrypts secret payload for one selected target runner and sends ciphertext only to control plane.
 - Jobs are reserved first (`sealed_pending`) and become leasable only after ciphertext finalize.
 - Runner decrypts sealed payload locally and executes command non-interactively.
 - Placeholder jobs fail fast when sealed input is missing/invalid.
@@ -100,6 +106,8 @@ Control plane should not mount or require repo-root paths.
 - **Runner offline:** verify process is running and token is not revoked.
 - **Jobs stuck queued:** check runner project id, token scope, and lease endpoints reachability.
 - **Lease expired mid-run:** ensure heartbeat interval is below lease TTL.
+- **Runner flips offline in setup:** check heartbeat cadence and runner process health (freshness window is ~30s).
 - **No sealed-capable runner available:** upgrade runner and confirm heartbeat includes `supportsSealedInput`, `sealedInputPubSpkiB64`, and `sealedInputKeyId`.
+- **Sealed submit requires runner selection:** if multiple sealed-capable runners are online, pick one target runner before saving deploy credentials.
 - **Metadata sync rejected (`400`):** reduce payload array sizes to documented limits.
 - **Repeated failures:** inspect run logs (`runs` + `runEvents`) and adjust command args/config.
