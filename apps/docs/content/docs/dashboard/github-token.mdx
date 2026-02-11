@@ -26,15 +26,28 @@ Use this page as the canonical operator flow for creating the token and saving i
     Set a clear token name (example: <code>clawlets-setup</code>) and a reasonable expiration.
   </Step>
   <Step>
-    Under repository access, select only the repository Clawlets needs to read.
+    Under <strong>Resource owner</strong>, select the owner that contains your base flake repository.
+    If the repo is in an org, pick that org (not your personal account).
   </Step>
   <Step>
-    Under permissions, grant read access for repository contents and metadata.
+    Under <strong>Repository access</strong>, select <strong>Only select repositories</strong>.
+    Then under <strong>Selected repositories</strong>, select exactly the base flake repo Clawlets reads.
+  </Step>
+  <Step>
+    Under <strong>Permissions</strong>, set exactly:
+    <br />
+    <code>Repository permissions → Contents: Read-only</code>
+    <br />
+    <code>Repository permissions → Metadata: Read-only</code> (if shown; GitHub may auto-set this)
+    <br />
+    Leave all other repository, organization, and account permissions at <strong>No access</strong>.
   </Step>
   <Step>
     Create the token and copy it immediately (GitHub shows it once).
   </Step>
 </Steps>
+
+For Clawlets setup/deploy, no write permission is needed on GitHub for this token.
 
 If your organization policy blocks fine-grained PATs, use a classic PAT as fallback and grant only what your repository access requires.
 
