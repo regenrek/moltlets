@@ -10,12 +10,28 @@ The canonical production path is Hetzner. AWS exists, but remains experimental.
 
 ## Install clawlets (CLI)
 
-Install the CLI globally so you can run it from any project repo:
+Choose one install path:
+
+Published package:
 
 ```bash
 npm install -g clawlets
 clawlets --help
 ```
+
+Local repo wrapper (development in this repo):
+
+```bash
+./scripts/dev-install-clawlets-wrapper.sh
+clawlets --help
+```
+
+Wrapper installer behavior:
+
+- Default wrapper path: `~/bin/clawlets` (override with `CLAWLETS_BIN_DIR`).
+- If the install dir is not on `PATH`, the script persists a managed `PATH` block in shell profiles.
+- Use `--path-shells auto|all|posix,zsh,bash,fish,nushell,pwsh` to control target shells.
+- Use `--dry-run` to preview changes and `--no-path-edit` to skip profile edits.
 
 Node >= 22 required.
 

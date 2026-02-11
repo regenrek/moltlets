@@ -30,7 +30,7 @@ describe("fleet nix eval", () => {
         "let",
         "  flake = builtins.getFlake (toString ./.);",
         "  lib = flake.inputs.nixpkgs.lib;",
-        "  infraConfig = { schemaVersion = 2; hosts = { alpha = { enable = true; }; }; fleet = { secretEnv = {}; secretFiles = {}; sshAuthorizedKeys = []; sshKnownHosts = []; backups = { restic = { enable = false; repository = \"\"; }; }; }; cattle = { enabled = false; }; };",
+        "  infraConfig = { schemaVersion = 2; hosts = { alpha = { enable = true; }; }; fleet = { secretEnv = {}; secretFiles = {}; sshAuthorizedKeys = []; sshKnownHosts = []; backups = { restic = { enable = false; repository = \"\"; }; }; }; };",
         "  openclawConfig = { schemaVersion = 1; hosts = {}; fleet = { secretEnv = {}; secretFiles = {}; gatewayArchitecture = \"multi\"; codex = { enable = false; gateways = []; }; }; };",
         "  project = {",
         "    root = flake.outPath;",

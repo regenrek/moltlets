@@ -11,9 +11,29 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
 async function loadSdk() {
   vi.resetModules()
   const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
+  const previewJson = {
+    localDir: "/runner/repo/secrets/alpha",
+    remoteDir: "/etc/clawlets/hosts/alpha/secrets",
+    digest: "sha256",
+    files: ["DISCORD_TOKEN.yaml"],
+  }
 
   vi.doMock("~/server/convex", () => ({
-    createConvexClient: () => ({ mutation: vi.fn(), query: vi.fn() }) as any,
+    createConvexClient: () =>
+      ({
+        mutation: vi.fn(async (_mutation: unknown, payload: any) => {
+          const maybeTakeResult =
+            payload
+            && typeof payload === "object"
+            && typeof payload.projectId === "string"
+            && typeof payload.jobId === "string"
+            && !("kind" in payload)
+            && !("sealedInputB64" in payload)
+          if (maybeTakeResult) return { runId: "run_1", resultJson: JSON.stringify(previewJson) }
+          return null
+        }),
+        query: vi.fn(),
+      }) as any,
   }))
   vi.doMock("~/sdk/project", () => ({
     requireAdminProjectAccess: async () => ({ role: "admin" }),
@@ -24,12 +44,7 @@ async function loadSdk() {
       ...actual,
       enqueueRunnerCommand,
       waitForRunTerminal: async () => ({ status: "succeeded" }),
-      listRunMessages: async () => [JSON.stringify({
-        localDir: "/runner/repo/secrets/alpha",
-        remoteDir: "/etc/clawlets/hosts/alpha/secrets",
-        digest: "sha256",
-        files: ["DISCORD_TOKEN.yaml"],
-      })],
+      listRunMessages: async () => [JSON.stringify(previewJson)],
       parseLastJsonMessage: (messages: string[]) => JSON.parse(messages[messages.length - 1] || "{}"),
       lastErrorMessage: () => "preview failed",
     }

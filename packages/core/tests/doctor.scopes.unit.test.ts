@@ -7,7 +7,6 @@ const addRepoChecksMock = vi.fn(async () => ({
 }));
 
 const addDeployChecksMock = vi.fn(async () => {});
-const addCattleChecksMock = vi.fn(async () => {});
 
 const findRepoRootMock = vi.fn((cwd: string) => cwd);
 const loadDeployCredsMock = vi.fn(() => ({ envFile: undefined, values: {} }));
@@ -18,10 +17,6 @@ vi.mock("../src/doctor/repo-checks.js", () => ({
 
 vi.mock("../src/doctor/deploy-checks.js", () => ({
   addDeployChecks: addDeployChecksMock,
-}));
-
-vi.mock("../src/doctor/cattle-checks.js", () => ({
-  addCattleChecks: addCattleChecksMock,
 }));
 
 vi.mock("../src/lib/project/repo.js", () => ({
@@ -51,17 +46,16 @@ describe("doctor scope gating", () => {
     expect(addDeployChecksMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not run repo checks for cattle scope", async () => {
-    const { collectDoctorChecks } = await import("../src/doctor.js");
-    await collectDoctorChecks({ cwd: "/repo", host: "host", scope: "cattle" });
-    expect(addRepoChecksMock).not.toHaveBeenCalled();
-    expect(addCattleChecksMock).toHaveBeenCalledTimes(1);
-  });
-
   it("runs repo checks for repo scope", async () => {
     const { collectDoctorChecks } = await import("../src/doctor.js");
     await collectDoctorChecks({ cwd: "/repo", host: "host", scope: "repo" });
     expect(addRepoChecksMock).toHaveBeenCalledTimes(1);
   });
-});
 
+  it("runs repo and deploy checks for all scope", async () => {
+    const { collectDoctorChecks } = await import("../src/doctor.js");
+    await collectDoctorChecks({ cwd: "/repo", host: "host", scope: "all" });
+    expect(addRepoChecksMock).toHaveBeenCalledTimes(1);
+    expect(addDeployChecksMock).toHaveBeenCalledTimes(2);
+  });
+});

@@ -237,7 +237,7 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-host-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -245,7 +245,7 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawlets-cattle-base",
+            name: "clawlets-host-base",
             labels: { "managed-by": "clawlets" },
             rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
           },
@@ -255,7 +255,7 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawlets-cattle-base",
+      name: "clawlets-host-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
       labels: { "managed-by": "clawlets" },
     });
@@ -353,7 +353,7 @@ describe("ensureHcloudFirewallId", () => {
       .mockResolvedValueOnce(makeJsonResponse({ firewalls: [], meta: { pagination: { next_page: 2 } } }))
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-host-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -361,7 +361,7 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawlets-cattle-base",
+            name: "clawlets-host-base",
             labels: { "managed-by": "clawlets" },
             rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
           },
@@ -371,7 +371,7 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawlets-cattle-base",
+      name: "clawlets-host-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
       labels: { "managed-by": "clawlets" },
     });
@@ -419,7 +419,7 @@ describe("ensureHcloudFirewallId", () => {
       .fn()
       .mockResolvedValueOnce(
         makeJsonResponse({
-          firewalls: [{ id: 99, name: "clawlets-cattle-base", labels: { "managed-by": "clawlets" } }],
+          firewalls: [{ id: 99, name: "clawlets-host-base", labels: { "managed-by": "clawlets" } }],
           meta: { pagination: { next_page: null } },
         }),
       )
@@ -427,7 +427,7 @@ describe("ensureHcloudFirewallId", () => {
         makeJsonResponse({
           firewall: {
             id: 99,
-            name: "clawlets-cattle-base",
+            name: "clawlets-host-base",
             labels: { "managed-by": "clawlets" },
             rules: [],
           },
@@ -438,7 +438,7 @@ describe("ensureHcloudFirewallId", () => {
 
     const id = await ensureHcloudFirewallId({
       token: "token",
-      name: "clawlets-cattle-base",
+      name: "clawlets-host-base",
       rules: [{ direction: "in", protocol: "udp", port: "41641", source_ips: ["0.0.0.0/0"] }],
       labels: { "managed-by": "clawlets" },
     });

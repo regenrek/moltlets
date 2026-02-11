@@ -8,9 +8,9 @@ import {
   enqueueRunnerJobForRun,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
   parseProjectHostInput,
   parseProjectRunHostInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
@@ -59,13 +59,18 @@ export const secretsSyncPreview = createServerFn({ method: "POST" })
       runId: queued.runId,
       timeoutMs: 45_000,
     })
-    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
     if (terminal.status !== "succeeded") {
       return { ok: false as const, message: terminal.errorMessage || lastErrorMessage(messages, "preview failed") }
     }
-    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (!parsed) {
-      return { ok: false as const, message: lastErrorMessage(messages, "preview output missing JSON payload") }
+      return { ok: false as const, message: "preview command result missing JSON payload" }
     }
     const files = Array.isArray(parsed.files)
       ? parsed.files.map((entry) => String(entry || "").trim()).filter(Boolean)

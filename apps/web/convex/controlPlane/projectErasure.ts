@@ -48,6 +48,8 @@ async function deleteBatchByProject(params: {
     | "gateways"
     | "secretWiring"
     | "jobs"
+    | "runnerCommandResultBlobs"
+    | "runnerCommandResults"
     | "runnerTokens"
     | "runners";
   projectId: Id<"projects">;
@@ -57,6 +59,25 @@ async function deleteBatchByProject(params: {
     .withIndex("by_project", (q) => q.eq("projectId", params.projectId))
     .take(DELETE_BATCH_SIZE);
   for (const doc of docs) {
+    await params.ctx.db.delete(doc._id);
+  }
+  return { deleted: docs.length, complete: docs.length < DELETE_BATCH_SIZE };
+}
+
+async function deleteBatchRunnerCommandResultBlobs(params: {
+  ctx: MutationCtx;
+  projectId: Id<"projects">;
+}): Promise<{ deleted: number; complete: boolean }> {
+  const docs = await params.ctx.db
+    .query("runnerCommandResultBlobs")
+    .withIndex("by_project", (q) => q.eq("projectId", params.projectId))
+    .take(DELETE_BATCH_SIZE);
+  for (const doc of docs) {
+    try {
+      await params.ctx.storage.delete(doc.storageId);
+    } catch {
+      // best effort cleanup
+    }
     await params.ctx.db.delete(doc._id);
   }
   return { deleted: docs.length, complete: docs.length < DELETE_BATCH_SIZE };
@@ -136,6 +157,10 @@ async function deleteStageBatch(params: {
       return await deleteBatchByProject({ ctx: params.ctx, table: "secretWiring", projectId: params.projectId });
     case "jobs":
       return await deleteBatchByProject({ ctx: params.ctx, table: "jobs", projectId: params.projectId });
+    case "runnerCommandResultBlobs":
+      return await deleteBatchRunnerCommandResultBlobs(params);
+    case "runnerCommandResults":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "runnerCommandResults", projectId: params.projectId });
     case "runnerTokens":
       return await deleteBatchByProject({ ctx: params.ctx, table: "runnerTokens", projectId: params.projectId });
     case "runners":

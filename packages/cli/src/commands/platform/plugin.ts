@@ -42,7 +42,7 @@ const list = defineCommand({
 const add = defineCommand({
   meta: { name: "add", description: "Install a plugin into .clawlets/plugins." },
   args: {
-    name: { type: "string", description: "Plugin name (e.g. cattle)." },
+    name: { type: "string", description: "Plugin name (e.g. my-plugin)." },
     package: { type: "string", description: "Package to install (default: @clawlets/plugin-<name>)." },
     version: { type: "string", description: "Package version/tag (default: latest)." },
     allowThirdParty: { type: "boolean", description: "Allow third-party plugins (unsafe).", default: false },
@@ -69,7 +69,7 @@ const add = defineCommand({
 const rm = defineCommand({
   meta: { name: "rm", description: "Remove an installed plugin." },
   args: {
-    name: { type: "string", description: "Plugin name (e.g. cattle)." },
+    name: { type: "string", description: "Plugin name (e.g. my-plugin)." },
     runtimeDir: { type: "string", description: "Runtime directory (default: .clawlets)." },
   },
   async run({ args }) {

@@ -154,7 +154,6 @@ export function mergeSplitConfigs(params: {
       gatewayArchitecture: openclawConfig.fleet.gatewayArchitecture,
       codex: structuredClone(openclawConfig.fleet.codex || { enable: false, gateways: [] }),
     },
-    cattle: structuredClone(params.infra.cattle),
     hosts,
   };
 
@@ -218,7 +217,6 @@ export function splitFullConfig(params: {
       sshKnownHosts: full.fleet.sshKnownHosts,
       backups: full.fleet.backups,
     },
-    cattle: full.cattle,
     hosts: infraHosts,
   };
 

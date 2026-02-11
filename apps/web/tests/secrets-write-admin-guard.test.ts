@@ -36,7 +36,12 @@ describe("secrets write admin guard", () => {
     await expect(
       runWithStartContext(startContext, async () =>
         await writeHostSecrets({
-          data: { projectId: "p1" as any, host: "alpha", secrets: { openai_api_key: "x" } },
+          data: {
+            projectId: "p1" as any,
+            host: "alpha",
+            secretNames: ["openai_api_key"],
+            targetRunnerId: "r1" as any,
+          },
         }),
       ),
     ).rejects.toThrow(/admin required/i)
@@ -45,4 +50,3 @@ describe("secrets write admin guard", () => {
     expect(writeFileAtomic).not.toHaveBeenCalled()
   })
 })
-

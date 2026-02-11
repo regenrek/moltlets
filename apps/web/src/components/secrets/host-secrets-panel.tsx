@@ -1,26 +1,34 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { convexQuery } from "@convex-dev/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import type { MissingSecretConfig } from "@clawlets/core/lib/secrets/secrets-plan"
+import { SECRET_WIRING_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants"
 import { RunLogTail } from "~/components/run-log-tail"
 import { SecretsInputs, type SecretsPlan, type SecretStatus } from "~/components/fleet/secrets-inputs"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SecretInput } from "~/components/ui/secret-input"
+import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
+import { sealForRunner } from "~/lib/security/sealed-input"
 import {
   getSecretsTemplate,
   secretsInitExecute,
+  secretsInitFinalize,
   secretsInitStart,
   secretsSyncExecute,
   secretsSyncPreview,
   secretsSyncStart,
+  secretsVerifyAndWait,
   secretsVerifyExecute,
   secretsVerifyStart,
 } from "~/sdk/secrets"
@@ -30,11 +38,24 @@ type HostSecretsPanelProps = {
   projectId: Id<"projects">
   host: string
   scope?: "bootstrap" | "updates" | "openclaw" | "all"
+  mode?: "default" | "setup"
+  setupFlow?: {
+    isComplete: boolean
+    onContinue: () => void
+  }
 }
 
 const EMPTY_MISSING_SECRET_CONFIG: MissingSecretConfig[] = []
+type SecretWiringStatus = (typeof SECRET_WIRING_STATUSES)[number]
+type SetupSavePhase = "idle" | "saving" | "verifying"
+const SECRET_WIRING_STATUS_SET = new Set<string>(SECRET_WIRING_STATUSES)
 
-export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecretsPanelProps) {
+function isSecretWiringStatus(value: unknown): value is SecretWiringStatus {
+  return typeof value === "string" && SECRET_WIRING_STATUS_SET.has(value)
+}
+
+export function HostSecretsPanel({ projectId, host, scope = "all", mode = "default", setupFlow }: HostSecretsPanelProps) {
+  const setupMode = mode === "setup"
   const template = useQuery({
     queryKey: ["secretsTemplate", projectId, host, scope],
     queryFn: async () => await getSecretsTemplate({ data: { projectId, host, scope } }),
@@ -43,6 +64,34 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
     refetchOnReconnect: false,
   })
   const hasTemplate = Boolean(template.data)
+  const runnersQuery = useQuery({
+    ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
+  })
+  const secretWiringQuery = useQuery({
+    ...convexQuery(api.controlPlane.secretWiring.listByProjectHost, { projectId, hostName: host }),
+    enabled: Boolean(host),
+  })
+  const sealedRunners = useMemo(
+    () =>
+      (runnersQuery.data ?? [])
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runnersQuery.data],
+  )
+  const [selectedRunnerId, setSelectedRunnerId] = useState<string>("")
+  useEffect(() => {
+    if (sealedRunners.length === 1) setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+  }, [sealedRunners])
 
   const [adminPassword, setAdminPassword] = useState("")
   const [adminUnlocked, setAdminUnlocked] = useState(false)
@@ -100,30 +149,114 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
   }, [planMissing])
 
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
+  const [setupSavePhase, setSetupSavePhase] = useState<SetupSavePhase>("idle")
+  const [setupSaveError, setSetupSaveError] = useState<string | null>(null)
+  const [setupVerifyRunId, setSetupVerifyRunId] = useState<Id<"runs"> | null>(null)
+
+  const pickTargetSealedRunner = () => {
+    if (sealedRunners.length === 1) return sealedRunners[0]
+    return sealedRunners.find((row) => String(row._id) === selectedRunnerId) ?? null
+  }
+
+  const buildSecretsInitPayload = (): Record<string, string> => {
+    const secretsPayload = Object.fromEntries(
+      Object.entries(secrets)
+        .map(([k, v]) => [k, String(v || "")])
+        .filter(([name, value]) => value.trim() && allowedSecretNames.has(name)),
+    )
+    return {
+      ...Object.fromEntries(Object.entries(secretsPayload).map(([k, v]) => [String(k), String(v)])),
+      ...(adminPassword.trim() ? { adminPasswordHash: adminPassword.trim() } : {}),
+      ...(tailscaleAuthKey.trim() ? { tailscaleAuthKey: tailscaleAuthKey.trim() } : {}),
+    }
+  }
+
+  const runSecretsInit = async (runId: Id<"runs">): Promise<void> => {
+    const runner = pickTargetSealedRunner()
+    if (!runner) throw new Error("Select an online sealed-capable runner before starting secrets init")
+
+    const inputPayload = buildSecretsInitPayload()
+    const secretNames = Object.keys(inputPayload)
+    const targetRunnerId = String(runner._id)
+    const reserve = await secretsInitExecute({
+      data: {
+        projectId,
+        runId,
+        host,
+        scope,
+        allowPlaceholders: false,
+        secretNames,
+        targetRunnerId: targetRunnerId as Id<"runners">,
+      },
+    })
+    const aad = `${projectId}:${reserve.jobId}:${reserve.kind}:${targetRunnerId}`
+    const reserveRunnerPub = String(reserve.sealedInputPubSpkiB64 || "").trim()
+    const reserveKeyId = String(reserve.sealedInputKeyId || runner.capabilities?.sealedInputKeyId || "").trim()
+    const reserveAlg = String(reserve.sealedInputAlg || runner.capabilities?.sealedInputAlg || "").trim()
+    const sealedInputB64 = await sealForRunner({
+      runnerPubSpkiB64: reserveRunnerPub || String(runner.capabilities?.sealedInputPubSpkiB64 || ""),
+      keyId: reserveKeyId,
+      alg: reserveAlg,
+      aad,
+      plaintextJson: JSON.stringify(inputPayload),
+    })
+    await secretsInitFinalize({
+      data: {
+        projectId,
+        jobId: reserve.jobId,
+        kind: reserve.kind,
+        sealedInputB64,
+        sealedInputAlg: reserveAlg,
+        sealedInputKeyId: reserveKeyId,
+      },
+    })
+  }
+
   const initStart = useMutation({
-    mutationFn: async () => await secretsInitStart({ data: { projectId, host, scope } }),
-    onSuccess: (res) => {
+    mutationFn: async () => {
+      const res = await secretsInitStart({ data: { projectId, host, scope } })
       setInitRunId(res.runId)
-      const secretsPayload = Object.fromEntries(
-        Object.entries(secrets)
-          .map(([k, v]) => [k, String(v || "")])
-          .filter(([name, value]) => value.trim() && allowedSecretNames.has(name)),
-      )
-      void secretsInitExecute({
-        data: {
-          projectId,
-          runId: res.runId,
-          host,
-          scope,
-          allowPlaceholders: false,
-          adminPassword,
-          tailscaleAuthKey,
-          secrets: secretsPayload,
-        },
-      })
-      toast.info("Secrets init started")
+      await runSecretsInit(res.runId)
+      return res
+    },
+    onSuccess: () => {
+      toast.info("Secrets init queued")
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : String(err))
     },
   })
+
+  const runSetupSaveAndContinue = async () => {
+    if (!setupFlow || setupSavePhase !== "idle") return
+    setSetupSaveError(null)
+    setSetupVerifyRunId(null)
+    setSetupSavePhase("saving")
+    try {
+      const initRun = await secretsInitStart({ data: { projectId, host, scope } })
+      setInitRunId(initRun.runId)
+      await runSecretsInit(initRun.runId)
+
+      setSetupSavePhase("verifying")
+      const verify = await secretsVerifyAndWait({
+        data: { projectId, host, scope },
+      })
+      setSetupVerifyRunId(verify.runId)
+
+      if (verify.status !== "succeeded") {
+        throw new Error(verify.errorMessage || "Secrets verification did not succeed")
+      }
+
+      toast.success("Secrets verified. Continuing to deploy.")
+      setupFlow.onContinue()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setSetupSaveError(message)
+      toast.error(message)
+    } finally {
+      setSetupSavePhase("idle")
+    }
+  }
 
   const verifyQuery = useQuery({
     queryKey: ["secretsVerify", projectId, host, scope],
@@ -135,7 +268,7 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
       })
       return { runId: res.runId, result }
     },
-    enabled: Boolean(host),
+    enabled: Boolean(host && !setupMode),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
@@ -166,37 +299,238 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
   useEffect(() => {
     setAdminUnlocked(false)
     setTailscaleUnlocked(false)
+    setSetupSaveError(null)
+    setSetupSavePhase("idle")
+    setSetupVerifyRunId(null)
   }, [host])
 
-  const verifyResults = useMemo<any[]>(() => [], [])
+  const verifySummary = useMemo<{ ok: number; missing: number; warn: number; total: number } | null>(
+    () => null,
+    [verifyQuery.dataUpdatedAt],
+  )
+  const secretStatusByName: Record<string, SecretStatus> = {}
 
-  const verifySummary = useMemo(() => {
-    if (verifyResults.length === 0) return null
-    let ok = 0
-    let missing = 0
-    let warn = 0
-    for (const entry of verifyResults) {
-      if (entry?.status === "ok") ok += 1
-      else if (entry?.status === "missing") missing += 1
-      else if (entry?.status === "warn") warn += 1
-    }
-    return { ok, missing, warn, total: verifyResults.length }
-  }, [verifyResults])
-
-  const secretStatusByName = useMemo<Record<string, SecretStatus>>(() => {
-    const out: Record<string, SecretStatus> = {}
-    for (const entry of verifyResults) {
-      if (!entry || typeof entry.secret !== "string") continue
-      if (entry.status === "ok" || entry.status === "missing" || entry.status === "warn") {
-        out[entry.secret] = { status: entry.status, detail: typeof entry.detail === "string" ? entry.detail : undefined }
-      }
+  const secretWiringStatusByName = useMemo<Record<string, SecretWiringStatus>>(() => {
+    const out: Record<string, SecretWiringStatus> = {}
+    for (const row of secretWiringQuery.data ?? []) {
+      if (!row?.secretName) continue
+      if (!isSecretWiringStatus(row.status)) continue
+      out[row.secretName] = row.status
     }
     return out
-  }, [verifyResults])
+  }, [secretWiringQuery.data])
 
-  const adminLocked = secretStatusByName["admin_password_hash"]?.status === "ok" && !adminUnlocked
-  const tailscaleLocked = secretStatusByName["tailscale_auth_key"]?.status === "ok" && !tailscaleUnlocked
+  const adminConfigured = secretWiringStatusByName["admin_password_hash"] === "configured"
+  const tailscaleConfigured = secretWiringStatusByName["tailscale_auth_key"] === "configured"
+  const adminLocked = (adminConfigured || secretStatusByName["admin_password_hash"]?.status === "ok") && !adminUnlocked
+  const tailscaleLocked = (tailscaleConfigured || secretStatusByName["tailscale_auth_key"]?.status === "ok") && !tailscaleUnlocked
+  const showAdminEditorInSetup = !adminLocked || Boolean(adminPassword.trim())
+  const showTailscaleEditorInSetup = !tailscaleLocked || Boolean(tailscaleAuthKey.trim())
   const lockedPlaceholder = "set (click Remove to edit)"
+
+  const initBlockedReason = !host
+    ? "Select a host first."
+    : sealedRunners.length === 0
+      ? "Connect an online sealed-capable runner first."
+      : sealedRunners.length > 1 && !selectedRunnerId
+        ? "Select a target runner."
+        : null
+
+  if (setupMode) {
+    const canSaveInSetup = !initBlockedReason && Boolean(template.data) && !template.isPending && !template.error
+    const setupSavePending = setupSavePhase !== "idle"
+    const setupPendingText = setupSavePhase === "verifying"
+      ? "Verifying required secrets..."
+      : "Saving encrypted secrets..."
+    const setupStatus = setupFlow?.isComplete
+      ? "Secrets verified. Continue to deploy."
+      : setupSavePhase === "saving"
+        ? "Saving encrypted secrets for this host."
+        : setupSavePhase === "verifying"
+          ? "Verifying required secrets before continuing."
+          : setupSaveError || initBlockedReason || "Save required secrets. Continue unlocks automatically after verify."
+    return (
+      <SettingsSection
+        title="Server passwords"
+        description="Set required bootstrap secrets for this host."
+        statusText={setupStatus}
+        actions={setupFlow?.isComplete ? (
+          <Button type="button" onClick={setupFlow.onContinue}>
+            Continue
+          </Button>
+        ) : (
+          <AsyncButton
+            type="button"
+            disabled={!canSaveInSetup || setupSavePending}
+            pending={setupSavePending}
+            pendingText={setupPendingText}
+            onClick={() => void runSetupSaveAndContinue()}
+          >
+            Save & Continue
+          </AsyncButton>
+        )}
+      >
+        {template.isPending ? (
+          <div className="text-muted-foreground text-sm">Loading required secrets…</div>
+        ) : template.error ? (
+          <div className="text-sm text-destructive">{String(template.error)}</div>
+        ) : template.data ? (
+          <div className="space-y-4">
+            {sealedRunners.length > 1 ? (
+              <div className="space-y-2">
+                <LabelWithHelp htmlFor="secretsInitRunnerSetup" help="Sealed-input jobs must target one runner.">
+                  Target runner
+                </LabelWithHelp>
+                <select
+                  id="secretsInitRunnerSetup"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={selectedRunnerId}
+                  onChange={(e) => setSelectedRunnerId(e.target.value)}
+                >
+                  <option value="">Select runner…</option>
+                  {sealedRunners.map((runner) => (
+                    <option key={runner._id} value={String(runner._id)}>
+                      {runner.runnerName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {planWarnings.length ? (
+              <div className="text-xs text-muted-foreground">
+                {planWarnings.length} warning(s) in template. Optional values can be completed later.
+              </div>
+            ) : null}
+            {planMissing.length ? (
+              <div className="text-xs text-destructive">
+                Missing secret config detected. Fill required values below and re-check readiness.
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <LabelWithHelp htmlFor="adminPassSetup" help={setupFieldHelp.secrets.adminPassword}>
+                Admin password (optional)
+              </LabelWithHelp>
+              {!showAdminEditorInSetup ? (
+                <>
+                  <InputGroup>
+                    <InputGroupInput
+                      id="adminPassSetup"
+                      readOnly
+                      value="Already set on host"
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton type="button" onClick={() => setAdminUnlocked(true)}>
+                        Edit
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <div className="text-xs text-muted-foreground">
+                    Existing admin password is configured. Edit only if you want to rotate it.
+                  </div>
+                </>
+              ) : (
+                <SecretInput
+                  id="adminPassSetup"
+                  value={adminPassword}
+                  onValueChange={setAdminPassword}
+                  placeholder="Set new admin password"
+                />
+              )}
+            </div>
+
+            {needsTailscaleAuthKey ? (
+              <div className="space-y-2">
+                <LabelWithHelp htmlFor="tskeySetup" help={setupFieldHelp.secrets.tailscaleAuthKey}>
+                  Tailscale auth key
+                </LabelWithHelp>
+                {!showTailscaleEditorInSetup ? (
+                  <>
+                    <InputGroup>
+                      <InputGroupInput
+                        id="tskeySetup"
+                        readOnly
+                        value="Already set on host"
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton type="button" onClick={() => setTailscaleUnlocked(true)}>
+                          Edit
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                    <div className="text-xs text-muted-foreground">
+                      Existing Tailscale key is configured. Edit only if you want to rotate it.
+                    </div>
+                  </>
+                ) : (
+                  <SecretInput
+                    id="tskeySetup"
+                    value={tailscaleAuthKey}
+                    onValueChange={setTailscaleAuthKey}
+                    placeholder="tskey-auth-…"
+                  />
+                )}
+              </div>
+            ) : null}
+
+            <SecretsInputs
+              host={host}
+              secrets={secrets}
+              setSecrets={setSecrets}
+              secretsTemplate={secretsTemplate}
+              secretsPlan={secretsPlan}
+              secretStatusByName={secretStatusByName}
+            />
+
+            <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-medium">Readiness check</div>
+                <AsyncButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={verifyQuery.isFetching || setupSavePending || !host}
+                  pending={verifyQuery.isFetching}
+                  pendingText="Checking..."
+                  onClick={() => void verifyQuery.refetch()}
+                >
+                  Recheck
+                </AsyncButton>
+              </div>
+              {setupFlow?.isComplete ? (
+                <div className="text-emerald-700">All required secrets are configured.</div>
+              ) : setupSavePhase === "saving" ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Spinner className="size-3" />
+                  Saving encrypted secrets...
+                </div>
+              ) : setupSavePhase === "verifying" ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Spinner className="size-3" />
+                  Verifying required secrets. This can take up to 45 seconds.
+                </div>
+              ) : verifyQuery.isFetching ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Spinner className="size-3" />
+                  Checking current secret status...
+                </div>
+              ) : setupSaveError ? (
+                <div className="text-destructive">{setupSaveError}</div>
+              ) : (
+                <div className="text-muted-foreground">
+                  Save & Continue runs verify and advances automatically when secrets are ready.
+                </div>
+              )}
+            </div>
+            {setupVerifyRunId ? <RunLogTail runId={setupVerifyRunId} /> : null}
+          </div>
+        ) : (
+          <div className="text-muted-foreground text-sm">Loading required secrets…</div>
+        )}
+      </SettingsSection>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -235,6 +569,31 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
                   <div className="text-sm text-destructive">{String(template.error)}</div>
                 ) : template.data ? (
                   <div className="space-y-4">
+                    {sealedRunners.length === 0 ? (
+                      <div className="text-sm text-destructive">
+                        No online runner advertises sealed input. Upgrade runner before secrets init.
+                      </div>
+                    ) : null}
+                    {sealedRunners.length > 1 ? (
+                      <div className="space-y-2">
+                        <LabelWithHelp htmlFor="secretsInitRunner" help="Sealed-input jobs must target one runner.">
+                          Target runner
+                        </LabelWithHelp>
+                        <select
+                          id="secretsInitRunner"
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={selectedRunnerId}
+                          onChange={(e) => setSelectedRunnerId(e.target.value)}
+                        >
+                          <option value="">Select runner…</option>
+                          {sealedRunners.map((runner) => (
+                            <option key={runner._id} value={String(runner._id)}>
+                              {runner.runnerName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                     <div className="text-xs text-muted-foreground">
                       Template auto-loaded. Secrets are not shown; use Verify to check. Refresh if you changed config.
                     </div>
@@ -377,7 +736,12 @@ export function HostSecretsPanel({ projectId, host, scope = "all" }: HostSecrets
 
                     <AsyncButton
                       type="button"
-                      disabled={initStart.isPending || !host}
+                      disabled={
+                        initStart.isPending
+                        || !host
+                        || sealedRunners.length === 0
+                        || (sealedRunners.length > 1 && !selectedRunnerId)
+                      }
                       pending={initStart.isPending}
                       pendingText="Running secrets init..."
                       onClick={() => initStart.mutate()}

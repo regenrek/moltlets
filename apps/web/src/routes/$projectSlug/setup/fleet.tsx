@@ -14,6 +14,7 @@ import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import {
   configDotGet,
+  configDotMultiGet,
   configDotSet,
   writeClawletsConfigFile,
 } from "~/sdk/config"
@@ -21,6 +22,19 @@ import {
 export const Route = createFileRoute("/$projectSlug/setup/fleet")({
   component: FleetSetup,
 })
+
+type FleetSetupConfig = {
+  schemaVersion: string
+  defaultHost?: string
+  baseFlake: string
+  fleet: Record<string, any>
+  hosts: Record<string, any>
+}
+
+function asRecord(value: unknown): Record<string, any> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  return value as Record<string, any>
+}
 
 function FleetSetup() {
   const { projectSlug } = Route.useParams()
@@ -33,24 +47,22 @@ function FleetSetup() {
     queryKey: configQueryKey,
     enabled: Boolean(projectId),
     queryFn: async () => {
-      const [schemaVersionNode, defaultHostNode, baseFlakeNode, fleetNode, cattleNode, hostsNode] = await Promise.all([
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "schemaVersion" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "defaultHost" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "baseFlake" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "fleet" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "cattle" } }),
-        configDotGet({ data: { projectId: projectId as Id<"projects">, path: "hosts" } }),
-      ])
-      const schemaVersion = typeof schemaVersionNode.value === "string" ? schemaVersionNode.value : "v1"
-      const defaultHost = typeof defaultHostNode.value === "string" ? defaultHostNode.value : undefined
-      const baseFlake = typeof baseFlakeNode.value === "string" ? baseFlakeNode.value : ""
-      const config = {
+      const configNodes = await configDotMultiGet({
+        data: {
+          projectId: projectId as Id<"projects">,
+          paths: ["schemaVersion", "defaultHost", "baseFlake", "fleet", "hosts"],
+        },
+      })
+      const values = configNodes.values
+      const schemaVersion = typeof values["schemaVersion"] === "string" ? values["schemaVersion"] : "v1"
+      const defaultHost = typeof values["defaultHost"] === "string" ? values["defaultHost"] : undefined
+      const baseFlake = typeof values["baseFlake"] === "string" ? values["baseFlake"] : ""
+      const config: FleetSetupConfig = {
         schemaVersion,
         defaultHost,
         baseFlake,
-        fleet: fleetNode.value && typeof fleetNode.value === "object" && !Array.isArray(fleetNode.value) ? fleetNode.value : {},
-        cattle: cattleNode.value && typeof cattleNode.value === "object" && !Array.isArray(cattleNode.value) ? cattleNode.value : {},
-        hosts: hostsNode.value && typeof hostsNode.value === "object" && !Array.isArray(hostsNode.value) ? hostsNode.value : {},
+        fleet: asRecord(values["fleet"]),
+        hosts: asRecord(values["hosts"]),
       }
       return {
         configPath: "fleet/clawlets.json",

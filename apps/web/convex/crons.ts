@@ -8,5 +8,11 @@ const crons = cronJobs();
 crons.interval("retention-sweep-hourly", { hours: 1 }, internal.ops.retention.runRetentionSweep, {
   reason: "cron.hourly",
 });
+crons.interval(
+  "runner-command-results-purge",
+  { minutes: 5 },
+  internal.controlPlane.jobs.purgeExpiredCommandResultsInternal,
+  { limit: 500 },
+);
 
 export default crons;

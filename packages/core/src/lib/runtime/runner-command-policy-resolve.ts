@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { validateArgsForKind } from "./runner-command-policy-args.js";
+import { resolveCommandSpecForKind, type RunnerCommandResultMode } from "./runner-command-policy-args.js";
 import {
   type RunnerCommandPayloadMeta,
   validateRunnerJobPayload,
@@ -10,7 +10,15 @@ import {
 type RunnerCommandExecutable = "clawlets" | "git";
 
 type ResolveArgsResult =
-  | { ok: true; payloadMeta: RunnerCommandPayloadMeta; kind: string; exec: RunnerCommandExecutable; args: string[] }
+  | {
+      ok: true;
+      payloadMeta: RunnerCommandPayloadMeta;
+      kind: string;
+      exec: RunnerCommandExecutable;
+      args: string[];
+      resultMode: RunnerCommandResultMode;
+      resultMaxBytes?: number;
+    }
   | { ok: false; error: string };
 
 async function ensureRepoRootEmpty(repoRoot: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -60,14 +68,26 @@ export async function resolveRunnerJobCommand(params: {
         }
       : null);
   if (!command) return { ok: false, error: `job ${validated.kind} requires payloadMeta.args` };
+  let resultMode: RunnerCommandResultMode = "log";
+  let resultMaxBytes: number | undefined;
   if (command.exec === "clawlets") {
-    const commandValidation = validateArgsForKind(validated.kind, command.args);
-    if (!commandValidation.ok) return commandValidation;
+    const commandResolution = resolveCommandSpecForKind(validated.kind, command.args);
+    if (!commandResolution.ok) return commandResolution;
+    resultMode = commandResolution.spec.resultMode;
+    resultMaxBytes = commandResolution.spec.resultMaxBytes;
   }
 
   if (validated.kind === "project_init" || validated.kind === "project_import") {
     const emptyCheck = await ensureRepoRootEmpty(params.repoRoot);
     if (!emptyCheck.ok) return emptyCheck;
   }
-  return { ok: true, kind: validated.kind, payloadMeta: validated.payloadMeta, exec: command.exec, args: command.args };
+  return {
+    ok: true,
+    kind: validated.kind,
+    payloadMeta: validated.payloadMeta,
+    exec: command.exec,
+    args: command.args,
+    resultMode,
+    resultMaxBytes,
+  };
 }

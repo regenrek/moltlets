@@ -70,7 +70,6 @@ function ImportProject() {
   const effectiveRunnerRepoPath = (runnerRepoPathInput.trim() || defaultRunnerRepoPath).replace(/\/+$/, "") || "/"
   const effectiveRunnerName = runnerNameInput.trim() || defaultRunnerName
   const controlPlaneUrl = String(import.meta.env.VITE_CONVEX_SITE_URL || "").trim()
-  const dashboardOrigin = typeof window === "undefined" ? "" : String(window.location.origin || "").trim()
   const runnerStartCommand = useMemo(() => {
     const repoRoot = runnerRepoPathResolved || effectiveRunnerRepoPath
     const runnerName = runnerNameResolved || effectiveRunnerName
@@ -83,10 +82,9 @@ function ImportProject() {
     lines.push(`  --name ${shellQuote(runnerName)} \\`)
     lines.push(`  --token ${shellQuote(token)} \\`)
     lines.push(`  --repoRoot ${repoRootArg} \\`)
-    lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")} \\`)
-    lines.push(`  --dashboardOrigin ${shellQuote(dashboardOrigin || "<dashboard-origin>")}`)
+    lines.push(`  --control-plane-url ${shellQuote(controlPlaneUrl || "<convex-site-url>")}`)
     return lines.join("\n")
-  }, [controlPlaneUrl, dashboardOrigin, effectiveRunnerName, effectiveRunnerRepoPath, projectId, runnerNameResolved, runnerRepoPathResolved, runnerToken])
+  }, [controlPlaneUrl, effectiveRunnerName, effectiveRunnerRepoPath, projectId, runnerNameResolved, runnerRepoPathResolved, runnerToken])
 
   const importMutation = useMutation({
     mutationFn: async () =>

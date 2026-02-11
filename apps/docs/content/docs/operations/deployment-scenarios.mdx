@@ -39,7 +39,7 @@ Risks:
 Use when:
 
 - You want always-on dashboard status and run history.
-- You still want secrets submit from browser to local runner.
+- You want dashboard-driven secret updates through sealed runner input.
 
 Pros:
 
@@ -49,7 +49,7 @@ Pros:
 Risks:
 
 - Job execution pauses when local runner is offline.
-- Need strict `--dashboardOrigin` and nonce hygiene for local submit.
+- Runner must stay on current version with sealed-input capability.
 
 ## 3) VPS dashboard + VPS runner
 

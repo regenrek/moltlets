@@ -14,10 +14,24 @@ const SECRETISH_FIELDS = new Set([
   "privatekey",
 ]);
 
+const UTF8_ENCODER = typeof TextEncoder === "function" ? new TextEncoder() : null;
+
+export function utf8ByteLength(value: string): number {
+  if (UTF8_ENCODER) return UTF8_ENCODER.encode(value).length;
+  return value.length;
+}
+
 export function ensureBoundedString(input: string, field: string, max: number): string {
   const value = String(input ?? "").trim();
   if (!value) fail("conflict", `${field} required`);
   if (value.length > max) fail("conflict", `${field} too long`);
+  return value;
+}
+
+export function ensureBoundedUtf8String(input: string, field: string, maxBytes: number): string {
+  const value = String(input ?? "").trim();
+  if (!value) fail("conflict", `${field} required`);
+  if (utf8ByteLength(value) > maxBytes) fail("conflict", `${field} too large`);
   return value;
 }
 

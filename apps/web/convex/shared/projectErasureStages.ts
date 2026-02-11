@@ -7,6 +7,8 @@ export const PROJECT_DELETION_STAGES = [
   "gateways",
   "secretWiring",
   "jobs",
+  "runnerCommandResultBlobs",
+  "runnerCommandResults",
   "runnerTokens",
   "runners",
   "projectMembers",

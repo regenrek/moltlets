@@ -27,11 +27,11 @@ async function upsertHeartbeatInternalDb(params: {
   patch: {
     version?: string;
     capabilities?: {
-      supportsLocalSecretsSubmit?: boolean;
-      supportsInteractiveSecrets?: boolean;
+      supportsSealedInput?: boolean;
+      sealedInputAlg?: string;
+      sealedInputPubSpkiB64?: string;
+      sealedInputKeyId?: string;
       supportsInfraApply?: boolean;
-      localSecretsPort?: number;
-      localSecretsNonce?: string;
     };
     status?: string;
   };
@@ -87,7 +87,7 @@ export const listByProject = query({
       .query("runners")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return rows.toSorted((a, b) => a.runnerName.localeCompare(b.runnerName));
+    return [...rows].sort((a, b) => a.runnerName.localeCompare(b.runnerName));
   },
 });
 

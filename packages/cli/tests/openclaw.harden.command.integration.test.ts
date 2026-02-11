@@ -8,26 +8,14 @@ function baseConfig(host: string) {
     schemaVersion: 2,
     defaultHost: host,
     baseFlake: "",
-    fleet: {
-      secretEnv: {},
-      secretFiles: {},
-      sshAuthorizedKeys: [],
-      sshKnownHosts: [],
-      codex: { enable: false, gateways: [] },
-      backups: { restic: { enable: false, repository: "" } },
-    },
-    cattle: {
-      enabled: false,
-      hetzner: {
-        image: "",
-        serverType: "cx22",
-        location: "nbg1",
-        maxInstances: 10,
-        defaultTtl: "2h",
-        labels: { "managed-by": "clawlets" },
+      fleet: {
+        secretEnv: {},
+        secretFiles: {},
+        sshAuthorizedKeys: [],
+        sshKnownHosts: [],
+        codex: { enable: false, gateways: [] },
+        backups: { restic: { enable: false, repository: "" } },
       },
-      defaults: { autoShutdown: true, callbackUrl: "" },
-    },
     hosts: {
       [host]: {
         enable: false,
@@ -39,7 +27,6 @@ function baseConfig(host: string) {
               whatsapp: { enabled: true, dmPolicy: "open", allowFrom: ["*"] },
             },
             openclaw: {},
-            clf: {},
           },
         },
         diskDevice: "/dev/sda",

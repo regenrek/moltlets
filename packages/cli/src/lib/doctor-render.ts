@@ -4,7 +4,7 @@ import type { DoctorCheck } from "@clawlets/core/doctor";
 type DoctorStatus = DoctorCheck["status"];
 
 const STATUS_ORDER: Record<DoctorStatus, number> = { missing: 0, warn: 1, ok: 2 };
-const SCOPE_ORDER: Record<DoctorCheck["scope"], number> = { repo: 0, bootstrap: 1, updates: 2, cattle: 3 };
+const SCOPE_ORDER: Record<DoctorCheck["scope"], number> = { repo: 0, bootstrap: 1, updates: 2 };
 
 function supportsColor(out: NodeJS.WriteStream): boolean {
   if (!out.isTTY) return false;
@@ -87,7 +87,7 @@ function groupChecks(params: { checks: DoctorCheck[]; showOk: boolean }): Array<
 export function renderDoctorReport(params: {
   checks: DoctorCheck[];
   host: string;
-  scope: "repo" | "bootstrap" | "updates" | "cattle" | "all";
+  scope: "repo" | "bootstrap" | "updates" | "all";
   strict: boolean;
   showOk: boolean;
 }): string {

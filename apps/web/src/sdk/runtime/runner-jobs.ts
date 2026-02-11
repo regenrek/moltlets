@@ -72,20 +72,51 @@ export async function listRunMessages(params: {
   return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
 }
 
-export function parseLastJsonMessage<T extends Record<string, unknown>>(messages: string[]): T | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i]?.trim() || ""
-    if (!message || !message.startsWith("{") || !message.endsWith("}")) continue
-    try {
-      const parsed = JSON.parse(message) as unknown
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as T
-      }
-    } catch {
-      continue
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  const text = String(raw || "").trim()
+  if (!text) return null
+  try {
+    const parsed = JSON.parse(text)
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
     }
+  } catch {
+    return null
   }
   return null
+}
+
+export async function takeRunnerCommandResultObject(params: {
+  client: ConvexClient
+  projectId: Id<"projects">
+  jobId: Id<"jobs">
+  runId?: Id<"runs">
+}): Promise<Record<string, unknown> | null> {
+  const row = await params.client.mutation(api.controlPlane.jobs.takeCommandResult, {
+    projectId: params.projectId,
+    jobId: params.jobId,
+  })
+  if (!row) return null
+  if (params.runId && row.runId !== params.runId) return null
+  return parseJsonObject(String(row.resultJson || ""))
+}
+
+export async function takeRunnerCommandResultBlobObject(params: {
+  client: ConvexClient
+  projectId: Id<"projects">
+  jobId: Id<"jobs">
+  runId?: Id<"runs">
+}): Promise<Record<string, unknown> | null> {
+  const row = await params.client.mutation(api.controlPlane.jobs.takeCommandResultBlobUrl, {
+    projectId: params.projectId,
+    jobId: params.jobId,
+  })
+  if (!row) return null
+  if (params.runId && row.runId !== params.runId) return null
+  const response = await fetch(row.url, { method: "GET", cache: "no-store" })
+  if (!response.ok) return null
+  const body = await response.text()
+  return parseJsonObject(body)
 }
 
 export function lastErrorMessage(messages: string[], fallback = "runner command failed"): string {

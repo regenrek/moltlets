@@ -3,7 +3,7 @@ import path from "node:path";
 import type { RepoLayout } from "@clawlets/core/repo-layout";
 import { expandPath } from "@clawlets/core/lib/storage/path-expand";
 import { normalizeSshPublicKey } from "@clawlets/core/lib/security/ssh";
-import type { ClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
+import type { ClawletsConfig, ClawletsHostConfig } from "@clawlets/core/lib/config/clawlets-config";
 
 /**
  * Resolve the public key file used for provisioning/OpenTofu.
@@ -26,6 +26,9 @@ export function resolveProvisioningSshPubkeyFile(params: {
     : [];
   if (fleetKeys.length > 0) {
     const normalized = normalizeSshPublicKey(fleetKeys[0]!);
+    if (!normalized) {
+      throw new Error(`invalid SSH public key in fleet.sshAuthorizedKeys[0]`);
+    }
     const outDir = path.join(params.layout.localKeysDir, "provisioning");
     fs.mkdirSync(outDir, { recursive: true });
     const outFile = path.join(outDir, `${params.hostName}.pub`);
@@ -44,4 +47,26 @@ export function resolveProvisioningSshPubkeyFile(params: {
   const abs = path.isAbsolute(expanded) ? expanded : path.resolve(params.repoRoot, expanded);
   if (!fs.existsSync(abs)) throw new Error(`ssh pubkey file not found: ${abs}`);
   return { sshPubkeyFile: abs, source: "hostPath" };
+}
+
+export function resolveHostProvisioningConfig(params: {
+  repoRoot: string;
+  layout: RepoLayout;
+  config: ClawletsConfig;
+  hostName: string;
+}): { hostCfg: ClawletsHostConfig; sshPubkeyFile: string; source: "fleet" | "hostPath" } {
+  const hostCfg = params.config.hosts[params.hostName];
+  if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${params.hostName}`);
+  const resolved = resolveProvisioningSshPubkeyFile(params);
+  return {
+    sshPubkeyFile: resolved.sshPubkeyFile,
+    source: resolved.source,
+    hostCfg: {
+      ...hostCfg,
+      provisioning: {
+        ...hostCfg.provisioning,
+        sshPubkeyFile: resolved.sshPubkeyFile,
+      },
+    },
+  };
 }

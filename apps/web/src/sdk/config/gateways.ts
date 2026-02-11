@@ -10,6 +10,20 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function asPlainObject(value: unknown): Record<string, unknown> {
+  return isPlainObject(value) ? value : {}
+}
+
+function requirePlainObject(value: unknown, message: string): Record<string, unknown> {
+  if (!isPlainObject(value)) throw new Error(message)
+  return value
+}
+
+function asRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is Record<string, unknown> => isPlainObject(entry))
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.map((entry) => coerceTrimmedString(entry)).filter(Boolean)
@@ -26,7 +40,7 @@ export function ensureHostGatewayEntry(params: {
     ? (params.hostCfg.gatewaysOrder as unknown[]).filter((v): v is string => typeof v === "string")
     : []
   const gatewaysRaw = params.hostCfg.gateways
-  const gateways = isPlainObject(gatewaysRaw) ? (gatewaysRaw as Record<string, unknown>) : {}
+  const gateways = asPlainObject(gatewaysRaw)
 
   let changed = false
   if (!Array.isArray(params.hostCfg.gatewaysOrder)) {
@@ -86,7 +100,7 @@ export const addGateway = createServerFn({ method: "POST" })
       throw new Error(`unknown host: ${hostName}`)
     }
 
-    const hostCfg = structuredClone(hostNode.value) as Record<string, unknown>
+    const hostCfg = structuredClone(requirePlainObject(hostNode.value, `unknown host: ${hostName}`))
     const res = ensureHostGatewayEntry({ hostCfg, gatewayId })
 
     const ops: Array<{ path: string; value?: string; valueJson?: string; del: boolean }> = []
@@ -168,10 +182,10 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
       throw new Error(`unknown gateway id: ${gatewayId}`)
     }
 
-    const gateway = structuredClone(gatewayNode.value) as Record<string, unknown>
-    gateway.agents = isPlainObject(gateway.agents) ? gateway.agents : {}
-    const agents = gateway.agents as Record<string, unknown>
-    const list = Array.isArray(agents.list) ? (agents.list as Array<Record<string, unknown>>) : []
+    const gateway = structuredClone(requirePlainObject(gatewayNode.value, `unknown gateway id: ${gatewayId}`))
+    gateway.agents = asPlainObject(gateway.agents)
+    const agents = asPlainObject(gateway.agents)
+    const list = asRecordArray(agents.list)
     if (list.some((entry) => coerceTrimmedString(entry?.id) === agentId)) {
       throw new Error(`agent already exists: ${agentId}`)
     }
@@ -179,7 +193,7 @@ export const addGatewayAgent = createServerFn({ method: "POST" })
     const hasDefault = list.some((entry) => entry?.default === true)
     const makeDefault = data.makeDefault || !hasDefault
     const nextList: Array<Record<string, unknown>> = makeDefault
-      ? list.map((entry) => ({ ...entry, default: false } as Record<string, unknown>))
+      ? list.map((entry) => ({ ...entry, default: false }))
       : [...list]
 
     const entry: Record<string, unknown> = { id: agentId }
@@ -222,7 +236,7 @@ export const removeGatewayAgent = createServerFn({ method: "POST" })
     const listNode = await configDotGet({
       data: { projectId: data.projectId, path: `hosts.${hostName}.gateways.${gatewayId}.agents.list` },
     })
-    const list = Array.isArray(listNode.value) ? (listNode.value as Array<Record<string, unknown>>) : []
+    const list = asRecordArray(listNode.value)
     if (!list.some((entry) => coerceTrimmedString(entry?.id) === agentId)) {
       throw new Error(`agent not found: ${agentId}`)
     }
@@ -255,7 +269,7 @@ export const removeGateway = createServerFn({ method: "POST" })
       throw new Error(`unknown host: ${hostName}`)
     }
 
-    const hostCfg = hostNode.value as Record<string, unknown>
+    const hostCfg = requirePlainObject(hostNode.value, `unknown host: ${hostName}`)
     const existingOrder = asStringArray(hostCfg.gatewaysOrder)
     const existingGateways = isPlainObject(hostCfg.gateways) ? hostCfg.gateways : {}
     if (!existingOrder.includes(gatewayId) && !existingGateways[gatewayId]) {
@@ -281,9 +295,7 @@ export const removeGateway = createServerFn({ method: "POST" })
     ])
     const codexGateways = asStringArray(codexGatewaysNode.value)
     if (codexGateways.includes(gatewayId)) {
-      const allHosts = isPlainObject(hostsNode.value)
-        ? (hostsNode.value as Record<string, unknown>)
-        : {}
+      const allHosts = asPlainObject(hostsNode.value)
       let stillExists = false
       for (const [name, cfg] of Object.entries(allHosts)) {
         if (name === hostName) continue

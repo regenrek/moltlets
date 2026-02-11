@@ -10,8 +10,11 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) =>
 
 async function loadConfig(role: "admin" | "viewer") {
   vi.resetModules()
-  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string }) => {
+  const mutation = vi.fn(async (_mutation: unknown, payload?: { kind?: string; jobId?: string }) => {
     if (payload?.kind) return { runId: "run1", jobId: "job1" }
+    if (payload?.jobId) {
+      return { runId: "run1", resultJson: JSON.stringify({ fleet: { codex: { enable: true } } }) }
+    }
     return null
   })
   const query = vi.fn(async (_query: unknown, payload?: Record<string, unknown>) => {
@@ -72,6 +75,20 @@ describe("config admin guard", () => {
     expect(mutation).not.toHaveBeenCalled()
   })
 
+  it("blocks viewer from config dot-multi-get", async () => {
+    const { mod, mutation } = await loadConfig("viewer")
+    await expect(
+      runWithStartContext(
+        { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+        async () =>
+          await mod.configDotMultiGet({
+            data: { projectId: "p1" as any, paths: ["fleet.codex.enable"] },
+          }),
+      ),
+    ).rejects.toThrow(/admin required/i)
+    expect(mutation).not.toHaveBeenCalled()
+  })
+
   it("allows admin to write config", async () => {
     const { mod, mutation } = await loadConfig("admin")
     const res = await runWithStartContext(
@@ -82,6 +99,19 @@ describe("config admin guard", () => {
         }),
     )
     expect(res.ok).toBe(true)
+    expect(mutation).toHaveBeenCalled()
+  })
+
+  it("allows admin to read config dot-multi-get", async () => {
+    const { mod, mutation } = await loadConfig("admin")
+    const res = await runWithStartContext(
+      { request: new Request("http://localhost"), contextAfterGlobalMiddlewares: {}, executedRequestMiddlewares: new Set() },
+      async () =>
+        await mod.configDotMultiGet({
+          data: { projectId: "p1" as any, paths: ["fleet.codex.enable"] },
+        }),
+    )
+    expect(res.values).toHaveProperty("fleet.codex.enable")
     expect(mutation).toHaveBeenCalled()
   })
 })

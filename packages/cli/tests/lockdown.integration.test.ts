@@ -17,7 +17,8 @@ const getProvisionerDriverMock = vi.fn(() => ({
 }));
 const resolveGitRevMock = vi.fn().mockResolvedValue("0123456789abcdef0123456789abcdef01234567");
 const loadDeployCredsMock = vi.fn();
-const findRepoRootMock = vi.fn().mockReturnValue("/repo");
+let repoRoot = "/repo";
+const findRepoRootMock = vi.fn(() => repoRoot);
 const resolveBaseFlakeMock = vi.fn().mockResolvedValue({ flake: "github:owner/repo" });
 const loadClawletsConfigMock = vi.fn();
 const requireDeployGateMock = vi.fn().mockResolvedValue(undefined);
@@ -114,6 +115,7 @@ function setConfig() {
 describe("lockdown command", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoRoot = "/repo";
     setConfig();
     loadDeployCredsMock.mockReturnValue({
       envFile: { status: "ok", path: "/repo/.clawlets/env" },
@@ -167,5 +169,55 @@ describe("lockdown command", () => {
     expect(lockdownMock).toHaveBeenCalled();
     expect(sshCaptureMock).not.toHaveBeenCalled();
     expect(sshRunMock).not.toHaveBeenCalled();
+  });
+
+  it("uses fleet sshAuthorizedKeys when host sshPubkeyFile is empty", async () => {
+    const repoDir = await fs.promises.mkdtemp(path.join(tmpdir(), "clawlets-lockdown-fleet-"));
+    repoRoot = repoDir;
+    loadClawletsConfigMock.mockReturnValue({
+      layout: getRepoLayout(repoDir),
+      configPath: path.join(repoDir, "fleet/clawlets.json"),
+      config: {
+        schemaVersion: 2,
+        defaultHost: hostName,
+        fleet: {
+          secretEnv: {},
+          secretFiles: {},
+          sshAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P lockdown-fallback"],
+          sshKnownHosts: [],
+          codex: { enable: false, gateways: [] },
+          backups: { restic: { enable: false, repository: "" } },
+        },
+        hosts: {
+          [hostName]: {
+            ...baseHost,
+            provisioning: {
+              ...baseHost.provisioning,
+              sshPubkeyFile: "",
+            },
+          },
+        },
+      },
+    });
+
+    const { lockdown } = await import("../src/commands/infra/lockdown.ts");
+    await lockdown.run({
+      args: {
+        host: hostName,
+        rev: "HEAD",
+        ref: "",
+        skipRebuild: false,
+        skipTofu: false,
+        dryRun: true,
+        sshTty: false,
+      } as any,
+    });
+
+    expect(lockdownMock).toHaveBeenCalledTimes(1);
+    const spec = lockdownMock.mock.calls[0]?.[0]?.spec;
+    expect(spec?.ssh?.publicKey).toContain("ssh-ed25519");
+    expect(String(spec?.ssh?.publicKeyPath || "")).toContain(
+      `${path.sep}.clawlets${path.sep}keys${path.sep}provisioning${path.sep}${hostName}.pub`,
+    );
   });
 });

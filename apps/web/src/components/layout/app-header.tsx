@@ -8,6 +8,7 @@ import { ServerStackIcon } from "@heroicons/react/24/outline"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { HostThemeBadge, normalizeHostTheme, type HostTheme } from "~/components/hosts/host-theme"
+import { RunnerStatusControl } from "~/components/layout/runner-status-control"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import {
@@ -116,6 +117,16 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
       ) : (
         <div className="text-sm font-semibold">Clawlets</div>
       )}
+      {projectSlug && projectId ? (
+        <RunnerStatusControl
+          projectId={projectId}
+          projectSlug={projectSlug}
+          projectStatus={projectQuery.project?.status ?? null}
+          activeHost={activeHost}
+          fallbackHost={hostNames[0] ?? null}
+          projectRunnerRepoPath={projectQuery.project?.runnerRepoPath ?? null}
+        />
+      ) : null}
     </header>
   )
 }

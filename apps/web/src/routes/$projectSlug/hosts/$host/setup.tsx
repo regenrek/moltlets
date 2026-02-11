@@ -33,7 +33,7 @@ import {
 import { projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
 import type { SetupStepId, SetupStepStatus } from "~/lib/setup/setup-model"
-import { coerceSetupStepId } from "~/lib/setup/setup-model"
+import { SETUP_STEP_IDS, coerceSetupStepId, deriveHostSetupStepper } from "~/lib/setup/setup-model"
 import { useSetupModel } from "~/lib/setup/use-setup-model"
 import { projectRetryInit } from "~/sdk/project"
 import { toast } from "sonner"
@@ -135,7 +135,7 @@ function CreatingView(props: {
 
         <StepperContent
           value="runner"
-          className="rounded-lg border bg-card p-4 text-card-foreground"
+          className="text-card-foreground"
         >
           <SetupStepRunner
             projectId={props.projectId}
@@ -263,106 +263,7 @@ function HostSetupPage() {
     )
   }
 
-  const requiredSteps = setup.model.steps.filter((s) => !s.optional)
-  const requiredDone = requiredSteps.filter((s) => s.status === "done").length
-  const runnerStep = setup.model.steps.find((step) => step.id === "runner") ?? null
   const selectedHost = setup.model.selectedHost
-  const holdRunnerUntilContinue = String(search.step || "").trim() === "runner"
-
-  if (!selectedHost && runnerStep?.status === "done" && holdRunnerUntilContinue) {
-    return (
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <SetupHeader
-          selectedHost={null}
-          selectedHostTheme={null}
-          requiredDone={requiredDone}
-          requiredTotal={requiredSteps.length}
-          deployHref={null}
-        />
-        <div className="rounded-lg border bg-card p-4 text-card-foreground">
-          <SetupStepRunner
-            projectId={projectId as Id<"projects">}
-            projectRunnerRepoPath={(setup.projectQuery.project as any)?.runnerRepoPath ?? null}
-            host={host}
-            stepStatus="done"
-            isCurrentStep={true}
-            runnerOnline={setup.runnerOnline}
-            repoProbeOk={setup.repoProbeOk}
-            repoProbeState={setup.repoProbeState}
-            repoProbeError={setup.repoProbeError}
-            runners={(setup.runners as any[]).map((runner: any) => ({
-              runnerName: String(runner.runnerName || ""),
-              lastStatus: String(runner.lastStatus || "offline"),
-              lastSeenAt: Number(runner.lastSeenAt || 0),
-            }))}
-            onContinue={() => {
-              void router.navigate({
-                to: "/$projectSlug/hosts/$host/setup",
-                params: { projectSlug, host },
-                search: { step: "host" },
-              } as any)
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // No host configured yet, show "Add First Host" in stepper
-  if (!selectedHost && runnerStep?.status === "done") {
-    return (
-      <div className="mx-auto w-full max-w-2xl space-y-6">
-        <SetupHeader
-          selectedHost={null}
-          selectedHostTheme={null}
-          requiredDone={requiredDone}
-          requiredTotal={requiredSteps.length}
-          deployHref={null}
-        />
-        <Stepper defaultValue="host" orientation="vertical" nonInteractive>
-          <StepperList>
-            <StepperItem value="runner" completed>
-              <StepperTrigger className="not-last:pb-6">
-                <StepperIndicator />
-                <div className="flex flex-col gap-1">
-                  <StepperTitle>Connect Runner</StepperTitle>
-                  <StepperDescription>Runner connected</StepperDescription>
-                </div>
-              </StepperTrigger>
-              <StepperSeparator className="absolute inset-y-0 top-5 left-3.5 -z-10 -order-1 h-full -translate-x-1/2" />
-            </StepperItem>
-            <StepperItem value="host">
-              <StepperTrigger className="not-last:pb-6">
-                <StepperIndicator />
-                <div className="flex flex-col gap-1">
-                  <StepperTitle>Add First Host</StepperTitle>
-                  <StepperDescription>Configure a host entry</StepperDescription>
-                </div>
-              </StepperTrigger>
-            </StepperItem>
-          </StepperList>
-          <StepperContent
-            value="host"
-            className="rounded-lg border bg-card p-4 text-card-foreground"
-          >
-            <SetupStepHost
-              projectId={projectId as Id<"projects">}
-              config={setup.config}
-              onSelectHost={(nextHost) => {
-                const clean = String(nextHost || "").trim()
-                if (!clean) return
-                void router.navigate({
-                  to: "/$projectSlug/hosts/$host/setup",
-                  params: { projectSlug, host: clean },
-                  search: { step: "connection" },
-                } as any)
-              }}
-            />
-          </StepperContent>
-        </Stepper>
-      </div>
-    )
-  }
 
   const activeHost = selectedHost ?? host
 
@@ -372,7 +273,19 @@ function HostSetupPage() {
   const selectedHostTheme: HostTheme | null = hostCfg?.theme ?? null
 
   const deployHref = `${buildHostPath(projectSlug, activeHost)}/deploy`
-  const visibleSteps = setup.model.steps.filter((s) => s.status !== "locked")
+  const stepper = deriveHostSetupStepper({
+    steps: setup.model.steps,
+    activeStepId: setup.model.activeStepId,
+  })
+  const stepperSteps = stepper.steps
+  const stepperActiveStepId = stepper.activeStepId
+  const requiredSteps = stepperSteps.filter((s) => !s.optional)
+  const requiredDone = requiredSteps.filter((s) => s.status === "done").length
+  const continueFromStep = (from: SetupStepId) => {
+    const currentIndex = SETUP_STEP_IDS.findIndex((stepId) => stepId === from)
+    const next = currentIndex === -1 ? null : SETUP_STEP_IDS[currentIndex + 1]
+    if (next) setup.setStep(next)
+  }
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -387,7 +300,7 @@ function HostSetupPage() {
       {setup.model.showCelebration ? (
         <SetupCelebration
           title="Server installed"
-          description="Bootstrap complete. Next: run the Post-bootstrap checklist to lock down SSH, then install OpenClaw."
+          description="Bootstrap succeeded and setup queued post-bootstrap hardening. Next: install OpenClaw."
           primaryLabel="Install OpenClaw"
           primaryTo={`${buildHostPath(projectSlug, activeHost)}/openclaw-setup`}
           secondaryLabel="Go to host overview"
@@ -396,19 +309,19 @@ function HostSetupPage() {
       ) : null}
 
       <Stepper
-        value={setup.model.activeStepId}
+        value={stepperActiveStepId}
         onValueChange={(value) => {
           const stepId = coerceSetupStepId(value)
           if (!stepId) return
-          const step = setup.model.steps.find((s) => s.id === stepId)
-          if (!step || step.status === "locked") return
+          const step = stepperSteps.find((s) => s.id === stepId)
+          if (!step) return
           setup.setStep(stepId)
         }}
         orientation="vertical"
         activationMode="manual"
       >
         <StepperList>
-          {visibleSteps.map((step) => (
+          {stepperSteps.map((step) => (
             <StepperItem
               key={step.id}
               value={step.id}
@@ -427,11 +340,15 @@ function HostSetupPage() {
           ))}
         </StepperList>
 
-        {visibleSteps.map((step) => (
+        {stepperSteps.map((step) => (
           <StepperContent
             key={step.id}
             value={step.id}
-            className="rounded-lg border bg-card p-4 text-card-foreground"
+            className={
+              ["runner", "host", "connection", "creds", "secrets", "deploy"].includes(step.id)
+                ? "text-card-foreground"
+                : "rounded-lg border bg-card p-4 text-card-foreground"
+            }
           >
             <StepContent
               stepId={step.id as SetupStepId}
@@ -439,7 +356,9 @@ function HostSetupPage() {
               projectId={projectId as Id<"projects">}
               projectSlug={projectSlug}
               host={activeHost}
+              activeStepId={stepperActiveStepId}
               setup={setup}
+              onContinueFromStep={continueFromStep}
             />
           </StepperContent>
         ))}
@@ -458,9 +377,12 @@ function StepContent(props: {
   projectId: Id<"projects">
   projectSlug: string
   host: string
+  activeStepId: SetupStepId
   setup: ReturnType<typeof useSetupModel>
+  onContinueFromStep: (stepId: SetupStepId) => void
 }) {
-  const { stepId, step, projectId, projectSlug, host, setup } = props
+  const router = useRouter()
+  const { stepId, step, projectId, projectSlug, host, activeStepId, setup } = props
 
   if (stepId === "runner") {
     return (
@@ -469,7 +391,7 @@ function StepContent(props: {
         projectRunnerRepoPath={(setup.projectQuery.project as any)?.runnerRepoPath ?? null}
         host={host}
         stepStatus={step.status as SetupStepStatus}
-        isCurrentStep={setup.model.activeStepId === step.id}
+        isCurrentStep={activeStepId === step.id}
         runnerOnline={setup.runnerOnline}
         repoProbeOk={setup.repoProbeOk}
         repoProbeState={setup.repoProbeState}
@@ -479,7 +401,7 @@ function StepContent(props: {
           lastStatus: String(runner.lastStatus || "offline"),
           lastSeenAt: Number(runner.lastSeenAt || 0),
         }))}
-        onContinue={setup.advance}
+        onContinue={() => props.onContinueFromStep(stepId)}
       />
     )
   }
@@ -491,7 +413,25 @@ function StepContent(props: {
         config={setup.config}
         host={host}
         stepStatus={step.status as SetupStepStatus}
-        onContinue={setup.advance}
+        onContinue={() => props.onContinueFromStep(stepId)}
+      />
+    )
+  }
+
+  if (stepId === "host") {
+    return (
+      <SetupStepHost
+        projectId={projectId}
+        config={setup.config}
+        onSelectHost={(nextHost) => {
+          const clean = String(nextHost || "").trim()
+          if (!clean) return
+          void router.navigate({
+            to: "/$projectSlug/hosts/$host/setup",
+            params: { projectSlug, host: clean },
+            search: { step: "connection" },
+          } as any)
+        }}
       />
     )
   }
@@ -501,7 +441,7 @@ function StepContent(props: {
       <SetupStepCreds
         projectId={projectId}
         isComplete={step.status === "done"}
-        onContinue={setup.advance}
+        onContinue={() => props.onContinueFromStep(stepId)}
       />
     )
   }
@@ -509,11 +449,10 @@ function StepContent(props: {
   if (stepId === "secrets") {
     return (
       <SetupStepSecrets
-        projectSlug={projectSlug}
         projectId={projectId}
         host={host}
         isComplete={step.status === "done"}
-        onContinue={setup.advance}
+        onContinue={() => props.onContinueFromStep(stepId)}
       />
     )
   }
@@ -524,7 +463,7 @@ function StepContent(props: {
         projectSlug={projectSlug}
         host={host}
         hasBootstrapped={setup.model.hasBootstrapped}
-        onContinue={setup.advance}
+        onContinue={() => props.onContinueFromStep(stepId)}
       />
     )
   }

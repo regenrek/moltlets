@@ -48,14 +48,10 @@ If you see **“secrets digest mismatch”**:
 If `secrets.url` is set in the manifest, verify the URL is reachable and the digest
 matches, otherwise the updater will refuse to install.
 
-## Orchestrator access errors
+## Experimental plugin access errors
 
-If gateways cannot connect to the control plane, check the Unix socket permissions:
-
-- socket path: `/run/clf/orchestrator.sock`
-- expected group: `clf-gateways`
-
-Confirm the gateway service user is in the right group and that the socket is `0660`.
+CLF/cattle socket and control-plane issues are part of the external experimental plugin
+path. See [Plugins overview](/plugins) for current references.
 
 ## Egress surprises
 
@@ -70,4 +66,3 @@ credentials as exposed and rotate them:
 
 - rotate tailnet join credentials (tagged/ephemeral keys recommended)
 - rotate one-time bootstrap tokens and any downstream credentials
-

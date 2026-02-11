@@ -11,14 +11,15 @@ import { createConvexClient } from "~/server/convex"
 import { requireAdminProjectAccess } from "~/sdk/project"
 import {
   enqueueRunnerCommand,
-  enqueueRunnerJobForRun,
   lastErrorMessage,
   listRunMessages,
-  parseLastJsonMessage,
+  parseProjectIdInput,
   parseProjectHostScopeInput,
   parseSecretsInitExecuteInput,
+  takeRunnerCommandResultObject,
   waitForRunTerminal,
 } from "~/sdk/runtime"
+import type { Id } from "../../../convex/_generated/dataModel"
 import { resolveHostFromConfig } from "./helpers"
 
 export const getSecretsTemplate = createServerFn({ method: "POST" })
@@ -40,13 +41,18 @@ export const getSecretsTemplate = createServerFn({ method: "POST" })
       runId: queued.runId,
       timeoutMs: 30_000,
     })
-    const messages = await listRunMessages({ client, runId: queued.runId, limit: 300 })
+    const messages = terminal.status === "succeeded" ? [] : await listRunMessages({ client, runId: queued.runId, limit: 300 })
     if (terminal.status !== "succeeded") {
       throw new Error(terminal.errorMessage || lastErrorMessage(messages, "config read failed"))
     }
-    const parsed = parseLastJsonMessage<Record<string, unknown>>(messages)
+    const parsed = await takeRunnerCommandResultObject({
+      client,
+      projectId: data.projectId,
+      jobId: queued.jobId,
+      runId: queued.runId,
+    })
     if (!parsed) {
-      throw new Error(lastErrorMessage(messages, "config show output missing JSON payload"))
+      throw new Error("config show command result missing JSON payload")
     }
     const config = ClawletsConfigSchema.parse(parsed)
     const host = resolveHostFromConfig(config, data.host, { requireKnownHost: true })
@@ -107,6 +113,7 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
   .inputValidator(parseSecretsInitExecuteInput)
   .handler(async ({ data }) => {
     const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
     const host = data.host.trim()
     if (!host) throw new Error("missing host")
     const secretNames = data.secretNames
@@ -122,27 +129,74 @@ export const secretsInitExecute = createServerFn({ method: "POST" })
       "--yes",
       ...(data.allowPlaceholders ? ["--allow-placeholders"] : []),
     ]
-
-    const queued = await enqueueRunnerJobForRun({
-      client,
+    const reserved = await client.mutation(api.controlPlane.jobs.reserveSealedInput, {
       projectId: data.projectId,
       runId: data.runId,
-      expectedKind: "secrets_init",
-      jobKind: "secrets_init",
+      kind: "secrets_init",
       host,
+      targetRunnerId: data.targetRunnerId,
       payloadMeta: {
         hostName: host,
         scope: data.scope === "all" ? undefined : data.scope,
         secretNames,
         args,
-        note: "secrets supplied locally to runner (localhost submit or runner prompt)",
+        note: "secrets sealed input attached at finalize",
+      },
+    })
+    await client.mutation(api.security.auditLogs.append, {
+      projectId: data.projectId,
+      action: "secrets.init",
+      target: { host },
+      data: {
+        runId: reserved.runId,
+        jobId: reserved.jobId,
+        targetRunnerId: data.targetRunnerId,
+        scope: data.scope,
       },
     })
     return {
       ok: true as const,
-      queued: true as const,
-      jobId: queued.jobId,
-      runId: queued.runId,
-      localSubmitRequired: true as const,
+      reserved: true as const,
+      jobId: reserved.jobId,
+      runId: reserved.runId,
+      kind: reserved.kind,
+      sealedInputAlg: reserved.sealedInputAlg,
+      sealedInputKeyId: reserved.sealedInputKeyId,
+      sealedInputPubSpkiB64: reserved.sealedInputPubSpkiB64,
+      targetRunnerId: data.targetRunnerId,
     }
+  })
+
+export const secretsInitFinalize = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    const base = parseProjectIdInput(data)
+    const d = data as Record<string, unknown>
+    const jobId = typeof d["jobId"] === "string" ? d["jobId"].trim() : ""
+    const kind = typeof d["kind"] === "string" ? d["kind"].trim() : ""
+    const sealedInputB64 = typeof d["sealedInputB64"] === "string" ? d["sealedInputB64"].trim() : ""
+    const sealedInputAlg = typeof d["sealedInputAlg"] === "string" ? d["sealedInputAlg"].trim() : ""
+    const sealedInputKeyId = typeof d["sealedInputKeyId"] === "string" ? d["sealedInputKeyId"].trim() : ""
+    if (!jobId || !kind || !sealedInputB64 || !sealedInputAlg || !sealedInputKeyId) {
+      throw new Error("invalid sealed finalize payload")
+    }
+    return {
+      ...base,
+      jobId: jobId as Id<"jobs">,
+      kind,
+      sealedInputB64,
+      sealedInputAlg,
+      sealedInputKeyId,
+    }
+  })
+  .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+    return await client.mutation(api.controlPlane.jobs.finalizeSealedEnqueue, {
+      projectId: data.projectId,
+      jobId: data.jobId,
+      kind: data.kind,
+      sealedInputB64: data.sealedInputB64,
+      sealedInputAlg: data.sealedInputAlg,
+      sealedInputKeyId: data.sealedInputKeyId,
+    })
   })

@@ -1,35 +1,16 @@
 ---
 title: Overview
-description: Optional extensions to Clawlets workflows.
+description: Experimental external plugins.
 ---
 
-Plugins are optional features that extend Clawlets for specific providers or workflows.
-They are not required for the standard “local dashboard + signed updates” path.
+Plugins are optional and experimental. Core `clawlets` does not ship CLF/cattle runtime
+support in the canonical path.
 
-<Callout type="info" title="Install plugins explicitly">
-Plugins are installed via the CLI. Keep plugin usage explicit in docs and runbooks so
-operators know which workflows are optional.
+Use the external plugin repo if you intentionally need that stack:
+
+- `clf-cattle`: `https://github.com/regenrek/clf-cattle`
+
+<Callout type="warning" title="Experimental plugin path">
+CLF/cattle are external plugins and are not supported by core workflows. Treat the
+integration as advanced/opt-in and validate in staging before production.
 </Callout>
-
-<Cards>
-  <Card
-    title="Hetzner Cattle (experimental)"
-    description="Provision short-lived workers via the cattle plugin."
-    href="/plugins/hetzner-cattle"
-  />
-  <Card
-    title="CLF Orchestrator"
-    description="Gateway-facing control plane and service model."
-    href="/plugins/clf-orchestrator"
-  />
-  <Card
-    title="CLF Queue"
-    description="Queue semantics, retries, and idempotency."
-    href="/plugins/clf-queue"
-  />
-  <Card
-    title="Cattle Runtime Layout"
-    description="Host and VM paths, sockets, and state locations."
-    href="/plugins/cattle-runtime-layout"
-  />
-</Cards>

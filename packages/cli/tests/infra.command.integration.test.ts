@@ -22,7 +22,8 @@ const getProvisionerDriverMock = vi.fn(() => ({
 }));
 const loadDeployCredsMock = vi.fn();
 const expandPathMock = vi.fn((v: string) => v);
-const findRepoRootMock = vi.fn(() => "/repo");
+let repoRoot = "/repo";
+const findRepoRootMock = vi.fn(() => repoRoot);
 const resolveHostNameOrExitMock = vi.fn(() => "alpha");
 const loadClawletsConfigMock = vi.fn();
 
@@ -65,6 +66,7 @@ vi.mock("@clawlets/core/lib/config/clawlets-config", async () => {
 describe("infra command", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoRoot = "/repo";
   });
 
   it("applies using provider driver", async () => {
@@ -109,5 +111,36 @@ describe("infra command", () => {
     const { infra } = await import("../src/commands/infra/index.js");
     await expect(infra.subCommands?.destroy?.run?.({ args: { host: "alpha" } } as any)).rejects.toThrow(/refusing to destroy/i);
     if (original) Object.defineProperty(process.stdin, "isTTY", original);
+  });
+
+  it("apply uses fleet sshAuthorizedKeys when host sshPubkeyFile is empty", async () => {
+    const tmp = fs.mkdtempSync(path.join(tmpdir(), "clawlets-infra-fleet-"));
+    repoRoot = tmp;
+    const config = makeConfig({
+      hostName: "alpha",
+      hostOverrides: {
+        ...baseHost,
+        provisioning: { ...baseHost.provisioning, adminCidr: "203.0.113.10/32", sshPubkeyFile: "" },
+      },
+      fleetOverrides: {
+        sshAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEk4yXx5oKXxmA3k2xZ6oUw1wK8bC9B8dJr3p+o8k8P infra-fallback"],
+      },
+    });
+    const layout = getRepoLayout(tmp);
+    loadClawletsConfigMock.mockReturnValue({ layout, config });
+    loadDeployCredsMock.mockReturnValue({
+      envFile: { status: "ok", path: "/repo/.clawlets/env" },
+      values: { HCLOUD_TOKEN: "token", NIX_BIN: "nix", GITHUB_TOKEN: "" },
+    });
+
+    const { infra } = await import("../src/commands/infra/index.js");
+    await infra.subCommands?.apply?.run?.({ args: { host: "alpha", dryRun: true } } as any);
+
+    expect(provisionMock).toHaveBeenCalledTimes(1);
+    const spec = provisionMock.mock.calls[0]?.[0]?.spec;
+    expect(spec?.ssh?.publicKey).toContain("ssh-ed25519");
+    expect(String(spec?.ssh?.publicKeyPath || "")).toContain(
+      `${path.sep}.clawlets${path.sep}keys${path.sep}provisioning${path.sep}alpha.pub`,
+    );
   });
 });

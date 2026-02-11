@@ -16,7 +16,6 @@ export const runDoctor = createServerFn({ method: "POST" })
         | "repo"
         | "bootstrap"
         | "updates"
-        | "cattle"
         | "all",
     }
   })

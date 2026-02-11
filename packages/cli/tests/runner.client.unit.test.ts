@@ -60,12 +60,12 @@ describe("runner api client", () => {
     }
   });
 
-  it("sends local secrets nonce in heartbeat capabilities", async () => {
+  it("sends sealed-input key id in heartbeat capabilities", async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body || "{}")) as {
-        capabilities?: { localSecretsNonce?: string };
+        capabilities?: { sealedInputKeyId?: string };
       };
-      expect(body.capabilities?.localSecretsNonce).toBe("nonce-123");
+      expect(body.capabilities?.sealedInputKeyId).toBe("kid-123");
       return new Response("{}", { status: 200 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -75,9 +75,10 @@ describe("runner api client", () => {
         projectId: "p1",
         runnerName: "runner-a",
         capabilities: {
-          supportsLocalSecretsSubmit: true,
-          localSecretsPort: 43110,
-          localSecretsNonce: "nonce-123",
+          supportsSealedInput: true,
+          sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+          sealedInputPubSpkiB64: "abc123",
+          sealedInputKeyId: "kid-123",
         },
       }),
     ).resolves.toEqual({});

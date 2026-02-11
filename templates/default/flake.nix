@@ -63,34 +63,18 @@
           };
       };
     in {
-      nixosConfigurations =
-        let
-          hostConfigs = lib.genAttrs hostNames (hostName:
-            lib.nixosSystem {
-              inherit system;
-              specialArgs = { inherit clawlets flakeInfo project; nix-openclaw = clawlets.inputs.nix-openclaw; };
-              modules = [
-                clawlets.inputs.disko.nixosModules.disko
-                clawlets.inputs.nixos-generators.nixosModules.all-formats
-                clawlets.inputs.sops-nix.nixosModules.sops
-                ({ ... }: { clawlets.hostName = hostName; })
-                clawlets.nixosModules.clawletsProjectHost
-              ];
-            });
-
-          cattleConfig = lib.nixosSystem {
-            inherit system;
-            specialArgs = { inherit clawlets flakeInfo project; nix-openclaw = clawlets.inputs.nix-openclaw; };
-            modules = [
-              clawlets.inputs.disko.nixosModules.disko
-              clawlets.inputs.nixos-generators.nixosModules.all-formats
-              clawlets.nixosModules.clawletsCattleImage
-            ];
-          };
-        in
-          hostConfigs // {
-            clawlets-cattle = cattleConfig;
-          };
+      nixosConfigurations = lib.genAttrs hostNames (hostName:
+        lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit clawlets flakeInfo project; nix-openclaw = clawlets.inputs.nix-openclaw; };
+          modules = [
+            clawlets.inputs.disko.nixosModules.disko
+            clawlets.inputs.nixos-generators.nixosModules.all-formats
+            clawlets.inputs.sops-nix.nixosModules.sops
+            ({ ... }: { clawlets.hostName = hostName; })
+            clawlets.nixosModules.clawletsProjectHost
+          ];
+        });
 
       packages = {
         ${system} =
@@ -109,8 +93,6 @@
             byHost
             // byHostImages
             // {
-              clawlets-cattle-image = self.nixosConfigurations.clawlets-cattle.config.formats.raw;
-              clawlets-cattle-system = self.nixosConfigurations.clawlets-cattle.config.system.build.toplevel;
               clawlets = clawlets.packages.${system}.clawlets;
             }
             // (
@@ -123,7 +105,7 @@
             )
             // (
               if firstImage == null then
-                { defaultImage = self.nixosConfigurations.clawlets-cattle.config.formats.raw; }
+                { }
               else
                 { defaultImage = byHostImages."${firstImage}-image"; }
             );

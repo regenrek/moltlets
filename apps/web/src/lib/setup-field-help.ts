@@ -9,7 +9,7 @@ export const setupFieldHelp = {
     provider: "Infrastructure provider for Day 0 lifecycle. Dashboard host settings currently support `hetzner`.",
     adminCidr: "Which IP addresses can connect to admin SSH during setup (usually your current IP with `/32`). Use Detect to autofill.",
     sshPubkeyFile:
-      "Local path to your SSH public key file used during provisioning (for example `~/.ssh/id_ed25519.pub`). The dashboard cannot read local files; validation runs in CLI bootstrap/infra. Generate one if missing: `ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_ed25519`.",
+      "Local path to your SSH public key file used during provisioning (for example `~/.ssh/id_ed25519.pub`) for CLI flows. Dashboard deploy requires `fleet.sshAuthorizedKeys`. Generate one if missing: `ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_ed25519`.",
     sshExposure: "How SSH is exposed: `bootstrap` (temporary), `tailnet` (recommended), or `public` (least safe).",
     tailnet: "Tailnet integration mode. `tailscale` enables Tailscale-based access; `none` disables it.",
     hetznerServerType: "Hetzner server type (e.g. `cx43`). Used by provisioning.",
@@ -51,7 +51,7 @@ export const setupFieldHelp = {
   },
   doctor: {
     host: "Host to run checks against (defaults to config default host).",
-    scope: "Subset of checks to run (repo/bootstrap/updates/cattle/all).",
+    scope: "Subset of checks to run (repo/bootstrap/updates/all).",
   },
   bootstrap: {
     host: "Host entry to bootstrap/provision.",

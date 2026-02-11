@@ -28,6 +28,15 @@ describe("runner command policy", () => {
     if (!result.ok) expect(result.error).toMatch(/forbidden/i);
   });
 
+  it("rejects job kinds containing colon", () => {
+    const result = validateRunnerJobPayload({
+      kind: "custom:bad",
+      payloadMeta: { args: ["doctor"] },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/kind invalid/i);
+  });
+
   it("enforces empty repoRoot for project_init", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-policy-init-"));
     try {
@@ -221,6 +230,44 @@ describe("runner command policy", () => {
         payloadMeta: { repoUrl },
       });
       expect(result.ok).toBe(true);
+    }
+  });
+
+  it("resolves structured-result mode for openclaw schema fetch", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-policy-openclaw-fetch-"));
+    try {
+      const result = await resolveRunnerJobCommand({
+        kind: "custom",
+        payloadMeta: {
+          args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
+        },
+        repoRoot: dir,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.resultMode).toBe("json_large");
+      expect(result.resultMaxBytes).toBe(5 * 1024 * 1024);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves structured-result mode for openclaw schema status", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-policy-openclaw-status-"));
+    try {
+      const result = await resolveRunnerJobCommand({
+        kind: "custom",
+        payloadMeta: {
+          args: ["openclaw", "schema", "status", "--json"],
+        },
+        repoRoot: dir,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.resultMode).toBe("json_small");
+      expect(result.resultMaxBytes).toBe(512 * 1024);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
     }
   });
 });

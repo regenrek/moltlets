@@ -8,6 +8,7 @@ import { loadClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host/host-resolve";
 import { buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra/infra";
+import { resolveHostProvisioningConfig } from "../../lib/provisioning-ssh-pubkey-file.js";
 import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 const infraApply = defineCommand({
@@ -27,15 +28,20 @@ const infraApply = defineCommand({
     const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
     const { layout, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    if (!clawletsConfig.hosts[hostName]) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    const hostProvisioningConfig = resolveHostProvisioningConfig({
+      repoRoot,
+      layout,
+      config: clawletsConfig,
+      hostName,
+    });
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
     if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
-    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
+    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: hostProvisioningConfig.hostCfg });
     const driver = getProvisionerDriver(spec.provider);
     const runtime = buildProvisionerRuntime({
       repoRoot,
@@ -72,15 +78,20 @@ const infraDestroy = defineCommand({
     const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
     const { layout, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    if (!clawletsConfig.hosts[hostName]) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    const hostProvisioningConfig = resolveHostProvisioningConfig({
+      repoRoot,
+      layout,
+      config: clawletsConfig,
+      hostName,
+    });
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     if (deployCreds.envFile?.status === "invalid") throw new Error(`deploy env file rejected: ${deployCreds.envFile.path} (${deployCreds.envFile.error || "invalid"})`);
     if (deployCreds.envFile?.status === "missing") throw new Error(`missing deploy env file: ${deployCreds.envFile.path}`);
 
-    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
+    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: hostProvisioningConfig.hostCfg });
     const driver = getProvisionerDriver(spec.provider);
     const runtime = buildProvisionerRuntime({
       repoRoot,

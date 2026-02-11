@@ -79,8 +79,6 @@ Servers contain the actual decrypted runtime state and the local control-plane s
 - `/var/lib/sops-nix/key.txt`: host age key
 - `/var/lib/clawlets/secrets/hosts/<host>/`: encrypted secrets files (SOPS)
 - `/run/secrets/**`: decrypted materialized secrets at runtime (owned by service users)
-- `/run/clf/orchestrator.sock`: gateway-facing control-plane socket (group `clf-gateways`)
-- `/var/lib/clf/orchestrator/state.sqlite`: orchestrator DB (job payloads/results + token hashes)
 
 ## Day 0 vs Day N
 
@@ -131,30 +129,10 @@ credentials.
 If you SSH in and run `clawlets server update apply`, you are only triggering the same
 host updater service early. It is not a separate push-based deploy path.
 
-## Experimental: Cattle (Hetzner) plugin
+## Experimental plugins
 
-The Hetzner cattle workflow is optional. It is provided as a CLI plugin:
-
-```bash
-clawlets plugin add cattle
-```
-
-More details: [Hetzner Cattle](/plugins/hetzner-cattle).
-
-<Callout type="warning" title="Experimental">
-Cattle is not the common path yet. Expect workflows and flags to change.
-</Callout>
-
-When using cattle, VMs are bootstrapped via cloud-init `user_data`. That is convenient,
-but it also defines the threat model for bootstrap credentials.
-
-- `tailscale_auth_key` (written to tmpfs) so the VM can join the tailnet
-- one-time bootstrap token + baseUrl so the VM can fetch runtime env from `clf-orchestrator`
-
-<Callout type="warning" title="Assume user_data is readable">
-Treat Hetzner `user_data` as accessible to anyone with Hetzner project/API access. Keep
-bootstrap tokens short-lived and rotate tailnet join credentials regularly.
-</Callout>
+CLF/cattle plugins are external and experimental. Keep them out of core production
+assumptions and validate threat models in staging before enabling in production.
 
 ## Network posture
 

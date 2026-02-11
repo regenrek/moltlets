@@ -1,25 +1,12 @@
 import { describe, expect, it } from "vitest"
+import { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } from "@clawlets/core/lib/config/clawlets-config"
+import { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } from "@clawlets/core/lib/secrets/secrets-allowlist"
 
 describe("secrets write allowlist", () => {
   it("rejects unmanaged secret names", async () => {
-    const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/config/clawlets-config")
-    const { assertSecretsAreManaged, buildManagedHostSecretNameAllowlist } = await import("@clawlets/core/lib/secrets/secrets-allowlist")
-
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
       baseFlake: "",
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
-      },
       fleet: { secretEnv: {}, secretFiles: {} },
       hosts: {
         alpha: {
@@ -38,24 +25,9 @@ describe("secrets write allowlist", () => {
   })
 
   it("includes required host secrets", async () => {
-    const { ClawletsConfigSchema, CLAWLETS_CONFIG_SCHEMA_VERSION } = await import("@clawlets/core/lib/config/clawlets-config")
-    const { buildManagedHostSecretNameAllowlist } = await import("@clawlets/core/lib/secrets/secrets-allowlist")
-
     const config = ClawletsConfigSchema.parse({
       schemaVersion: CLAWLETS_CONFIG_SCHEMA_VERSION,
       baseFlake: "",
-      cattle: {
-        enabled: false,
-        hetzner: {
-          image: "",
-          serverType: "cx22",
-          location: "nbg1",
-          maxInstances: 10,
-          defaultTtl: "2h",
-          labels: { "managed-by": "clawlets" },
-        },
-        defaults: { autoShutdown: true, callbackUrl: "" },
-      },
       fleet: {
         secretEnv: {},
         secretFiles: {},

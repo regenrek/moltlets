@@ -3,7 +3,10 @@ import {
   __test_appendRunEventsBestEffort,
   __test_defaultArgsForJob,
   __test_executeLeasedJobWithRunEvents,
+  __test_parseStructuredJsonObject,
+  __test_parseSealedInputStringMap,
   __test_shouldStopOnCompletionError,
+  __test_validateSealedInputKeysForJob,
 } from "../src/commands/runner/start.js";
 
 describe("runner job arg mapping", () => {
@@ -39,6 +42,14 @@ describe("runner job arg mapping", () => {
     expect(__test_shouldStopOnCompletionError("transient")).toBe(false);
     expect(__test_shouldStopOnCompletionError("unknown")).toBe(false);
     expect(__test_shouldStopOnCompletionError("malformed")).toBe(false);
+  });
+
+  it("enforces UTF-8 byte limits for structured JSON", () => {
+    expect(() => __test_parseStructuredJsonObject("{\"x\":\"é\"}", 9)).toThrow(/too large/i);
+  });
+
+  it("accepts structured JSON when UTF-8 bytes are within limit", () => {
+    expect(__test_parseStructuredJsonObject("{\"ok\":true}", 11)).toBe("{\"ok\":true}");
   });
 
   it("logs and suppresses append run-events failures", async () => {
@@ -85,11 +96,161 @@ describe("runner job arg mapping", () => {
         maxAttempts: 3,
         executeJobFn: executeJobFn as any,
       });
-      expect(result).toEqual({ terminal: "succeeded" });
+      expect(result).toMatchObject({ terminal: "succeeded" });
       expect(appendRunEvents).toHaveBeenCalledTimes(3);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("runner run-events append failed (command_end): append outage"));
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it("rejects prototype-pollution keys in sealed JSON input", () => {
+    expect(() => __test_parseSealedInputStringMap("{\"__proto__\":\"x\"}")).toThrow(/forbidden/i);
+    expect(() => __test_parseSealedInputStringMap("{\"constructor\":\"x\"}")).toThrow(/forbidden/i);
+    expect(() => __test_parseSealedInputStringMap("{\"prototype\":\"x\"}")).toThrow(/forbidden/i);
+  });
+
+  it("enforces deploy-creds allowlist for input placeholder jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: { updatedKeys: ["HCLOUD_TOKEN"], args: ["env", "apply-json"] },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { HCLOUD_TOKEN: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { GITHUB_TOKEN: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/not allowlisted/i);
+  });
+
+  it("enforces secretNames allowlist for secrets placeholder jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "secrets_init",
+      attempt: 1,
+      payloadMeta: { secretNames: ["DISCORD_TOKEN"], args: ["secrets", "init"] },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { DISCORD_TOKEN: "secret" },
+        inputPlaceholder: false,
+        secretsPlaceholder: true,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { DISCORD_TOKEN: "secret", EXTRA: "oops" },
+        inputPlaceholder: false,
+        secretsPlaceholder: true,
+      }),
+    ).toThrow(/not allowlisted/i);
+  });
+
+  it("sanitizes non-structured command output before appending run-events", async () => {
+    const appendRunEvents = vi.fn(async () => {});
+    const executeJobFn = vi.fn(async () => ({
+      output: "Authorization: Bearer supersecret apiKey = abc123",
+    }));
+    const result = await __test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents },
+      projectId: "proj_1",
+      job: {
+        jobId: "job_1",
+        runId: "run_1",
+        leaseId: "lease_1",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["doctor"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: executeJobFn as any,
+    });
+    expect(result).toMatchObject({ terminal: "succeeded" });
+    const outputEvent = appendRunEvents.mock.calls
+      .flatMap((call) => (call?.[0]?.events || []) as Array<{ message?: string; redacted?: boolean }>)
+      .find((event) => typeof event?.message === "string" && event.message.includes("Authorization: Bearer"));
+    expect(outputEvent).toBeTruthy();
+    expect(outputEvent?.message).toContain("Authorization: Bearer <redacted>");
+    expect(outputEvent?.message).toContain("apiKey = <redacted>");
+    expect(outputEvent?.redacted).toBe(true);
+  });
+
+  it("returns commandResultJson and appends redacted output marker", async () => {
+    const appendRunEvents = vi.fn(async () => {});
+    const executeJobFn = vi.fn(async () => ({
+      redactedOutput: true,
+      commandResultJson: "{\"ok\":true}",
+    }));
+    const result = await __test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents },
+      projectId: "proj_1",
+      job: {
+        jobId: "job_1",
+        runId: "run_1",
+        leaseId: "lease_1",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["config", "show", "--pretty=false"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: executeJobFn as any,
+    });
+    expect(result).toMatchObject({ terminal: "succeeded", commandResultJson: "{\"ok\":true}" });
+    const outputEvent = appendRunEvents.mock.calls.find((call) => {
+      const events = call?.[0]?.events as Array<{ redacted?: boolean; message?: string }> | undefined;
+      return Array.isArray(events) && events.some((event) => event.redacted === true);
+    });
+    expect(outputEvent).toBeTruthy();
+  });
+
+  it("returns commandResultLargeJson and appends redacted output marker", async () => {
+    const appendRunEvents = vi.fn(async () => {});
+    const executeJobFn = vi.fn(async () => ({
+      redactedOutput: true,
+      commandResultLargeJson: "{\"ok\":true,\"payload\":{\"a\":1}}",
+    }));
+    const result = await __test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents },
+      projectId: "proj_1",
+      job: {
+        jobId: "job_1",
+        runId: "run_1",
+        leaseId: "lease_1",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 1,
+        payloadMeta: { args: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: executeJobFn as any,
+    });
+    expect(result).toMatchObject({ terminal: "succeeded", commandResultLargeJson: "{\"ok\":true,\"payload\":{\"a\":1}}" });
+    const outputEvent = appendRunEvents.mock.calls.find((call) => {
+      const events = call?.[0]?.events as Array<{ redacted?: boolean; message?: string }> | undefined;
+      return Array.isArray(events) && events.some((event) => event.redacted === true);
+    });
+    expect(outputEvent).toBeTruthy();
   });
 });

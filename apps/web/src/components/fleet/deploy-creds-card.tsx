@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
@@ -6,68 +6,60 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { AsyncButton } from "~/components/ui/async-button"
+import { Button } from "~/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { StackedField } from "~/components/ui/stacked-field"
 import { WEB_DEPLOY_CREDS_EDITABLE_KEY_SET } from "~/lib/deploy-creds-ui"
+import { sealForRunner } from "~/lib/security/sealed-input"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { detectSopsAgeKey, generateSopsAgeKey, getDeployCredsStatus, updateDeployCreds } from "~/sdk/infra"
+import {
+  detectSopsAgeKey,
+  finalizeDeployCreds,
+  generateSopsAgeKey,
+  getDeployCredsStatus,
+  updateDeployCreds,
+} from "~/sdk/infra"
 
 type DeployCredsCardProps = {
   projectId: Id<"projects">
   setupHref?: string | null
+  setupAction?: {
+    isComplete: boolean
+    onContinue: () => void
+  }
 }
 
-async function submitLocalRunnerUpdates(params: {
-  port: number
-  nonce: string
-  jobId: string
-  updates: Record<string, string>
-  timeoutMs?: number
-}): Promise<void> {
-  const timeoutMs = Math.max(500, Math.trunc(params.timeoutMs ?? 5_000))
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-  let response: Response
-  try {
-    response = await fetch(`http://127.0.0.1:${params.port}/secrets/submit`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-clawlets-nonce": params.nonce,
-      },
-      body: JSON.stringify({
-        jobId: params.jobId,
-        secrets: params.updates,
-      }),
-      signal: controller.signal,
-    })
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(`runner local submit timed out after ${timeoutMs}ms`)
-    }
-    throw err
-  } finally {
-    clearTimeout(timeoutId)
-  }
-  if (response.ok) return
-  let detail = ""
-  try {
-    const payload = await response.json()
-    detail = payload?.error ? String(payload.error) : ""
-  } catch {
-    // ignore
-  }
-  throw new Error(detail || `runner local submit failed (${response.status})`)
-}
-
-export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCardProps) {
+export function DeployCredsCard({ projectId, setupHref = null, setupAction }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
+  const sealedRunners = useMemo(
+    () =>
+      (runnersQuery.data ?? [])
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runnersQuery.data],
+  )
+  const [selectedRunnerId, setSelectedRunnerId] = useState<string>("")
+  useEffect(() => {
+    if (sealedRunners.length === 1) {
+      setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+    }
+  }, [sealedRunners])
 
   const creds = useQuery({
     queryKey: ["deployCreds", projectId],
@@ -92,10 +84,12 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
     credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "",
   )
   const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
+  const githubTokenRequired = Boolean(setupAction)
 
   const save = useMutation({
     mutationFn: async () => {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
+      if (sealedRunners.length === 0) throw new Error("No sealed-capable runner online. Upgrade runner.")
       const updates: Record<string, string> = {
         ...(hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
         ...(githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
@@ -103,57 +97,50 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
       }
       const updatedKeys = Object.keys(updates).filter((key) => WEB_DEPLOY_CREDS_EDITABLE_KEY_SET.has(key))
       if (updatedKeys.length === 0) throw new Error("No changes to save")
-
-      // 1. Enqueue the job (returns jobId + local submit config)
-      const queued = await updateDeployCreds({
+      const runner =
+        sealedRunners.length === 1
+          ? sealedRunners[0]
+          : sealedRunners.find((row) => String(row._id) === selectedRunnerId)
+      if (!runner) throw new Error("Select a sealed-capable runner")
+      const targetRunnerId = String(runner._id)
+      const reserve = await updateDeployCreds({
         data: {
           projectId,
+          targetRunnerId,
           updatedKeys,
         },
       }) as any
-
-      // 2. POST secrets to runner local endpoint IMMEDIATELY after enqueue,
-      //    inside mutationFn (not onSuccess), so secrets are buffered before
-      //    the runner can lease and start waiting for them.
-      const localSubmit = queued?.localSubmit
-      let localSubmitOk = false
-      let localSubmitError: string | null = null
-      if (
-        queued?.localSubmitRequired
-        && localSubmit
-        && typeof localSubmit.port === "number"
-        && typeof localSubmit.nonce === "string"
-        && typeof queued.jobId === "string"
-      ) {
-        try {
-          await submitLocalRunnerUpdates({
-            port: Math.trunc(localSubmit.port),
-            nonce: localSubmit.nonce,
-            jobId: queued.jobId,
-            updates,
-          })
-          localSubmitOk = true
-        } catch (err) {
-          localSubmitError = err instanceof Error ? err.message : "Runner local submit failed"
-        }
-      }
-
-      return { queued, updates, localSubmitOk, localSubmitError }
+      const jobId = String(reserve?.jobId || "").trim()
+      const kind = String(reserve?.kind || "").trim()
+      if (!jobId || !kind) throw new Error("reserve response missing job metadata")
+      const runnerPub = String(reserve?.sealedInputPubSpkiB64 || runner.capabilities?.sealedInputPubSpkiB64 || "").trim()
+      const keyId = String(reserve?.sealedInputKeyId || runner.capabilities?.sealedInputKeyId || "").trim()
+      const alg = String(reserve?.sealedInputAlg || runner.capabilities?.sealedInputAlg || "").trim()
+      if (!runnerPub || !keyId || !alg) throw new Error("runner sealed-input capabilities incomplete")
+      const aad = `${projectId}:${jobId}:${kind}:${targetRunnerId}`
+      const sealedInputB64 = await sealForRunner({
+        runnerPubSpkiB64: runnerPub,
+        keyId,
+        alg,
+        aad,
+        plaintextJson: JSON.stringify(updates),
+      })
+      const queued = await finalizeDeployCreds({
+        data: {
+          projectId,
+          jobId,
+          kind,
+          sealedInputB64,
+          sealedInputAlg: alg,
+          sealedInputKeyId: keyId,
+          targetRunnerId,
+          updatedKeys,
+        },
+      })
+      return { queued }
     },
-    onSuccess: ({ localSubmitOk, localSubmitError }) => {
-      if (localSubmitOk) {
-        toast.success("Saved and sent to runner")
-      } else if (localSubmitError) {
-        if (localSubmitError.includes("origin forbidden")) {
-          toast.warning("Runner local submit origin mismatch. Restart runner from this dashboard URL.")
-        } else if (localSubmitError.includes("nonce mismatch")) {
-          toast.warning("Runner local submit nonce mismatch. Restart runner to refresh nonce.")
-        } else {
-          toast.warning(localSubmitError)
-        }
-      } else {
-        toast.info("Queued. Check runner terminal for status.")
-      }
+    onSuccess: () => {
+      toast.success("Queued sealed update to runner")
       setHcloudToken("")
       setGithubToken("")
       setHcloudUnlocked(false)
@@ -208,15 +195,28 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
       title="Deploy credentials"
       description="Local-only operator tokens used by bootstrap, infra, and doctor."
       actions={
-        <AsyncButton
-          type="button"
-          disabled={save.isPending || creds.isPending || runnersQuery.isPending || !runnerOnline}
-          pending={save.isPending}
-          pendingText="Saving..."
-          onClick={() => save.mutate()}
-        >
-          Save
-        </AsyncButton>
+        setupAction?.isComplete ? (
+          <Button type="button" onClick={setupAction.onContinue}>
+            Continue
+          </Button>
+        ) : (
+          <AsyncButton
+            type="button"
+            disabled={
+              save.isPending
+              || creds.isPending
+              || runnersQuery.isPending
+              || !runnerOnline
+              || sealedRunners.length === 0
+              || (sealedRunners.length > 1 && !selectedRunnerId)
+            }
+            pending={save.isPending}
+            pendingText="Saving..."
+            onClick={() => save.mutate()}
+          >
+            {setupAction ? "Save and continue" : "Save"}
+          </AsyncButton>
+        )
       }
     >
       <RunnerStatusBanner
@@ -230,6 +230,11 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
           Connect your runner to load and update deploy credentials.
         </div>
       ) : null}
+      {runnerOnline && sealedRunners.length === 0 ? (
+        <div className="text-sm text-destructive">
+          No online runner advertises sealed input. Upgrade runner and retry.
+        </div>
+      ) : null}
 
       {!runnerOnline ? null : creds.isPending ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
@@ -237,6 +242,27 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
         <div className="text-sm text-destructive">{String(creds.error)}</div>
       ) : (
         <div className="space-y-4">
+          {sealedRunners.length > 1 ? (
+            <StackedField
+              id="deployCredsRunner"
+              label="Target runner"
+              help="Sealed-input jobs must target exactly one online runner."
+            >
+              <select
+                id="deployCredsRunner"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={selectedRunnerId}
+                onChange={(e) => setSelectedRunnerId(e.target.value)}
+              >
+                <option value="">Select runner…</option>
+                {sealedRunners.map((runner) => (
+                  <option key={runner._id} value={String(runner._id)}>
+                    {runner.runnerName}
+                  </option>
+                ))}
+              </select>
+            </StackedField>
+          ) : null}
           <StackedField id="hcloudToken" label="Hetzner API token" help="Hetzner Cloud API token (HCLOUD_TOKEN).">
             <SecretInput
               id="hcloudToken"
@@ -248,12 +274,36 @@ export function DeployCredsCard({ projectId, setupHref = null }: DeployCredsCard
             />
           </StackedField>
 
-          <StackedField id="githubToken" label="GitHub token" help="GitHub token (GITHUB_TOKEN).">
+          <StackedField
+            id="githubToken"
+            label="GitHub token"
+            help={githubTokenRequired
+              ? "GitHub token (GITHUB_TOKEN). Required for Setup."
+              : "GitHub token (GITHUB_TOKEN)."}
+            description={(
+              <>
+                Need help creating one?{" "}
+                <a
+                  className="underline underline-offset-3 hover:text-foreground"
+                  href="https://docs.clawlets.com/dashboard/github-token"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open GitHub token guide
+                </a>
+                .
+              </>
+            )}
+          >
             <SecretInput
               id="githubToken"
               value={githubToken}
               onValueChange={setGithubToken}
-              placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(recommended)"}
+              placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set"
+                ? "set (click Remove to edit)"
+                : githubTokenRequired
+                  ? "(required)"
+                  : "(recommended)"}
               locked={credsByKey["GITHUB_TOKEN"]?.status === "set" && !githubUnlocked}
               onUnlock={() => setGithubUnlocked(true)}
             />

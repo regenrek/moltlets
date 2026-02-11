@@ -65,18 +65,6 @@ export function makeConfig(params?: {
     defaultHost: hostName,
     baseFlake: "",
     fleet,
-    cattle: {
-      enabled: false,
-      hetzner: {
-        image: "",
-        serverType: "cx22",
-        location: "nbg1",
-        maxInstances: 10,
-        defaultTtl: "2h",
-        labels: { "managed-by": "clawlets" },
-      },
-      defaults: { autoShutdown: true, callbackUrl: "" },
-    },
     hosts: { [hostName]: host } as Record<string, typeof host>,
   } as ClawletsConfig;
 }

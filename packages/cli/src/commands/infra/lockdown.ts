@@ -7,6 +7,7 @@ import { getHostOpenTofuDir } from "@clawlets/core/repo-layout";
 import { requireDeployGate } from "../../lib/deploy-gate.js";
 import { resolveHostNameOrExit } from "@clawlets/core/lib/host/host-resolve";
 import { buildHostProvisionSpec, getProvisionerDriver } from "@clawlets/core/lib/infra/infra";
+import { resolveHostProvisioningConfig } from "../../lib/provisioning-ssh-pubkey-file.js";
 import { buildProvisionerRuntime } from "./provider-runtime.js";
 
 export const lockdown = defineCommand({
@@ -27,10 +28,15 @@ export const lockdown = defineCommand({
     const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
     if (!hostName) return;
     const { layout, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfg = clawletsConfig.hosts[hostName];
-    if (!hostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    if (!clawletsConfig.hosts[hostName]) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    const hostProvisioningConfig = resolveHostProvisioningConfig({
+      repoRoot,
+      layout,
+      config: clawletsConfig,
+      hostName,
+    });
     const opentofuDir = getHostOpenTofuDir(layout, hostName);
-    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg });
+    const spec = buildHostProvisionSpec({ repoRoot, hostName, hostCfg: hostProvisioningConfig.hostCfg });
     const sshExposureMode = spec.sshExposureMode;
     if (sshExposureMode !== "tailnet") {
       throw new Error(`sshExposure.mode=${sshExposureMode}; set sshExposure.mode=tailnet before lockdown (clawlets host set --host ${hostName} --ssh-exposure tailnet)`);

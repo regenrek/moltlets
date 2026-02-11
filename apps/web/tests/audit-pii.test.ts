@@ -10,7 +10,26 @@ const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) => start
 async function loadSdk() {
   vi.resetModules()
 
-  const mutation = vi.fn(async (_mutation: unknown, _payload?: unknown) => null)
+  const mutation: any = vi.fn(async (_mutation: unknown, payload?: any) => {
+    const maybeTakeResult =
+      payload
+      && typeof payload === "object"
+      && typeof payload.projectId === "string"
+      && typeof payload.jobId === "string"
+      && !("kind" in payload)
+      && !("sealedInputB64" in payload)
+    if (maybeTakeResult) {
+      return {
+        runId: "run_1",
+        resultJson: JSON.stringify({
+          ok: true,
+          keyPath: "/tmp/repo/.clawlets/keys/operators/alice.agekey",
+          publicKey: "age1test",
+        }),
+      }
+    }
+    return null
+  })
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query: vi.fn() }) as any,
   }))
@@ -74,30 +93,57 @@ describe("audit pii minimization", () => {
     process.env.USER = "alice"
     try {
       const { mod, mutation } = await loadSdk()
+      mutation
+        .mockResolvedValueOnce({
+          runId: "run_1",
+          jobId: "job_1",
+          kind: "custom",
+          sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+          sealedInputKeyId: "kid123",
+        })
+        .mockResolvedValueOnce({ runId: "run_1", jobId: "job_1" })
+        .mockResolvedValueOnce(null)
       const ctx = {
         request: new Request("http://localhost"),
         contextAfterGlobalMiddlewares: {},
         executedRequestMiddlewares: new Set(),
       }
 
-      await runWithStartContext(ctx, async () =>
-        mod.updateDeployCreds({
-          data: { projectId: "p1" as any, updatedKeys: ["HCLOUD_TOKEN"] },
-        }),
-      )
+      await runWithStartContext(ctx, async () => {
+        const reserved = await mod.updateDeployCreds({
+          data: { projectId: "p1" as any, targetRunnerId: "r1", updatedKeys: ["HCLOUD_TOKEN"] },
+        })
+        await mod.finalizeDeployCreds({
+          data: {
+            projectId: "p1" as any,
+            jobId: reserved.jobId,
+            kind: reserved.kind,
+            sealedInputB64: "ciphertext",
+            sealedInputAlg: reserved.sealedInputAlg,
+            sealedInputKeyId: reserved.sealedInputKeyId,
+            targetRunnerId: "r1",
+            updatedKeys: ["HCLOUD_TOKEN"],
+          },
+        })
+      })
       await runWithStartContext(ctx, async () =>
         mod.generateSopsAgeKey({
           data: { projectId: "p1" as any },
         }),
       )
 
-      const payloads = mutation.mock.calls.map(([, payload]) => payload as any)
-      const deploy = payloads.find((p) => p?.action === "deployCreds.update")
-      const operator = payloads.find((p) => p?.action === "sops.operatorKey.generate")
+      const payloads = mutation.mock.calls.map((call: any[]) => call[1] as any)
+      const deploy = payloads.find((p: any) => p?.action === "deployCreds.update")
+      const operator = payloads.find((p: any) => p?.action === "sops.operatorKey.generate")
 
       expect(deploy).toBeTruthy()
       expect(deploy.target).toEqual({ doc: ".clawlets/env" })
-      expect(deploy.data).toEqual({ runId: "run_1", updatedKeys: ["HCLOUD_TOKEN"] })
+      expect(deploy.data).toEqual({
+        runId: "run_1",
+        jobId: "job_1",
+        targetRunnerId: "r1",
+        updatedKeys: ["HCLOUD_TOKEN"],
+      })
       expect(deploy.target?.envPath).toBeUndefined()
       expect(deploy.data?.runtimeDir).toBeUndefined()
 
