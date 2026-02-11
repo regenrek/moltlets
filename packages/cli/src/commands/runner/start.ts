@@ -7,6 +7,7 @@ import { defineCommand } from "citty";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
+import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import { DEPLOY_CREDS_KEYS } from "@clawlets/core/lib/infra/deploy-creds";
 import { buildDefaultArgsForJobKind } from "@clawlets/core/lib/runtime/runner-command-policy";
 import {
@@ -551,6 +552,7 @@ async function executeLeasedJobWithRunEvents(params: {
         ],
       });
     } else if (result.output) {
+      const sanitizedOutput = redactKnownSecrets(result.output);
       await appendRunEventsBestEffort({
         client: params.client,
         projectId: params.projectId,
@@ -560,7 +562,8 @@ async function executeLeasedJobWithRunEvents(params: {
           {
             ts: Date.now(),
             level: "info",
-            message: result.output,
+            message: sanitizedOutput.text,
+            redacted: sanitizedOutput.redacted ? true : undefined,
           },
         ],
       });

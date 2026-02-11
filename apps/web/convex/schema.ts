@@ -302,6 +302,7 @@ const schema = defineSchema({
     message: v.string(),
     meta: v.optional(RunEventMeta),
     redacted: v.optional(v.boolean()),
+    sanitized: v.optional(v.boolean()),
   })
     .index("by_run_ts", ["runId", "ts"])
     .index("by_project_ts", ["projectId", "ts"]),
