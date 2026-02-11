@@ -7,44 +7,57 @@ import {
   parseSshPublicKeyLine,
   parseSshPublicKeysFromText,
 } from "../src/lib/security/ssh";
+import { makeEd25519PublicKey } from "./helpers/ssh-keys";
 
 describe("ssh public key parsing", () => {
   it("normalizes common key types", () => {
-    expect(normalizeSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test")).toBe(
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa",
-    );
+    const ed25519 = makeEd25519PublicKey({ seedByte: 1 });
+    expect(normalizeSshPublicKey(`${ed25519} test`)).toBe(ed25519);
     expect(
       normalizeSshPublicKey("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY= comment"),
     ).toBe("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY=");
   });
 
+  it("canonicalizes base64 variants", () => {
+    const type = "ecdsa-sha2-nistp256";
+    const padded = "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY=";
+    const unpadded = padded.replace(/=+$/, "");
+    expect(normalizeSshPublicKey(`${type} ${unpadded} comment`)).toBe(`${type} ${padded}`);
+    expect(normalizeSshPublicKey(`${type} ${padded} comment`)).toBe(`${type} ${padded}`);
+  });
+
+  it("rejects invalid base64 padding", () => {
+    expect(normalizeSshPublicKey("ssh-ed25519 AAAA=== comment")).toBeNull();
+    expect(parseSshPublicKeyLine("ssh-ed25519 AAAA=== comment")).toBeNull();
+  });
+
   it("detects key contents vs paths", () => {
-    expect(looksLikeSshKeyContents("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test")).toBe(
-      true,
-    );
+    const ed25519 = makeEd25519PublicKey({ seedByte: 2, comment: "test" });
+    expect(looksLikeSshKeyContents(ed25519)).toBe(true);
     expect(looksLikeSshKeyContents("/tmp/id_ed25519.pub")).toBe(false);
   });
 
   it("parses authorized_keys style options", () => {
-    const parsed = parseSshPublicKeyLine(
-      'from="*.example.com",no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa user@host',
-    );
+    const ed25519 = makeEd25519PublicKey({ seedByte: 3 });
+    const base64 = ed25519.split(/\s+/)[1] ?? "";
+    const parsed = parseSshPublicKeyLine(`from="*.example.com",no-pty ${ed25519} user@host`);
     expect(parsed).toEqual({
       type: "ssh-ed25519",
-      base64: "AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa",
+      base64,
     });
   });
 
   it("extracts multiple keys from text", () => {
+    const ed25519 = makeEd25519PublicKey({ seedByte: 4 });
     const keys = parseSshPublicKeysFromText([
       "# comment",
       "",
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa one",
+      `${ed25519} one`,
       "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY= two",
       "",
     ].join("\n"));
     expect(keys).toEqual([
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa",
+      ed25519,
       "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY=",
     ]);
   });
@@ -57,4 +70,3 @@ describe("ssh private key detection", () => {
     expect(looksLikeSshPrivateKey("ssh-ed25519 AAAA test")).toBe(false);
   });
 });
-

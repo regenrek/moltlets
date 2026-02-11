@@ -2,7 +2,7 @@ function decodeBase64(value: string): Buffer | null {
   const v = value.trim();
   if (v.length === 0) return null;
   if (v.length > 16384) return null;
-  if (!/^[A-Za-z0-9+/]+={0,3}$/.test(v)) return null;
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return null;
 
   const buf = Buffer.from(v, "base64");
   if (buf.length < 4) return null;
@@ -44,7 +44,8 @@ export function parseSshPublicKeyLine(line: string): { type: string; base64: str
     const blobType = buf.subarray(4, 4 + typeLen).toString("utf8");
     if (blobType !== type) continue;
 
-    return { type, base64 };
+    // Canonicalize base64 so equivalent encodings normalize identically.
+    return { type, base64: buf.toString("base64") };
   }
 
   return null;

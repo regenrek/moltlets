@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeEd25519PublicKey } from "./helpers/ssh-keys";
 
 const nixToolsState = {
   shellOutput: "",
@@ -34,8 +35,9 @@ describe("tool helpers", () => {
       "<admin_password_hash>",
     );
 
-    const key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test";
-    expect(normalizeSshPublicKey(key)).toBe("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa");
+    const key = makeEd25519PublicKey({ seedByte: 1, comment: "test" });
+    const normalized = makeEd25519PublicKey({ seedByte: 1 });
+    expect(normalizeSshPublicKey(key)).toBe(normalized);
     expect(normalizeSshPublicKey("nope")).toBeNull();
     expect(looksLikeSshKeyContents(key)).toBe(true);
     expect(looksLikeSshKeyContents("/tmp/id_ed25519.pub")).toBe(false);

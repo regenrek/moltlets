@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { normalizeSshPublicKey } from "../../../security/ssh.js";
 
 type HcloudSshKey = {
   id: number;
@@ -8,6 +9,7 @@ type HcloudSshKey = {
 
 type ListSshKeysResponse = {
   ssh_keys: HcloudSshKey[];
+  meta?: { pagination?: { next_page?: number | null } };
 };
 
 type CreateSshKeyResponse = {
@@ -115,21 +117,44 @@ export async function ensureHcloudSshKeyId(params: {
   name: string;
   publicKey: string;
 }): Promise<string> {
-  const normalizedKey = params.publicKey.trim();
+  const desiredKey = normalizeSshPublicKey(params.publicKey);
+  if (!desiredKey) throw new Error("invalid ssh public key");
   const nameBase = params.name.trim();
-  const nameHash = createHash("sha256").update(normalizedKey).digest("hex").slice(0, 10);
+  const nameHash = createHash("sha256").update(desiredKey).digest("hex").slice(0, 10);
   const nameHashed = `${nameBase}-${nameHash}`;
 
-  const list = await hcloudRequest<ListSshKeysResponse>({
-    token: params.token,
-    method: "GET",
-    path: "/ssh_keys",
-  });
-  if (!list.ok) {
-    throw new HcloudHttpError("hcloud list ssh keys failed", { status: list.status, bodyText: list.bodyText });
-  }
+  const findExistingSshKey = async (label: string): Promise<HcloudSshKey | null> => {
+    let page = 1;
+    for (;;) {
+      const res = await hcloudRequest<ListSshKeysResponse>({
+        token: params.token,
+        method: "GET",
+        path: "/ssh_keys",
+        query: { page, per_page: 50 },
+      });
+      if (!res.ok) {
+        throw new HcloudHttpError(label, { status: res.status, bodyText: res.bodyText });
+      }
 
-  const existing = list.json.ssh_keys.find((k) => k.public_key.trim() === normalizedKey);
+      for (const k of res.json.ssh_keys || []) {
+        const candidate = normalizeSshPublicKey(k.public_key);
+        if (candidate && candidate === desiredKey) return k;
+      }
+
+      const next = res.json.meta?.pagination?.next_page;
+      if (!next) break;
+      if (next <= page) {
+        throw new HcloudHttpError("hcloud list ssh keys pagination failed", {
+          status: 0,
+          bodyText: `pagination loop detected (page=${page}, next_page=${next})`,
+        });
+      }
+      page = next;
+    }
+    return null;
+  };
+
+  const existing = await findExistingSshKey("hcloud list ssh keys failed");
   if (existing) return String(existing.id);
 
   const tryCreate = async (name: string) =>
@@ -137,7 +162,7 @@ export async function ensureHcloudSshKeyId(params: {
       token: params.token,
       method: "POST",
       path: "/ssh_keys",
-      body: { name, public_key: normalizedKey },
+      body: { name, public_key: desiredKey },
     });
 
   const create = await tryCreate(nameHashed);
@@ -149,19 +174,11 @@ export async function ensureHcloudSshKeyId(params: {
     const createAlt = await tryCreate(`${nameHashed}-2`);
     if (createAlt.ok) return String(createAlt.json.ssh_key.id);
 
-    const listAgain = await hcloudRequest<ListSshKeysResponse>({
-      token: params.token,
-      method: "GET",
-      path: "/ssh_keys",
-    });
-    if (!listAgain.ok) {
-      throw new HcloudHttpError("hcloud list ssh keys failed after 409", { status: listAgain.status, bodyText: listAgain.bodyText });
-    }
-
-    const existingAfter409 = listAgain.json.ssh_keys.find(
-      (k) => k.public_key.trim() === normalizedKey,
-    );
+    const existingAfter409 = await findExistingSshKey("hcloud list ssh keys failed after 409");
     if (existingAfter409) return String(existingAfter409.id);
+
+    // If it wasn't actually a "key exists" conflict, surface the most recent error.
+    throw new HcloudHttpError("hcloud create ssh key failed", { status: createAlt.status, bodyText: createAlt.bodyText });
   }
 
   throw new HcloudHttpError("hcloud create ssh key failed", { status: create.status, bodyText: create.bodyText });

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { sopsPathRegexForDirFiles, sopsPathRegexForPathSuffix } from "../src/lib/security/sops-config";
+import { makeEd25519PublicKey } from "./helpers/ssh-keys";
 
 let mockFleetMain: any = null;
 let mockFleetTemplate: any = null;
@@ -446,8 +447,7 @@ describe("doctor", () => {
     const original = await readFile(configPath, "utf8");
 
     const raw = JSON.parse(original) as any;
-    raw.hosts["openclaw-fleet-host"].provisioning.sshPubkeyFile =
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaaaaaaaaaaaaaaaaaaaaaaa test";
+    raw.hosts["openclaw-fleet-host"].provisioning.sshPubkeyFile = makeEd25519PublicKey({ seedByte: 1, comment: "test" });
     await writeFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
 
     const { collectDoctorChecks } = await import("../src/doctor.js");

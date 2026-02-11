@@ -9,6 +9,7 @@ import {
   deleteHcloudServer,
   HCLOUD_REQUEST_TIMEOUT_MS,
 } from "../src/lib/infra/providers/hetzner/hcloud.js";
+import { makeEd25519PublicKey } from "./helpers/ssh-keys";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -63,11 +64,13 @@ describe("ensureHcloudSshKeyId", () => {
     });
 
   it("returns existing ssh key id from list", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 2 });
     const fetchMock = vi.fn(async () =>
       makeJsonResponse({
         ssh_keys: [
-          { id: 42, name: "key", public_key: "ssh-ed25519 AAA" },
+          { id: 42, name: "key", public_key: key },
         ],
+        meta: { pagination: { next_page: null } },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -75,28 +78,145 @@ describe("ensureHcloudSshKeyId", () => {
     const id = await ensureHcloudSshKeyId({
       token: "token",
       name: "clawlets",
-      publicKey: "ssh-ed25519 AAA",
+      publicKey: key,
     });
 
     expect(id).toBe("42");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("creates key when missing", async () => {
+  it("matches existing ssh key by key material (ignores comment)", async () => {
+    const keyNoComment = makeEd25519PublicKey({ seedByte: 3 });
+    const keyWithComment = `${keyNoComment} existing-comment`;
     const fetchMock = vi.fn(async () =>
-      makeJsonResponse({ ssh_keys: [] }),
+      makeJsonResponse({
+        ssh_keys: [
+          { id: 42, name: "key", public_key: keyWithComment },
+        ],
+        meta: { pagination: { next_page: null } },
+      }),
     );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const id = await ensureHcloudSshKeyId({
+      token: "token",
+      name: "clawlets",
+      publicKey: `${keyNoComment} user@laptop`,
+    });
+
+    expect(id).toBe("42");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("paginates ssh key list", async () => {
+    const k1 = makeEd25519PublicKey({ seedByte: 4 });
+    const k2 = makeEd25519PublicKey({ seedByte: 5 });
+    const fetchMock = vi.fn(async () => makeJsonResponse({ ssh_keys: [] }));
     fetchMock
-      .mockResolvedValueOnce(makeJsonResponse({ ssh_keys: [] }))
       .mockResolvedValueOnce(
-        makeJsonResponse({ ssh_key: { id: 7, name: "k", public_key: "ssh-ed25519 BBB" } }, 201),
+        makeJsonResponse({
+          ssh_keys: [{ id: 1, name: "k1", public_key: k1 }],
+          meta: { pagination: { next_page: 2 } },
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ssh_keys: [{ id: 2, name: "k2", public_key: k2 }],
+          meta: { pagination: { next_page: null } },
+        }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
       name: "clawlets",
-      publicKey: "ssh-ed25519 BBB",
+      publicKey: k2,
+    });
+
+    expect(id).toBe("2");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const url1 = new URL(String(fetchMock.mock.calls[0]?.[0] || ""));
+    expect(url1.searchParams.get("page")).toBe("1");
+    expect(url1.searchParams.get("per_page")).toBe("50");
+    const url2 = new URL(String(fetchMock.mock.calls[1]?.[0] || ""));
+    expect(url2.searchParams.get("page")).toBe("2");
+    expect(url2.searchParams.get("per_page")).toBe("50");
+  });
+
+  it("fails fast on pagination loops", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 14 });
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        ssh_keys: [],
+        meta: { pagination: { next_page: 1 } },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      ensureHcloudSshKeyId({
+        token: "token",
+        name: "clawlets",
+        publicKey: key,
+      }),
+    ).rejects.toThrow(/pagination loop detected/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores unparseable ssh key list entries", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 13 });
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({
+        ssh_keys: [
+          { id: 1, name: "bad", public_key: "ssh-ed25519 NOT_BASE64 comment" },
+          { id: 2, name: "good", public_key: `${key} existing-comment` },
+        ],
+        meta: { pagination: { next_page: null } },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const id = await ensureHcloudSshKeyId({
+      token: "token",
+      name: "clawlets",
+      publicKey: key,
+    });
+
+    expect(id).toBe("2");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects invalid ssh public keys before calling hcloud", async () => {
+    const fetchMock = vi.fn(async () => makeJsonResponse({ ssh_keys: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      ensureHcloudSshKeyId({
+        token: "token",
+        name: "clawlets",
+        publicKey: "ssh-ed25519 NOT_BASE64",
+      }),
+    ).rejects.toThrow(/invalid ssh public key/i);
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
+
+  it("creates key when missing", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 6 });
+    const fetchMock = vi.fn(async () =>
+      makeJsonResponse({ ssh_keys: [] }),
+    );
+    fetchMock
+      .mockResolvedValueOnce(makeJsonResponse({ ssh_keys: [] }))
+      .mockResolvedValueOnce(
+        makeJsonResponse({ ssh_key: { id: 7, name: "k", public_key: key } }, 201),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const id = await ensureHcloudSshKeyId({
+      token: "token",
+      name: "clawlets",
+      publicKey: key,
     });
 
     expect(id).toBe("7");
@@ -104,6 +224,7 @@ describe("ensureHcloudSshKeyId", () => {
   });
 
   it("retries with alternate name on 409", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 7 });
     const fetchMock = vi.fn(async () =>
       makeJsonResponse({ ssh_keys: [] }),
     );
@@ -111,14 +232,14 @@ describe("ensureHcloudSshKeyId", () => {
       .mockResolvedValueOnce(makeJsonResponse({ ssh_keys: [] }))
       .mockResolvedValueOnce(makeJsonResponse({ error: "conflict" }, 409))
       .mockResolvedValueOnce(
-        makeJsonResponse({ ssh_key: { id: 9, name: "k", public_key: "ssh-ed25519 CCC" } }, 201),
+        makeJsonResponse({ ssh_key: { id: 9, name: "k", public_key: key } }, 201),
       );
     vi.stubGlobal("fetch", fetchMock);
 
     const id = await ensureHcloudSshKeyId({
       token: "token",
       name: "clawlets",
-      publicKey: "ssh-ed25519 CCC",
+      publicKey: key,
     });
 
     expect(id).toBe("9");
@@ -126,6 +247,7 @@ describe("ensureHcloudSshKeyId", () => {
   });
 
   it("falls back to list after repeated 409", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 8 });
     const fetchMock = vi.fn(async () =>
       makeJsonResponse({ ssh_keys: [] }),
     );
@@ -136,8 +258,9 @@ describe("ensureHcloudSshKeyId", () => {
       .mockResolvedValueOnce(
         makeJsonResponse({
           ssh_keys: [
-            { id: 13, name: "k", public_key: "ssh-ed25519 DDD" },
+            { id: 13, name: "k", public_key: key },
           ],
+          meta: { pagination: { next_page: null } },
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -145,7 +268,7 @@ describe("ensureHcloudSshKeyId", () => {
     const id = await ensureHcloudSshKeyId({
       token: "token",
       name: "clawlets",
-      publicKey: "ssh-ed25519 DDD",
+      publicKey: key,
     });
 
     expect(id).toBe("13");
@@ -156,11 +279,12 @@ describe("ensureHcloudSshKeyId", () => {
     const fetchMock = vi.fn(async () => new Response("boom", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
 
+    const key = makeEd25519PublicKey({ seedByte: 9 });
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
         name: "clawlets",
-        publicKey: "ssh-ed25519 EEE",
+        publicKey: key,
       }),
     ).rejects.toThrow(/HTTP 500: boom/);
   });
@@ -170,16 +294,18 @@ describe("ensureHcloudSshKeyId", () => {
     const fetchMock = vi.fn(async () => new Response(huge, { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
 
+    const key = makeEd25519PublicKey({ seedByte: 10 });
     await expect(
       ensureHcloudSshKeyId({
         token: "token",
         name: "clawlets",
-        publicKey: "ssh-ed25519 ZZZ",
+        publicKey: key,
       }),
     ).rejects.toThrow(/truncated/);
   });
 
   it("surfaces create ssh key errors with body text", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 11 });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(makeJsonResponse({ ssh_keys: [] }))
@@ -190,12 +316,13 @@ describe("ensureHcloudSshKeyId", () => {
       ensureHcloudSshKeyId({
         token: "token",
         name: "clawlets",
-        publicKey: "ssh-ed25519 ERR",
+        publicKey: key,
       }),
     ).rejects.toThrow(/create ssh key failed: HTTP 500: boom/);
   });
 
   it("surfaces list-after-409 errors with body text", async () => {
+    const key = makeEd25519PublicKey({ seedByte: 12 });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(makeJsonResponse({ ssh_keys: [] }))
@@ -208,7 +335,7 @@ describe("ensureHcloudSshKeyId", () => {
       ensureHcloudSshKeyId({
         token: "token",
         name: "clawlets",
-        publicKey: "ssh-ed25519 ERR409",
+        publicKey: key,
       }),
     ).rejects.toThrow(/list ssh keys failed after 409: HTTP 500: boom/);
   });
