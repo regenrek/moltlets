@@ -107,7 +107,6 @@ function HostSetupPage() {
     | undefined) ?? null
   const selectedHostTheme: HostTheme | null = hostCfg?.theme ?? null
 
-  const deployHref = `${buildHostPath(projectSlug, activeHost)}/deploy`
   const stepper = deriveHostSetupStepper({
     steps: setup.model.steps,
     activeStepId: setup.model.activeStepId,
@@ -138,7 +137,6 @@ function HostSetupPage() {
         selectedHostTheme={selectedHostTheme}
         requiredDone={requiredDone}
         requiredTotal={requiredSteps.length}
-        deployHref={deployHref}
       />
 
       {setup.model.showCelebration ? (
