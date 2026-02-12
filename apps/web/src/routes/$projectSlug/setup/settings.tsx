@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 import { useProjectBySlug } from "~/lib/project-data"
 import { projectsListQueryOptions } from "~/lib/query-options"
 
@@ -22,7 +23,12 @@ function ProjectSettings() {
   const projectId = projectQuery.projectId
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
   const project = useQuery({
     ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),
     gcTime: 5_000,

@@ -22,6 +22,7 @@ import { useProjectBySlug } from "~/lib/project-data"
 import { GatewayRoster, type GatewayRosterDetail } from "~/components/fleet/gateway/gateway-roster"
 import { addGateway, setGatewayArchitecture } from "~/sdk/config"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 import type { GatewayArchitecture } from "@clawlets/core/lib/config/clawlets-config"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/gateways/")({
@@ -62,7 +63,12 @@ function GatewaysSetup() {
   const queryClient = useQueryClient()
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
 
   const project = useQuery({
     ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),

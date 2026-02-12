@@ -1,7 +1,7 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
@@ -42,6 +42,7 @@ type DeployInitialInstallProps = {
   variant?: "page" | "embedded" | "setup"
   hasBootstrapped?: boolean
   onBootstrapped?: () => void
+  headerBadge?: ReactNode
 }
 
 export function DeployInitialInstall({
@@ -50,6 +51,7 @@ export function DeployInitialInstall({
   variant = "page",
   hasBootstrapped = false,
   onBootstrapped,
+  headerBadge,
 }: DeployInitialInstallProps) {
   if (variant === "setup") {
     return (
@@ -58,6 +60,7 @@ export function DeployInitialInstall({
         host={host}
         hasBootstrapped={hasBootstrapped}
         onContinue={onBootstrapped}
+        headerBadge={headerBadge}
       />
     )
   }

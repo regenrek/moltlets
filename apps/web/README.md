@@ -45,13 +45,24 @@ Project scaffolding defaults to `config/template-source.json` (pinned commit). O
 
 ### Auth config
 
-Auth is always enabled. Configure Better Auth env vars for both the web app and Convex:
+Auth is enabled by default. Configure Better Auth env vars for both the web app and Convex:
 
 ```sh
 SITE_URL=http://localhost:3000
 BETTER_AUTH_SECRET=... # 32+ chars
 VITE_CONVEX_URL=https://<deployment>.convex.cloud
 VITE_CONVEX_SITE_URL=https://<deployment>.convex.site
+```
+
+Dev-only auth bypass is available for local debugging:
+
+```sh
+# apps/web/.env.local
+VITE_CLAWLETS_AUTH_DISABLED=true
+CLAWLETS_AUTH_DISABLED=true
+
+# Convex deployment env
+npx convex env set CLAWLETS_AUTH_DISABLED true
 ```
 
 ## Build

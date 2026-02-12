@@ -2,7 +2,7 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/solid"
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
@@ -65,6 +65,7 @@ export function DeployInitialInstallSetup(props: {
   host: string
   hasBootstrapped: boolean
   onContinue?: () => void
+  headerBadge?: ReactNode
 }) {
   const projectQuery = useProjectBySlug(props.projectSlug)
   const projectId = projectQuery.projectId
@@ -435,6 +436,7 @@ export function DeployInitialInstallSetup(props: {
     <SettingsSection
       title="Install server"
       description="Deploy this host with safe defaults. Advanced controls stay on the full deploy page."
+      headerBadge={props.headerBadge}
       statusText={cardStatus}
       actions={!isBootstrapped ? (
         <AsyncButton
@@ -679,19 +681,6 @@ export function DeployInitialInstallSetup(props: {
         {setupApplyRunId ? <RunLogTail runId={setupApplyRunId} /> : null}
         {lockdownRunId ? <RunLogTail runId={lockdownRunId} /> : null}
         {applyRunId ? <RunLogTail runId={applyRunId} /> : null}
-
-        <div className="text-xs text-muted-foreground">
-          {finalizeState === "failed" ? "Need manual fixes?" : "Need advanced deploy controls?"}
-          {" "}
-          <Link
-            className="underline underline-offset-4 hover:text-foreground"
-            to="/$projectSlug/hosts/$host/deploy"
-            params={{ projectSlug: props.projectSlug, host: props.host }}
-          >
-            Open full deploy page
-          </Link>
-          .
-        </div>
       </div>
     </SettingsSection>
   )

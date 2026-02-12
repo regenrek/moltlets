@@ -24,6 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "~/components/ui/sidebar"
+import { canQueryWithAuth, isAuthDisabled } from "~/lib/auth-mode"
 
 function getInitials(value: string) {
   const normalized = value.trim()
@@ -38,7 +39,13 @@ export function NavUser() {
   const { isMobile } = useSidebar()
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const authDisabled = isAuthDisabled()
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
 
   const viewer = useQuery({
     ...convexQuery(api.identity.users.getCurrent, {}),
@@ -116,21 +123,25 @@ export function NavUser() {
                 User settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  void (async () => {
-                    await authClient.signOut()
-                    await router.invalidate()
-                    await router.navigate({ to: "/sign-in" })
-                  })()
-                }}
-              >
-                <LogOut />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
+            {authDisabled ? null : (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void (async () => {
+                        await authClient.signOut()
+                        await router.invalidate()
+                        await router.navigate({ to: "/sign-in" })
+                      })()
+                    }}
+                  >
+                    <LogOut />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -17,6 +17,7 @@ describe("setup probe query key usage", () => {
     const stepConnection = readFile("components/setup/steps/step-connection.tsx")
 
     expect(useSetupModel).toContain("setupConfigProbeQueryOptions")
+    expect(useSetupModel).not.toContain("deployCredsQueryOptions")
     expect(runnerStatusControl).toContain("setupConfigProbeQueryOptions")
     expect(deploySetup).toContain("setupConfigProbeQueryOptions")
     expect(runnerRoute).toContain("setupConfigProbeQueryOptions")

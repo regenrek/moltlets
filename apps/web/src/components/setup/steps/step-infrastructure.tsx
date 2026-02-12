@@ -14,7 +14,6 @@ import {
 } from "~/components/hosts/hetzner-options"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
 import { AsyncButton } from "~/components/ui/async-button"
-import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
@@ -23,10 +22,11 @@ import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
-import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
 import { setupDraftSaveNonSecret, type SetupDraftView } from "~/sdk/setup"
 import type { DeployCredsStatus } from "~/sdk/infra"
+import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
@@ -53,22 +53,20 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
   }
 }
 
-function readHcloudTokenState(deployCreds: DeployCredsStatus | null, setupDraft: SetupDraftView | null): "set" | "unset" | "unknown" {
+function readHcloudTokenState(setupDraft: SetupDraftView | null, deployCreds: DeployCredsStatus | null): "set" | "unset" {
+  const row = deployCreds?.keys.find((entry) => entry.key === "HCLOUD_TOKEN")
+  if (row?.status === "set") return "set"
   if (setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set") return "set"
-  if (!deployCreds) return "unknown"
-  const row = deployCreds.keys.find((entry) => entry.key === "HCLOUD_TOKEN")
-  if (!row) return "unset"
-  return row.status === "set" ? "set" : "unset"
+  return "unset"
 }
 
 export function SetupStepInfrastructure(props: {
   projectId: Id<"projects">
   config: SetupConfig | null
   setupDraft: SetupDraftView | null
-  host: string
   deployCreds: DeployCredsStatus | null
+  host: string
   stepStatus: SetupStepStatus
-  onContinue: () => void
 }) {
   const queryClient = useQueryClient()
   const defaults = resolveHostDefaults(props.config, props.host, props.setupDraft)
@@ -76,10 +74,9 @@ export function SetupStepInfrastructure(props: {
   const [image, setImage] = useState(() => defaults.image)
   const [location, setLocation] = useState(() => defaults.location)
   const [allowTailscaleUdpIngress, setAllowTailscaleUdpIngress] = useState(() => defaults.allowTailscaleUdpIngress)
-  const hcloudTokenState = readHcloudTokenState(props.deployCreds, props.setupDraft)
+  const hcloudTokenState = readHcloudTokenState(props.setupDraft, props.deployCreds)
   const hcloudTokenReady = hcloudTokenState === "set"
   const hostConfigReady = serverType.trim().length > 0 && location.trim().length > 0
-  const canContinue = props.stepStatus === "done"
   const missingRequirements = [
     ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
     ...(serverType.trim().length > 0 ? [] : ["hetzner.serverType"]),
@@ -145,6 +142,7 @@ export function SetupStepInfrastructure(props: {
           </>
         )}
         visibleKeys={["HCLOUD_TOKEN"]}
+        headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
       />
 
       <SettingsSection
@@ -159,7 +157,7 @@ export function SetupStepInfrastructure(props: {
             pendingText="Saving..."
             onClick={() => saveHostSettings.mutate()}
           >
-            Save
+            Save host settings
           </AsyncButton>
         )}
       >
@@ -168,7 +166,6 @@ export function SetupStepInfrastructure(props: {
             id="setup-hetzner-server-type"
             label="Server type"
             help={setupFieldHelp.hosts.hetznerServerType}
-            description={`Default: "${HETZNER_SETUP_DEFAULT_SERVER_TYPE}"`}
           >
             <RadioGroup
               value={serverTypeRadioValue}
@@ -210,7 +207,6 @@ export function SetupStepInfrastructure(props: {
             id="setup-hetzner-location"
             label="Location"
             help={setupFieldHelp.hosts.hetznerLocation}
-            description={`Default: "${HETZNER_SETUP_DEFAULT_LOCATION}"`}
           >
             <RadioGroup
               value={locationRadioValue}
@@ -295,14 +291,6 @@ export function SetupStepInfrastructure(props: {
           </Accordion>
         </div>
       </SettingsSection>
-
-      {canContinue ? (
-        <div className="flex justify-end">
-          <Button type="button" onClick={props.onContinue}>
-            Continue
-          </Button>
-        </div>
-      ) : null}
     </div>
   )
 }

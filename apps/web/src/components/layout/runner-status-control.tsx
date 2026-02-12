@@ -6,7 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { Spinner } from "~/components/ui/spinner"
 import {
@@ -335,6 +335,7 @@ export function RunnerStatusControl(props: RunnerStatusControlProps) {
             </>
           ) : null}
         </div>
+        <DialogFooter showCloseButton />
       </DialogContent>
     </Dialog>
   )

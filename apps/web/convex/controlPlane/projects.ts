@@ -18,6 +18,7 @@ import { fail } from "../shared/errors";
 import { rateLimit } from "../shared/rateLimit";
 import { GatewayIdSchema, HostNameSchema } from "@clawlets/shared/lib/identifiers";
 import { normalizeWorkspaceRef } from "../shared/workspaceRef";
+import { isAuthDisabled } from "../shared/env";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 const RUNNER_REPO_PATH_MAX_LEN = CONTROL_PLANE_LIMITS.projectConfigPath;
@@ -47,6 +48,10 @@ const DashboardProjectSummary = v.object({
 });
 
 async function listAccessibleProjects(ctx: QueryCtx, userId: Id<"users">): Promise<Doc<"projects">[]> {
+  if (isAuthDisabled()) {
+    return (await ctx.db.query("projects").collect()).toSorted((a, b) => b.updatedAt - a.updatedAt);
+  }
+
   const owned = await ctx.db
     .query("projects")
     .withIndex("by_owner", (q) => q.eq("ownerUserId", userId))
@@ -136,6 +141,11 @@ export const list = query({
   args: {},
   returns: v.array(ProjectDoc),
   handler: async (ctx) => {
+    if (isAuthDisabled()) {
+      return (await listAccessibleProjects(ctx, "auth-disabled" as Id<"users">))
+        .map(toProjectDocValue)
+        .toSorted((a, b) => b.updatedAt - a.updatedAt);
+    }
     const { user } = await requireAuthQuery(ctx);
     return (await listAccessibleProjects(ctx, user._id))
       .map(toProjectDocValue)
@@ -147,8 +157,9 @@ export const dashboardOverview = query({
   args: {},
   returns: v.object({ projects: v.array(DashboardProjectSummary) }),
   handler: async (ctx) => {
-    const { user } = await requireAuthQuery(ctx);
-    const projects = await listAccessibleProjects(ctx, user._id);
+    const projects = isAuthDisabled()
+      ? await listAccessibleProjects(ctx, "auth-disabled" as Id<"users">)
+      : await listAccessibleProjects(ctx, (await requireAuthQuery(ctx)).user._id);
 
     const summaries = await Promise.all(
       projects.map(async (project) => {

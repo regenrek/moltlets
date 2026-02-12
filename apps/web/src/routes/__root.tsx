@@ -28,12 +28,14 @@ import { getAuthBootstrap } from "~/sdk/auth"
 import { authClient } from "~/lib/auth-client"
 import { parseProjectSlug } from "~/lib/project-routing"
 import { isAuthError } from "~/lib/auth-utils"
+import { isAuthDisabled } from "~/lib/auth-mode"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
   convexQueryClient: ConvexQueryClient
 }>()({
   beforeLoad: async ({ location, context }) => {
+    const authDisabled = isAuthDisabled()
     const { token } = await getAuthBootstrap()
 
     if (token && context.convexQueryClient.serverHttpClient) {
@@ -42,7 +44,7 @@ export const Route = createRootRouteWithContext<{
 
     const pathname = location.pathname
     const isAuthRoute = pathname === "/sign-in" || pathname.startsWith("/api/auth/")
-    if (!isAuthRoute && !token) {
+    if (!authDisabled && !isAuthRoute && !token) {
       throw redirect({ to: "/sign-in" })
     }
 
@@ -166,11 +168,19 @@ function EnsureAuthedUser() {
   const { isAuthenticated, isLoading } = useConvexAuth()
   const { data: session, isPending } = authClient.useSession()
   const hasSession = Boolean(session?.user?.id)
+  const authDisabled = isAuthDisabled()
+  const initializedRef = React.useRef(false)
 
   React.useEffect(() => {
+    if (authDisabled) {
+      if (initializedRef.current) return
+      initializedRef.current = true
+      void ensureCurrent({}).catch(() => null)
+      return
+    }
     if (isPending || isLoading || !isAuthenticated || !hasSession) return
     void ensureCurrent({}).catch(() => null)
-  }, [ensureCurrent, hasSession, isAuthenticated, isLoading, isPending])
+  }, [authDisabled, ensureCurrent, hasSession, isAuthenticated, isLoading, isPending])
 
   return null
 }
@@ -181,8 +191,10 @@ function AuthGate({ app }: { app: React.ReactNode }) {
   const { isLoading } = useConvexAuth()
   const isAuthRoute = pathname === "/sign-in" || pathname.startsWith("/api/auth/")
   const hasSession = Boolean(session?.user?.id)
+  const authDisabled = isAuthDisabled()
 
   if (isAuthRoute) return <>{app}</>
+  if (authDisabled) return <>{app}</>
   if (isPending || isLoading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center text-muted-foreground">
@@ -206,8 +218,10 @@ function AuthErrorWatcher() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const queryClient = router.options.context.queryClient
   const redirectingRef = React.useRef(false)
+  const authDisabled = isAuthDisabled()
 
   React.useEffect(() => {
+    if (authDisabled) return
     return queryClient.getQueryCache().subscribe((event) => {
       if (event?.type !== "updated") return
       const error = event.query?.state?.error
@@ -227,7 +241,7 @@ function AuthErrorWatcher() {
         }
       })()
     })
-  }, [pathname, queryClient, router])
+  }, [authDisabled, pathname, queryClient, router])
 
   return null
 }

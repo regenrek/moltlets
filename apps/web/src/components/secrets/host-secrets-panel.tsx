@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
@@ -9,7 +9,6 @@ import { SECRET_WIRING_STATUSES } from "@clawlets/core/lib/runtime/control-plane
 import { RunLogTail } from "~/components/run-log-tail"
 import { SecretsInputs, type SecretsPlan, type SecretStatus } from "~/components/fleet/secrets-inputs"
 import { AsyncButton } from "~/components/ui/async-button"
-import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { LabelWithHelp } from "~/components/ui/label-help"
@@ -44,10 +43,7 @@ type HostSecretsPanelProps = {
   scope?: "bootstrap" | "updates" | "openclaw" | "all"
   mode?: "default" | "setup"
   setupDraft?: SetupDraftView | null
-  setupFlow?: {
-    isComplete: boolean
-    onContinue: () => void
-  }
+  headerBadge?: ReactNode
 }
 
 const EMPTY_MISSING_SECRET_CONFIG: MissingSecretConfig[] = []
@@ -65,7 +61,7 @@ export function HostSecretsPanel({
   scope = "all",
   mode = "default",
   setupDraft = null,
-  setupFlow,
+  headerBadge,
 }: HostSecretsPanelProps) {
   const queryClient = useQueryClient()
   const setupMode = mode === "setup"
@@ -240,8 +236,8 @@ export function HostSecretsPanel({
     },
   })
 
-  const runSetupSaveAndContinue = async () => {
-    if (!setupFlow || setupSavePhase !== "idle") return
+  const runSetupSaveDraft = async () => {
+    if (setupSavePhase !== "idle") return
     setSetupSaveError(null)
     setSetupSavePhase("saving")
     try {
@@ -280,7 +276,6 @@ export function HostSecretsPanel({
       })
       await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, host] })
       toast.success("Draft saved")
-      setupFlow.onContinue()
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setSetupSaveError(message)
@@ -361,7 +356,6 @@ export function HostSecretsPanel({
   const tailscaleConfigured = setupDraftSecretsSet || secretWiringStatusByName["tailscale_auth_key"] === "configured"
   const adminLocked = (adminConfigured || secretStatusByName["admin_password_hash"]?.status === "ok") && !adminUnlocked
   const tailscaleLocked = (tailscaleConfigured || secretStatusByName["tailscale_auth_key"]?.status === "ok") && !tailscaleUnlocked
-  const showAdminEditorInSetup = !adminLocked || Boolean(adminPassword.trim())
   const showTailscaleEditorInSetup = !tailscaleLocked || Boolean(tailscaleAuthKey.trim())
   const lockedPlaceholder = "set (click Remove to edit)"
 
@@ -377,8 +371,8 @@ export function HostSecretsPanel({
     const canSaveInSetup = !initBlockedReason && Boolean(template.data) && !template.isPending && !template.error
     const setupSavePending = setupSavePhase !== "idle"
     const setupPendingText = "Saving encrypted secrets..."
-    const setupStatus = setupFlow?.isComplete
-      ? "Encrypted secrets draft set. Continue to deploy."
+    const setupStatus = setupDraftSecretsSet
+      ? "Encrypted secrets draft set."
       : setupSavePhase === "saving"
         ? "Saving encrypted secrets draft for this host."
         : setupSaveError || initBlockedReason || "Save required secrets as encrypted draft values."
@@ -386,20 +380,17 @@ export function HostSecretsPanel({
       <SettingsSection
         title="Server passwords"
         description="Set required bootstrap secrets for this host."
+        headerBadge={headerBadge}
         statusText={setupStatus}
-        actions={setupFlow?.isComplete ? (
-          <Button type="button" onClick={setupFlow.onContinue}>
-            Continue
-          </Button>
-        ) : (
+        actions={(
           <AsyncButton
             type="button"
             disabled={!canSaveInSetup || setupSavePending}
             pending={setupSavePending}
             pendingText={setupPendingText}
-            onClick={() => void runSetupSaveAndContinue()}
+            onClick={() => void runSetupSaveDraft()}
           >
-            Save & Continue
+            Save
           </AsyncButton>
         )}
       >
@@ -440,39 +431,6 @@ export function HostSecretsPanel({
                 Missing secret config detected. Fill required values below and re-check readiness.
               </div>
             ) : null}
-
-            <div className="space-y-2">
-              <LabelWithHelp htmlFor="adminPassSetup" help={setupFieldHelp.secrets.adminPassword}>
-                Admin password (optional)
-              </LabelWithHelp>
-              {!showAdminEditorInSetup ? (
-                <>
-                  <InputGroup>
-                    <InputGroupInput
-                      id="adminPassSetup"
-                      readOnly
-                      value="Already set on host"
-                    />
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton type="button" onClick={() => setAdminUnlocked(true)}>
-                        Edit
-                      </InputGroupButton>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  <div className="text-xs text-muted-foreground">
-                    Existing admin password is configured. Edit only if you want to rotate it.
-                  </div>
-                </>
-              ) : (
-                <SecretInput
-                  id="adminPassSetup"
-                  value={adminPassword}
-                  onValueChange={setAdminPassword}
-                  placeholder="Set new admin password"
-                />
-              )}
-            </div>
-
             {needsTailscaleAuthKey ? (
               <div className="space-y-2">
                 <LabelWithHelp htmlFor="tskeySetup" help={setupFieldHelp.secrets.tailscaleAuthKey}>
@@ -531,7 +489,7 @@ export function HostSecretsPanel({
                   Recheck
                 </AsyncButton>
               </div>
-              {setupFlow?.isComplete ? (
+              {setupDraftSecretsSet ? (
                 <div className="text-emerald-700">All required secrets are configured.</div>
               ) : setupSavePhase === "saving" ? (
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -547,7 +505,7 @@ export function HostSecretsPanel({
                 <div className="text-destructive">{setupSaveError}</div>
               ) : (
                 <div className="text-muted-foreground">
-                  Save & Continue stores encrypted draft values and advances.
+                  Save stores encrypted draft values for this host.
                 </div>
               )}
             </div>

@@ -5,9 +5,15 @@ import { createClient } from "@convex-dev/better-auth";
 import type { DataModel } from "./_generated/dataModel";
 import { components } from "./_generated/api";
 import authConfig from "./auth.config";
-import { hasAuthEnv } from "./shared/env";
+import { hasAuthEnv, isAuthDisabled } from "./shared/env";
 
 function requireAuthConfig(): { siteUrl: string; secret: string } {
+  if (isAuthDisabled()) {
+    return {
+      siteUrl: String(process.env.SITE_URL || "http://localhost:3000").trim(),
+      secret: String(process.env.BETTER_AUTH_SECRET || "clawlets-auth-disabled-dev-secret").trim(),
+    };
+  }
   if (!hasAuthEnv()) {
     throw new Error("missing SITE_URL / BETTER_AUTH_SECRET for Better Auth");
   }

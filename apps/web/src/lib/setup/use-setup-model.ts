@@ -4,11 +4,10 @@ import { useRouter } from "@tanstack/react-router"
 import * as React from "react"
 import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
-import { deployCredsQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
 import { deriveRepoProbeState, setupConfigProbeQueryOptions, type RepoProbeState } from "~/lib/setup/repo-probe"
-import type { DeployCredsStatus } from "~/sdk/infra"
+import { getDeployCredsStatus } from "~/sdk/infra"
 import { setupDraftGet } from "~/sdk/setup"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
@@ -37,6 +36,15 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     [runners],
   )
 
+  const deployCredsQuery = useQuery({
+    queryKey: ["deployCreds", projectId],
+    queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
+    enabled: Boolean(projectId && isReady && runnerOnline),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+  const deployCreds = deployCredsQuery.data ?? null
+
   const configQuery = useQuery({
     ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && isReady && runnerOnline),
@@ -44,12 +52,6 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const config = configQuery.data ?? null
 
   const hasConfig = Boolean(configQuery.data)
-
-  const deployCredsQuery = useQuery({
-    ...deployCredsQueryOptions(projectId),
-    enabled: Boolean(projectId && isReady && runnerOnline),
-  })
-  const deployCreds: DeployCredsStatus | null = deployCredsQuery.data ?? null
   const setupDraftQuery = useQuery({
     queryKey: ["setupDraft", projectId, params.host],
     queryFn: async () => {
@@ -164,13 +166,13 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     runnersQuery,
     runners,
     runnerOnline,
+    deployCredsQuery,
+    deployCreds,
     configQuery,
     config,
     repoProbeOk,
     repoProbeState,
     repoProbeError,
-    deployCredsQuery,
-    deployCreds,
     setupDraftQuery,
     setupDraft,
     latestBootstrapRunQuery,
