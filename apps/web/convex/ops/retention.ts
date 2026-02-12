@@ -14,6 +14,8 @@ const GLOBAL_DELETE_BUDGET = 1000;
 const PER_PROJECT_DELETE_BUDGET = 200;
 const LEASE_TTL_MS = 60 * 1000;
 const CONTINUE_DELAY_MS = 5_000;
+const POLICY_CURSOR_PREFIX = "project:";
+const POLICY_BATCH_FETCH_SIZE = MAX_PROJECTS_PER_SWEEP + 1;
 
 type SweepStats = {
   projectsScanned: number;
@@ -33,6 +35,30 @@ function randomToken(): string {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
+}
+
+function encodePolicyCursor(projectId: Id<"projects">): string {
+  return `${POLICY_CURSOR_PREFIX}${projectId}`;
+}
+
+function decodePolicyCursor(raw: string | undefined): Id<"projects"> | null {
+  if (!raw) return null;
+  if (!raw.startsWith(POLICY_CURSOR_PREFIX)) {
+    throw new Error("invalid retention sweep cursor format");
+  }
+  const projectId = raw.slice(POLICY_CURSOR_PREFIX.length).trim();
+  if (projectId.length === 0) {
+    throw new Error("invalid retention sweep cursor payload");
+  }
+  return projectId as Id<"projects">;
+}
+
+export function __test_encodePolicyCursor(projectId: Id<"projects">): string {
+  return encodePolicyCursor(projectId);
+}
+
+export function __test_decodePolicyCursor(raw: string | undefined): Id<"projects"> | null {
+  return decodePolicyCursor(raw);
 }
 
 async function deleteRunEventsBeforeCutoff(params: {
@@ -175,21 +201,25 @@ export const runRetentionSweep = internalMutation({
       return { projectsScanned: 0, runEventsDeleted: 0, runsDeleted: 0, auditLogsDeleted: 0, continued: false };
     }
 
-    let cursor: string | null = typeof locked.cursor === "string" ? locked.cursor : null;
+    const afterProjectId = decodePolicyCursor(typeof locked.cursor === "string" ? locked.cursor : undefined);
     let remainingGlobalBudget = GLOBAL_DELETE_BUDGET;
+    const policyRows = afterProjectId
+      ? await ctx.db
+          .query("projectPolicies")
+          .withIndex("by_project", (q) => q.gt("projectId", afterProjectId))
+          .take(POLICY_BATCH_FETCH_SIZE)
+      : await ctx.db
+          .query("projectPolicies")
+          .withIndex("by_project")
+          .take(POLICY_BATCH_FETCH_SIZE);
+    const hasMorePolicies = policyRows.length > MAX_PROJECTS_PER_SWEEP;
+    const policies = hasMorePolicies ? policyRows.slice(0, MAX_PROJECTS_PER_SWEEP) : policyRows;
 
-    while (projectsScanned < MAX_PROJECTS_PER_SWEEP && remainingGlobalBudget > 0) {
-      const page = await ctx.db
-        .query("projectPolicies")
-        .order("asc")
-        .paginate({ cursor, numItems: 1 });
-      const policy = page.page[0];
-      if (!policy) {
-        cursor = null;
-        break;
-      }
+    let nextCursorProjectId: Id<"projects"> | null = null;
+    for (const policy of policies) {
+      if (remainingGlobalBudget <= 0) break;
       projectsScanned += 1;
-      cursor = page.isDone ? null : page.continueCursor;
+      nextCursorProjectId = policy.projectId;
 
       const retentionDays = normalizeRetentionDays(policy.retentionDays);
       const cutoffTs = now - retentionDays * 24 * 60 * 60 * 1000;
@@ -229,7 +259,8 @@ export const runRetentionSweep = internalMutation({
       remainingGlobalBudget -= runsResult.docsDeleted;
     }
 
-    const continued = cursor !== null;
+    const continued = projectsScanned < policies.length || hasMorePolicies;
+    const cursor = continued && nextCursorProjectId ? encodePolicyCursor(nextCursorProjectId) : null;
     await ctx.db.patch(sweepId, {
       cursor: cursor ?? undefined,
       updatedAt: Date.now(),
