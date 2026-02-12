@@ -1,6 +1,5 @@
 "use client"
 
-import { Check } from "lucide-react"
 import * as React from "react"
 import { cn } from "~/lib/utils"
 
@@ -170,7 +169,7 @@ function StepperItem(props: StepperItemProps) {
         data-state={dataState}
         data-disabled={disabled ? "" : undefined}
         className={cn(
-          "relative",
+          "relative isolate",
           ctx.orientation === "vertical" ? "flex items-start gap-3" : "flex-1",
           className,
         )}
@@ -216,7 +215,7 @@ function StepperTrigger(props: StepperTriggerProps) {
         if (ctx.activationMode === "automatic") ctx.setValue(item.value)
       }}
       className={cn(
-        "inline-flex w-full items-start gap-3 text-left focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex w-full items-start gap-3 text-left text-zinc-900 focus-visible:outline-none dark:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-500 dark:disabled:text-zinc-400",
         className,
       )}
     />
@@ -238,17 +237,19 @@ function StepperIndicator(props: StepperIndicatorProps) {
     <div
       {...divProps}
       data-state={state}
+      data-disabled={item.disabled ? "true" : "false"}
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-medium transition-colors",
-        "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
-        "data-[state=completed]:border-primary data-[state=completed]:bg-primary data-[state=completed]:text-primary-foreground",
-        "data-[state=inactive]:border-muted-foreground/30 data-[state=inactive]:text-muted-foreground",
+        "relative isolate z-20 flex size-8 shrink-0 items-center justify-center rounded-full border-2 bg-zinc-50 text-sm font-medium transition-colors dark:bg-zinc-950",
+        "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-950",
+        "data-[state=completed]:border-primary data-[state=completed]:bg-primary data-[state=completed]:text-zinc-950 dark:data-[state=completed]:text-zinc-950",
+        "data-[state=inactive]:border-zinc-300 data-[state=inactive]:bg-zinc-50 data-[state=inactive]:text-zinc-500 dark:data-[state=inactive]:border-zinc-700 dark:data-[state=inactive]:bg-zinc-950 dark:data-[state=inactive]:text-zinc-400",
+        "data-[disabled=true]:border-zinc-300 data-[disabled=true]:bg-zinc-200 data-[disabled=true]:text-zinc-500 dark:data-[disabled=true]:border-zinc-700 dark:data-[disabled=true]:bg-zinc-900 dark:data-[disabled=true]:text-zinc-500",
         className,
       )}
     >
       {typeof children === "function"
         ? children(state)
-        : children ?? (state === "completed" ? <Check className="size-4" /> : item.index || "•")}
+        : children ?? item.index ?? "•"}
     </div>
   )
 }
@@ -268,7 +269,7 @@ function StepperSeparator(props: StepperSeparatorProps) {
       aria-orientation={ctx.orientation}
       data-state={state}
       className={cn(
-        "bg-muted-foreground/30 transition-colors data-[state=completed]:bg-primary",
+        "bg-zinc-300 transition-colors data-[state=completed]:bg-primary dark:bg-zinc-700",
         ctx.orientation === "vertical" ? "h-full w-0.5" : "h-0.5 w-full flex-1",
         className,
       )}
