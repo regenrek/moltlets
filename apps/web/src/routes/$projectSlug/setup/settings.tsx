@@ -2,7 +2,6 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useConvexAuth } from "convex/react"
-import type { Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
@@ -25,7 +24,7 @@ function ProjectSettings() {
   const { isAuthenticated, isLoading } = useConvexAuth()
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
   const project = useQuery({
-    ...convexQuery(api.controlPlane.projects.get, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),
     gcTime: 5_000,
     enabled: Boolean(projectId) && canQuery,
   })

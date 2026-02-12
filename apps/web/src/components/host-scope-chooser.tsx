@@ -2,7 +2,6 @@ import { convexQuery } from "@convex-dev/react-query"
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import type { Id } from "../../convex/_generated/dataModel"
 import { api } from "../../convex/_generated/api"
 import { EntityRow } from "~/components/entity-row"
 import { Input } from "~/components/ui/input"
@@ -35,9 +34,8 @@ function HostScopeChooser({
   const [query, setQuery] = useState("")
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId && isReady ? { projectId } : "skip"),
     gcTime: 5_000,
-    enabled: Boolean(projectId && isReady),
   })
 
   const hostRows = hostsQuery.data

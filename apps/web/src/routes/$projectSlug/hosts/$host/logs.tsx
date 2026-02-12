@@ -24,16 +24,21 @@ function LogsOperate() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })
   const hostExists = Boolean(hostsQuery.data?.some((row) => row.hostName === host))
   const gatewaysQuery = useQuery({
-    ...convexQuery(api.controlPlane.gateways.listByProjectHost, {
-      projectId: projectId as Id<"projects">,
-      hostName: host,
-    }),
+    ...convexQuery(
+      api.controlPlane.gateways.listByProjectHost,
+      projectId && hostExists
+        ? {
+            projectId,
+            hostName: host,
+          }
+        : "skip",
+    ),
     enabled: Boolean(projectId) && hostExists,
     gcTime: 5_000,
   })

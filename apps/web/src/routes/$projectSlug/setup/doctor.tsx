@@ -75,7 +75,7 @@ function DoctorSetup() {
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })

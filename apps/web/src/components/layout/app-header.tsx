@@ -5,7 +5,6 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { ServerStackIcon } from "@heroicons/react/24/outline"
-import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { HostThemeBadge, normalizeHostTheme, type HostTheme } from "~/components/hosts/host-theme"
 import { RunnerStatusControl } from "~/components/layout/runner-status-control"
@@ -51,10 +50,9 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
   const projectId = projectQuery.projectId
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
-    enabled: Boolean(projectId),
   })
   const hostRows = hostsQuery.data
   const hostByName = React.useMemo(

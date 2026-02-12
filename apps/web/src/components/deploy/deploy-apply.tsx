@@ -32,8 +32,7 @@ export function DeployApplyChanges({ projectSlug, host, variant = "page" }: Depl
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    enabled: Boolean(projectId),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     gcTime: 5_000,
   })
   const hostExists = Boolean(hostsQuery.data?.some((row) => row.hostName === host))

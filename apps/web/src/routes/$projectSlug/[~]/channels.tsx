@@ -68,7 +68,7 @@ function ChannelsAggregate() {
   const isReady = projectStatus === "ready"
 
   const gatewaysQuery = useQuery({
-    ...convexQuery(api.controlPlane.gateways.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.gateways.listByProject, projectId && isReady ? { projectId } : "skip"),
     enabled: Boolean(projectId && isReady),
   })
 

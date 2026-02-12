@@ -61,17 +61,13 @@ function ProjectRunnerOnboarding() {
   const projectStatus = projectQuery.project?.status
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, {
-      projectId: projectId as Id<"projects">,
-    }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     enabled: Boolean(projectId),
   })
   const hostRows = hostsQuery.data ?? []
 
   const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, {
-      projectId: projectId as Id<"projects">,
-    }),
+    ...convexQuery(api.controlPlane.runners.listByProject, projectId ? { projectId } : "skip"),
     enabled: Boolean(projectId),
   })
   const runners = runnersQuery.data ?? []
@@ -88,10 +84,15 @@ function ProjectRunnerOnboarding() {
   })
 
   const runsQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.listByProjectPage, {
-      projectId: projectId as Id<"projects">,
-      paginationOpts: { numItems: 50, cursor: null as string | null },
-    }),
+    ...convexQuery(
+      api.controlPlane.runs.listByProjectPage,
+      projectId && (projectStatus === "creating" || projectStatus === "error")
+        ? {
+            projectId,
+            paginationOpts: { numItems: 50, cursor: null as string | null },
+          }
+        : "skip",
+    ),
     enabled: Boolean(projectId && (projectStatus === "creating" || projectStatus === "error")),
   })
   const latestProjectInitRun = (runsQuery.data as any)?.page?.find?.((run: any) => run?.kind === "project_init") ?? null

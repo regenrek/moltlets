@@ -2,7 +2,6 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import * as React from "react"
-import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deployCredsQueryOptions } from "~/lib/query-options"
@@ -26,10 +25,10 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const isError = projectStatus === "error"
 
   const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, {
-      projectId: projectId as Id<"projects">,
-    }),
-    enabled: Boolean(projectId && (isReady || isCreating)),
+    ...convexQuery(
+      api.controlPlane.runners.listByProject,
+      projectId && (isReady || isCreating) ? { projectId } : "skip",
+    ),
   })
   const runners = runnersQuery.data ?? []
   const runnerOnline = React.useMemo(
@@ -60,29 +59,41 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
   const repoProbeError = repoProbeState === "error" ? configQuery.error : null
 
   const latestBootstrapRunQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
-      projectId: projectId as Id<"projects">,
-      host: params.host,
-      kind: "bootstrap",
-    }),
-    enabled: Boolean(projectId && params.host),
+    ...convexQuery(
+      api.controlPlane.runs.latestByProjectHostKind,
+      projectId && params.host
+        ? {
+            projectId,
+            host: params.host,
+            kind: "bootstrap",
+          }
+        : "skip",
+    ),
   })
 
   const latestBootstrapSecretsVerifyRunQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
-      projectId: projectId as Id<"projects">,
-      host: params.host,
-      kind: SECRETS_VERIFY_BOOTSTRAP_RUN_KIND,
-    }),
-    enabled: Boolean(projectId && params.host),
+    ...convexQuery(
+      api.controlPlane.runs.latestByProjectHostKind,
+      projectId && params.host
+        ? {
+            projectId,
+            host: params.host,
+            kind: SECRETS_VERIFY_BOOTSTRAP_RUN_KIND,
+          }
+        : "skip",
+    ),
   })
 
   const projectInitRunsPageQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.listByProjectPage, {
-      projectId: projectId as Id<"projects">,
-      paginationOpts: { numItems: 50, cursor: null as string | null },
-    }),
-    enabled: Boolean(projectId && isError),
+    ...convexQuery(
+      api.controlPlane.runs.listByProjectPage,
+      projectId && isError
+        ? {
+            projectId,
+            paginationOpts: { numItems: 50, cursor: null as string | null },
+          }
+        : "skip",
+    ),
   })
 
   const model: SetupModel = React.useMemo(

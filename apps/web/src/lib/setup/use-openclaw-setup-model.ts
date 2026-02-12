@@ -60,21 +60,29 @@ export function useOpenClawSetupModel(params: { projectSlug: string; host: strin
   const config = configQuery.data ?? null
 
   const latestOpenClawSecretsVerifyRunQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
-      projectId: projectId as Id<"projects">,
-      host: params.host,
-      kind: SECRETS_VERIFY_OPENCLAW_RUN_KIND,
-    }),
-    enabled: Boolean(projectId && params.host),
+    ...convexQuery(
+      api.controlPlane.runs.latestByProjectHostKind,
+      projectId && params.host
+        ? {
+            projectId,
+            host: params.host,
+            kind: SECRETS_VERIFY_OPENCLAW_RUN_KIND,
+          }
+        : "skip",
+    ),
   })
 
   const latestUpdateApplyRunQuery = useQuery({
-    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
-      projectId: projectId as Id<"projects">,
-      host: params.host,
-      kind: "server_update_apply",
-    }),
-    enabled: Boolean(projectId && params.host),
+    ...convexQuery(
+      api.controlPlane.runs.latestByProjectHostKind,
+      projectId && params.host
+        ? {
+            projectId,
+            host: params.host,
+            kind: "server_update_apply",
+          }
+        : "skip",
+    ),
   })
 
   const model: OpenClawSetupModel = React.useMemo(
