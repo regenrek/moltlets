@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { deriveHostSetupStepper, deriveSetupModel } from "../src/lib/setup/setup-model"
 
 describe("deriveSetupModel", () => {
-  it("starts at connection and locks downstream steps when host config is missing", () => {
+  it("starts at infrastructure and locks downstream steps when host config is missing", () => {
     const model = deriveSetupModel({
       config: null,
       hostFromRoute: "h1",
@@ -12,8 +12,9 @@ describe("deriveSetupModel", () => {
     })
 
     expect(model.selectedHost).toBe("h1")
-    expect(model.activeStepId).toBe("connection")
-    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("active")
+    expect(model.activeStepId).toBe("infrastructure")
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "creds")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
   })
@@ -33,41 +34,66 @@ describe("deriveSetupModel", () => {
   })
 
   it("walks through required setup steps", () => {
-    const baseConfig = {
+    const infrastructureConfig = {
       hosts: {
         h1: {
           provisioning: { provider: "hetzner" },
+          hetzner: {
+            serverType: "cx43",
+            image: "",
+            location: "nbg1",
+            allowTailscaleUdpIngress: true,
+          },
         },
       },
     }
 
     const step1 = deriveSetupModel({
-      config: baseConfig,
+      config: infrastructureConfig,
       hostFromRoute: "h1",
       deployCreds: { keys: [] },
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step1.activeStepId).toBe("connection")
+    expect(step1.activeStepId).toBe("infrastructure")
+
+    const step2 = deriveSetupModel({
+      config: infrastructureConfig,
+      hostFromRoute: "h1",
+      deployCreds: {
+        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
+      },
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+    expect(step2.activeStepId).toBe("connection")
 
     const connectionConfig = {
-      ...baseConfig,
+      ...infrastructureConfig,
       fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
       hosts: {
         h1: {
           provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
+          hetzner: {
+            serverType: "cx43",
+            image: "",
+            location: "nbg1",
+            allowTailscaleUdpIngress: true,
+          },
         },
       },
     }
 
-    const step2 = deriveSetupModel({
+    const step3 = deriveSetupModel({
       config: connectionConfig,
       hostFromRoute: "h1",
-      deployCreds: { keys: [] },
+      deployCreds: {
+        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
+      },
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step2.activeStepId).toBe("creds")
+    expect(step3.activeStepId).toBe("creds")
 
     const readyCreds = {
       keys: [
@@ -77,34 +103,34 @@ describe("deriveSetupModel", () => {
       ],
     }
 
-    const step3 = deriveSetupModel({
+    const step4 = deriveSetupModel({
       config: connectionConfig,
       hostFromRoute: "h1",
       deployCreds: readyCreds,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step3.activeStepId).toBe("secrets")
+    expect(step4.activeStepId).toBe("secrets")
 
-    const step4 = deriveSetupModel({
+    const step5 = deriveSetupModel({
       config: connectionConfig,
       hostFromRoute: "h1",
       deployCreds: readyCreds,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: { status: "succeeded" },
     })
-    expect(step4.activeStepId).toBe("deploy")
+    expect(step5.activeStepId).toBe("deploy")
 
-    const step5 = deriveSetupModel({
+    const step6 = deriveSetupModel({
       config: connectionConfig,
       hostFromRoute: "h1",
       deployCreds: readyCreds,
       latestBootstrapRun: { status: "succeeded" },
       latestBootstrapSecretsVerifyRun: { status: "succeeded" },
     })
-    expect(step5.hasBootstrapped).toBe(true)
-    expect(step5.showCelebration).toBe(true)
-    expect(step5.steps.find((s) => s.id === "verify")?.status).toBe("pending")
+    expect(step6.hasBootstrapped).toBe(true)
+    expect(step6.showCelebration).toBe(true)
+    expect(step6.steps.find((s) => s.id === "verify")?.status).toBe("pending")
   })
 })
 
@@ -116,6 +142,12 @@ describe("deriveHostSetupStepper", () => {
         hosts: {
           h1: {
             provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
+            hetzner: {
+              serverType: "cx43",
+              image: "",
+              location: "nbg1",
+              allowTailscaleUdpIngress: true,
+            },
           },
         },
       },
@@ -132,7 +164,7 @@ describe("deriveHostSetupStepper", () => {
     })
 
     const stepper = deriveHostSetupStepper({ steps: model.steps, activeStepId: model.activeStepId })
-    expect(stepper.steps.map((s) => s.id)).toEqual(["connection", "creds", "secrets", "deploy", "verify"])
+    expect(stepper.steps.map((s) => s.id)).toEqual(["infrastructure", "connection", "creds", "secrets", "deploy", "verify"])
     expect(stepper.activeStepId).toBe("secrets")
   })
 

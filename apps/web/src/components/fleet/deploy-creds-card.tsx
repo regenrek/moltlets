@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
@@ -11,7 +12,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { StackedField } from "~/components/ui/stacked-field"
-import { WEB_DEPLOY_CREDS_EDITABLE_KEY_SET } from "~/lib/deploy-creds-ui"
+import { WEB_DEPLOY_CREDS_EDITABLE_KEYS, WEB_DEPLOY_CREDS_EDITABLE_KEY_SET } from "~/lib/deploy-creds-ui"
 import { sealForRunner } from "~/lib/security/sealed-input"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import {
@@ -29,10 +30,25 @@ type DeployCredsCardProps = {
     isComplete: boolean
     onContinue: () => void
   }
+  title?: string
+  description?: ReactNode
+  visibleKeys?: ReadonlyArray<(typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]>
 }
 
-export function DeployCredsCard({ projectId, setupHref = null, setupAction }: DeployCredsCardProps) {
+export function DeployCredsCard({
+  projectId,
+  setupHref = null,
+  setupAction,
+  title = "Deploy credentials",
+  description = "Local-only operator tokens used by bootstrap, infra, and doctor.",
+  visibleKeys,
+}: DeployCredsCardProps) {
   const queryClient = useQueryClient()
+  const keysToShow = visibleKeys?.length ? visibleKeys : WEB_DEPLOY_CREDS_EDITABLE_KEYS
+  const visibleKeySet = useMemo(() => new Set<string>(keysToShow), [keysToShow])
+  const showHcloudToken = visibleKeySet.has("HCLOUD_TOKEN")
+  const showGithubToken = visibleKeySet.has("GITHUB_TOKEN")
+  const showSopsAgeKeyFile = visibleKeySet.has("SOPS_AGE_KEY_FILE")
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
   })
@@ -84,16 +100,22 @@ export function DeployCredsCard({ projectId, setupHref = null, setupAction }: De
     credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "",
   )
   const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
-  const githubTokenRequired = Boolean(setupAction)
+  const githubTokenRequired = Boolean(setupAction && showGithubToken)
 
   const save = useMutation({
     mutationFn: async () => {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (sealedRunners.length === 0) throw new Error("No sealed-capable runner online. Upgrade runner.")
+      const nextSopsAgeKeyFile = sopsAgeKeyFile.trim()
+      const shouldUpdateSopsAgeKeyFile = showSopsAgeKeyFile
+        && ((sopsAgeKeyFileOverride !== undefined && nextSopsAgeKeyFile.length > 0)
+          || (sopsAgeKeyFileOverride === undefined
+            && credsByKey["SOPS_AGE_KEY_FILE"]?.status !== "set"
+            && nextSopsAgeKeyFile.length > 0))
       const updates: Record<string, string> = {
-        ...(hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
-        ...(githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
-        ...(sopsAgeKeyFile.trim() ? { SOPS_AGE_KEY_FILE: sopsAgeKeyFile.trim() } : {}),
+        ...(showHcloudToken && hcloudToken.trim() ? { HCLOUD_TOKEN: hcloudToken.trim() } : {}),
+        ...(showGithubToken && githubToken.trim() ? { GITHUB_TOKEN: githubToken.trim() } : {}),
+        ...(shouldUpdateSopsAgeKeyFile ? { SOPS_AGE_KEY_FILE: nextSopsAgeKeyFile } : {}),
       }
       const updatedKeys = Object.keys(updates).filter((key) => WEB_DEPLOY_CREDS_EDITABLE_KEY_SET.has(key))
       if (updatedKeys.length === 0) throw new Error("No changes to save")
@@ -192,8 +214,8 @@ export function DeployCredsCard({ projectId, setupHref = null, setupAction }: De
 
   return (
     <SettingsSection
-      title="Deploy credentials"
-      description="Local-only operator tokens used by bootstrap, infra, and doctor."
+      title={title}
+      description={description}
       actions={
         setupAction?.isComplete ? (
           <Button type="button" onClick={setupAction.onContinue}>
@@ -263,89 +285,109 @@ export function DeployCredsCard({ projectId, setupHref = null, setupAction }: De
               </select>
             </StackedField>
           ) : null}
-          <StackedField id="hcloudToken" label="Hetzner API token" help="Hetzner Cloud API token (HCLOUD_TOKEN).">
-            <SecretInput
-              id="hcloudToken"
-              value={hcloudToken}
-              onValueChange={setHcloudToken}
-              placeholder={credsByKey["HCLOUD_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(required)"}
-              locked={credsByKey["HCLOUD_TOKEN"]?.status === "set" && !hcloudUnlocked}
-              onUnlock={() => setHcloudUnlocked(true)}
-            />
-          </StackedField>
-
-          <StackedField
-            id="githubToken"
-            label="GitHub token"
-            help={githubTokenRequired
-              ? "GitHub token (GITHUB_TOKEN). Required for Setup."
-              : "GitHub token (GITHUB_TOKEN)."}
-            description={(
-              <>
-                Need help creating one?{" "}
-                <a
-                  className="underline underline-offset-3 hover:text-foreground"
-                  href="https://docs.clawlets.com/dashboard/github-token"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open GitHub token guide
-                </a>
-                .
-              </>
-            )}
-          >
-            <SecretInput
-              id="githubToken"
-              value={githubToken}
-              onValueChange={setGithubToken}
-              placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set"
-                ? "set (click Remove to edit)"
-                : githubTokenRequired
-                  ? "(required)"
-                  : "(recommended)"}
-              locked={credsByKey["GITHUB_TOKEN"]?.status === "set" && !githubUnlocked}
-              onUnlock={() => setGithubUnlocked(true)}
-            />
-          </StackedField>
-
-          <StackedField
-            id="sopsAgeKeyFile"
-            label="SOPS age key file"
-            help="Path to your operator age key file (SOPS_AGE_KEY_FILE)."
-          >
-            <InputGroup>
-              <InputGroupInput
-                id="sopsAgeKeyFile"
-                value={sopsAgeKeyFile}
-                onChange={(e) => setSopsAgeKeyFileOverride(e.target.value)}
-                placeholder=".clawlets/keys/operators/<user>.agekey"
+          {showHcloudToken ? (
+            <StackedField id="hcloudToken" label="Hetzner API token" help="Hetzner Cloud API token (HCLOUD_TOKEN).">
+              <SecretInput
+                id="hcloudToken"
+                value={hcloudToken}
+                onValueChange={setHcloudToken}
+                placeholder={credsByKey["HCLOUD_TOKEN"]?.status === "set" ? "set (click Remove to edit)" : "(required)"}
+                locked={credsByKey["HCLOUD_TOKEN"]?.status === "set" && !hcloudUnlocked}
+                onUnlock={() => setHcloudUnlocked(true)}
               />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  disabled={!runnerOnline || detectSops.isPending}
-                  pending={detectSops.isPending}
-                  pendingText="Finding..."
-                  onClick={() => detectSops.mutate()}
-                >
-                  Find
-                </InputGroupButton>
-                <InputGroupButton
-                  disabled={!runnerOnline || generateSops.isPending}
-                  pending={generateSops.isPending}
-                  pendingText="Generating..."
-                  onClick={() => generateSops.mutate()}
-                >
-                  Generate
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-            {sopsStatus ? (
-              <div className={`text-xs ${sopsStatus.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-                {sopsStatus.message}
-              </div>
-            ) : null}
-          </StackedField>
+            </StackedField>
+          ) : null}
+
+          {showGithubToken ? (
+            <StackedField
+              id="githubToken"
+              label="GitHub token"
+              help={githubTokenRequired
+                ? "GitHub token (GITHUB_TOKEN). Required for Setup."
+                : "GitHub token (GITHUB_TOKEN)."}
+              description={(
+                <>
+                  Need help creating one?{" "}
+                  <a
+                    className="underline underline-offset-3 hover:text-foreground"
+                    href="https://docs.clawlets.com/dashboard/github-token"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open GitHub token guide
+                  </a>
+                  .
+                </>
+              )}
+            >
+              <SecretInput
+                id="githubToken"
+                value={githubToken}
+                onValueChange={setGithubToken}
+                placeholder={credsByKey["GITHUB_TOKEN"]?.status === "set"
+                  ? "set (click Remove to edit)"
+                  : githubTokenRequired
+                    ? "(required)"
+                    : "(recommended)"}
+                locked={credsByKey["GITHUB_TOKEN"]?.status === "set" && !githubUnlocked}
+                onUnlock={() => setGithubUnlocked(true)}
+              />
+            </StackedField>
+          ) : null}
+
+          {showSopsAgeKeyFile ? (
+            <StackedField
+              id="sopsAgeKeyFile"
+              label="SOPS age key file"
+              help="Path to your operator age key file (SOPS_AGE_KEY_FILE)."
+              description={(
+                <>
+                  Need one?{" "}
+                  <a
+                    className="underline underline-offset-3 hover:text-foreground"
+                    href="https://docs.clawlets.com/dashboard/sops-age-key"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open SOPS age key guide
+                  </a>
+                  .
+                </>
+              )}
+            >
+              <InputGroup>
+                <InputGroupInput
+                  id="sopsAgeKeyFile"
+                  value={sopsAgeKeyFile}
+                  onChange={(e) => setSopsAgeKeyFileOverride(e.target.value)}
+                  placeholder=".clawlets/keys/operators/<user>.agekey"
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    disabled={!runnerOnline || detectSops.isPending}
+                    pending={detectSops.isPending}
+                    pendingText="Finding..."
+                    onClick={() => detectSops.mutate()}
+                  >
+                    Find
+                  </InputGroupButton>
+                  <InputGroupButton
+                    disabled={!runnerOnline || generateSops.isPending}
+                    pending={generateSops.isPending}
+                    pendingText="Generating..."
+                    onClick={() => generateSops.mutate()}
+                  >
+                    Generate
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              {sopsStatus ? (
+                <div className={`text-xs ${sopsStatus.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                  {sopsStatus.message}
+                </div>
+              ) : null}
+            </StackedField>
+          ) : null}
         </div>
       )}
     </SettingsSection>

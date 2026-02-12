@@ -1,19 +1,18 @@
 "use client"
 
 import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { z } from "zod"
 import type { HostTheme } from "@clawlets/core/lib/host/host-theme"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
-import { HostSetupContextCard } from "~/components/setup/host-setup-context-card"
 import { SetupCelebration } from "~/components/setup/setup-celebration"
 import { SetupHeader } from "~/components/setup/setup-header"
 import { SetupStepConnection } from "~/components/setup/steps/step-connection"
 import { SetupStepCreds } from "~/components/setup/steps/step-creds"
 import { SetupStepDeploy } from "~/components/setup/steps/step-deploy"
+import { SetupStepInfrastructure } from "~/components/setup/steps/step-infrastructure"
 import { SetupStepSecrets } from "~/components/setup/steps/step-secrets"
 import { SetupStepVerify } from "~/components/setup/steps/step-verify"
 import {
@@ -29,7 +28,6 @@ import {
 } from "~/components/ui/stepper"
 import { projectsListQueryOptions } from "~/lib/query-options"
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
-import { deriveHostSetupContextMode } from "~/lib/setup/host-setup-context"
 import type { SetupStepId, SetupStepStatus } from "~/lib/setup/setup-model"
 import { SETUP_STEP_IDS, coerceSetupStepId, deriveHostSetupStepper } from "~/lib/setup/setup-model"
 import { useSetupModel } from "~/lib/setup/use-setup-model"
@@ -70,8 +68,9 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/setup")({
 })
 
 const STEP_META: Record<string, { title: string; description: string }> = {
+  infrastructure: { title: "Hetzner Setup", description: "Token and provisioning defaults" },
   connection: { title: "Server Access", description: "Network and SSH settings" },
-  creds: { title: "Provider Tokens", description: "Cloud and deploy credentials" },
+  creds: { title: "Provider Tokens", description: "GitHub and SOPS credentials" },
   secrets: { title: "Server Passwords", description: "Secrets encryption and sync" },
   deploy: { title: "Install Server", description: "Bootstrap and deploy the host" },
   verify: { title: "Secure and Verify", description: "Lock down SSH and verify" },
@@ -100,13 +99,6 @@ function HostSetupPage() {
   if (!projectId) {
     return <div className="text-muted-foreground">Project not found.</div>
   }
-  const projectHostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    enabled: Boolean(projectId),
-  })
-  if (projectHostsQuery.error) {
-    return <div className="text-sm text-destructive">{String(projectHostsQuery.error)}</div>
-  }
 
   const selectedHost = setup.model.selectedHost
   const activeHost = selectedHost ?? host
@@ -124,7 +116,6 @@ function HostSetupPage() {
   const stepperActiveStepId = stepper.activeStepId
   const requiredSteps = stepperSteps.filter((s) => !s.optional)
   const requiredDone = requiredSteps.filter((s) => s.status === "done").length
-  const setupContextMode = deriveHostSetupContextMode(projectHostsQuery.data?.length ?? 0)
   const continueFromStep = (from: SetupStepId) => {
     const currentIndex = SETUP_STEP_IDS.findIndex((stepId) => stepId === from)
     const next = currentIndex === -1 ? null : SETUP_STEP_IDS[currentIndex + 1]
@@ -132,7 +123,7 @@ function HostSetupPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 xl:max-w-6xl">
       <RunnerStatusBanner
         projectId={projectId as Id<"projects">}
         setupHref={`/${projectSlug}/runner`}
@@ -141,14 +132,14 @@ function HostSetupPage() {
       />
 
       <SetupHeader
+        title="Setup your first host"
+        description="Runner setup is complete. Configure this first host so deploy and runtime operations can proceed for this project."
         selectedHost={activeHost}
         selectedHostTheme={selectedHostTheme}
         requiredDone={requiredDone}
         requiredTotal={requiredSteps.length}
         deployHref={deployHref}
       />
-
-      <HostSetupContextCard mode={setupContextMode} hostName={activeHost} />
 
       {setup.model.showCelebration ? (
         <SetupCelebration
@@ -172,8 +163,9 @@ function HostSetupPage() {
         }}
         orientation="vertical"
         activationMode="manual"
+        className="xl:grid xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start xl:gap-8"
       >
-        <StepperList>
+        <StepperList className="xl:sticky xl:top-6">
           {stepperSteps.map((step) => (
             <StepperItem
               key={step.id}
@@ -188,7 +180,7 @@ function HostSetupPage() {
                   <StepperDescription>{stepMeta(step.id).description}</StepperDescription>
                 </div>
               </StepperTrigger>
-              <StepperSeparator className="absolute inset-y-0 top-5 left-3.5 -z-10 -order-1 h-full -translate-x-1/2" />
+              <StepperSeparator className="pointer-events-none absolute inset-y-0 top-5 left-4 z-0 -order-1 h-full -translate-x-1/2" />
             </StepperItem>
           ))}
         </StepperList>
@@ -198,9 +190,9 @@ function HostSetupPage() {
             key={step.id}
             value={step.id}
             className={
-              ["connection", "creds", "secrets", "deploy"].includes(step.id)
-                ? "text-card-foreground"
-                : "rounded-lg border bg-card p-4 text-card-foreground"
+              ["infrastructure", "connection", "creds", "secrets", "deploy"].includes(step.id)
+                ? "text-card-foreground xl:col-start-2"
+                : "rounded-lg border bg-card p-4 text-card-foreground xl:col-start-2"
             }
           >
             <StepContent
@@ -229,6 +221,22 @@ function StepContent(props: {
   onContinueFromStep: (stepId: SetupStepId) => void
 }) {
   const { stepId, step, projectId, projectSlug, host, setup } = props
+
+  if (stepId === "infrastructure") {
+    return (
+      <SetupStepInfrastructure
+        key={`${host}:${setup.config ? "ready" : "loading"}`}
+        projectId={projectId}
+        config={setup.config}
+        host={host}
+        deployCreds={setup.deployCreds}
+        deployCredsPending={setup.deployCredsQuery.isPending}
+        deployCredsError={setup.deployCredsQuery.error}
+        stepStatus={step.status as SetupStepStatus}
+        onContinue={() => props.onContinueFromStep(stepId)}
+      />
+    )
+  }
 
   if (stepId === "connection") {
     return (

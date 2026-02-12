@@ -11,7 +11,9 @@
     "openclaw-setup",
     "deploy-credentials",
     "ssh-keys",
+    "hetzner-token",
     "github-token",
+    "sops-age-key",
     "how-clawlets-works",
     "local-dev",
     "troubleshooting"

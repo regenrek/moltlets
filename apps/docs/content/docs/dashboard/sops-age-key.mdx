@@ -1,0 +1,60 @@
+---
+title: SOPS age key
+description: Create and configure SOPS_AGE_KEY_FILE for setup.
+---
+
+Clawlets uses <code>SOPS_AGE_KEY_FILE</code> to encrypt and decrypt operator-managed secrets.
+Setup requires this before you can complete the Provider Tokens step.
+
+If this key is missing, secrets workflows cannot safely continue.
+
+## Prereqs
+
+- Project setup route open: <code>/$projectSlug/hosts/$host/setup?step=creds</code>.
+- Runner online for the project.
+
+## Generate key (recommended)
+
+<Steps>
+  <Step>
+    Open setup Provider Tokens and locate <strong>SOPS age key file</strong>.
+  </Step>
+  <Step>
+    Click <strong>Find</strong> to detect an existing operator key.
+  </Step>
+  <Step>
+    If none is found, click <strong>Generate</strong>.
+  </Step>
+  <Step>
+    Save credentials so <code>SOPS_AGE_KEY_FILE</code> is stored for this project.
+  </Step>
+</Steps>
+
+## Manual key generation (CLI)
+
+```bash
+age-keygen -o ~/.clawlets/keys/operators/<operator>.agekey
+```
+
+Then set <code>SOPS_AGE_KEY_FILE</code> to that path in dashboard credentials.
+
+## Verify
+
+- Provider Tokens step no longer blocks on <code>SOPS_AGE_KEY_FILE</code>.
+- Optional runner check:
+
+```bash
+clawlets env show --json
+```
+
+## Troubleshooting
+
+### “No valid age key found”
+
+- Generate a new key in the dashboard or via `age-keygen`.
+- Confirm file path is readable on the runner host.
+
+### Setup still reports missing SOPS key
+
+- Reopen Provider Tokens and verify <code>SOPS_AGE_KEY_FILE</code> is set.
+- Save again, then refresh setup.

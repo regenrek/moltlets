@@ -61,7 +61,7 @@ export function ProjectNewHostButton(props: {
         void router.navigate({
           to: "/$projectSlug/hosts/$host/setup",
           params: { projectSlug: props.projectSlug, host: createdHost },
-          search: { step: "connection" },
+          search: { step: "infrastructure" },
         } as any)
       }
     },

@@ -1,6 +1,7 @@
 import { WEB_SETUP_REQUIRED_KEYS } from "../deploy-creds-ui"
 
 export const SETUP_STEP_IDS = [
+  "infrastructure",
   "connection",
   "creds",
   "secrets",
@@ -76,10 +77,23 @@ function resolveSetupCredsOk(params: {
   return WEB_SETUP_REQUIRED_KEYS.every((key) => params.credsByKey.get(key) === "set")
 }
 
+function resolveInfrastructureHostOk(params: {
+  hostCfg: Record<string, unknown> | null
+}): boolean {
+  if (!params.hostCfg) return false
+  const provisioning = asRecord(params.hostCfg.provisioning) ?? {}
+  if (asTrimmedString(provisioning.provider) !== "hetzner") return false
+  const hetzner = asRecord(params.hostCfg.hetzner) ?? {}
+  const serverType = asTrimmedString(hetzner.serverType)
+  const location = asTrimmedString(hetzner.location)
+  return serverType.length > 0 && location.length > 0
+}
+
 export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const selectedHost = asTrimmedString(input.hostFromRoute) || null
 
   const hostCfg = selectedHost ? input.config?.hosts?.[selectedHost] ?? null : null
+  const infrastructureHostOk = resolveInfrastructureHostOk({ hostCfg: asRecord(hostCfg) })
   const provisioning = asRecord(hostCfg?.provisioning) ?? {}
   const adminCidrOk = Boolean(asTrimmedString(provisioning.adminCidr))
   const sshAuthorizedKeys = Array.isArray(input.config?.fleet?.sshAuthorizedKeys)
@@ -92,18 +106,28 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
 
   const credsByKey = new Map((input.deployCreds?.keys || []).map((entry) => [entry.key, entry.status]))
+  const hcloudOk = credsByKey.get("HCLOUD_TOKEN") === "set"
+  const githubOk = credsByKey.get("GITHUB_TOKEN") === "set"
+  const sopsOk = credsByKey.get("SOPS_AGE_KEY_FILE") === "set"
   const credsOk = resolveSetupCredsOk({ credsByKey })
+  const providerCredsOk = githubOk && sopsOk
+  const infrastructureOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
 
   const steps: SetupStep[] = [
     {
+      id: "infrastructure",
+      title: "Hetzner setup",
+      status: infrastructureOk ? "done" : "active",
+    },
+    {
       id: "connection",
       title: "Server Access",
-      status: connectionOk ? "done" : "active",
+      status: !infrastructureOk ? "locked" : connectionOk ? "done" : "active",
     },
     {
       id: "creds",
       title: "Provider Tokens",
-      status: !connectionOk ? "locked" : credsOk ? "done" : "active",
+      status: !connectionOk ? "locked" : providerCredsOk ? "done" : "active",
     },
     {
       id: "secrets",
@@ -127,7 +151,7 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const requestedStep = requested && steps.find((step) => step.id === requested) ? requested : null
   const firstIncomplete = steps.find((step) => step.status !== "done")?.id
     ?? steps[0]?.id
-    ?? "connection"
+    ?? "infrastructure"
   const requiredSteps = steps.filter((step) => !step.optional)
   const showCelebration = requiredSteps.every((step) => step.status === "done")
 

@@ -5,6 +5,8 @@ import { Button } from "~/components/ui/button"
 import { Link } from "@tanstack/react-router"
 
 export function SetupHeader(props: {
+  title?: string
+  description?: string
   selectedHost: string | null
   selectedHostTheme?: HostTheme | null
   requiredDone: number
@@ -13,8 +15,11 @@ export function SetupHeader(props: {
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-black tracking-tight">Setup</h1>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-black tracking-tight">{props.title ?? "Setup"}</h1>
+        {props.description ? (
+          <p className="text-sm text-muted-foreground">{props.description}</p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {props.selectedHost ? (
             <>

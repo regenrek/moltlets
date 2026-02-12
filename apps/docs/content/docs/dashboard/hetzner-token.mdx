@@ -1,0 +1,72 @@
+---
+title: Hetzner token
+description: Create and scope HCLOUD_TOKEN for project setup.
+---
+
+Clawlets uses <code>HCLOUD_TOKEN</code> to provision and manage infrastructure for a host.
+Without this token, setup cannot continue past the Hetzner step.
+
+Treat this as a project-scoped operator credential. Recommended pattern:
+
+- Create a dedicated Hetzner Cloud project for each Clawlets project.
+- Create one token per Clawlets project.
+- Rotate and revoke token when project ownership changes.
+
+## Prereqs
+
+- Hetzner Cloud account.
+- Dashboard setup route open: <code>/$projectSlug/hosts/$host/setup?step=infrastructure</code>.
+- Runner online for the project.
+
+## Create token
+
+<Steps>
+  <Step>
+    Open Hetzner Cloud Console:
+    <br />
+    https://console.hetzner.cloud/
+  </Step>
+  <Step>
+    Select the Hetzner project used for this Clawlets project.
+  </Step>
+  <Step>
+    Open <strong>Security → API Tokens</strong>.
+  </Step>
+  <Step>
+    Create a new token with a clear name (example: <code>clawlets-&lt;project&gt;</code>).
+  </Step>
+  <Step>
+    Copy the token value (shown once).
+  </Step>
+</Steps>
+
+## Save token in dashboard
+
+<Steps>
+  <Step>
+    In setup, open <strong>Hetzner setup</strong>.
+  </Step>
+  <Step>
+    Click <strong>Add or manage</strong>.
+  </Step>
+  <Step>
+    Paste <code>HCLOUD_TOKEN</code> and save.
+  </Step>
+</Steps>
+
+## Verify
+
+- Hetzner token card shows <code>HCLOUD_TOKEN</code> as set.
+- Setup no longer blocks on Hetzner token requirement.
+
+## Troubleshooting
+
+### Token saved but setup still blocked
+
+- Confirm the project runner is online.
+- Reopen token dialog and verify status is <code>set</code>.
+
+### Hetzner API errors during deploy/provision
+
+- Token may be revoked or scoped to the wrong Hetzner project.
+- Recreate token in the Hetzner project that contains the target server.

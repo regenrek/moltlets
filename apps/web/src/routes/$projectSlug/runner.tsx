@@ -45,7 +45,7 @@ export const Route = createFileRoute("/$projectSlug/runner")({
       throw redirect({
         to: "/$projectSlug/hosts/$host/setup",
         params: { projectSlug: params.projectSlug, host: setupHost },
-        search: { step: "connection" },
+        search: { step: "infrastructure" },
       })
     }
   },
@@ -126,7 +126,7 @@ function ProjectRunnerOnboarding() {
     void router.navigate({
       to: "/$projectSlug/hosts/$host/setup",
       params: { projectSlug, host: setupHost },
-      search: { step: "connection" },
+      search: { step: "infrastructure" },
     })
   }, [hostsQuery.isPending, projectSlug, projectStatus, router, setupHost])
 
