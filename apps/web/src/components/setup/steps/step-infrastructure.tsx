@@ -228,8 +228,8 @@ export function SetupStepInfrastructure(props: {
                   )}
                 >
                   <RadioGroupItem value={option.value} id={`setup-hetzner-location-${option.value}`} />
-                  <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border bg-background">
-                    <option.flag className="size-8" />
+                  <span className="inline-flex h-6 w-8 shrink-0 overflow-hidden rounded-sm">
+                    <option.flag className="h-6 w-8" />
                   </span>
                   <span className="space-y-1">
                     <span className="block text-sm font-medium">{option.title}</span>

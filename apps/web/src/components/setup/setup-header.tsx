@@ -1,8 +1,6 @@
 import type { HostTheme } from "~/components/hosts/host-theme"
 import { HostThemeBadge } from "~/components/hosts/host-theme"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
-import { Link } from "@tanstack/react-router"
 
 export function SetupHeader(props: {
   title?: string
@@ -11,7 +9,6 @@ export function SetupHeader(props: {
   selectedHostTheme?: HostTheme | null
   requiredDone: number
   requiredTotal: number
-  deployHref: string | null
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -35,15 +32,6 @@ export function SetupHeader(props: {
           </Badge>
         </div>
       </div>
-      {props.deployHref ? (
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={<Link to={props.deployHref} />}
-        >
-          Open Deploy
-        </Button>
-      ) : null}
     </div>
   )
 }

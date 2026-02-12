@@ -82,7 +82,6 @@ function OpenClawSetupPage() {
 
   const requiredDone = setup.model.steps.filter((s) => s.status === "done").length
   const requiredTotal = setup.model.steps.length
-  const deployHref = `${buildHostPath(projectSlug, selectedHost)}/deploy`
   const visibleSteps = setup.model.steps.filter((s) => s.status !== "locked")
   const accordionValue = [setup.model.activeStepId]
 
@@ -93,7 +92,6 @@ function OpenClawSetupPage() {
         selectedHostTheme={selectedHostTheme}
         requiredDone={requiredDone}
         requiredTotal={requiredTotal}
-        deployHref={deployHref}
       />
 
       {setup.model.showCelebration ? (
