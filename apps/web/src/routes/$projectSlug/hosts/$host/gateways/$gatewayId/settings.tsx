@@ -10,6 +10,7 @@ import { GatewayPersonas } from "~/components/fleet/gateway/gateway-personas"
 import { GatewayIntegrations } from "~/components/fleet/integrations/gateway-integrations"
 import { GatewayWorkspaceDocs } from "~/components/fleet/gateway/gateway-workspace-docs"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 import { useProjectBySlug } from "~/lib/project-data"
 import { configDotMultiGet } from "~/sdk/config"
 
@@ -45,7 +46,12 @@ function GatewaySettingsRoute() {
   const projectId = projectQuery.projectId
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
 
   const project = useQuery({
     ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),

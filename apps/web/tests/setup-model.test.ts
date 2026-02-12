@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest"
 import { deriveHostSetupStepper, deriveSetupModel } from "../src/lib/setup/setup-model"
 
 describe("deriveSetupModel", () => {
+  const infrastructureConfig = {
+    hosts: {
+      h1: {
+        provisioning: { provider: "hetzner" },
+        hetzner: {
+          serverType: "cx43",
+          image: "",
+          location: "nbg1",
+          allowTailscaleUdpIngress: true,
+        },
+      },
+    },
+  }
+
   it("starts at infrastructure and locks downstream steps when host config is missing", () => {
     const model = deriveSetupModel({
       config: null,
@@ -33,21 +47,43 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
   })
 
-  it("walks through required setup steps", () => {
-    const infrastructureConfig = {
-      hosts: {
-        h1: {
-          provisioning: { provider: "hetzner" },
-          hetzner: {
-            serverType: "cx43",
-            image: "",
-            location: "nbg1",
-            allowTailscaleUdpIngress: true,
-          },
+  it("keeps infrastructure active when HCLOUD draft secret is missing", () => {
+    const model = deriveSetupModel({
+      config: infrastructureConfig,
+      hostFromRoute: "h1",
+      deployCreds: null,
+      setupDraft: {
+        sealedSecretDrafts: {
+          deployCreds: { status: "missing" },
         },
       },
-    }
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
 
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
+    expect(model.activeStepId).toBe("infrastructure")
+  })
+
+  it("marks infrastructure done when HCLOUD draft secret is set", () => {
+    const model = deriveSetupModel({
+      config: infrastructureConfig,
+      hostFromRoute: "h1",
+      deployCreds: null,
+      setupDraft: {
+        sealedSecretDrafts: {
+          deployCreds: { status: "set" },
+        },
+      },
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
+    expect(model.activeStepId).toBe("connection")
+  })
+
+  it("walks through required setup steps", () => {
     const step1 = deriveSetupModel({
       config: infrastructureConfig,
       hostFromRoute: "h1",

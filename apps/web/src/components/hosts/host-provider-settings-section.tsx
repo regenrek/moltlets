@@ -10,8 +10,6 @@ import {
   HETZNER_LOCATION_OPTIONS,
   HETZNER_RADIO_CUSTOM_VALUE,
   HETZNER_SERVER_TYPE_OPTIONS,
-  HETZNER_SETUP_DEFAULT_LOCATION,
-  HETZNER_SETUP_DEFAULT_SERVER_TYPE,
   isKnownHetznerLocation,
   isKnownHetznerServerType,
 } from "~/components/hosts/hetzner-options"
@@ -52,7 +50,6 @@ export function HostProviderSettingsSection(props: {
           id="serverType"
           label="Server type"
           help={setupFieldHelp.hosts.hetznerServerType}
-          description={`Default: "${HETZNER_SETUP_DEFAULT_SERVER_TYPE}"`}
         >
           <RadioGroup
             value={serverTypeRadioValue}
@@ -94,7 +91,6 @@ export function HostProviderSettingsSection(props: {
           id="location"
           label="Location"
           help={setupFieldHelp.hosts.hetznerLocation}
-          description={`Default: "${HETZNER_SETUP_DEFAULT_LOCATION}"`}
         >
           <RadioGroup
             value={locationRadioValue}

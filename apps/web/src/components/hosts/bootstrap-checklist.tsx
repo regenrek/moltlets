@@ -66,6 +66,7 @@ export function BootstrapChecklist({
   host,
   config,
   hostDesired,
+  headerBadge,
 }: {
   projectId: Id<"projects">
   host: string
@@ -81,6 +82,7 @@ export function BootstrapChecklist({
     selfUpdatePublicKeyCount?: number
     selfUpdateAllowUnsigned?: boolean
   } | null
+  headerBadge?: ReactNode
 }) {
   const queryClient = useQueryClient()
   const hostCfg = host && config?.hosts ? config.hosts[host] : null
@@ -252,17 +254,20 @@ export function BootstrapChecklist({
           <div className="text-lg font-semibold">Post-bootstrap checklist</div>
           <div className="text-xs text-muted-foreground">Guided steps to lock down SSH safely.</div>
         </div>
-        <AsyncButton
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={publicIpv4Query.isFetching}
-          pending={publicIpv4Query.isFetching}
-          pendingText="Refreshing IP..."
-          onClick={() => void publicIpv4Query.refetch()}
-        >
-          Refresh IP
-        </AsyncButton>
+        <div className="flex items-center gap-2">
+          {headerBadge}
+          <AsyncButton
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={publicIpv4Query.isFetching}
+            pending={publicIpv4Query.isFetching}
+            pendingText="Refreshing IP..."
+            onClick={() => void publicIpv4Query.refetch()}
+          >
+            Refresh IP
+          </AsyncButton>
+        </div>
       </div>
 
       {!targetHost.trim() ? (

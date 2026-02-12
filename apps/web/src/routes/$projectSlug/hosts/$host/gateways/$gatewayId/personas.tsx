@@ -6,6 +6,7 @@ import type { Id } from "../../../../../../../convex/_generated/dataModel"
 import { api } from "../../../../../../../convex/_generated/api"
 import { GatewayPersonas } from "~/components/fleet/gateway/gateway-personas"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 import { useProjectBySlug } from "~/lib/project-data"
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/gateways/$gatewayId/personas")({
@@ -18,7 +19,12 @@ function GatewayPersonasRoute() {
   const projectId = projectQuery.projectId
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
 
   const project = useQuery({
     ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),

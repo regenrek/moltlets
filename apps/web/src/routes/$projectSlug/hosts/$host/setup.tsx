@@ -2,6 +2,7 @@
 
 import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import * as React from "react"
 import { z } from "zod"
 import type { HostTheme } from "@clawlets/core/lib/host/host-theme"
 import type { Id } from "../../../../../convex/_generated/dataModel"
@@ -115,11 +116,58 @@ function HostSetupPage() {
   const stepperActiveStepId = stepper.activeStepId
   const requiredSteps = stepperSteps.filter((s) => !s.optional)
   const requiredDone = requiredSteps.filter((s) => s.status === "done").length
-  const continueFromStep = (from: SetupStepId) => {
+  const sectionRefs = React.useRef<Partial<Record<SetupStepId, HTMLElement | null>>>({})
+  const [visibleStepId, setVisibleStepId] = React.useState<SetupStepId>(stepperActiveStepId)
+  const stepSignature = React.useMemo(
+    () => stepperSteps.map((step) => `${step.id}:${step.status}`).join("|"),
+    [stepperSteps],
+  )
+
+  React.useEffect(() => {
+    setVisibleStepId(stepperActiveStepId)
+  }, [stepperActiveStepId])
+
+  const scrollToStep = React.useCallback((stepId: SetupStepId) => {
+    const section = sectionRefs.current[stepId]
+    if (!section) return
+    section.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [])
+
+  React.useEffect(() => {
+    const sections = stepperSteps
+      .map((step) => sectionRefs.current[step.id as SetupStepId])
+      .filter((node): node is HTMLElement => Boolean(node))
+    if (sections.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries.filter((entry) => entry.isIntersecting)
+        if (visibleEntries.length === 0) return
+        visibleEntries.sort((a, b) => {
+          if (b.intersectionRatio !== a.intersectionRatio) return b.intersectionRatio - a.intersectionRatio
+          return Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top)
+        })
+        const stepId = coerceSetupStepId((visibleEntries[0].target as HTMLElement).dataset.stepId)
+        if (!stepId) return
+        setVisibleStepId((prev) => (prev === stepId ? prev : stepId))
+      },
+      {
+        threshold: [0.2, 0.35, 0.5, 0.75],
+        rootMargin: "-12% 0px -58% 0px",
+      },
+    )
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [stepSignature, stepperSteps])
+
+  const continueFromStep = React.useCallback((from: SetupStepId) => {
     const currentIndex = SETUP_STEP_IDS.findIndex((stepId) => stepId === from)
     const next = currentIndex === -1 ? null : SETUP_STEP_IDS[currentIndex + 1]
-    if (next) setup.setStep(next)
-  }
+    if (!next) return
+    setVisibleStepId(next)
+    setup.setStep(next)
+    scrollToStep(next)
+  }, [scrollToStep, setup])
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 xl:max-w-6xl">
@@ -151,19 +199,21 @@ function HostSetupPage() {
       ) : null}
 
       <Stepper
-        value={stepperActiveStepId}
+        value={visibleStepId}
         onValueChange={(value) => {
           const stepId = coerceSetupStepId(value)
           if (!stepId) return
           const step = stepperSteps.find((s) => s.id === stepId)
-          if (!step) return
+          if (!step || step.status === "locked") return
+          setVisibleStepId(stepId)
           setup.setStep(stepId)
+          scrollToStep(stepId)
         }}
         orientation="vertical"
         activationMode="manual"
-        className="xl:grid xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start xl:gap-8"
+        className="xl:flex-row xl:items-start xl:gap-8"
       >
-        <StepperList className="xl:sticky xl:top-6">
+        <StepperList className="xl:w-[280px] xl:shrink-0 xl:self-start xl:sticky xl:top-6">
           {stepperSteps.map((step) => (
             <StepperItem
               key={step.id}
@@ -183,27 +233,40 @@ function HostSetupPage() {
           ))}
         </StepperList>
 
-        {stepperSteps.map((step) => (
-          <StepperContent
-            key={step.id}
-            value={step.id}
-            className={
-              ["infrastructure", "connection", "creds", "secrets", "deploy"].includes(step.id)
-                ? "text-card-foreground xl:col-start-2"
-                : "rounded-lg border bg-card p-4 text-card-foreground xl:col-start-2"
-            }
-          >
-            <StepContent
-              stepId={step.id as SetupStepId}
-              step={step}
-              projectId={projectId as Id<"projects">}
-              projectSlug={projectSlug}
-              host={activeHost}
-              setup={setup}
-              onContinueFromStep={continueFromStep}
-            />
-          </StepperContent>
-        ))}
+        <div className="space-y-4 xl:min-w-0 xl:flex-1">
+          {stepperSteps.map((step) => (
+            <StepperContent
+              key={step.id}
+              value={step.id}
+              forceMount
+            >
+              <section
+                id={`setup-step-${step.id}`}
+                data-step-id={step.id}
+                ref={(node) => {
+                  sectionRefs.current[step.id as SetupStepId] = node
+                }}
+                className="scroll-mt-20"
+              >
+                {step.status === "locked" ? (
+                  <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                    Complete the previous setup section to unlock this part.
+                  </div>
+                ) : (
+                  <StepContent
+                    stepId={step.id as SetupStepId}
+                    step={step}
+                    projectId={projectId as Id<"projects">}
+                    projectSlug={projectSlug}
+                    host={activeHost}
+                    setup={setup}
+                    onContinueFromStep={continueFromStep}
+                  />
+                )}
+              </section>
+            </StepperContent>
+          ))}
+        </div>
       </Stepper>
     </div>
   )
@@ -227,10 +290,9 @@ function StepContent(props: {
         projectId={projectId}
         config={setup.config}
         setupDraft={setup.setupDraft}
-        host={host}
         deployCreds={setup.deployCreds}
-        stepStatus={step.status as SetupStepStatus}
-        onContinue={() => props.onContinueFromStep(stepId)}
+        host={host}
+        stepStatus={step.status}
       />
     )
   }
@@ -242,8 +304,7 @@ function StepContent(props: {
         config={setup.config}
         setupDraft={setup.setupDraft}
         host={host}
-        stepStatus={step.status as SetupStepStatus}
-        onContinue={() => props.onContinueFromStep(stepId)}
+        stepStatus={step.status}
       />
     )
   }
@@ -254,8 +315,7 @@ function StepContent(props: {
         projectId={projectId}
         host={host}
         setupDraft={setup.setupDraft}
-        isComplete={step.status === "done"}
-        onContinue={() => props.onContinueFromStep(stepId)}
+        stepStatus={step.status}
       />
     )
   }
@@ -266,8 +326,7 @@ function StepContent(props: {
         projectId={projectId}
         host={host}
         setupDraft={setup.setupDraft}
-        isComplete={step.status === "done"}
-        onContinue={() => props.onContinueFromStep(stepId)}
+        stepStatus={step.status}
       />
     )
   }
@@ -279,6 +338,7 @@ function StepContent(props: {
         host={host}
         hasBootstrapped={setup.model.hasBootstrapped}
         onContinue={() => props.onContinueFromStep(stepId)}
+        stepStatus={step.status}
       />
     )
   }
@@ -290,6 +350,7 @@ function StepContent(props: {
         projectId={projectId}
         host={host}
         config={setup.config}
+        stepStatus={step.status}
       />
     )
   }

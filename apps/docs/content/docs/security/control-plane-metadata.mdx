@@ -29,6 +29,25 @@ Control-plane storage is metadata that helps with coordination and observability
 - queued/running/completed job state for scheduling and retries
 - setup drafts: non-secret draft fields + sealed ciphertext blobs for secret sections
 
+Concrete setup-draft fields in Convex:
+
+- `nonSecretDraft.infrastructure.serverType`
+- `nonSecretDraft.infrastructure.image`
+- `nonSecretDraft.infrastructure.location`
+- `nonSecretDraft.infrastructure.allowTailscaleUdpIngress`
+- `nonSecretDraft.connection.adminCidr`
+- `nonSecretDraft.connection.sshExposureMode`
+- `nonSecretDraft.connection.sshKeyCount`
+- `nonSecretDraft.connection.sshAuthorizedKeys`
+- `sealedSecretDrafts.<section>.alg`
+- `sealedSecretDrafts.<section>.keyId`
+- `sealedSecretDrafts.<section>.targetRunnerId`
+- `sealedSecretDrafts.<section>.aad`
+- `sealedSecretDrafts.<section>.sealedInputB64`
+- `sealedSecretDrafts.<section>.updatedAt`
+- `sealedSecretDrafts.<section>.expiresAt`
+- read projection for UI: `sealedSecretDrafts.<section>.status` (`set`/`missing`)
+
 ## Bounded metadata constraints
 
 Runner metadata sync payloads are size-limited. Current limits:
@@ -77,6 +96,8 @@ For protocol details: [Runner agent](/operations/runner-agent), [Deploy credenti
 
 - Non-secret setup inputs are stored as plain draft metadata (resume-safe).
 - Secret setup inputs are stored only as runner-sealed ciphertext blobs.
+- Setup step readiness reads draft status from Convex (`set`/`missing`) instead of
+  auto-reading runner-local deploy-credential files.
 - Final setup commit enqueues one sealed `setup_apply` job.
 - Secret-bearing jobs do not append raw command output to run events.
 

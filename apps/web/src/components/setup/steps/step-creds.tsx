@@ -1,13 +1,14 @@
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
+import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import type { SetupDraftView } from "~/sdk/setup"
 
 export function SetupStepCreds(props: {
   projectId: Id<"projects">
   host: string
   setupDraft: SetupDraftView | null
-  isComplete: boolean
-  onContinue: () => void
+  stepStatus: SetupStepStatus
 }) {
   return (
     <div className="space-y-4">
@@ -18,10 +19,7 @@ export function SetupStepCreds(props: {
           host: props.host,
           setupDraft: props.setupDraft,
         }}
-        setupAction={{
-          isComplete: props.isComplete,
-          onContinue: props.onContinue,
-        }}
+        headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
       />
     </div>
   )

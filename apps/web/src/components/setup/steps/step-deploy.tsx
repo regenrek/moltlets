@@ -1,10 +1,13 @@
 import { DeployInitialInstall } from "~/components/deploy/deploy-initial"
+import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 export function SetupStepDeploy(props: {
   projectSlug: string
   host: string
   hasBootstrapped: boolean
   onContinue: () => void
+  stepStatus: SetupStepStatus
 }) {
   return (
     <DeployInitialInstall
@@ -13,6 +16,7 @@ export function SetupStepDeploy(props: {
       variant="setup"
       hasBootstrapped={props.hasBootstrapped}
       onBootstrapped={props.onContinue}
+      headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
     />
   )
 }

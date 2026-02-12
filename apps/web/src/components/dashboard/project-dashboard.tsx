@@ -11,6 +11,7 @@ import type { RunRow } from "~/components/dashboard/recent-runs-table"
 import { Button } from "~/components/ui/button"
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 import { dashboardOverviewQueryOptions } from "~/lib/query-options"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 
@@ -25,7 +26,12 @@ export function ProjectDashboard(props: {
   const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
 
   const overview = useQuery({
     ...dashboardOverviewQueryOptions(),

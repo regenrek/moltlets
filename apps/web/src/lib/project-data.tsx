@@ -6,13 +6,19 @@ import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 import { slugifyProjectName } from "~/lib/project-routing"
 import { authClient } from "~/lib/auth-client"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 
 export type ProjectDoc = (typeof api.controlPlane.projects.list)["_returnType"][number]
 
 export function useProjectsList() {
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
+  const canQuery = canQueryWithAuth({
+    sessionUserId: session?.user?.id,
+    isAuthenticated,
+    isSessionPending: isPending,
+    isAuthLoading: isLoading,
+  })
   return useQuery({
     ...convexQuery(api.controlPlane.projects.list, {}),
     staleTime: 30_000,

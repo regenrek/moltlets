@@ -1,13 +1,14 @@
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { HostSecretsPanel } from "~/components/secrets/host-secrets-panel"
+import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import type { SetupDraftView } from "~/sdk/setup"
 
 export function SetupStepSecrets(props: {
   projectId: Id<"projects">
   host: string
   setupDraft: SetupDraftView | null
-  isComplete: boolean
-  onContinue: () => void
+  stepStatus: SetupStepStatus
 }) {
   return (
     <HostSecretsPanel
@@ -16,10 +17,7 @@ export function SetupStepSecrets(props: {
       scope="bootstrap"
       mode="setup"
       setupDraft={props.setupDraft}
-      setupFlow={{
-        isComplete: props.isComplete,
-        onContinue: props.onContinue,
-      }}
+      headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
     />
   )
 }

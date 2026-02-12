@@ -11,7 +11,7 @@ sealed `setup_apply` job.
 
 <Callout type="info" title="Runner setup happens before host setup">
   Project creation and runner setup are completed first. This setup flow starts at host onboarding.
-  The runner must remain online so setup can read/write config and credentials.
+  Keep the runner online for config probes, sealed-save actions, and final apply/deploy jobs.
   See [Runner Agent](/operations/runner-agent).
 </Callout>
 
@@ -65,6 +65,35 @@ Open:
   </Step>
 </Steps>
 
+## What setup stores in Convex
+
+Setup uses Convex as resumable draft state for this host:
+
+Non-secret draft fields:
+
+- `nonSecretDraft.infrastructure.serverType`
+- `nonSecretDraft.infrastructure.image`
+- `nonSecretDraft.infrastructure.location`
+- `nonSecretDraft.infrastructure.allowTailscaleUdpIngress`
+- `nonSecretDraft.connection.adminCidr`
+- `nonSecretDraft.connection.sshExposureMode`
+- `nonSecretDraft.connection.sshKeyCount`
+- `nonSecretDraft.connection.sshAuthorizedKeys`
+
+Sealed secret section metadata:
+
+- `alg`, `keyId`, `targetRunnerId`, `aad`, `sealedInputB64`, `updatedAt`, `expiresAt`
+
+Read-side status projection:
+
+- `sealedSecretDrafts.deployCreds.status`
+- `sealedSecretDrafts.bootstrapSecrets.status`
+
+Setup readiness checks read these draft status fields (`set`/`missing`).
+If no draft secret section exists yet, setup shows missing until you save that section.
+
+Convex does not store plaintext values for deploy credentials or bootstrap secrets.
+
 ## Verify
 
 You are “done” when:
@@ -90,6 +119,12 @@ The project init run has not finished yet. Open Runs and wait for it to succeed:
 
 Setup requires saving the sealed secret draft for the selected host.
 Re-open the Secrets step, replace missing values, and click <strong>Save & Continue</strong>.
+
+### Token already exists locally but setup shows missing
+
+Setup step status is draft-based. If the setup draft for this host does not have the
+sealed deploy-credentials section yet, the step shows `HCLOUD_TOKEN` as missing.
+Save the token in setup once to mark the draft section as set.
 
 ### Deploy says credentials missing
 

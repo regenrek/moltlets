@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "~/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card"
 import { cn } from "~/lib/utils"
 
 interface SettingsSectionProps {
@@ -9,6 +9,7 @@ interface SettingsSectionProps {
   statusText?: ReactNode
   actions?: ReactNode
   className?: string
+  headerBadge?: ReactNode
 }
 
 export function SettingsSection({
@@ -18,12 +19,14 @@ export function SettingsSection({
   statusText,
   actions,
   className,
+  headerBadge,
 }: SettingsSectionProps) {
   return (
     <Card className={cn("w-full", className)}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
+        {headerBadge ? <CardAction>{headerBadge}</CardAction> : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
       {(statusText || actions) && (
