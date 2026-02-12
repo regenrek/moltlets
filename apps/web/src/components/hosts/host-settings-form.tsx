@@ -20,6 +20,7 @@ import {
 import { HostSshSection } from "~/components/hosts/host-ssh-section"
 import { HostUpdatesSection } from "~/components/hosts/host-updates-section"
 import { HostProviderSettingsSection } from "~/components/hosts/host-provider-settings-section"
+import { TailscaleAuthKeyCard } from "~/components/hosts/tailscale-auth-key-card"
 import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
@@ -357,14 +358,23 @@ export function HostSettingsForm(props: {
         description="VPN and tailnet configuration."
         actions={<AsyncButton disabled={save.isPending} pending={save.isPending} pendingText="Saving..." onClick={() => save.mutate()}>Save</AsyncButton>}
       >
-        <div className="space-y-2 max-w-xs">
-          <LabelWithHelp htmlFor="tailnetMode" help={setupFieldHelp.hosts.tailnet}>
-            Tailnet mode
-          </LabelWithHelp>
-          <NativeSelect id="tailnetMode" value={tailnetMode} onChange={(event) => setTailnetMode(asTailnetMode(event.target.value))}>
-            <NativeSelectOption value="tailscale">tailscale</NativeSelectOption>
-            <NativeSelectOption value="none">none</NativeSelectOption>
-          </NativeSelect>
+        <div className="space-y-4">
+          <div className="space-y-2 max-w-xs">
+            <LabelWithHelp htmlFor="tailnetMode" help={setupFieldHelp.hosts.tailnet}>
+              Tailnet mode
+            </LabelWithHelp>
+            <NativeSelect id="tailnetMode" value={tailnetMode} onChange={(event) => setTailnetMode(asTailnetMode(event.target.value))}>
+              <NativeSelectOption value="tailscale">tailscale</NativeSelectOption>
+              <NativeSelectOption value="none">none</NativeSelectOption>
+            </NativeSelect>
+          </div>
+          {tailnetMode === "tailscale" ? (
+            <TailscaleAuthKeyCard
+              projectId={props.projectId}
+              projectSlug={props.projectSlug}
+              host={props.selectedHost}
+            />
+          ) : null}
         </div>
       </SettingsSection>
 
