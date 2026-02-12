@@ -134,7 +134,8 @@ function AppSidebar() {
   const { projectId } = useProjectBySlug(projectSlug)
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     enabled: Boolean(projectId),
   })
   const hostByName = React.useMemo(
@@ -177,7 +178,7 @@ function AppSidebar() {
       tooltip: hostBase ? "Single host overview." : "Fleet host overview.",
     },
     {
-      to: hostBase ? `${hostBase}/setup` : `${projectBase}/setup`,
+      to: hostBase ? `${hostBase}/setup` : `${projectBase}/runner`,
       label: "Setup",
       icon: CheckIcon,
       tooltip: "Server and OpenClaw setup guides.",

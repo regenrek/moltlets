@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { defineCommand } from "citty";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
@@ -16,7 +16,12 @@ import {
 } from "@clawlets/core/lib/runtime/runner-command-policy-args";
 import { resolveRunnerJobCommand } from "@clawlets/core/lib/runtime/runner-command-policy-resolve";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
-import { classifyRunnerHttpError, RunnerApiClient, type RunnerLeaseJob } from "./client.js";
+import {
+  classifyRunnerHttpError,
+  RunnerApiClient,
+  type RunnerLeaseJob,
+  type RunnerMetadataSyncPayload,
+} from "./client.js";
 import { buildMetadataSnapshot } from "./metadata.js";
 import {
   loadOrCreateRunnerSealedInputKeypair,
@@ -77,12 +82,96 @@ const RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES_LIMIT = RUNNER_COMMAND_RESULT_LARGE_
 const RUNNER_LOG_CAPTURE_MAX_BYTES = 128 * 1024;
 const RUNNER_TEMP_FILE_STALE_MAX_AGE_MS = 24 * 60 * 60_000;
 const RUNNER_TEMP_FILE_PREFIXES = ["clawlets-runner-secrets.", "clawlets-runner-input."] as const;
+const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
+const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
+const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
+const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
 const RUNNER_ERROR_AUTH_BEARER_RE = /(Authorization:\s*Bearer\s+)([^\s]+)/gi;
 const RUNNER_ERROR_AUTH_BASIC_RE = /(Authorization:\s*Basic\s+)([^\s]+)/gi;
 const RUNNER_ERROR_URL_CREDENTIALS_RE = /(https?:\/\/)([^/\s@]+@)/g;
 const RUNNER_ERROR_QUERY_SECRET_RE = /([?&](?:access_token|token|auth|api_key|apikey|apiKey)=)([^&\s]+)/gi;
 const RUNNER_ERROR_ASSIGNMENT_SECRET_RE =
   /\b((?:access|refresh|id)?_?token|token|api_key|apikey|apiKey|secret|password)\s*[:=]\s*([^\s]+)/gi;
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+function jitter(value: number, random: () => number): number {
+  const rand = Math.min(1, Math.max(0, random()));
+  const factor = RUNNER_EMPTY_LEASE_JITTER_MIN + (RUNNER_EMPTY_LEASE_JITTER_MAX - RUNNER_EMPTY_LEASE_JITTER_MIN) * rand;
+  return Math.max(1, Math.trunc(value * factor));
+}
+
+function computeIdleLeasePollDelayMs(params: {
+  pollMs: number;
+  pollMaxMs: number;
+  emptyLeaseStreak: number;
+  random?: () => number;
+}): number {
+  const pollMs = Math.max(1, Math.trunc(params.pollMs));
+  const pollMaxMs = Math.max(pollMs, Math.trunc(params.pollMaxMs));
+  const streak = Math.max(0, Math.min(RUNNER_EMPTY_LEASE_MAX_STREAK, Math.trunc(params.emptyLeaseStreak)));
+  const baseDelayMs = Math.min(pollMaxMs, pollMs * 2 ** streak);
+  return Math.min(pollMaxMs, Math.max(pollMs, jitter(baseDelayMs, params.random ?? Math.random)));
+}
+
+function metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
+  const normalized = {
+    projectConfigs: payload.projectConfigs
+      .map((row) => ({
+        type: row.type,
+        path: row.path,
+        sha256: row.sha256,
+        error: row.error,
+      }))
+      .toSorted((a, b) => `${a.type}\0${a.path}`.localeCompare(`${b.type}\0${b.path}`)),
+    hosts: payload.hosts
+      .map((row) => ({
+        hostName: row.hostName,
+        patch: {
+          provider: row.patch.provider,
+          region: row.patch.region,
+          lastStatus: row.patch.lastStatus,
+          desired: row.patch.desired,
+        },
+      }))
+      .toSorted((a, b) => a.hostName.localeCompare(b.hostName)),
+    gateways: payload.gateways
+      .map((row) => ({
+        hostName: row.hostName,
+        gatewayId: row.gatewayId,
+        patch: {
+          lastStatus: row.patch.lastStatus,
+          desired: row.patch.desired,
+        },
+      }))
+      .toSorted((a, b) => `${a.hostName}\0${a.gatewayId}`.localeCompare(`${b.hostName}\0${b.gatewayId}`)),
+    secretWiring: payload.secretWiring
+      .map((row) => ({
+        hostName: row.hostName,
+        secretName: row.secretName,
+        scope: row.scope,
+        status: row.status,
+        required: row.required,
+      }))
+      .toSorted((a, b) => `${a.hostName}\0${a.secretName}\0${a.scope}`.localeCompare(`${b.hostName}\0${b.secretName}\0${b.scope}`)),
+  };
+  return sha256Hex(JSON.stringify(normalized));
+}
+
+function shouldSyncMetadata(params: {
+  fingerprint: string;
+  now: number;
+  lastFingerprint: string | null;
+  lastSyncedAt: number | null;
+  maxAgeMs: number;
+}): boolean {
+  if (!params.lastFingerprint) return true;
+  if (params.lastFingerprint !== params.fingerprint) return true;
+  if (params.lastSyncedAt === null) return true;
+  return params.now - params.lastSyncedAt >= Math.max(1, Math.trunc(params.maxAgeMs));
+}
 
 function redactRunnerErrorSecrets(input: string): string {
   let output = input;
@@ -276,6 +365,29 @@ export async function __test_cleanupStaleRunnerTempFiles(now?: number): Promise<
 
 export function __test_parseStructuredJsonObject(raw: string, maxBytes: number): string {
   return parseStructuredJsonObject(raw, maxBytes);
+}
+
+export function __test_computeIdleLeasePollDelayMs(params: {
+  pollMs: number;
+  pollMaxMs: number;
+  emptyLeaseStreak: number;
+  random?: () => number;
+}): number {
+  return computeIdleLeasePollDelayMs(params);
+}
+
+export function __test_metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
+  return metadataSnapshotFingerprint(payload);
+}
+
+export function __test_shouldSyncMetadata(params: {
+  fingerprint: string;
+  now: number;
+  lastFingerprint: string | null;
+  lastSyncedAt: number | null;
+  maxAgeMs: number;
+}): boolean {
+  return shouldSyncMetadata(params);
 }
 
 function parseSealedInputStringMap(rawJson: string): Record<string, string> {
@@ -647,9 +759,10 @@ export const runnerStart = defineCommand({
     repoRoot: { type: "string", description: "Repo root path (defaults to detected root)." },
     runtimeDir: { type: "string", description: "Runtime dir passthrough." },
     controlPlaneUrl: { type: "string", description: "Control plane base URL." },
-    pollMs: { type: "string", description: "Idle poll interval ms.", default: "1200" },
+    pollMs: { type: "string", description: "Idle poll interval ms.", default: "4000" },
+    pollMaxMs: { type: "string", description: "Maximum idle poll interval ms.", default: "30000" },
     leaseTtlMs: { type: "string", description: "Lease TTL ms.", default: "30000" },
-    heartbeatMs: { type: "string", description: "Runner heartbeat interval ms.", default: "10000" },
+    heartbeatMs: { type: "string", description: "Runner heartbeat interval ms.", default: "30000" },
     maxAttempts: { type: "string", description: "Maximum lease attempts before failing a job.", default: "3" },
     once: { type: "boolean", description: "Process at most one leased job.", default: false },
   },
@@ -661,9 +774,10 @@ export const runnerStart = defineCommand({
 
     const controlPlaneUrl = resolveControlPlaneUrl((args as any).controlPlaneUrl);
     const runnerName = String((args as any).name || `${envName()}-${os.hostname()}`).trim() || `runner-${os.hostname()}`;
-    const pollMs = toInt((args as any).pollMs, 1200, 250, 30_000);
+    const pollMs = toInt((args as any).pollMs, 4000, 250, 30_000);
+    const pollMaxMs = Math.max(pollMs, toInt((args as any).pollMaxMs, 30_000, 1_000, 120_000));
     const leaseTtlMs = toInt((args as any).leaseTtlMs, 30_000, 5_000, 120_000);
-    const heartbeatMs = toInt((args as any).heartbeatMs, 10_000, 2_000, 120_000);
+    const heartbeatMs = toInt((args as any).heartbeatMs, 30_000, 2_000, 120_000);
     const maxAttempts = toInt((args as any).maxAttempts, 3, 1, 25);
     const repoRoot = String((args as any).repoRoot || "").trim() || findRepoRoot(process.cwd());
     const runtimeDir = coerceTrimmedString((args as any).runtimeDir);
@@ -733,8 +847,53 @@ export const runnerStart = defineCommand({
       void sendHeartbeat("online");
     }, heartbeatMs);
 
+    let metadataLastFingerprint: string | null = null;
+    let metadataLastSyncedAt: number | null = null;
+    const syncMetadataIfNeeded = async (params: {
+      lastRunId?: string;
+      lastRunStatus?: "queued" | "running" | "succeeded" | "failed" | "canceled";
+      context: "startup" | "job";
+      jobId?: string;
+    }) => {
+      try {
+        const snapshot = await buildMetadataSnapshot({
+          repoRoot,
+          lastRunId: params.lastRunId,
+          lastRunStatus: params.lastRunStatus,
+        });
+        const now = Date.now();
+        const fingerprint = metadataSnapshotFingerprint(snapshot);
+        if (
+          !shouldSyncMetadata({
+            fingerprint,
+            now,
+            lastFingerprint: metadataLastFingerprint,
+            lastSyncedAt: metadataLastSyncedAt,
+            maxAgeMs: RUNNER_METADATA_SYNC_MAX_AGE_MS,
+          })
+        ) {
+          return;
+        }
+        await client.syncMetadata({
+          projectId,
+          payload: snapshot,
+        });
+        metadataLastFingerprint = fingerprint;
+        metadataLastSyncedAt = now;
+      } catch (err) {
+        const message = sanitizeRunnerControlPlaneErrorMessage(err, "metadata sync failed");
+        if (params.context === "job" && params.jobId) {
+          console.error(`metadata sync failed (${params.jobId}): ${message}`);
+          return;
+        }
+        console.error(`metadata sync failed (${params.context}): ${message}`);
+      }
+    };
+    await syncMetadataIfNeeded({ context: "startup" });
+
     try {
       let leaseErrorStreak = 0;
+      let emptyLeaseStreak = 0;
       while (running) {
         let lease: Awaited<ReturnType<RunnerApiClient["leaseNext"]>>;
         try {
@@ -748,7 +907,11 @@ export const runnerStart = defineCommand({
             break;
           }
           leaseErrorStreak += 1;
-          const backoffMs = Math.min(30_000, Math.max(pollMs, pollMs * 2 ** Math.min(5, leaseErrorStreak)));
+          const backoffMs = computeIdleLeasePollDelayMs({
+            pollMs,
+            pollMaxMs,
+            emptyLeaseStreak: leaseErrorStreak,
+          });
           console.error(`runner lease failed (${kind}); retrying in ${backoffMs}ms: ${message}`);
           await sleep(backoffMs);
           continue;
@@ -756,9 +919,17 @@ export const runnerStart = defineCommand({
         const job = lease.job;
         if (!job) {
           if ((args as any).once) break;
-          await sleep(pollMs);
+          emptyLeaseStreak = Math.min(RUNNER_EMPTY_LEASE_MAX_STREAK, emptyLeaseStreak + 1);
+          await sleep(
+            computeIdleLeasePollDelayMs({
+              pollMs,
+              pollMaxMs,
+              emptyLeaseStreak,
+            }),
+          );
           continue;
         }
+        emptyLeaseStreak = 0;
 
         const beat = setInterval(() => {
           void client
@@ -815,20 +986,12 @@ export const runnerStart = defineCommand({
           }
         }
 
-        try {
-          const snapshot = await buildMetadataSnapshot({
-            repoRoot,
-            lastRunId: job.runId,
-            lastRunStatus: terminal,
-          });
-          await client.syncMetadata({
-            projectId,
-            payload: snapshot,
-          });
-        } catch (err) {
-          const message = sanitizeRunnerControlPlaneErrorMessage(err, "metadata sync failed");
-          console.error(`metadata sync failed (${job.jobId}): ${message}`);
-        }
+        await syncMetadataIfNeeded({
+          context: "job",
+          jobId: job.jobId,
+          lastRunId: job.runId,
+          lastRunStatus: terminal,
+        });
 
         if (stopAfterCompletionError) {
           running = false;

@@ -1,7 +1,7 @@
 import { RUNNER_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { v } from "convex/values";
 
-import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin } from "../shared/auth";
@@ -101,26 +101,5 @@ export const upsertHeartbeatInternal = internalMutation({
   handler: async (ctx, { projectId, runnerName, patch }) => {
     const runnerId = await upsertHeartbeatInternalDb({ ctx, projectId, runnerName, patch });
     return { runnerId };
-  },
-});
-
-export const getByIdInternal = internalQuery({
-  args: { runnerId: v.id("runners") },
-  returns: v.union(
-    v.object({
-      runnerId: v.id("runners"),
-      projectId: v.id("projects"),
-      runnerName: v.string(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, { runnerId }) => {
-    const row = await ctx.db.get(runnerId);
-    if (!row) return null;
-    return {
-      runnerId: row._id,
-      projectId: row.projectId,
-      runnerName: row.runnerName,
-    };
   },
 });

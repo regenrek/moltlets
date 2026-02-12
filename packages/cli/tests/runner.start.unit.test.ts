@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   __test_appendRunEventsBestEffort,
+  __test_computeIdleLeasePollDelayMs,
   __test_defaultArgsForJob,
   __test_executeLeasedJobWithRunEvents,
+  __test_metadataSnapshotFingerprint,
   __test_parseStructuredJsonObject,
   __test_parseSealedInputStringMap,
+  __test_shouldSyncMetadata,
   __test_shouldStopOnCompletionError,
   __test_validateSealedInputKeysForJob,
 } from "../src/commands/runner/start.js";
@@ -194,6 +197,127 @@ describe("runner job arg mapping", () => {
     expect(outputEvent?.message).toContain("Authorization: Bearer <redacted>");
     expect(outputEvent?.message).toContain("apiKey = <redacted>");
     expect(outputEvent?.redacted).toBe(true);
+  });
+
+  it("backs off idle polling with jitter and clamps to bounds", () => {
+    const low = __test_computeIdleLeasePollDelayMs({
+      pollMs: 4_000,
+      pollMaxMs: 30_000,
+      emptyLeaseStreak: 0,
+      random: () => 0,
+    });
+    const high = __test_computeIdleLeasePollDelayMs({
+      pollMs: 4_000,
+      pollMaxMs: 30_000,
+      emptyLeaseStreak: 6,
+      random: () => 1,
+    });
+    expect(low).toBeGreaterThanOrEqual(4_000);
+    expect(low).toBeLessThanOrEqual(30_000);
+    expect(high).toBeGreaterThan(low);
+    expect(high).toBeLessThanOrEqual(30_000);
+  });
+
+  it("metadata fingerprint ignores ephemeral run/sync timestamps", () => {
+    const basePayload = {
+      projectConfigs: [{ type: "fleet", path: "fleet/clawlets.json", sha256: "abc" }],
+      hosts: [
+        {
+          hostName: "alpha",
+          patch: {
+            lastSeenAt: 111,
+            lastStatus: "online",
+            lastRunId: "run_1",
+            lastRunStatus: "succeeded",
+            desired: { enabled: true, provider: "hetzner" },
+          },
+        },
+      ],
+      gateways: [
+        {
+          hostName: "alpha",
+          gatewayId: "gw1",
+          patch: {
+            lastSeenAt: 111,
+            lastStatus: "unknown",
+            desired: { enabled: true, channels: ["discord"] },
+          },
+        },
+      ],
+      secretWiring: [
+        {
+          hostName: "alpha",
+          secretName: "DISCORD_TOKEN",
+          scope: "openclaw",
+          status: "configured",
+          required: true,
+          lastVerifiedAt: 111,
+        },
+      ],
+    } as const;
+    const changedEphemeral = {
+      ...basePayload,
+      hosts: [
+        {
+          ...basePayload.hosts[0],
+          patch: {
+            ...basePayload.hosts[0].patch,
+            lastSeenAt: 999,
+            lastRunId: "run_2",
+            lastRunStatus: "failed",
+          },
+        },
+      ],
+      gateways: [
+        {
+          ...basePayload.gateways[0],
+          patch: { ...basePayload.gateways[0].patch, lastSeenAt: 999 },
+        },
+      ],
+      secretWiring: [{ ...basePayload.secretWiring[0], lastVerifiedAt: 999 }],
+    };
+    expect(__test_metadataSnapshotFingerprint(basePayload as any)).toBe(
+      __test_metadataSnapshotFingerprint(changedEphemeral as any),
+    );
+  });
+
+  it("metadata sync decision triggers on first sync, diff, and staleness", () => {
+    expect(
+      __test_shouldSyncMetadata({
+        fingerprint: "a",
+        now: 1_000,
+        lastFingerprint: null,
+        lastSyncedAt: null,
+        maxAgeMs: 60_000,
+      }),
+    ).toBe(true);
+    expect(
+      __test_shouldSyncMetadata({
+        fingerprint: "b",
+        now: 2_000,
+        lastFingerprint: "a",
+        lastSyncedAt: 1_000,
+        maxAgeMs: 60_000,
+      }),
+    ).toBe(true);
+    expect(
+      __test_shouldSyncMetadata({
+        fingerprint: "a",
+        now: 30_000,
+        lastFingerprint: "a",
+        lastSyncedAt: 1_000,
+        maxAgeMs: 60_000,
+      }),
+    ).toBe(false);
+    expect(
+      __test_shouldSyncMetadata({
+        fingerprint: "a",
+        now: 70_001,
+        lastFingerprint: "a",
+        lastSyncedAt: 1_000,
+        maxAgeMs: 60_000,
+      }),
+    ).toBe(true);
   });
 
   it("returns commandResultJson and appends redacted output marker", async () => {

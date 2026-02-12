@@ -21,7 +21,7 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
   const convexQueryClient = router.options.context.convexQueryClient
   const runQuery = useQuery({ ...convexQuery(api.controlPlane.runs.get, { runId }) })
   const pageQuery = useQuery({
-    ...convexQuery(api.controlPlane.runEvents.pageByRun, { runId, paginationOpts: { numItems: 300, cursor: null } }),
+    ...convexQuery(api.controlPlane.runEvents.pageByRun, { runId, paginationOpts: { numItems: 100, cursor: null } }),
   })
 
   type RunEventsPage = NonNullable<typeof pageQuery.data>
@@ -36,7 +36,7 @@ function RunLogTailBody({ runId, onDone }: { runId: Id<"runs">; onDone?: (status
   const loadOlder = useMutation({
     mutationFn: async () => {
       if (!continueCursor || isDone) return null
-      const args = { runId, paginationOpts: { numItems: 300, cursor: continueCursor } }
+      const args = { runId, paginationOpts: { numItems: 100, cursor: continueCursor } }
       if (convexQueryClient.serverHttpClient) {
         return await convexQueryClient.serverHttpClient.consistentQuery(api.controlPlane.runEvents.pageByRun, args)
       }

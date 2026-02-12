@@ -6,22 +6,15 @@ import { useConvexAuth } from "convex/react"
 
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
-import { getDashboardOverview } from "~/sdk/dashboard"
-import { Badge } from "~/components/ui/badge"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card"
+import { ProjectOverviewReady } from "~/components/dashboard/project-overview-ready"
+import type { RunRow } from "~/components/dashboard/recent-runs-table"
 import { Button } from "~/components/ui/button"
-import { KpiCard } from "~/components/dashboard/kpi-card"
-import { RecentRunsTable, type RunRow } from "~/components/dashboard/recent-runs-table"
-import { RunActivityChart } from "~/components/dashboard/run-activity-chart"
-import { formatShortDateTime, projectStatusBadgeVariant } from "~/components/dashboard/dashboard-utils"
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card"
 import { authClient } from "~/lib/auth-client"
+import { dashboardOverviewQueryOptions } from "~/lib/query-options"
+import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
+
+type ProjectHostRow = (typeof api.controlPlane.hosts.listByProject)["_returnType"][number]
 
 export function ProjectDashboard(props: {
   projectId: Id<"projects">
@@ -35,9 +28,21 @@ export function ProjectDashboard(props: {
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
 
   const overview = useQuery({
-    queryKey: ["dashboardOverview"],
-    queryFn: async () => await getDashboardOverview({ data: {} }),
-    gcTime: 5_000,
+    ...dashboardOverviewQueryOptions(),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    enabled: canQuery,
+  })
+  const hostsQuery = useQuery({
+    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: props.projectId }),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    enabled: canQuery,
+  })
+  const runnersQuery = useQuery({
+    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     enabled: canQuery,
   })
 
@@ -45,40 +50,55 @@ export function ProjectDashboard(props: {
     return overview.data?.projects.find((p) => p.projectId === props.projectId) ?? null
   }, [overview.data?.projects, props.projectId])
 
+  const hostRows = (hostsQuery.data ?? []) as ProjectHostRow[]
+  const hostNames = React.useMemo(() => hostRows.map((row) => row.hostName), [hostRows])
+  const hasHosts = hostRows.length > 0
+
   const recentRuns = useQuery({
     queryKey: ["dashboardRecentRuns", project?.projectId ?? null, hasServerHttpClient],
-    enabled: Boolean(project?.projectId) && canQuery,
+    enabled: Boolean(project?.projectId) && canQuery && hasHosts,
     queryFn: async () => {
       const args = {
         projectId: project!.projectId as Id<"projects">,
-        paginationOpts: { numItems: 200, cursor: null as string | null },
+        paginationOpts: { numItems: 50, cursor: null as string | null },
       }
       if (hasServerHttpClient) {
         return await convexQueryClient.serverHttpClient!.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
       return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },
-    gcTime: 5_000,
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
   })
-
-  const runs = (recentRuns.data?.page ?? []) as RunRow[]
 
   const projectAccess = useQuery({
     ...convexQuery(api.controlPlane.projects.get, {
       projectId: props.projectId,
     }),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     enabled: canQuery,
   })
 
+  const runners = runnersQuery.data ?? []
+  const runnerOnline = React.useMemo(() => isProjectRunnerOnline(runners), [runners])
   const canWrite = projectAccess.data?.role === "admin"
+  const runs = hasHosts ? ((recentRuns.data?.page ?? []) as RunRow[]) : []
 
-  if (overview.isPending) {
+  if (!canQuery) {
+    return <div className="text-muted-foreground">Loading…</div>
+  }
+
+  if (overview.isPending || hostsQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
   }
 
   if (overview.error) {
     return <div className="text-sm text-destructive">{String(overview.error)}</div>
+  }
+
+  if (hostsQuery.error) {
+    return <div className="text-sm text-destructive">{String(hostsQuery.error)}</div>
   }
 
   if (!project) {
@@ -100,160 +120,17 @@ export function ProjectDashboard(props: {
     )
   }
 
-  const gatewaysValue = project.cfg.error ? "—" : project.cfg.gatewaysTotal.toLocaleString()
-  const hostsValue = project.cfg.error
-    ? "—"
-    : `${project.cfg.hostsEnabled.toLocaleString()} / ${project.cfg.hostsTotal.toLocaleString()}`
-  const projectLocation = project.executionMode === "remote_runner"
-    ? project.runnerRepoPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
-    : project.localPath || `${project.workspaceRef.kind}:${project.workspaceRef.id}`
-  const defaultHost = project.cfg.error ? "—" : project.cfg.defaultHost || "—"
-  const defaultHostName = project.cfg.error ? "" : project.cfg.defaultHost || ""
-  const defaultHostBase = defaultHostName
-    ? `/${props.projectSlug}/hosts/${encodeURIComponent(defaultHostName)}`
-    : `/${props.projectSlug}/hosts`
-  const canLinkToDefaultHost = Boolean(defaultHostName && props.projectSlug)
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black tracking-tight truncate">{project.name}</h1>
-            <Badge variant={projectStatusBadgeVariant(project.status)} className="capitalize">
-              {project.status}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground text-sm truncate">{projectLocation}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link to="/projects" />}
-          >
-            Projects
-          </Button>
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to="/$projectSlug/setup/fleet"
-                params={{ projectSlug: props.projectSlug }}
-              />
-            }
-          >
-            Skills
-          </Button>
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={
-              <Link to={defaultHostBase} />
-            }
-          >
-            Deploy
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-        <KpiCard title="Gateways" value={gatewaysValue} subtext="Configured" />
-        <KpiCard title="Hosts" value={hostsValue} subtext="Enabled / total" />
-        <KpiCard title="Default host" value={defaultHost} subtext="From config" />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
-          <CardHeader className="flex flex-col items-stretch border-b !p-0 sm:flex-row">
-            <div className="flex flex-1 flex-col justify-center gap-1 px-6 pt-4 pb-3 sm:!py-0">
-              <CardTitle>Activity</CardTitle>
-              <CardDescription>Runs for the last 14 days.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 sm:p-6">
-            <RunActivityChart runs={runs} />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Project health</CardTitle>
-            <CardDescription>Config, services, and status checks.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {project.cfg.error ? (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
-                <div className="font-medium">Config load failed</div>
-                <div className="text-muted-foreground mt-1 break-words">
-                  {project.cfg.error}
-                </div>
-              <div className="text-muted-foreground mt-3 text-xs">
-                This repo does <span className="font-medium">not</span> support config migrations or legacy keys.
-                Fix <code>fleet/clawlets.json</code> to the current schema (v1) or re-initialize it and reapply your changes.
-                {canWrite ? null : " (Admin required to write config.)"}
-              </div>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-muted-foreground text-sm">Hosts</div>
-                  <div className="font-medium tabular-nums">{hostsValue}</div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-muted-foreground text-sm">Codex</div>
-                  <div className="font-medium">{project.cfg.codexEnabled ? "On" : "Off"}</div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-muted-foreground text-sm">Restic</div>
-                  <div className="font-medium">{project.cfg.resticEnabled ? "On" : "Off"}</div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-muted-foreground text-sm">Config updated</div>
-                  <div className="font-medium">
-                    {project.cfg.configMtimeMs ? formatShortDateTime(project.cfg.configMtimeMs) : "—"}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              disabled={!canLinkToDefaultHost}
-              render={
-                <Link
-                  to="/$projectSlug/hosts/$host/logs"
-                  params={{ projectSlug: props.projectSlug, host: defaultHostName }}
-                />
-              }
-            >
-              Logs
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              disabled={!canLinkToDefaultHost}
-              render={
-                <Link
-                  to="/$projectSlug/hosts/$host/audit"
-                  params={{ projectSlug: props.projectSlug, host: defaultHostName }}
-                />
-              }
-            >
-              Audit
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-
-      <RecentRunsTable
-        runs={runs}
-        projectSlug={props.projectSlug}
-      />
-    </div>
+    <ProjectOverviewReady
+      projectId={props.projectId}
+      projectSlug={props.projectSlug}
+      project={project}
+      hostRows={hostRows}
+      hostNames={hostNames}
+      runnerOnline={runnerOnline}
+      isCheckingRunner={runnersQuery.isPending}
+      runs={runs}
+      canWrite={canWrite}
+    />
   )
 }

@@ -49,13 +49,15 @@ function HostOverview() {
     queryFn: async () => {
       const args = {
         projectId: projectId as Id<"projects">,
-        paginationOpts: { numItems: 200, cursor: null as string | null },
+        paginationOpts: { numItems: 50, cursor: null as string | null },
       }
       if (hasServerHttpClient) {
         return await convexQueryClient.serverHttpClient!.consistentQuery(api.controlPlane.runs.listByProjectPage, args)
       }
       return await convexQueryClient.convexClient.query(api.controlPlane.runs.listByProjectPage, args)
     },
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
   })
   const runs = (recentRuns.data?.page ?? []) as RunRow[]
 

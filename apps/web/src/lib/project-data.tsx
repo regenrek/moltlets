@@ -15,7 +15,8 @@ export function useProjectsList() {
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
   return useQuery({
     ...convexQuery(api.controlPlane.projects.list, {}),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     enabled: canQuery,
   })
 }

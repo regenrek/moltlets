@@ -129,35 +129,48 @@ const RunnerTokenAuthDoc = v.object({
   tokenId: v.id("runnerTokens"),
   projectId: v.id("projects"),
   runnerId: v.id("runners"),
+  runnerName: v.string(),
+  runnerLastStatus: v.union(v.literal("online"), v.literal("offline")),
   expiresAt: v.optional(v.number()),
   revokedAt: v.optional(v.number()),
+  lastUsedAt: v.optional(v.number()),
 });
 
-export const getByTokenHashInternal = internalQuery({
+export const resolveAuthContextInternal = internalQuery({
   args: { tokenHash: v.string() },
   returns: v.union(RunnerTokenAuthDoc, v.null()),
   handler: async (ctx, { tokenHash }) => {
-    const row = await ctx.db
+    const tokenRow = await ctx.db
       .query("runnerTokens")
       .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
       .unique();
-    if (!row) return null;
+    if (!tokenRow) return null;
+    const runner = await ctx.db.get(tokenRow.runnerId);
+    if (!runner) return null;
+    const runnerLastStatus: "online" | "offline" = runner.lastStatus === "offline" ? "offline" : "online";
     return {
-      tokenId: row._id,
-      projectId: row.projectId,
-      runnerId: row.runnerId,
-      expiresAt: row.expiresAt,
-      revokedAt: row.revokedAt,
+      tokenId: tokenRow._id,
+      projectId: tokenRow.projectId,
+      runnerId: tokenRow.runnerId,
+      runnerName: runner.runnerName,
+      runnerLastStatus,
+      expiresAt: tokenRow.expiresAt,
+      revokedAt: tokenRow.revokedAt,
+      lastUsedAt: tokenRow.lastUsedAt,
     };
   },
 });
 
-export const touchLastUsedInternal = internalMutation({
-  args: { tokenId: v.id("runnerTokens"), now: v.number() },
+export const touchLastUsedIfStaleInternal = internalMutation({
+  args: { tokenId: v.id("runnerTokens"), now: v.number(), minIntervalMs: v.number() },
   returns: v.null(),
-  handler: async (ctx, { tokenId, now }) => {
+  handler: async (ctx, { tokenId, now, minIntervalMs }) => {
     const row = await ctx.db.get(tokenId);
     if (!row) return null;
+    const minTouchIntervalMs = Math.max(0, Math.trunc(minIntervalMs));
+    if (typeof row.lastUsedAt === "number" && now - row.lastUsedAt < minTouchIntervalMs) {
+      return null;
+    }
     await ctx.db.patch(tokenId, { lastUsedAt: now });
     return null;
   },

@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Id, Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { ProjectDoc } from "../shared/validators";
 import { toProjectDocValue } from "../shared/returnShapes";
 import { ExecutionMode, Role, WorkspaceRef } from "../schema";
@@ -20,6 +21,52 @@ import { normalizeWorkspaceRef } from "../shared/workspaceRef";
 
 const LIVE_SCHEMA_TARGET_MAX_LEN = 128;
 const RUNNER_REPO_PATH_MAX_LEN = CONTROL_PLANE_LIMITS.projectConfigPath;
+const DashboardProjectConfigSummary = v.object({
+  configPath: v.union(v.string(), v.null()),
+  configMtimeMs: v.union(v.number(), v.null()),
+  gatewaysTotal: v.number(),
+  gatewayIdsPreview: v.array(v.string()),
+  hostsTotal: v.number(),
+  hostsEnabled: v.number(),
+  defaultHost: v.union(v.string(), v.null()),
+  codexEnabled: v.boolean(),
+  resticEnabled: v.boolean(),
+  error: v.union(v.string(), v.null()),
+});
+const DashboardProjectSummary = v.object({
+  projectId: v.id("projects"),
+  name: v.string(),
+  status: v.union(v.literal("creating"), v.literal("ready"), v.literal("error")),
+  executionMode: ExecutionMode,
+  workspaceRef: WorkspaceRef,
+  localPath: v.union(v.string(), v.null()),
+  runnerRepoPath: v.union(v.string(), v.null()),
+  updatedAt: v.number(),
+  lastSeenAt: v.union(v.number(), v.null()),
+  cfg: DashboardProjectConfigSummary,
+});
+
+async function listAccessibleProjects(ctx: QueryCtx, userId: Id<"users">): Promise<Doc<"projects">[]> {
+  const owned = await ctx.db
+    .query("projects")
+    .withIndex("by_owner", (q) => q.eq("ownerUserId", userId))
+    .collect();
+
+  const memberships = await ctx.db
+    .query("projectMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const memberProjectIds = Array.from(new Set(memberships.map((m) => m.projectId)));
+  const memberProjects = (await Promise.all(memberProjectIds.map(async (projectId) => await ctx.db.get(projectId)))).filter(
+    (p): p is Doc<"projects"> => p !== null,
+  );
+
+  const byId = new Map<string, Doc<"projects">>();
+  for (const p of owned) byId.set(p._id, p);
+  for (const p of memberProjects) byId.set(p._id, p);
+  return Array.from(byId.values()).toSorted((a, b) => b.updatedAt - a.updatedAt);
+}
 
 function normalizeRepoPathSlashes(value: string): string {
   const normalized = value
@@ -90,28 +137,71 @@ export const list = query({
   returns: v.array(ProjectDoc),
   handler: async (ctx) => {
     const { user } = await requireAuthQuery(ctx);
-
-    const owned = await ctx.db
-      .query("projects")
-      .withIndex("by_owner", (q) => q.eq("ownerUserId", user._id))
-      .collect();
-
-    const memberships = await ctx.db
-      .query("projectMembers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-
-    const memberProjectIds = Array.from(new Set(memberships.map((m) => m.projectId)));
-    const memberProjects = (await Promise.all(memberProjectIds.map(async (projectId) => await ctx.db.get(projectId)))).filter(
-      (p): p is Doc<"projects"> => p !== null,
-    );
-
-    const byId = new Map<string, Doc<"projects">>();
-    for (const p of owned) byId.set(p._id, p);
-    for (const p of memberProjects) byId.set(p._id, p);
-    return Array.from(byId.values())
+    return (await listAccessibleProjects(ctx, user._id))
       .map(toProjectDocValue)
       .toSorted((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+export const dashboardOverview = query({
+  args: {},
+  returns: v.object({ projects: v.array(DashboardProjectSummary) }),
+  handler: async (ctx) => {
+    const { user } = await requireAuthQuery(ctx);
+    const projects = await listAccessibleProjects(ctx, user._id);
+
+    const summaries = await Promise.all(
+      projects.map(async (project) => {
+        const [projectConfigs, hosts] = await Promise.all([
+          ctx.db
+            .query("projectConfigs")
+            .withIndex("by_project", (q) => q.eq("projectId", project._id))
+            .collect(),
+          ctx.db
+            .query("hosts")
+            .withIndex("by_project", (q) => q.eq("projectId", project._id))
+            .collect(),
+        ]);
+        const sortedHosts = hosts.toSorted((a, b) => a.hostName.localeCompare(b.hostName));
+        const fleetCfg = projectConfigs.find((row) => row.type === "fleet") ?? projectConfigs[0] ?? null;
+        const configMtimeMs = projectConfigs.reduce<number | null>((acc, row) => {
+          const value = typeof row.lastSyncAt === "number" ? row.lastSyncAt : null;
+          if (value === null) return acc;
+          if (acc === null) return value;
+          return Math.max(acc, value);
+        }, null);
+        const firstError = projectConfigs.find((row) => typeof row.lastError === "string" && row.lastError.trim());
+        const hostsEnabled = sortedHosts.filter((row) => row.desired?.enabled === true).length;
+        const gatewaysTotal = sortedHosts.reduce((total, row) => {
+          const count = row.desired?.gatewayCount;
+          return total + (typeof count === "number" && Number.isFinite(count) ? count : 0);
+        }, 0);
+        return {
+          projectId: project._id,
+          name: project.name,
+          status: project.status,
+          executionMode: project.executionMode,
+          workspaceRef: project.workspaceRef,
+          localPath: typeof project.localPath === "string" ? project.localPath : null,
+          runnerRepoPath: typeof project.runnerRepoPath === "string" ? project.runnerRepoPath : null,
+          updatedAt: project.updatedAt,
+          lastSeenAt: typeof project.lastSeenAt === "number" ? project.lastSeenAt : null,
+          cfg: {
+            configPath: fleetCfg?.path ?? null,
+            configMtimeMs,
+            gatewaysTotal,
+            gatewayIdsPreview: [],
+            hostsTotal: sortedHosts.length,
+            hostsEnabled,
+            defaultHost: sortedHosts[0]?.hostName ?? null,
+            codexEnabled: false,
+            resticEnabled: false,
+            error: firstError?.lastError ?? null,
+          },
+        };
+      }),
+    );
+    return { projects: summaries };
   },
 });
 

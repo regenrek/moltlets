@@ -10,7 +10,7 @@ import { Input } from "~/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { StackedField } from "~/components/ui/stacked-field"
 import { generateProjectName } from "~/lib/project-name-generator"
-import { projectsListQueryOptions, queryKeys } from "~/lib/query-options"
+import { dashboardOverviewQueryOptions, projectsListQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 import { projectCreateStart } from "~/sdk/project"
 
@@ -25,7 +25,6 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
   const [name, setName] = useState("")
   const [runnerRepoPathInput, setRunnerRepoPathInput] = useState("")
   const [runnerNameInput, setRunnerNameInput] = useState("")
-  const [hostInput, setHostInput] = useState("")
   const [templateRepoInput, setTemplateRepoInput] = useState("")
   const [templatePathInput, setTemplatePathInput] = useState("")
   const [templateRefInput, setTemplateRefInput] = useState("")
@@ -33,10 +32,9 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
   const nameSlug = useMemo(() => slugifyProjectName(name || "project"), [name])
   const defaultRunnerRepoPath = `~/.clawlets/projects/${nameSlug}`
   const defaultRunnerName = `runner-${nameSlug || "project"}`
-  const defaultHost = nameSlug || "openclaw-fleet-host"
   const effectiveRunnerRepoPath = (runnerRepoPathInput.trim() || defaultRunnerRepoPath).replace(/\/+$/, "") || "/"
   const effectiveRunnerName = runnerNameInput.trim() || defaultRunnerName
-  const effectiveHost = hostInput.trim() || defaultHost
+  const dashboardOverviewQueryKey = dashboardOverviewQueryOptions().queryKey
   const projectsListQueryKey = projectsListQueryOptions().queryKey
 
   const start = useMutation({
@@ -45,7 +43,6 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
         data: {
           name,
           runnerRepoPath: effectiveRunnerRepoPath,
-          host: effectiveHost,
           runnerName: effectiveRunnerName,
           templateRepo: templateRepoInput.trim(),
           templatePath: templatePathInput.trim(),
@@ -53,12 +50,12 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
         },
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
+      void queryClient.invalidateQueries({ queryKey: dashboardOverviewQueryKey })
       void queryClient.invalidateQueries({ queryKey: projectsListQueryKey })
       toast.success("Project created")
       onOpenChange(false)
       void router.navigate({
-        to: "/$projectSlug/setup/",
+        to: "/$projectSlug/runner",
         params: { projectSlug: nameSlug },
       } as any)
     },
@@ -72,7 +69,6 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
     setName("")
     setRunnerRepoPathInput("")
     setRunnerNameInput("")
-    setHostInput("")
     setTemplateRepoInput("")
     setTemplatePathInput("")
     setTemplateRefInput("")
@@ -160,23 +156,6 @@ function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
                       placeholder={defaultRunnerName}
                       value={runnerNameInput}
                       onChange={(e) => setRunnerNameInput(e.target.value)}
-                    />
-                  </StackedField>
-
-                  <StackedField
-                    id="host"
-                    label="Host placeholder"
-                    description={(
-                      <>
-                        Defaults to <code>{defaultHost}</code>.
-                      </>
-                    )}
-                  >
-                    <Input
-                      id="host"
-                      placeholder={defaultHost}
-                      value={hostInput}
-                      onChange={(e) => setHostInput(e.target.value)}
                     />
                   </StackedField>
 

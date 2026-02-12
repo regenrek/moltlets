@@ -215,6 +215,7 @@ describe("runner start loop", () => {
           }),
         }),
       );
+      expect(harness.syncMetadata).toHaveBeenCalledTimes(1);
     } finally {
       harness.errorSpy.mockRestore();
       harness.logSpy.mockRestore();

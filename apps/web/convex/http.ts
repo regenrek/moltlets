@@ -67,13 +67,18 @@ async function requireRunnerAuth(
   const token = authHeader.slice(7).trim();
   if (!token) return null;
   const tokenHash = await sha256Hex(token);
-  const tokenDoc = await ctx.runQuery(internal.controlPlane.runnerTokens.getByTokenHashInternal, { tokenHash });
-  if (!tokenDoc) return null;
+  const authContext = await ctx.runQuery(internal.controlPlane.runnerTokens.resolveAuthContextInternal, {
+    tokenHash,
+  });
+  if (!authContext) return null;
   const now = Date.now();
-  const runner = await ctx.runQuery(internal.controlPlane.runners.getByIdInternal, { runnerId: tokenDoc.runnerId });
+  const runner = {
+    projectId: authContext.projectId,
+    runnerName: authContext.runnerName,
+  };
   if (
     !isRunnerTokenUsable({
-      tokenDoc,
+      tokenDoc: authContext,
       runner,
       expectedProjectId,
       now,
@@ -82,15 +87,14 @@ async function requireRunnerAuth(
     return null;
   }
   await touchRunnerTokenLastUsed(ctx, {
-    tokenId: tokenDoc.tokenId,
-    now: Date.now(),
+    tokenId: authContext.tokenId,
+    now,
   });
-  if (!runner) return null;
   return {
-    tokenId: tokenDoc.tokenId,
-    projectId: tokenDoc.projectId,
-    runnerId: tokenDoc.runnerId,
-    runnerName: runner.runnerName,
+    tokenId: authContext.tokenId,
+    projectId: authContext.projectId,
+    runnerId: authContext.runnerId,
+    runnerName: authContext.runnerName,
   };
 }
 

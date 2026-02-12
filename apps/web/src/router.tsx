@@ -29,9 +29,9 @@ export function getRouter() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
-        // Keep a short GC time by default; most routes re-validate often.
-        // Individual queries can override when longer caching is desired.
-        gcTime: 5_000,
+        // Keep Convex query cache warm across route switches.
+        gcTime: 5 * 60_000,
+        staleTime: 15_000,
       },
     },
     mutationCache: new MutationCache({

@@ -7,7 +7,7 @@ import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
-import { queryKeys } from "~/lib/query-options"
+import { dashboardOverviewQueryOptions } from "~/lib/query-options"
 import { slugifyProjectName } from "~/lib/project-routing"
 import { projectImport } from "~/sdk/project"
 import { toast } from "sonner"
@@ -69,6 +69,7 @@ function ImportProject() {
   const defaultRunnerName = `runner-${nameSlug || "project"}`
   const effectiveRunnerRepoPath = (runnerRepoPathInput.trim() || defaultRunnerRepoPath).replace(/\/+$/, "") || "/"
   const effectiveRunnerName = runnerNameInput.trim() || defaultRunnerName
+  const dashboardOverviewQueryKey = dashboardOverviewQueryOptions().queryKey
   const controlPlaneUrl = String(import.meta.env.VITE_CONVEX_SITE_URL || "").trim()
   const runnerStartCommand = useMemo(() => {
     const repoRoot = runnerRepoPathResolved || effectiveRunnerRepoPath
@@ -105,7 +106,7 @@ function ImportProject() {
       setRunnerRepoPathResolved(String(res.runnerRepoPath || effectiveRunnerRepoPath))
       setRunnerNameResolved(String(res.runnerName || effectiveRunnerName))
       setRedirected(false)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
+      void queryClient.invalidateQueries({ queryKey: dashboardOverviewQueryKey })
     },
   })
 
@@ -228,7 +229,7 @@ function ImportProject() {
                 if (redirected) return
                 if (status !== "succeeded") return
                 setRedirected(true)
-                void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview })
+                void queryClient.invalidateQueries({ queryKey: dashboardOverviewQueryKey })
                 void router.navigate({
                   to: "/$projectSlug",
                   params: { projectSlug: nameSlug },

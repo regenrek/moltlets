@@ -29,7 +29,7 @@ import { SidebarTrigger } from "~/components/ui/sidebar"
 import { useProjectBySlug } from "~/lib/project-data"
 import {
   buildHostSwitchPath,
-  buildHostsPath,
+  buildProjectBasePath,
   parseHostName,
   parseProjectSlug,
 } from "~/lib/project-routing"
@@ -52,7 +52,8 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
 
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     enabled: Boolean(projectId),
   })
   const hostRows = hostsQuery.data
@@ -98,7 +99,7 @@ function AppHeader({ showSidebarToggle = true }: { showSidebarToggle?: boolean }
   const handleManageHosts = React.useCallback(() => {
     if (!projectSlug) return
     void router.navigate({
-      to: buildHostsPath(projectSlug),
+      to: buildProjectBasePath(projectSlug),
     } as any)
   }, [projectSlug, router])
 

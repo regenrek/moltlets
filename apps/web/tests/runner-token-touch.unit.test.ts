@@ -20,7 +20,11 @@ describe("runner token last-used touch", () => {
 
     await Promise.resolve();
     expect(runMutation).toHaveBeenCalledTimes(1);
-    expect(runMutation.mock.calls[0]?.[1]).toEqual({ tokenId: "token_1", now: 123 });
+    expect(runMutation.mock.calls[0]?.[1]).toEqual({
+      tokenId: "token_1",
+      now: 123,
+      minIntervalMs: 300_000,
+    });
     expect(settled).toBe(false);
 
     resolveMutation?.();
@@ -37,5 +41,19 @@ describe("runner token last-used touch", () => {
       touchRunnerTokenLastUsed({ runMutation }, { tokenId: "token_1" as any, now: 123 }),
     ).resolves.toBeUndefined();
     expect(runMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes explicit minIntervalMs when provided", async () => {
+    const runMutation = vi.fn(async (_mutation: unknown, _args: unknown) => null);
+    await touchRunnerTokenLastUsed(
+      { runMutation },
+      { tokenId: "token_1" as any, now: 123, minIntervalMs: 42_000 },
+    );
+    expect(runMutation).toHaveBeenCalledTimes(1);
+    expect(runMutation.mock.calls[0]?.[1]).toEqual({
+      tokenId: "token_1",
+      now: 123,
+      minIntervalMs: 42_000,
+    });
   });
 });
