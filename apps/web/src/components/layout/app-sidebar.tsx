@@ -3,10 +3,12 @@ import { useQuery } from "@tanstack/react-query"
 import { Link, useRouterState } from "@tanstack/react-router"
 import * as React from "react"
 import {
+  ArrowLeftIcon,
   ArrowPathIcon,
   BoltIcon,
   ChatBubbleLeftRightIcon,
   CheckIcon,
+  ChevronRightIcon,
   ChevronUpDownIcon,
   CircleStackIcon,
   Cog6ToothIcon,
@@ -96,6 +98,9 @@ function NavLink({
       >
         {iconNode ? <span className="shrink-0">{iconNode}</span> : null}
         <span className="truncate">{item.label}</span>
+        {item.hasChildren ? (
+          <ChevronRightIcon className="ml-auto size-4 shrink-0 text-sidebar-foreground/70" aria-hidden="true" />
+        ) : null}
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
@@ -107,6 +112,7 @@ type NavItem = {
   icon?: React.ComponentType<React.ComponentProps<"svg">>
   iconNode?: React.ReactNode
   tooltip?: string
+  hasChildren?: boolean
   aliases?: string[]
 }
 
@@ -157,6 +163,7 @@ function AppSidebar() {
   const hostBase = activeHost ? buildHostPath(projectSlug, activeHost) : null
   const hostAwarePath = (hostSuffix: string, globalSlug: string) =>
     hostBase ? `${hostBase}/${hostSuffix}` : `${projectGlobalBase}/${globalSlug}`
+  const inHostSettingsScope = Boolean(hostBase && pathname.startsWith(`${hostBase}/settings`))
   const overviewIcon = activeHost ? (
     <HostThemeBadge theme={activeHostTheme} size="xs" />
   ) : null
@@ -210,6 +217,8 @@ function AppSidebar() {
       label: "Settings",
       icon: Cog6ToothIcon,
       tooltip: "Host-level infra settings.",
+      hasChildren: Boolean(hostBase),
+      aliases: hostBase ? [`${hostBase}/settings/vpn`] : undefined,
     },
   ]
 
@@ -253,6 +262,20 @@ function AppSidebar() {
         },
       ]
     : []
+  const settingsNav: NavItem[] = hostBase
+    ? [
+        {
+          to: `${hostBase}/settings`,
+          label: "General",
+          icon: Cog6ToothIcon,
+        },
+        {
+          to: `${hostBase}/settings/vpn`,
+          label: "VPN / Tailscale",
+          icon: ShieldCheckIcon,
+        },
+      ]
+    : []
 
   const normalizedQuery = navQuery.trim().toLowerCase()
   const matches = (item: NavItem) =>
@@ -260,8 +283,9 @@ function AppSidebar() {
   const filteredInfra = infraNav.filter(matches)
   const filteredOpenclaw = openclawNav.filter(matches)
   const filteredProject = projectNav.filter(matches)
+  const filteredSettings = settingsNav.filter(matches)
   const hasMatches =
-    filteredInfra.length || filteredOpenclaw.length || filteredProject.length
+    filteredInfra.length || filteredOpenclaw.length || filteredProject.length || filteredSettings.length
 
   const isActiveItem = (item: NavItem) => {
     const targets = [item.to, ...(item.aliases ?? [])]
@@ -353,7 +377,46 @@ function AppSidebar() {
             No matches.
           </div>
         ) : null}
-        {filteredInfra.length ? (
+        {inHostSettingsScope && hostBase ? (
+          <>
+            <SidebarSeparator className="mx-2 my-0" />
+            <SidebarGroup className="py-1">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        nativeButton={false}
+                        render={<Link to={hostBase} />}
+                        className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      />
+                    }
+                  >
+                    <ArrowLeftIcon className="size-4" aria-hidden="true" />
+                    <span className="truncate">Back to host</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarSeparator className="mx-2 my-0" />
+          </>
+        ) : null}
+        {inHostSettingsScope ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+            <SidebarMenu>
+              {filteredSettings.map((item) => (
+                <NavLink
+                  key={`${item.to}:${item.label}`}
+                  item={item}
+                  isActive={isActiveItem(item)}
+                />
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        ) : filteredInfra.length ? (
           <SidebarGroup>
             <SidebarGroupLabel>Infra</SidebarGroupLabel>
             <SidebarMenu>
@@ -367,7 +430,7 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         ) : null}
-        {filteredOpenclaw.length ? (
+        {!inHostSettingsScope && filteredOpenclaw.length ? (
           <>
             {filteredInfra.length ? <SidebarSeparator /> : null}
             <SidebarGroup>
@@ -386,7 +449,7 @@ function AppSidebar() {
         ) : null}
       </SidebarContent>
       <SidebarFooter>
-        {filteredProject.length ? (
+        {!inHostSettingsScope && filteredProject.length ? (
           <>
             <SidebarSeparator />
             <SidebarGroup>
