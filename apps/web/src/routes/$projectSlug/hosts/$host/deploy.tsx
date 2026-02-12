@@ -28,11 +28,16 @@ function DeployHost() {
   const projectStatus = projectQuery.project?.status
 
   const bootstrapRun = useQuery({
-    ...convexQuery(api.controlPlane.runs.latestByProjectHostKind, {
-      projectId: projectId as Id<"projects">,
-      host,
-      kind: "bootstrap",
-    }),
+    ...convexQuery(
+      api.controlPlane.runs.latestByProjectHostKind,
+      projectId && host
+        ? {
+            projectId,
+            host,
+            kind: "bootstrap",
+          }
+        : "skip",
+    ),
     enabled: Boolean(projectId && host),
   })
 

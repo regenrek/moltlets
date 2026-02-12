@@ -81,13 +81,11 @@ function DeployInitialInstallDefault({
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    enabled: Boolean(projectId),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     gcTime: 5_000,
   })
   const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: projectId as Id<"projects"> }),
-    enabled: Boolean(projectId),
+    ...convexQuery(api.controlPlane.runners.listByProject, projectId ? { projectId } : "skip"),
     gcTime: 5_000,
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])

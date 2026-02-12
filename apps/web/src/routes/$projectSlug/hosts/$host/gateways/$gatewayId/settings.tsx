@@ -48,23 +48,31 @@ function GatewaySettingsRoute() {
   const canQuery = Boolean(session?.user?.id) && isAuthenticated && !isPending && !isLoading
 
   const project = useQuery({
-    ...convexQuery(api.controlPlane.projects.get, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.projects.get, projectId && canQuery ? { projectId } : "skip"),
     gcTime: 5_000,
     enabled: Boolean(projectId) && canQuery,
   })
   const canEdit = project.data?.role === "admin"
 
-  const hostsQueryOptions = convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> })
+  const hostsQueryOptions = convexQuery(
+    api.controlPlane.hosts.listByProject,
+    projectId && canQuery ? { projectId } : "skip",
+  )
   const hosts = useQuery({
     ...hostsQueryOptions,
     gcTime: 5_000,
     enabled: Boolean(projectId) && canQuery,
   })
 
-  const gatewaysQueryOptions = convexQuery(api.controlPlane.gateways.listByProjectHost, {
-    projectId: projectId as Id<"projects">,
-    hostName: host,
-  })
+  const gatewaysQueryOptions = convexQuery(
+    api.controlPlane.gateways.listByProjectHost,
+    projectId && canQuery
+      ? {
+          projectId,
+          hostName: host,
+        }
+      : "skip",
+  )
   const gateways = useQuery({
     ...gatewaysQueryOptions,
     gcTime: 5_000,

@@ -21,7 +21,6 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline"
-import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import {
   Sidebar,
@@ -133,10 +132,9 @@ function AppSidebar() {
   )
   const { projectId } = useProjectBySlug(projectSlug)
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
-    enabled: Boolean(projectId),
   })
   const hostByName = React.useMemo(
     () => new Map((hostsQuery.data ?? []).map((row) => [row.hostName, row] as const)),

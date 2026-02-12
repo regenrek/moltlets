@@ -36,7 +36,7 @@ function HostOverview() {
   const isReady = projectStatus === "ready"
 
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId && isReady ? { projectId } : "skip"),
     enabled: Boolean(projectId && isReady),
   })
 

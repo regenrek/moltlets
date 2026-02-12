@@ -70,21 +70,23 @@ export function DeployInitialInstallSetup(props: {
   const projectId = projectQuery.projectId
   const queryClient = useQueryClient()
   const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, {
-      projectId: projectId as Id<"projects">,
-    }),
-    enabled: Boolean(projectId),
+    ...convexQuery(api.controlPlane.runners.listByProject, projectId ? {
+      projectId,
+    } : "skip"),
   })
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
-    enabled: Boolean(projectId),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
   })
   const wiringQuery = useQuery({
-    ...convexQuery(api.controlPlane.secretWiring.listByProjectHost, {
-      projectId: projectId as Id<"projects">,
-      hostName: props.host,
-    }),
-    enabled: Boolean(projectId && props.host),
+    ...convexQuery(
+      api.controlPlane.secretWiring.listByProjectHost,
+      projectId && props.host
+        ? {
+            projectId,
+            hostName: props.host,
+          }
+        : "skip",
+    ),
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
   const hostSummary = useMemo(

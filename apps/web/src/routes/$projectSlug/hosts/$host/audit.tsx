@@ -27,7 +27,7 @@ function AuditOperate() {
   const convexQueryClient = router.options.context.convexQueryClient
   const hasServerHttpClient = Boolean(convexQueryClient.serverHttpClient)
   const hostsQuery = useQuery({
-    ...convexQuery(api.controlPlane.hosts.listByProject, { projectId: projectId as Id<"projects"> }),
+    ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
     enabled: Boolean(projectId),
     gcTime: 5_000,
   })
