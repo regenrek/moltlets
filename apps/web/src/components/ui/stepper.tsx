@@ -240,8 +240,8 @@ function StepperIndicator(props: StepperIndicatorProps) {
       data-disabled={item.disabled ? "true" : "false"}
       className={cn(
         "relative isolate z-20 flex size-8 shrink-0 items-center justify-center rounded-full border-2 bg-zinc-50 text-sm font-medium transition-colors dark:bg-zinc-950",
-        "data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-950",
-        "data-[state=completed]:border-primary data-[state=completed]:bg-primary data-[state=completed]:text-zinc-950 dark:data-[state=completed]:text-zinc-950",
+        "data-[state=active]:border-highlight data-[state=active]:bg-highlight data-[state=active]:text-highlight-foreground",
+        "data-[state=completed]:border-highlight data-[state=completed]:bg-highlight data-[state=completed]:text-highlight-foreground",
         "data-[state=inactive]:border-zinc-300 data-[state=inactive]:bg-zinc-50 data-[state=inactive]:text-zinc-500 dark:data-[state=inactive]:border-zinc-700 dark:data-[state=inactive]:bg-zinc-950 dark:data-[state=inactive]:text-zinc-400",
         "data-[disabled=true]:border-zinc-300 data-[disabled=true]:bg-zinc-200 data-[disabled=true]:text-zinc-500 dark:data-[disabled=true]:border-zinc-700 dark:data-[disabled=true]:bg-zinc-900 dark:data-[disabled=true]:text-zinc-500",
         className,
