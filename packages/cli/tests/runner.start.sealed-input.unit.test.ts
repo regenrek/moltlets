@@ -91,6 +91,7 @@ async function loadRunnerStartWithMocks(params: {
   resolvedResultMode?: "log" | "json_small" | "json_large";
   resolvedResultMaxBytes?: number;
   captureOutput?: string;
+  mockNixBin?: string | null;
 }) {
   vi.resetModules();
   const observed: { tempPath?: string; tempJson?: string; env?: Record<string, unknown>; stdin?: unknown } = {};
@@ -117,6 +118,9 @@ async function loadRunnerStartWithMocks(params: {
   vi.doMock("@clawlets/core/lib/runtime/run", () => ({
     run,
     capture,
+  }));
+  vi.doMock("@clawlets/core/lib/nix/nix-bin", () => ({
+    resolveNixBin: vi.fn(() => (params.mockNixBin === undefined ? "/usr/bin/nix" : params.mockNixBin)),
   }));
   vi.doMock("@clawlets/core/lib/runtime/runner-command-policy-resolve", () => ({
     resolveRunnerJobCommand: vi.fn(async () => ({
@@ -261,6 +265,54 @@ describe("runner sealed input execution", () => {
         runnerPrivateKeyPem: "pem",
       }),
     ).rejects.toThrow(/more than once/i);
+  });
+
+  it("fails when args include both placeholders", async () => {
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["env", "apply-json", "__RUNNER_SECRETS_JSON__", "__RUNNER_INPUT_JSON__"],
+    });
+
+    await expect(
+      mod.__test_executeJob({
+        job: {
+          jobId: "job-both-placeholders",
+          runId: "run-both-placeholders",
+          leaseId: "lease-both-placeholders",
+          leaseExpiresAt: Date.now() + 30_000,
+          kind: "custom",
+          attempt: 1,
+          payloadMeta: { args: ["env", "apply-json"] },
+        },
+        repoRoot: "/tmp/repo",
+        projectId: "p1",
+        runnerPrivateKeyPem: "pem",
+      }),
+    ).rejects.toThrow(/cannot include both __RUNNER_SECRETS_JSON__ and __RUNNER_INPUT_JSON__/i);
+  });
+
+  it("fails fast for nix-required jobs when nix is unavailable", async () => {
+    const { mod } = await loadRunnerStartWithMocks({
+      resolvedArgs: ["doctor"],
+      resolvedKind: "doctor",
+      mockNixBin: null,
+    });
+
+    await expect(
+      mod.__test_executeJob({
+        job: {
+          jobId: "job-nix-required",
+          runId: "run-nix-required",
+          leaseId: "lease-nix-required",
+          leaseExpiresAt: Date.now() + 30_000,
+          kind: "doctor",
+          attempt: 1,
+          payloadMeta: { args: ["doctor"] },
+        },
+        repoRoot: "/tmp/repo",
+        projectId: "p1",
+        runnerPrivateKeyPem: "pem",
+      }),
+    ).rejects.toThrow(/nix not found/i);
   });
 
   it("binds secrets_write sealed payload to reserved jobId and suppresses local output", async () => {

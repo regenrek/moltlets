@@ -9,6 +9,7 @@ import {
   randomBytes,
 } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { vi } from "vitest";
 import {
   loadOrCreateRunnerSealedInputKeypair,
   RUNNER_SEALED_INPUT_ALG,
@@ -281,6 +282,90 @@ describe("runner sealed input", () => {
         ).toThrow();
       }
     } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed envelope fields after decode", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-sealed-"));
+    try {
+      const keypair = await loadOrCreateRunnerSealedInputKeypair({
+        privateKeyPath: path.join(tempDir, "runner.pem"),
+      });
+      const aad = "p1:j1:custom:r1";
+      const envelopeB64 = buildEnvelope({
+        publicKeySpkiB64: keypair.publicKeySpkiB64,
+        keyId: keypair.keyId,
+        aad,
+        plaintext: "{\"k\":\"v\"}",
+      });
+      const decoded = JSON.parse(fromBase64Url(envelopeB64).toString("utf8")) as Record<string, unknown>;
+
+      const missingCt = toBase64Url(Buffer.from(JSON.stringify({ ...decoded, ct: "" }), "utf8"));
+      expect(() =>
+        unsealRunnerInput({
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+          aad,
+          envelopeB64: missingCt,
+          expectedAlg: RUNNER_SEALED_INPUT_ALG,
+          expectedKeyId: keypair.keyId,
+        }),
+      ).toThrow(/missing fields/i);
+
+      const shortIv = toBase64Url(Buffer.from(JSON.stringify({ ...decoded, iv: toBase64Url(Buffer.alloc(8)) }), "utf8"));
+      expect(() =>
+        unsealRunnerInput({
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+          aad,
+          envelopeB64: shortIv,
+          expectedAlg: RUNNER_SEALED_INPUT_ALG,
+          expectedKeyId: keypair.keyId,
+        }),
+      ).toThrow(/iv invalid/i);
+
+      const shortCt = toBase64Url(Buffer.from(JSON.stringify({ ...decoded, ct: toBase64Url(Buffer.alloc(16)) }), "utf8"));
+      expect(() =>
+        unsealRunnerInput({
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+          aad,
+          envelopeB64: shortCt,
+          expectedAlg: RUNNER_SEALED_INPUT_ALG,
+          expectedKeyId: keypair.keyId,
+        }),
+      ).toThrow(/ciphertext invalid/i);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rethrows non-ENOENT read errors when loading keypair", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-sealed-"));
+    const privateKeyPath = path.join(tempDir, "runner.pem");
+    const spy = vi.spyOn(fs, "readFile").mockRejectedValueOnce(
+      Object.assign(new Error("permission denied"), { code: "EACCES" }) as NodeJS.ErrnoException,
+    );
+    try {
+      await expect(loadOrCreateRunnerSealedInputKeypair({ privateKeyPath })).rejects.toThrow(/permission denied/i);
+    } finally {
+      spy.mockRestore();
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rethrows non-EEXIST write errors while creating keypair", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-sealed-"));
+    const privateKeyPath = path.join(tempDir, "runner.pem");
+    const readSpy = vi.spyOn(fs, "readFile").mockRejectedValueOnce(
+      Object.assign(new Error("missing"), { code: "ENOENT" }) as NodeJS.ErrnoException,
+    );
+    const writeSpy = vi.spyOn(fs, "writeFile").mockRejectedValueOnce(
+      Object.assign(new Error("io error"), { code: "EIO" }) as NodeJS.ErrnoException,
+    );
+    try {
+      await expect(loadOrCreateRunnerSealedInputKeypair({ privateKeyPath })).rejects.toThrow(/io error/i);
+    } finally {
+      readSpy.mockRestore();
+      writeSpy.mockRestore();
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   });

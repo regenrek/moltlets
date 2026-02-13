@@ -141,6 +141,26 @@ describe("runner job arg mapping", () => {
     ).toThrow(/not allowlisted/i);
   });
 
+  it("requires payloadMeta.updatedKeys for input placeholder jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: { args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__"] },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { HCLOUD_TOKEN: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/updatedKeys required/i);
+  });
+
   it("enforces secretNames allowlist for secrets placeholder jobs", () => {
     const job = {
       jobId: "job_1",
@@ -376,5 +396,28 @@ describe("runner job arg mapping", () => {
       return Array.isArray(events) && events.some((event) => event.redacted === true);
     });
     expect(outputEvent).toBeTruthy();
+  });
+
+  it("fails leased jobs when attempt count exceeds maxAttempts", async () => {
+    const appendRunEvents = vi.fn(async () => ({}));
+    const executeJobFn = vi.fn(async () => ({ output: "ok" }));
+    const result = await __test_executeLeasedJobWithRunEvents({
+      client: { appendRunEvents },
+      projectId: "proj_1",
+      job: {
+        jobId: "job_retry",
+        runId: "run_retry",
+        leaseId: "lease_retry",
+        leaseExpiresAt: Date.now() + 30_000,
+        kind: "custom",
+        attempt: 5,
+        payloadMeta: { args: ["doctor"] },
+      },
+      maxAttempts: 3,
+      executeJobFn: executeJobFn as any,
+    });
+    expect(result.terminal).toBe("failed");
+    expect(result.errorMessage).toBeTruthy();
+    expect(executeJobFn).not.toHaveBeenCalled();
   });
 });
