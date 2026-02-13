@@ -53,7 +53,7 @@ describe("setup drafts sdk", () => {
         data: {
           projectId: "p1" as any,
           host: "alpha",
-          patch: { infrastructure: { serverType: "cx22", location: "nbg1" } },
+          patch: { infrastructure: { serverType: "cpx22", location: "nbg1" } },
         },
       }),
     )).rejects.toThrow(/admin required/i)
@@ -101,7 +101,7 @@ describe("setup drafts sdk", () => {
           host: "alpha",
           patch: {
             infrastructure: {
-              serverType: "cx22",
+              serverType: "cpx22",
               location: "nbg1",
             },
             unexpected: true,
@@ -189,7 +189,7 @@ describe("setup drafts sdk", () => {
         data: {
           projectId: "p1" as any,
           host: "alpha",
-          patch: { infrastructure: { serverType: "cx22", location: "nbg1" } },
+          patch: { infrastructure: { serverType: "cpx22", location: "nbg1" } },
         },
       }),
     )
@@ -225,7 +225,7 @@ describe("setup drafts sdk", () => {
         version: 4,
         targetRunnerId: "r1",
         nonSecretDraft: {
-          infrastructure: { serverType: "cx22", location: "nbg1", allowTailscaleUdpIngress: true },
+          infrastructure: { serverType: "cpx22", location: "nbg1", allowTailscaleUdpIngress: true },
           connection: { adminCidr: "203.0.113.10/32", sshExposureMode: "bootstrap", sshAuthorizedKeys: ["ssh-ed25519 AAAA"], sshKeyCount: 1 },
         },
         sealedSecretDrafts: {

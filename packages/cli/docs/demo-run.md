@@ -22,7 +22,7 @@ clawlets env init
 # Host config (Hetzner)
 clawlets host set --host clawlets-openclaw \
   --enable true \
-  --server-type cx22 \
+  --server-type cpx22 \
   --hetzner-location nbg1 \
   --disk-device /dev/sda \
   --ssh-exposure bootstrap \

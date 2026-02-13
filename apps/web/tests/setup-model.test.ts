@@ -131,7 +131,7 @@ describe("deriveSetupModel", () => {
       setupDraft: withDeployCredsDraftSet(),
       pendingNonSecretDraft: {
         infrastructure: {
-          serverType: "cx22",
+          serverType: "cpx22",
           location: "nbg1",
         },
         connection: {
@@ -166,7 +166,7 @@ describe("deriveSetupModel", () => {
       setupDraft: {
         nonSecretDraft: {
           infrastructure: {
-            serverType: "cx22",
+            serverType: "cpx22",
             location: "nbg1",
           },
           connection: {
@@ -196,7 +196,7 @@ describe("deriveSetupModel", () => {
         hosts: {
           h1: {
             provisioning: { provider: "hetzner" },
-            hetzner: { serverType: "cx22", location: "nbg1" },
+            hetzner: { serverType: "cpx22", location: "nbg1" },
           },
         },
         fleet: { sshAuthorizedKeys: [] },

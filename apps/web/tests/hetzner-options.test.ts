@@ -30,6 +30,7 @@ describe("hetzner options defaults", () => {
 
   it("validates known vs custom values", () => {
     expect(isKnownHetznerServerType("cpx32")).toBe(true)
+    expect(isKnownHetznerServerType("cpx22")).toBe(true)
     expect(isKnownHetznerServerType("cx43")).toBe(false)
     expect(isKnownHetznerLocation("fsn1")).toBe(true)
     expect(isKnownHetznerLocation("nbg99")).toBe(false)

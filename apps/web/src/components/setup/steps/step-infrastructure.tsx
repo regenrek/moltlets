@@ -94,14 +94,14 @@ export function SetupStepInfrastructure(props: {
   const volumeSettingsReady = !volumeEnabled || parsedVolumeSizeGb !== null
   const hcloudTokenState = readHcloudTokenState(props.setupDraft)
   const hcloudTokenReady = hcloudTokenState === "set"
-  const missingRequirements = [
-    ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
-    ...(serverType.trim().length > 0 ? [] : ["hetzner.serverType"]),
-    ...(location.trim().length > 0 ? [] : ["hetzner.location"]),
-    ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
-  ]
   const serverTypeTrimmed = serverType.trim()
   const locationTrimmed = location.trim()
+  const missingRequirements = [
+    ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
+    ...(serverTypeTrimmed.length > 0 ? [] : ["hetzner.serverType"]),
+    ...(locationTrimmed.length > 0 ? [] : ["hetzner.location"]),
+    ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
+  ]
   const serverTypeKnown = isKnownHetznerServerType(serverTypeTrimmed)
   const locationKnown = isKnownHetznerLocation(locationTrimmed)
   const serverTypeRadioValue = serverTypeKnown ? serverTypeTrimmed : HETZNER_RADIO_CUSTOM_VALUE

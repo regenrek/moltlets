@@ -639,7 +639,7 @@ describe("hcloud servers", () => {
     const server = await createHcloudServer({
       token: "token",
       name: "c",
-      serverType: "cx22",
+      serverType: "cpx22",
       image: "img",
       location: "nbg1",
       userData: "#cloud-config\n{}",
@@ -665,7 +665,7 @@ describe("hcloud servers", () => {
     const server = await createHcloudServer({
       token: "token",
       name: "d",
-      serverType: "cx22",
+      serverType: "cpx22",
       image: "img",
       location: "nbg1",
       userData: "#cloud-config\n{}",

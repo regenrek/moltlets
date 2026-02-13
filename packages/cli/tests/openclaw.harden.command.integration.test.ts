@@ -31,7 +31,7 @@ function baseConfig(host: string) {
         },
         diskDevice: "/dev/sda",
         flakeHost: "",
-        hetzner: { serverType: "cx22" },
+        hetzner: { serverType: "cpx22" },
         provisioning: {
           adminCidr: "",
           adminCidrAllowWorldOpen: false,
