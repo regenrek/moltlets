@@ -9,6 +9,7 @@ import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import { DEPLOY_CREDS_KEYS } from "@clawlets/core/lib/infra/deploy-creds";
+import { resolveNixBin } from "@clawlets/core/lib/nix/nix-bin";
 import { buildDefaultArgsForJobKind } from "@clawlets/core/lib/runtime/runner-command-policy";
 import {
   RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
@@ -56,11 +57,36 @@ function resolveControlPlaneUrl(raw: unknown): string {
   return normalizeBaseUrl(env);
 }
 
+const NIX_REQUIRED_JOB_KINDS = new Set<string>([
+  "doctor",
+  "secrets_init",
+  "secrets_verify",
+  "secrets_verify_bootstrap",
+  "secrets_verify_openclaw",
+  "secrets_sync",
+  "setup_apply",
+  "bootstrap",
+  "lockdown",
+  "deploy",
+  "server_update_apply",
+  "server_update_status",
+  "server_update_logs",
+]);
+
+let cachedRunnerNixBin: string | null | undefined;
+function resolveRunnerNixBin(): string | null {
+  if (cachedRunnerNixBin !== undefined) return cachedRunnerNixBin;
+  cachedRunnerNixBin = resolveNixBin({ env: process.env }) ?? null;
+  return cachedRunnerNixBin;
+}
+
 function runnerCommandEnv(): Record<string, string | undefined> {
+  const nixBin = resolveRunnerNixBin();
   return {
     ...process.env,
     CI: "1",
     CLAWLETS_NON_INTERACTIVE: "1",
+    ...(nixBin ? { NIX_BIN: nixBin } : {}),
   };
 }
 
@@ -86,6 +112,10 @@ const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
 const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
+
+// Threat model: this path materializes runtime secrets on disk for execution only.
+// Temp files must be short-lived, owner-only readable, and scrubbed on all terminal paths.
+
 const RUNNER_ERROR_AUTH_BEARER_RE = /(Authorization:\s*Bearer\s+)([^\s]+)/gi;
 const RUNNER_ERROR_AUTH_BASIC_RE = /(Authorization:\s*Basic\s+)([^\s]+)/gi;
 const RUNNER_ERROR_URL_CREDENTIALS_RE = /(https?:\/\/)([^/\s@]+@)/g;
@@ -645,6 +675,11 @@ async function executeJob(params: {
     repoRoot: params.repoRoot,
   });
   if (!resolved.ok) throw new Error(resolved.error);
+  if (resolved.exec === "clawlets" && NIX_REQUIRED_JOB_KINDS.has(params.job.kind)) {
+    if (!resolveRunnerNixBin()) {
+      throw new Error("nix not found (install Nix first)");
+    }
+  }
   const args = [...resolved.args];
   if (args.length === 0) throw new Error("job args empty");
   const secretsPlaceholderIdx = placeholderIndex(args, "__RUNNER_SECRETS_JSON__");

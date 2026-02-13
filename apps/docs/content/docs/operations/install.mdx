@@ -35,6 +35,19 @@ Wrapper installer behavior:
 
 Node >= 22 required.
 
+## Install Nix (required)
+
+Clawlets shells out to `nix` for tooling (`age-keygen`, `sops`, `mkpasswd`, `nixos-anywhere`, builds/evals).
+Install Nix on the workstation that runs the dashboard/runner.
+
+Verify:
+
+```bash
+nix --version
+```
+
+If the dashboard/runner cannot find `nix`, set `NIX_BIN` in `.clawlets/env` to the full path (common on macOS: `/nix/var/nix/profiles/default/bin/nix`).
+
 ## Project repo inputs
 
 `clawlets project init` scaffolds the repo. These directories and files are the core

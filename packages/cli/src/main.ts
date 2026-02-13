@@ -75,5 +75,21 @@ function shouldRunMain(): boolean {
 }
 
 if (shouldRunMain()) {
-  void mainEntry();
+  void mainEntry().catch((err) => {
+    const code = (err as NodeJS.ErrnoException | undefined)?.code;
+    const syscall = (err as NodeJS.ErrnoException | undefined)?.syscall;
+    const spawnPath = (err as any)?.path;
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (code === "ENOENT" && typeof syscall === "string" && syscall.startsWith("spawn ") && String(spawnPath || "").trim() === "nix") {
+      console.error("nix not found. Install Nix or set NIX_BIN (e.g. /nix/var/nix/profiles/default/bin/nix).");
+    } else {
+      console.error(message);
+    }
+
+    if (process.env.CLAWLETS_DEBUG === "1" && err instanceof Error && err.stack) {
+      console.error(err.stack);
+    }
+    process.exitCode = 1;
+  });
 }

@@ -60,6 +60,14 @@ Runner metadata sync payloads are size-limited. Current limits:
 
 Oversized payloads are rejected by the control plane with `400`.
 
+## Security invariants
+
+- `apps/web/src/lib/security/sealed-input.ts` uses `SEALED_INPUT_ALG` (`rsa-oaep-3072/aes-256-gcm`) to only produce sealed envelopes for runner transfer.
+- `apps/web/convex/controlPlane/jobs.ts` enforces sealed input bounds and shape with `SEALED_INPUT_MAX_CHARS` and `validateSealedInputB64`, then persists only `sealedInputB64`/metadata.
+- `apps/web/convex/http.ts` sanitizes runner-provided telemetry through `sanitizeRunnerRunEventsForStorage`, `sanitizeGatewayPatch`, and `sanitizeHostPatch` before write.
+- `packages/cli/src/commands/runner/sealed-input.ts` uses `RUNNER_SEALED_INPUT_ALG` and strict envelope parsing in `parseEnvelope` so ciphertext handling stays runner-local.
+- `packages/cli/src/commands/runner/start.ts` treats temp secret artifacts as sensitive: only prefixes in `RUNNER_TEMP_FILE_PREFIXES`, strict `assertSecureRunnerTempFile` mode checks, and `cleanupStaleRunnerTempFiles`.
+
 ## What the control plane must not store
 
 - plaintext secret values

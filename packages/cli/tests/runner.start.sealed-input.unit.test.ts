@@ -8,7 +8,7 @@ import {
   publicEncrypt,
   randomBytes,
 } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   RUNNER_COMMAND_RESULT_LARGE_MAX_BYTES,
@@ -18,6 +18,24 @@ import {
   loadOrCreateRunnerSealedInputKeypair,
   RUNNER_SEALED_INPUT_ALG,
 } from "../src/commands/runner/sealed-input.js";
+
+let originalPathEnv: string | undefined;
+let fakeNixDir: string | undefined;
+
+beforeAll(async () => {
+  originalPathEnv = process.env.PATH;
+  fakeNixDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-fake-nix-"));
+  const nixBin = path.join(fakeNixDir, "nix");
+  await fs.writeFile(nixBin, "#!/usr/bin/env bash\nexit 0\n", "utf8");
+  await fs.chmod(nixBin, 0o755);
+  process.env.PATH = `${fakeNixDir}${path.delimiter}${process.env.PATH || ""}`;
+});
+
+afterAll(async () => {
+  if (originalPathEnv === undefined) delete process.env.PATH;
+  else process.env.PATH = originalPathEnv;
+  if (fakeNixDir) await fs.rm(fakeNixDir, { recursive: true, force: true });
+});
 
 function toBase64Url(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
