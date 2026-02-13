@@ -16,12 +16,29 @@ That token lets the runner:
 Even on a public repo this token is used by setup to keep a single credential model and avoid
 run-time surprises. For private repos, it is required.
 
+Which repository is it checking?
+
+`GITHUB_TOKEN` is checked against the repo in:
+
+- `fleet/clawlets.json` field `baseFlake` when it is set (for example `github:owner/repo`)
+- the current repo's `origin` remote when `baseFlake` is empty
+
+For projects created by `clawlets project init`, this usually points to the same repository
+where you keep `fleet/clawlets.json` and `secrets/`.
+
+Quick checks:
+
+```bash
+cat fleet/clawlets.json | sed -n '1,120p'  # check baseFlake
+git remote get-url origin                  # check origin fallback
+```
+
 Use this page as the canonical operator flow for creating the token and saving it in the dashboard.
 
 ## Prereqs
 
 - GitHub account with read access to your base flake repository.
-- Base flake source from <code>fleet/clawlets.json</code> (or CLI override) is what this token gates.
+- Base flake source is in <code>fleet/clawlets.json</code> field <code>baseFlake</code> (fallback is git origin).
 - Project setup route open in dashboard: <code>/$projectSlug/hosts/$host/setup?step=creds</code>.
 - Preferred: a fine-grained personal access token (PAT).
 
