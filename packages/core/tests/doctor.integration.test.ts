@@ -281,6 +281,70 @@ describe("doctor", () => {
     }
   });
 
+  it("warns when memory is configured without volume or restic", async () => {
+    const openclawPath = path.join(repoRoot, "fleet", "openclaw.json");
+    await writeFile(
+      openclawPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          hosts: {
+            "openclaw-fleet-host": {
+              enable: true,
+              agentModelPrimary: "zai/glm-4.7",
+              gatewaysOrder: ["alpha"],
+              gateways: {
+                alpha: {
+                  openclaw: { memory: { backend: "qmd" } },
+                },
+              },
+            },
+          },
+          fleet: {
+            secretEnv: {},
+            secretFiles: {},
+            gatewayArchitecture: "multi",
+            codex: { enable: false, gateways: [] },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+
+    try {
+      const { collectDoctorChecks } = await import("../src/doctor.js");
+      const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "updates" });
+      const persistence = checks.find((c) => c.label === "memory persistence");
+      expect(persistence?.status).toBe("warn");
+      expect(String(persistence?.detail || "")).toContain("no volume and restic disabled");
+      const qmdTooling = checks.find((c) => c.label === "qmd tooling");
+      expect(qmdTooling?.status).toBe("ok");
+    } finally {
+      await rm(openclawPath, { force: true });
+    }
+  });
+
+  it("warns when volume is enabled but volumeLinuxDevice is missing", async () => {
+    const configPath = path.join(repoRoot, "fleet", "clawlets.json");
+    const original = JSON.parse(await readFile(configPath, "utf8"));
+    const next = structuredClone(original);
+    next.hosts["openclaw-fleet-host"].hetzner.volumeSizeGb = 50;
+    delete next.hosts["openclaw-fleet-host"].hetzner.volumeLinuxDevice;
+    await writeFile(configPath, JSON.stringify(next, null, 2) + "\n", "utf8");
+
+    try {
+      const { collectDoctorChecks } = await import("../src/doctor.js");
+      const checks = await collectDoctorChecks({ cwd: repoRoot, host: "openclaw-fleet-host", scope: "bootstrap" });
+      const check = checks.find((c) => c.label === "hetzner.volumeLinuxDevice");
+      expect(check?.status).toBe("warn");
+      expect(String(check?.detail || "")).toContain("run bootstrap");
+    } finally {
+      await writeFile(configPath, JSON.stringify(original, null, 2) + "\n", "utf8");
+    }
+  });
+
   it("does not fail repo checks when gateways are empty and openclaw is disabled", async () => {
     process.env.HCLOUD_TOKEN = "abc";
     mockFleetMain = { gateways: [], gatewayProfiles: {} };

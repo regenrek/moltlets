@@ -18,6 +18,7 @@ export function buildHetznerProvisionSpec(params: {
   const image = String(params.hostCfg.hetzner?.image || "").trim();
   const location = String(params.hostCfg.hetzner?.location || "").trim();
   const allowTailscaleUdpIngress = params.hostCfg.hetzner?.allowTailscaleUdpIngress !== false;
+  const volumeSizeGb = Math.max(0, Math.trunc(Number(params.hostCfg.hetzner?.volumeSizeGb ?? 0)));
   if (!location) {
     throw new Error(`missing hetzner.location for ${params.hostName} (set via: clawlets host set --hetzner-location ...)`);
   }
@@ -25,6 +26,6 @@ export function buildHetznerProvisionSpec(params: {
   return {
     ...params.base,
     provider: "hetzner",
-    hetzner: { serverType, image, location, allowTailscaleUdpIngress },
+    hetzner: { serverType, image, location, allowTailscaleUdpIngress, volumeSizeGb },
   };
 }

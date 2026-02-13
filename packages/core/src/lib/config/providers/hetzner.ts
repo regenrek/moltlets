@@ -8,6 +8,7 @@ export type HetznerLocation = (typeof HETZNER_LOCATIONS)[number];
 
 export const HETZNER_DEFAULT_SERVER_TYPE: HetznerServerType = "cpx32";
 export const HETZNER_DEFAULT_LOCATION: HetznerLocation = "fsn1";
+export const HETZNER_DEFAULT_VOLUME_SIZE_GB = 0;
 
 export const HetznerHostSchema = z
   .object({
@@ -15,12 +16,15 @@ export const HetznerHostSchema = z
     image: z.string().trim().default(""),
     location: z.string().trim().min(1).default(HETZNER_DEFAULT_LOCATION),
     allowTailscaleUdpIngress: z.boolean().default(true),
+    volumeSizeGb: z.number().int().nonnegative().default(HETZNER_DEFAULT_VOLUME_SIZE_GB),
+    volumeLinuxDevice: z.string().trim().min(1).optional(),
   })
   .default(() => ({
     serverType: HETZNER_DEFAULT_SERVER_TYPE,
     image: "",
     location: HETZNER_DEFAULT_LOCATION,
     allowTailscaleUdpIngress: true,
+    volumeSizeGb: HETZNER_DEFAULT_VOLUME_SIZE_GB,
   }));
 
 export type HetznerHostConfig = z.infer<typeof HetznerHostSchema>;

@@ -7,7 +7,7 @@ export const baseHost = {
   diskDevice: "/dev/sda",
   flakeHost: "",
   targetHost: "admin@host",
-  hetzner: { serverType: "cx43", image: "", location: "nbg1", allowTailscaleUdpIngress: true },
+  hetzner: { serverType: "cx43", image: "", location: "nbg1", allowTailscaleUdpIngress: true, volumeSizeGb: 0 },
   aws: {
     region: "",
     instanceType: "",

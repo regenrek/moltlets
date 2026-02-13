@@ -120,8 +120,8 @@ export const bootstrap = defineCommand({
 	    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
 	    if (!hostName) return;
     const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    const hostCfgBase = clawletsConfig.hosts[hostName];
-    if (!hostCfgBase) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    let currentConfig = clawletsConfig;
+    if (!currentConfig.hosts[hostName]) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
     const hostProvisioningConfig = resolveHostProvisioningConfig({
       repoRoot,
       layout,
@@ -183,6 +183,35 @@ export const bootstrap = defineCommand({
     const provisioned = await driver.provision({ spec, runtime });
     const ipv4 = provisioned.ipv4;
 
+    if (!args.dryRun && spec.provider === "hetzner") {
+      const latestHostCfg = currentConfig.hosts[hostName];
+      if (!latestHostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+      const requestedVolumeSizeGb = Math.max(0, Math.trunc(Number(spec.hetzner.volumeSizeGb || 0)));
+      const existingHetzner = ((latestHostCfg as any).hetzner || {}) as Record<string, unknown>;
+      const currentLinuxDevice = String(existingHetzner.volumeLinuxDevice || "").trim();
+      const provisionedLinuxDevice = String(provisioned.providerMeta?.volumeLinuxDevice || "").trim();
+      const nextLinuxDevice = requestedVolumeSizeGb > 0 ? provisionedLinuxDevice : "";
+      if (nextLinuxDevice !== currentLinuxDevice) {
+        const nextHostCfg = structuredClone(latestHostCfg) as any;
+        nextHostCfg.hetzner = {
+          ...(nextHostCfg.hetzner || {}),
+        };
+        if (!nextLinuxDevice) {
+          delete nextHostCfg.hetzner.volumeLinuxDevice;
+        } else {
+          nextHostCfg.hetzner.volumeLinuxDevice = nextLinuxDevice;
+        }
+        const nextConfig = ClawletsConfigSchema.parse({
+          ...currentConfig,
+          hosts: { ...currentConfig.hosts, [hostName]: nextHostCfg },
+        });
+        await writeClawletsConfig({ configPath, config: nextConfig });
+        currentConfig = nextConfig;
+        const detail = nextLinuxDevice || "(cleared)";
+        console.log(`ok: updated fleet/clawlets.json (hosts.${hostName}.hetzner.volumeLinuxDevice=${detail})`);
+      }
+    }
+
     console.log(`Target IPv4: ${ipv4}`);
     await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
 
@@ -204,7 +233,7 @@ export const bootstrap = defineCommand({
       return;
     }
 
-	    const baseResolved = await resolveBaseFlake({ repoRoot, config: clawletsConfig });
+	    const baseResolved = await resolveBaseFlake({ repoRoot, config: currentConfig });
 	    const flakeBase = String(args.flake || baseResolved.flake || "").trim();
 	    if (!flakeBase) throw new Error("missing base flake (set baseFlake in fleet/clawlets.json, set git origin, or pass --flake)");
 
@@ -212,7 +241,9 @@ export const bootstrap = defineCommand({
     const ref = String(args.ref || "").trim();
     if (rev && ref) throw new Error("use either --rev or --ref (not both)");
 
-	    const requestedHost = String(hostCfgBase.flakeHost || hostName).trim() || hostName;
+	    const currentHostCfg = currentConfig.hosts[hostName];
+	    if (!currentHostCfg) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+	    const requestedHost = String(currentHostCfg.flakeHost || hostName).trim() || hostName;
     const hostFromFlake = resolveHostFromFlake(flakeBase);
     if (hostFromFlake && hostFromFlake !== requestedHost) throw new Error(`flake host mismatch: ${hostFromFlake} vs ${requestedHost}`);
 
@@ -256,7 +287,7 @@ export const bootstrap = defineCommand({
 	      throw new Error(`missing extra-files key: ${requiredKey} (run: clawlets secrets init)`);
 	    }
 
-    const secretsPlan = buildFleetSecretsPlan({ config: clawletsConfig, hostName });
+    const secretsPlan = buildFleetSecretsPlan({ config: currentConfig, hostName });
 
     const requiredSecrets = secretsPlan.scopes.bootstrapRequired
       .map((spec) => coerceTrimmedString(spec?.name))
@@ -274,8 +305,10 @@ export const bootstrap = defineCommand({
       }
     }
 
-    const extraSubstituters = hostCfgBase.cache.substituters.join(" ");
-    const extraTrustedPublicKeys = hostCfgBase.cache.trustedPublicKeys.join(" ");
+    const hostCfgForInstall = currentConfig.hosts[hostName];
+    if (!hostCfgForInstall) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+    const extraSubstituters = hostCfgForInstall.cache.substituters.join(" ");
+    const extraTrustedPublicKeys = hostCfgForInstall.cache.trustedPublicKeys.join(" ");
 
     const nixosAnywhereArgs = [
       "run",
@@ -358,15 +391,18 @@ export const bootstrap = defineCommand({
         });
         console.log(`Tailnet IPv4: ${tailscaleIpv4}`);
 
-        const nextHostCfg = structuredClone(hostCfgBase) as any;
+        const hostCfgForLockdown = currentConfig.hosts[hostName];
+        if (!hostCfgForLockdown) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
+        const nextHostCfg = structuredClone(hostCfgForLockdown) as any;
         nextHostCfg.targetHost = `admin@${tailscaleIpv4}`;
         nextHostCfg.sshExposure = { ...nextHostCfg.sshExposure, mode: "tailnet" };
         nextHostCfg.tailnet = { ...nextHostCfg.tailnet, mode: "tailscale" };
         const nextConfig = ClawletsConfigSchema.parse({
-          ...clawletsConfig,
-          hosts: { ...clawletsConfig.hosts, [hostName]: nextHostCfg },
+          ...currentConfig,
+          hosts: { ...currentConfig.hosts, [hostName]: nextHostCfg },
         });
         await writeClawletsConfig({ configPath, config: nextConfig });
+        currentConfig = nextConfig;
         console.log(`ok: updated fleet/clawlets.json (targetHost + sshExposure=tailnet)`);
 
         const nextHostProvisioningConfig = resolveHostProvisioningConfig({

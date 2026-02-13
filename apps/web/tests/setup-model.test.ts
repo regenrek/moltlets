@@ -112,7 +112,7 @@ describe("deriveSetupModel", () => {
     })
 
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
-    expect(model.activeStepId).toBe("predeploy")
+    expect(model.activeStepId).toBe("deploy")
   })
 
   it("keeps infrastructure active when HCLOUD draft secret is missing", () => {

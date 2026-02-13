@@ -119,6 +119,14 @@ function normalizeSectionPatch(params: {
         typeof infrastructure.allowTailscaleUdpIngress === "boolean"
           ? infrastructure.allowTailscaleUdpIngress
           : undefined,
+      volumeEnabled:
+        typeof infrastructure.volumeEnabled === "boolean"
+          ? infrastructure.volumeEnabled
+          : undefined,
+      volumeSizeGb:
+        typeof infrastructure.volumeSizeGb === "number" && Number.isFinite(infrastructure.volumeSizeGb)
+          ? Math.max(0, Math.min(10_240, Math.trunc(infrastructure.volumeSizeGb)))
+          : undefined,
     };
   }
   if (params.patch.connection) {
@@ -380,7 +388,7 @@ export const saveNonSecret = mutation({
       ensureNoExtraKeys(
         patch.infrastructure as unknown as Record<string, unknown>,
         "patch.infrastructure",
-        ["serverType", "image", "location", "allowTailscaleUdpIngress"],
+        ["serverType", "image", "location", "allowTailscaleUdpIngress", "volumeEnabled", "volumeSizeGb"],
       );
     }
     if (patch.connection) {

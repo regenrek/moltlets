@@ -19,6 +19,14 @@ let
 
   gatewaysById = hostCfg.gateways or { };
 
+  gatewayUsesQmd = gatewayCfg:
+    let
+      openclaw = gatewayCfg.openclaw or { };
+      memory = openclaw.memory or { };
+      backend = memory.backend or "builtin";
+    in
+      backend == "qmd";
+
   # Single source of truth for gateway instances (deterministic order).
   gateways =
     let
@@ -82,8 +90,11 @@ let
               plugins = plugins;
             };
       };
+
+  toolsEnable = lib.any (b: gatewayUsesQmd (gatewaysById.${b} or { })) gateways;
 in {
   inherit gateways;
+  inherit toolsEnable;
 
   # Workspace seed root (common + per-gateway overlay). See fleet/workspaces/.
   documentsDir = project.root + "/fleet/workspaces";

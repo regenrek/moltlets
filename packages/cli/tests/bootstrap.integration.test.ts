@@ -117,7 +117,7 @@ const baseHost = {
   gateways: {},
   diskDevice: "/dev/sda",
   flakeHost: "",
-  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12" },
+  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12", allowTailscaleUdpIngress: true, volumeSizeGb: 0 },
   provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "" },
   sshExposure: { mode: "bootstrap" },
   tailnet: { mode: "tailscale" },
@@ -265,6 +265,74 @@ describe("bootstrap command", () => {
     const second = lockdownMock.mock.calls[0]?.[0];
     expect(first?.spec?.sshExposureMode).toBe("bootstrap");
     expect(second?.spec?.sshExposureMode).toBe("tailnet");
+  });
+
+  it("persists volumeLinuxDevice before nixos-anywhere when volume is enabled", async () => {
+    setConfig({
+      hetzner: {
+        ...baseHost.hetzner,
+        volumeSizeGb: 50,
+      } as any,
+    });
+    provisionMock.mockResolvedValueOnce({
+      hostName,
+      provider: "hetzner",
+      instanceId: "srv-123",
+      ipv4: "46.0.0.1",
+      sshUser: "root",
+      providerMeta: {
+        volumeLinuxDevice: "/dev/disk/by-id/scsi-0HC_Volume_openclaw",
+      },
+    });
+
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
+    await bootstrap.run({
+      args: {
+        host: hostName,
+        flake: "github:owner/repo",
+        rev: "",
+        ref: "",
+        force: true,
+        dryRun: false,
+      } as any,
+    });
+
+    const written = writeClawletsConfigMock.mock.calls[0]?.[0];
+    expect(written?.config?.hosts?.[hostName]?.hetzner?.volumeLinuxDevice).toBe("/dev/disk/by-id/scsi-0HC_Volume_openclaw");
+
+    const nixosAnywhereCallIndex = runMock.mock.calls.findIndex((call) =>
+      Array.isArray(call[1]) && call[1].includes("github:nix-community/nixos-anywhere"),
+    );
+    expect(nixosAnywhereCallIndex).toBeGreaterThanOrEqual(0);
+    const writeOrder = writeClawletsConfigMock.mock.invocationCallOrder[0] || 0;
+    const nixOrder = runMock.mock.invocationCallOrder[nixosAnywhereCallIndex] || 0;
+    expect(writeOrder).toBeGreaterThan(0);
+    expect(writeOrder).toBeLessThan(nixOrder);
+  });
+
+  it("clears stale volumeLinuxDevice when volume is disabled", async () => {
+    setConfig({
+      hetzner: {
+        ...baseHost.hetzner,
+        volumeSizeGb: 0,
+        volumeLinuxDevice: "/dev/disk/by-id/scsi-0HC_Volume_old",
+      } as any,
+    });
+
+    const { bootstrap } = await import("../src/commands/infra/bootstrap.ts");
+    await bootstrap.run({
+      args: {
+        host: hostName,
+        flake: "github:owner/repo",
+        rev: "",
+        ref: "",
+        force: true,
+        dryRun: false,
+      } as any,
+    });
+
+    const written = writeClawletsConfigMock.mock.calls[0]?.[0];
+    expect(written?.config?.hosts?.[hostName]?.hetzner?.volumeLinuxDevice).toBeUndefined();
   });
 
   it("rejects --lockdown-after when tailnet.mode is not tailscale", async () => {

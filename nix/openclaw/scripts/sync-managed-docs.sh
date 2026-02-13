@@ -75,6 +75,13 @@ for name in "${managed[@]}"; do
   fi
 done
 
+# Important: this script only manages the allowlisted docs/skills overlay.
+# It intentionally does not touch runtime memory/session artifacts, including:
+# - ${ws}/MEMORY.md
+# - ${ws}/memory/**
+# - session logs under /srv/openclaw/<gateway>/...
+# - builtin/QMD SQLite files under /srv/openclaw/<gateway>/...
+
 # Custom/local skills: keep canonical skill trees in the repo and sync them into each workspace.
 # Expected shape:
 # - <seed_root>/common/skills/<skill>/SKILL.md

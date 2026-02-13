@@ -1,0 +1,73 @@
+---
+title: Memory
+description: Builtin vs QMD memory backends, config paths, and storage locations.
+---
+
+Clawlets supports two OpenClaw memory backends per gateway:
+
+| Backend | Config surface | Typical use |
+| --- | --- | --- |
+| `builtin` | `hosts.<host>.gateways.<gatewayId>.agents.defaults.memorySearch.*` plus `hosts.<host>.gateways.<gatewayId>.openclaw.memory.backend="builtin"` | Default OpenClaw embedding search |
+| `qmd` | `hosts.<host>.gateways.<gatewayId>.openclaw.memory.*` | QMD sidecar recall backend |
+
+## Data locations
+
+- Builtin memory index: `/srv/openclaw/<gateway>/memory/<agentId>.sqlite`
+- QMD index DB: `/srv/openclaw/<gateway>/agents/<agentId>/qmd/xdg-cache/qmd/index.sqlite`
+- QMD model/cache data: `/srv/openclaw/<gateway>/agents/<agentId>/qmd/xdg-cache/qmd/`
+
+Use a persistent Hetzner volume (`hosts.<host>.hetzner.volumeSizeGb > 0`) to keep these across host replacement.
+
+## Builtin example
+
+```json
+{
+  "hosts": {
+    "my-host": {
+      "gateways": {
+        "main": {
+          "openclaw": {
+            "memory": { "backend": "builtin" }
+          },
+          "agents": {
+            "defaults": {
+              "memorySearch": {
+                "enabled": true,
+                "experimental": { "sessionMemory": true },
+                "query": { "maxResults": 8, "minScore": 0.2 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## QMD example
+
+```json
+{
+  "hosts": {
+    "my-host": {
+      "gateways": {
+        "main": {
+          "openclaw": {
+            "memory": {
+              "backend": "qmd",
+              "qmd": {
+                "command": "qmd",
+                "sessions": { "enabled": true },
+                "limits": { "maxResults": 8 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+When any gateway uses `memory.backend="qmd"`, Clawlets auto-enables the OpenClaw tools bundle in Nix so `qmd` is on `PATH`.

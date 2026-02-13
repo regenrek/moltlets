@@ -24,6 +24,6 @@ describe("host setup layout", () => {
   it("passes step status into all setup step components", () => {
     const source = readFile("routes/$projectSlug/hosts/$host/setup.tsx")
     const matches = source.match(/stepStatus=\{step\.status\}/g) ?? []
-    expect(matches.length).toBe(5)
+    expect(matches.length).toBe(6)
   })
 })

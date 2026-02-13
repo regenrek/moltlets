@@ -17,13 +17,13 @@ import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
+import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
+import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
 import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
 import type { DeployCredsStatus } from "~/sdk/infra"
-import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
-import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
@@ -38,15 +38,36 @@ function asBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback
 }
 
+function asNonNegativeInt(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback
+  return Math.max(0, Math.trunc(value))
+}
+
+function parsePositiveInt(value: string): number | null {
+  const trimmed = value.trim()
+  if (!/^[0-9]+$/.test(trimmed)) return null
+  const parsed = Number(trimmed)
+  if (!Number.isInteger(parsed) || parsed <= 0) return null
+  return parsed
+}
+
 function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraft: SetupDraftView | null) {
   const hostCfg = asRecord(config?.hosts?.[host]) ?? {}
   const hetznerCfg = asRecord(hostCfg.hetzner) ?? {}
   const draft = setupDraft?.nonSecretDraft?.infrastructure ?? null
+  const configuredVolumeSizeGb = asNonNegativeInt(hetznerCfg.volumeSizeGb, 0)
+  const draftVolumeEnabled = typeof draft?.volumeEnabled === "boolean" ? draft.volumeEnabled : undefined
+  const draftVolumeSizeGb = asNonNegativeInt(draft?.volumeSizeGb, configuredVolumeSizeGb)
+  const volumeEnabled = draftVolumeEnabled ?? configuredVolumeSizeGb > 0
+  const volumeSizeGb = Math.max(1, draftVolumeSizeGb > 0 ? draftVolumeSizeGb : 50)
+
   return {
     serverType: asString(draft?.serverType, asString(hetznerCfg.serverType, HETZNER_SETUP_DEFAULT_SERVER_TYPE)),
     image: asString(draft?.image, asString(hetznerCfg.image, "")),
     location: asString(draft?.location, asString(hetznerCfg.location, HETZNER_SETUP_DEFAULT_LOCATION)),
     allowTailscaleUdpIngress: asBoolean(draft?.allowTailscaleUdpIngress, asBoolean(hetznerCfg.allowTailscaleUdpIngress, true)),
+    volumeEnabled,
+    volumeSizeGb,
   }
 }
 
@@ -71,12 +92,17 @@ export function SetupStepInfrastructure(props: {
   const [image, setImage] = useState(() => defaults.image)
   const [location, setLocation] = useState(() => defaults.location)
   const [allowTailscaleUdpIngress, setAllowTailscaleUdpIngress] = useState(() => defaults.allowTailscaleUdpIngress)
+  const [volumeEnabled, setVolumeEnabled] = useState(() => defaults.volumeEnabled)
+  const [volumeSizeGbText, setVolumeSizeGbText] = useState(() => String(defaults.volumeSizeGb))
+  const parsedVolumeSizeGb = parsePositiveInt(volumeSizeGbText)
+  const volumeSettingsReady = !volumeEnabled || parsedVolumeSizeGb !== null
   const hcloudTokenState = readHcloudTokenState(props.setupDraft, props.deployCreds)
   const hcloudTokenReady = hcloudTokenState === "set"
   const missingRequirements = [
     ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
     ...(serverType.trim().length > 0 ? [] : ["hetzner.serverType"]),
     ...(location.trim().length > 0 ? [] : ["hetzner.location"]),
+    ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
   ]
   const serverTypeTrimmed = serverType.trim()
   const locationTrimmed = location.trim()
@@ -91,8 +117,10 @@ export function SetupStepInfrastructure(props: {
       image: image.trim(),
       location: location.trim(),
       allowTailscaleUdpIngress: Boolean(allowTailscaleUdpIngress),
+      volumeEnabled,
+      volumeSizeGb: volumeEnabled ? parsedVolumeSizeGb ?? undefined : 0,
     })
-  }, [allowTailscaleUdpIngress, image, location, props.onDraftChange, serverType])
+  }, [allowTailscaleUdpIngress, image, location, parsedVolumeSizeGb, props.onDraftChange, serverType, volumeEnabled])
 
   return (
     <div className="space-y-4">
@@ -213,6 +241,44 @@ export function SetupStepInfrastructure(props: {
               ) : null}
             </RadioGroup>
           </StackedField>
+
+          <div className="space-y-2 rounded-md border bg-muted/10 p-3">
+            <LabelWithHelp htmlFor="setup-hetzner-volume-enabled" help={setupFieldHelp.hosts.hetznerVolumeEnabled}>
+              Persistent state volume
+            </LabelWithHelp>
+            <div className="mt-1 flex items-center gap-3">
+              <Switch
+                id="setup-hetzner-volume-enabled"
+                checked={volumeEnabled}
+                onCheckedChange={setVolumeEnabled}
+              />
+              <span className="text-sm text-muted-foreground">
+                Mount a dedicated Hetzner volume at <code>/srv/openclaw</code>.
+              </span>
+            </div>
+            {volumeEnabled ? (
+              <StackedField
+                id="setup-hetzner-volume-size-gb"
+                label="Volume size (GB)"
+                help={setupFieldHelp.hosts.hetznerVolumeSizeGb}
+              >
+                <Input
+                  id="setup-hetzner-volume-size-gb"
+                  inputMode="numeric"
+                  value={volumeSizeGbText}
+                  placeholder="50"
+                  onChange={(event) => setVolumeSizeGbText(event.target.value)}
+                />
+                <div className="text-xs text-muted-foreground">
+                  Recommended minimum: 50 GB.
+                </div>
+              </StackedField>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                Disabled: memory/session data remains on the root disk unless backups are configured.
+              </div>
+            )}
+          </div>
 
           <Accordion className="rounded-lg border bg-muted/20">
             <AccordionItem value="advanced" className="px-4">

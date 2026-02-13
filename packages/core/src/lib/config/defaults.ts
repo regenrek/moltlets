@@ -1,7 +1,11 @@
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "../nix/nix-cache.js";
 import { CLAWLETS_CONFIG_SCHEMA_VERSION } from "./clawlets-config-version.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "./schema.js";
-import { HETZNER_DEFAULT_LOCATION, HETZNER_DEFAULT_SERVER_TYPE } from "./providers/hetzner.js";
+import {
+  HETZNER_DEFAULT_LOCATION,
+  HETZNER_DEFAULT_SERVER_TYPE,
+  HETZNER_DEFAULT_VOLUME_SIZE_GB,
+} from "./providers/hetzner.js";
 
 export function createDefaultClawletsConfig(params: { host: string; gateways?: string[] }): ClawletsConfig {
   const host = params.host.trim() || "openclaw-fleet-host";
@@ -32,6 +36,7 @@ export function createDefaultClawletsConfig(params: { host: string; gateways?: s
           image: "",
           location: HETZNER_DEFAULT_LOCATION,
           allowTailscaleUdpIngress: true,
+          volumeSizeGb: HETZNER_DEFAULT_VOLUME_SIZE_GB,
         },
         aws: {
           region: "",

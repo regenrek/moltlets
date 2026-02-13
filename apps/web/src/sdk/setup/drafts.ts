@@ -24,6 +24,8 @@ export type SetupDraftInfrastructure = {
   image?: string
   location?: string
   allowTailscaleUdpIngress?: boolean
+  volumeEnabled?: boolean
+  volumeSizeGb?: number
 }
 
 export type SetupDraftConnection = {
@@ -105,6 +107,8 @@ function parseSetupDraftSaveNonSecretInput(data: unknown): {
       "image",
       "location",
       "allowTailscaleUdpIngress",
+      "volumeEnabled",
+      "volumeSizeGb",
     ])
     patch.infrastructure = {
       serverType: typeof infrastructureRaw.serverType === "string" ? infrastructureRaw.serverType : undefined,
@@ -113,6 +117,14 @@ function parseSetupDraftSaveNonSecretInput(data: unknown): {
       allowTailscaleUdpIngress:
         typeof infrastructureRaw.allowTailscaleUdpIngress === "boolean"
           ? infrastructureRaw.allowTailscaleUdpIngress
+          : undefined,
+      volumeEnabled:
+        typeof infrastructureRaw.volumeEnabled === "boolean"
+          ? infrastructureRaw.volumeEnabled
+          : undefined,
+      volumeSizeGb:
+        typeof infrastructureRaw.volumeSizeGb === "number" && Number.isFinite(infrastructureRaw.volumeSizeGb)
+          ? Math.max(0, Math.trunc(infrastructureRaw.volumeSizeGb))
           : undefined,
     }
   }
@@ -332,6 +344,22 @@ function buildSetupApplyInput(params: {
 
   const sshExposureMode = String(connection.sshExposureMode || "bootstrap").trim() || "bootstrap"
   const image = typeof infrastructure.image === "string" ? infrastructure.image.trim() : ""
+  const volumeEnabled =
+    typeof infrastructure.volumeEnabled === "boolean"
+      ? infrastructure.volumeEnabled
+      : undefined
+  const requestedVolumeSizeGb =
+    typeof infrastructure.volumeSizeGb === "number" && Number.isFinite(infrastructure.volumeSizeGb)
+      ? Math.max(0, Math.trunc(infrastructure.volumeSizeGb))
+      : undefined
+  const resolvedVolumeSizeGb =
+    volumeEnabled === false
+      ? 0
+      : volumeEnabled === true
+        ? requestedVolumeSizeGb && requestedVolumeSizeGb > 0
+          ? requestedVolumeSizeGb
+          : 50
+        : requestedVolumeSizeGb
   const sshAuthorizedKeys = Array.isArray(connection.sshAuthorizedKeys)
     ? Array.from(new Set(connection.sshAuthorizedKeys.map((row) => String(row || "").trim()).filter(Boolean)))
     : []
@@ -346,6 +374,19 @@ function buildSetupApplyInput(params: {
       valueJson: JSON.stringify(Boolean(infrastructure.allowTailscaleUdpIngress)),
       del: false,
     },
+    ...(resolvedVolumeSizeGb === undefined
+      ? []
+      : [{
+          path: `hosts.${host}.hetzner.volumeSizeGb`,
+          valueJson: JSON.stringify(resolvedVolumeSizeGb),
+          del: false,
+        }]),
+    ...(resolvedVolumeSizeGb === 0
+      ? [{
+          path: `hosts.${host}.hetzner.volumeLinuxDevice`,
+          del: true,
+        }]
+      : []),
     { path: `hosts.${host}.provisioning.adminCidr`, value: adminCidr, del: false },
     { path: `hosts.${host}.sshExposure.mode`, value: sshExposureMode, del: false },
     ...(sshAuthorizedKeys.length > 0
@@ -368,6 +409,8 @@ function listNonSecretPatchKeys(patch: SetupDraftNonSecretPatch): string[] {
     if (patch.infrastructure.image !== undefined) keys.push("infrastructure.image")
     if (patch.infrastructure.location !== undefined) keys.push("infrastructure.location")
     if (patch.infrastructure.allowTailscaleUdpIngress !== undefined) keys.push("infrastructure.allowTailscaleUdpIngress")
+    if (patch.infrastructure.volumeEnabled !== undefined) keys.push("infrastructure.volumeEnabled")
+    if (patch.infrastructure.volumeSizeGb !== undefined) keys.push("infrastructure.volumeSizeGb")
   }
   if (patch.connection) {
     if (patch.connection.adminCidr !== undefined) keys.push("connection.adminCidr")

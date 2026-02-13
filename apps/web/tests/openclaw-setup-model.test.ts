@@ -47,13 +47,29 @@ describe("deriveOpenClawSetupModel", () => {
     })
     expect(noGateway.activeStepId).toBe("gateway")
 
-    const needsSecrets = deriveOpenClawSetupModel({
+    const needsMemory = deriveOpenClawSetupModel({
       config: {
         hosts: {
           h1: {
             openclaw: { enable: true },
             gatewaysOrder: ["g1"],
             gateways: { g1: {} },
+          },
+        },
+      },
+      hostFromRoute: "h1",
+      latestOpenClawSecretsVerifyRun: null,
+      latestUpdateApplyRun: null,
+    })
+    expect(needsMemory.activeStepId).toBe("memory")
+
+    const needsSecrets = deriveOpenClawSetupModel({
+      config: {
+        hosts: {
+          h1: {
+            openclaw: { enable: true },
+            gatewaysOrder: ["g1"],
+            gateways: { g1: { openclaw: { memory: { backend: "builtin" } } } },
           },
         },
       },
@@ -69,7 +85,7 @@ describe("deriveOpenClawSetupModel", () => {
           h1: {
             openclaw: { enable: true },
             gatewaysOrder: ["g1"],
-            gateways: { g1: {} },
+            gateways: { g1: { openclaw: { memory: { backend: "builtin" } } } },
           },
         },
       },
@@ -85,7 +101,7 @@ describe("deriveOpenClawSetupModel", () => {
           h1: {
             openclaw: { enable: true },
             gatewaysOrder: ["g1"],
-            gateways: { g1: {} },
+            gateways: { g1: { openclaw: { memory: { backend: "builtin" } } } },
           },
         },
       },

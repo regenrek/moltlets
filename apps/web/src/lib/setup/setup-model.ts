@@ -43,6 +43,8 @@ type MinimalSetupDraft = {
       image?: string
       location?: string
       allowTailscaleUdpIngress?: boolean
+      volumeEnabled?: boolean
+      volumeSizeGb?: number
     }
     connection?: {
       adminCidr?: string

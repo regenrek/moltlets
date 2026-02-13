@@ -64,6 +64,18 @@ variable "tailscale_udp_ingress_enabled" {
   description = "Allow direct Tailscale WireGuard UDP ingress (port 41641) from the internet. Disable for relay-only mode."
 }
 
+variable "volume_size_gb" {
+  type    = number
+  default = 0
+  validation {
+    condition = (
+      floor(var.volume_size_gb) == var.volume_size_gb &&
+      (var.volume_size_gb == 0 || (var.volume_size_gb >= 10 && var.volume_size_gb <= 10240))
+    )
+    error_message = "volume_size_gb must be 0 (disabled) or an integer between 10 and 10240."
+  }
+}
+
 locals {
   ssh_ingress_enabled = var.ssh_exposure_mode != "tailnet"
   tailscale_udp_enabled = var.tailnet_mode == "tailscale" && var.tailscale_udp_ingress_enabled
@@ -121,10 +133,33 @@ resource "hcloud_server" "vm" {
   )
 }
 
+resource "hcloud_volume" "state" {
+  count    = var.volume_size_gb > 0 ? 1 : 0
+  name     = "${var.name}-state"
+  size     = var.volume_size_gb
+  location = var.location
+  format   = "ext4"
+}
+
+resource "hcloud_volume_attachment" "state" {
+  count     = var.volume_size_gb > 0 ? 1 : 0
+  volume_id = hcloud_volume.state[0].id
+  server_id = hcloud_server.vm.id
+  automount = false
+}
+
 output "ipv4" {
   value = hcloud_server.vm.ipv4_address
 }
 
 output "instance_id" {
   value = hcloud_server.vm.id
+}
+
+output "volume_id" {
+  value = var.volume_size_gb > 0 ? hcloud_volume.state[0].id : ""
+}
+
+output "volume_linux_device" {
+  value = var.volume_size_gb > 0 ? hcloud_volume.state[0].linux_device : ""
 }

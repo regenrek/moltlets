@@ -82,7 +82,7 @@ const baseHost = {
   diskDevice: "/dev/sda",
   flakeHost: "",
   targetHost: "admin@100.64.0.10",
-  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12" },
+  hetzner: { serverType: "cx43", location: "nbg1", image: "debian-12", allowTailscaleUdpIngress: true, volumeSizeGb: 0 },
   provisioning: { adminCidr: "203.0.113.10/32", sshPubkeyFile: "~/.ssh/id_ed25519.pub" },
   sshExposure: { mode: "tailnet" },
   tailnet: { mode: "tailscale" },

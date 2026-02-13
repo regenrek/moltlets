@@ -10,6 +10,7 @@ import { SetupCelebration } from "~/components/setup/setup-celebration"
 import { OpenClawSetupStepDeploy } from "~/components/setup/openclaw/step-deploy"
 import { OpenClawSetupStepEnable } from "~/components/setup/openclaw/step-enable"
 import { OpenClawSetupStepGateway } from "~/components/setup/openclaw/step-gateway"
+import { OpenClawSetupStepMemory } from "~/components/setup/openclaw/step-memory"
 import { OpenClawSetupStepSecrets } from "~/components/setup/openclaw/step-secrets"
 import { SetupHeader } from "~/components/setup/setup-header"
 import { SetupSection } from "~/components/setup/setup-section"
@@ -151,6 +152,19 @@ function OpenClawSetupPage() {
                   projectSlug={projectSlug}
                   projectId={projectId as Id<"projects">}
                   host={selectedHost}
+                  isComplete={step.status === "done"}
+                  onContinue={setup.advance}
+                />
+              </SetupSection>
+            )
+          }
+          if (step.id === "memory") {
+            return (
+              <SetupSection key={step.id} value={step.id} index={index} title={step.title} status={step.status}>
+                <OpenClawSetupStepMemory
+                  projectId={projectId as Id<"projects">}
+                  host={selectedHost}
+                  config={setup.config}
                   isComplete={step.status === "done"}
                   onContinue={setup.advance}
                 />
