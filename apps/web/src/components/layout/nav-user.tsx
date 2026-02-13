@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "~/components/ui/sidebar"
-import { canQueryWithAuth, isAuthDisabled } from "~/lib/auth-mode"
+import { canQueryWithAuth } from "~/lib/auth-mode"
 
 function getInitials(value: string) {
   const normalized = value.trim()
@@ -39,7 +39,6 @@ export function NavUser() {
   const { isMobile } = useSidebar()
   const { data: session, isPending } = authClient.useSession()
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const authDisabled = isAuthDisabled()
   const canQuery = canQueryWithAuth({
     sessionUserId: session?.user?.id,
     isAuthenticated,
@@ -123,25 +122,21 @@ export function NavUser() {
                 User settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            {authDisabled ? null : (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      void (async () => {
-                        await authClient.signOut()
-                        await router.invalidate()
-                        await router.navigate({ to: "/sign-in" })
-                      })()
-                    }}
-                  >
-                    <LogOut />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </>
-            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  void (async () => {
+                    await authClient.signOut()
+                    await router.invalidate()
+                    await router.navigate({ to: "/sign-in" })
+                  })()
+                }}
+              >
+                <LogOut />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

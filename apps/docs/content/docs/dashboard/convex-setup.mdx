@@ -81,13 +81,3 @@ npx convex env set SITE_URL http://localhost:3000
 npx convex env set CONVEX_SITE_URL https://some-random-name-123.convex.site
 npx convex env set BETTER_AUTH_SECRET "<same-secret-as-.env.local>"
 ```
-
-If you need to bypass auth locally while wiring the UI, you can disable it for the
-dev deployment:
-
-```bash
-npx convex env set CLAWLETS_AUTH_DISABLED true
-```
-
-Then also set `VITE_CLAWLETS_AUTH_DISABLED=true` in `.env.local` so the web app matches
-the Convex setting.

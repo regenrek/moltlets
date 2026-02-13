@@ -2,13 +2,10 @@ import { fail } from "./errors";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { authComponent } from "../auth";
-import { isAuthDisabled } from "./env";
 
 export type Authed = {
   user: Doc<"users">;
 };
-
-const AUTH_DISABLED_USER_ID = "clawlets-auth-disabled-dev-user";
 
 function asPlainObject(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -26,51 +23,10 @@ async function getUserByAuthUserId(ctx: QueryCtx, authUserId: string): Promise<D
     .unique();
 }
 
-async function resolveAuthDisabledQueryUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
-  const devUser = await getUserByAuthUserId(ctx, AUTH_DISABLED_USER_ID);
-  if (devUser) return devUser;
-
-  const adminUser = (await ctx.db
-    .query("users")
-    .withIndex("by_role", (q) => q.eq("role", "admin"))
-    .take(1))[0];
-  if (adminUser) return adminUser;
-
-  return (await ctx.db.query("users").take(1))[0] ?? null;
-}
-
-async function ensureAuthDisabledUser(ctx: MutationCtx): Promise<Authed> {
-  const existing = await ctx.db
-    .query("users")
-    .withIndex("by_authUserId", (q) => q.eq("authUserId", AUTH_DISABLED_USER_ID))
-    .unique();
-  if (existing?.role === "admin") return { user: existing };
-
-  const now = Date.now();
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      role: "admin",
-      updatedAt: now,
-    });
-    const patched = await ctx.db.get(existing._id);
-    if (!patched) fail("not_found", "auth-disabled user disappeared");
-    return { user: patched };
-  }
-
-  const userId = await ctx.db.insert("users", {
-    authUserId: AUTH_DISABLED_USER_ID,
-    name: "Dev User (Auth Disabled)",
-    email: "dev-auth-disabled@local",
-    role: "admin",
-    createdAt: now,
-    updatedAt: now,
-  });
-  const user = await ctx.db.get(userId);
-  if (!user) fail("not_found", "failed to create auth-disabled user");
-  return { user };
-}
-
-async function ensureUserByAuthUser(ctx: MutationCtx, authUser: { _id: string; name?: string | null; email?: string | null; image?: string | null }): Promise<Authed> {
+async function ensureUserByAuthUser(
+  ctx: MutationCtx,
+  authUser: { _id: string; name?: string | null; email?: string | null; image?: string | null },
+): Promise<Authed> {
   const now = Date.now();
   const authUserId = String(authUser._id);
   const adminUsers = await ctx.db
@@ -123,11 +79,6 @@ async function ensureUserByAuthUser(ctx: MutationCtx, authUser: { _id: string; n
 }
 
 export async function requireAuthQuery(ctx: QueryCtx): Promise<Authed> {
-  if (isAuthDisabled()) {
-    const user = await resolveAuthDisabledQueryUser(ctx);
-    if (!user) fail("unauthorized", "auth disabled but no user exists (run users.ensureCurrent once)");
-    return { user };
-  }
   const authUser = await authComponent.safeGetAuthUser(ctx);
   if (!authUser) fail("unauthorized", "sign-in required");
   const obj = asPlainObject(authUser);
@@ -139,7 +90,6 @@ export async function requireAuthQuery(ctx: QueryCtx): Promise<Authed> {
 }
 
 export async function requireAuthMutation(ctx: MutationCtx): Promise<Authed> {
-  if (isAuthDisabled()) return await ensureAuthDisabledUser(ctx);
   const authUser = await authComponent.safeGetAuthUser(ctx);
   if (!authUser) fail("unauthorized", "sign-in required");
   const obj = asPlainObject(authUser);
@@ -162,7 +112,6 @@ async function requireProjectAccessCommon(params: {
   const { ctx, authed, projectId } = params;
   const project = await ctx.db.get(projectId);
   if (!project) fail("not_found", "project not found");
-  if (isAuthDisabled()) return { authed, project, role: "admin" };
   if (project.ownerUserId === authed.user._id) return { authed, project, role: "admin" };
 
   const membership = await ctx.db

@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
 import { authComponent } from "../auth";
 import { requireAuthMutation } from "../shared/auth";
-import { isAuthDisabled } from "../shared/env";
 import { UserDoc } from "../shared/validators";
 
 const AuthUserPreview = v.object({
@@ -31,24 +30,6 @@ export const getCurrent = query({
   args: {},
   returns: v.union(v.null(), ViewerDoc),
   handler: async (ctx) => {
-    if (isAuthDisabled()) {
-      const adminUser = (await ctx.db
-        .query("users")
-        .withIndex("by_role", (q) => q.eq("role", "admin"))
-        .take(1))[0];
-      const user = adminUser ?? (await ctx.db.query("users").take(1))[0] ?? null;
-      if (!user) return null;
-      return {
-        user,
-        auth: {
-          id: user.authUserId,
-          ...(user.name ? { name: user.name } : {}),
-          ...(user.email ? { email: user.email } : {}),
-          ...(user.pictureUrl ? { image: user.pictureUrl } : {}),
-        },
-      };
-    }
-
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) return null;
 

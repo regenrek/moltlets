@@ -24,15 +24,6 @@ This usually means your local `apps/web/.env.local` is incomplete.
 
 Restart `pnpm dev` after changes.
 
-## Auth disabled but still seeing sign-in
-
-If you disabled auth, the setting must match in both Convex and the web app:
-
-- Convex env: `npx convex env set CLAWLETS_AUTH_DISABLED true`
-- Local env: `VITE_CLAWLETS_AUTH_DISABLED=true`
-
-Then restart dev server + Convex dev.
-
 ## “site URL mismatch”
 
 `SITE_URL` in Convex must match the browser origin exactly (scheme + host + port).
