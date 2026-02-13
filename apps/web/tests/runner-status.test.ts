@@ -77,4 +77,60 @@ describe("runner status helpers", () => {
     expect(ready.nixVersion).toBe("nix (Nix) 2.24.9")
     expect(ready.nixBin).toBe("/nix/bin/nix")
   })
+
+  it("selects the freshest ready runner across multiple online runners", () => {
+    const now = 1_700_000_000_000
+    const ready = deriveProjectRunnerNixReadiness(
+      [
+        {
+          runnerName: "older-ready",
+          lastStatus: "online",
+          lastSeenAt: now - 2_000,
+          capabilities: { hasNix: true, nixVersion: "nix (Nix) 2.24.0" },
+        },
+        {
+          runnerName: "freshest-ready",
+          lastStatus: "online",
+          lastSeenAt: now - 200,
+          capabilities: { hasNix: true, nixVersion: "nix (Nix) 2.26.0" },
+        },
+        {
+          runnerName: "stale-ready",
+          lastStatus: "online",
+          lastSeenAt: now - RUNNER_FRESHNESS_MS - 1,
+          capabilities: { hasNix: true, nixVersion: "nix (Nix) 2.20.0" },
+        },
+      ],
+      now,
+    )
+    expect(ready.ready).toBe(true)
+    expect(ready.runnerName).toBe("freshest-ready")
+    expect(ready.nixVersion).toBe("nix (Nix) 2.26.0")
+  })
+
+  it("ignores stale nix-capable runners when only fresh runner lacks nix", () => {
+    const now = 1_700_000_000_000
+    expect(
+      deriveProjectRunnerNixReadiness(
+        [
+          {
+            runnerName: "fresh-no-nix",
+            lastStatus: "online",
+            lastSeenAt: now - 100,
+            capabilities: { hasNix: false },
+          },
+          {
+            runnerName: "stale-nix",
+            lastStatus: "online",
+            lastSeenAt: now - RUNNER_FRESHNESS_MS - 1,
+            capabilities: { hasNix: true, nixVersion: "nix (Nix) 2.24.9" },
+          },
+        ],
+        now,
+      ),
+    ).toEqual({
+      ready: false,
+      hasFreshOnlineRunner: true,
+    })
+  })
 })

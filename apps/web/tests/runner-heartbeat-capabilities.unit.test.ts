@@ -69,6 +69,20 @@ describe("runner heartbeat capabilities", () => {
     });
   });
 
+  it("infers hasNix=true when nixVersion is present", async () => {
+    await expect(
+      parseRunnerHeartbeatCapabilities({
+        nixVersion: "nix (Nix) 2.24.9",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      capabilities: {
+        hasNix: true,
+        nixVersion: "nix (Nix) 2.24.9",
+      },
+    });
+  });
+
   it("rejects nix fields when hasNix is false", async () => {
     await expect(
       parseRunnerHeartbeatCapabilities({

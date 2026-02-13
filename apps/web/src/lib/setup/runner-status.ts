@@ -51,9 +51,10 @@ function parseRunnerNixCapability(capabilities: unknown): {
     return { hasNix: false }
   }
   const row = capabilities as Record<string, unknown>
-  const hasNix = row.hasNix === true
+  const hasNixRaw = typeof row.hasNix === "boolean" ? row.hasNix : undefined
   const nixVersion = typeof row.nixVersion === "string" ? row.nixVersion.trim() : ""
   const nixBin = typeof row.nixBin === "string" ? row.nixBin.trim() : ""
+  const hasNix = hasNixRaw ?? Boolean(nixVersion)
   if (!hasNix || !nixVersion) return { hasNix: false }
   return {
     hasNix: true,
@@ -69,17 +70,22 @@ export function deriveProjectRunnerNixReadiness(
   if (!Array.isArray(runners) || runners.length === 0) {
     return { ready: false, hasFreshOnlineRunner: false }
   }
-  const freshOnline = runners
-    .filter((runner) => isRunnerFreshOnline(runner, now))
-    .sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0))
-  if (freshOnline.length === 0) {
-    return { ready: false, hasFreshOnlineRunner: false }
-  }
+  let hasFreshOnlineRunner = false
+  let bestReadySeenAt = Number.NEGATIVE_INFINITY
+  let bestReady: RunnerNixReadiness | null = null
 
-  for (const runner of freshOnline) {
+  for (const runner of runners) {
+    if (!isRunnerFreshOnline(runner, now)) continue
+    hasFreshOnlineRunner = true
     const nix = parseRunnerNixCapability(runner.capabilities)
     if (!nix.hasNix) continue
-    return {
+    const seenAt =
+      typeof runner.lastSeenAt === "number" && Number.isFinite(runner.lastSeenAt)
+        ? runner.lastSeenAt
+        : Number.NEGATIVE_INFINITY
+    if (seenAt <= bestReadySeenAt) continue
+    bestReadySeenAt = seenAt
+    bestReady = {
       ready: true,
       hasFreshOnlineRunner: true,
       runnerName: typeof runner.runnerName === "string" ? runner.runnerName.trim() || undefined : undefined,
@@ -88,8 +94,9 @@ export function deriveProjectRunnerNixReadiness(
     }
   }
 
+  if (bestReady) return bestReady
   return {
     ready: false,
-    hasFreshOnlineRunner: true,
+    hasFreshOnlineRunner,
   }
 }

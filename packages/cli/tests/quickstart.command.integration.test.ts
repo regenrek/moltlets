@@ -8,6 +8,7 @@ const resolveNixBinMock = vi.hoisted(() => vi.fn());
 const updateDeployCredsEnvFileMock = vi.hoisted(() => vi.fn());
 const runMock = vi.hoisted(() => vi.fn());
 const captureMock = vi.hoisted(() => vi.fn());
+const captureWithInputMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@clawlets/core/lib/project/repo", () => ({
   findRepoRoot: findRepoRootMock,
@@ -28,6 +29,7 @@ vi.mock("@clawlets/core/lib/infra/deploy-creds", async (importOriginal) => {
 vi.mock("@clawlets/core/lib/runtime/run", () => ({
   run: runMock,
   capture: captureMock,
+  captureWithInput: captureWithInputMock,
 }));
 
 describe("quickstart command", () => {
@@ -35,6 +37,7 @@ describe("quickstart command", () => {
     vi.clearAllMocks();
     runMock.mockResolvedValue(undefined);
     captureMock.mockResolvedValue("");
+    captureWithInputMock.mockResolvedValue("");
     updateDeployCredsEnvFileMock.mockResolvedValue({
       envPath: "/tmp/repo/.clawlets/env",
       runtimeDir: "/tmp/repo/.clawlets",
@@ -56,7 +59,7 @@ describe("quickstart command", () => {
           ui: "none",
         },
       } as any),
-    ).rejects.toThrow(/install\.determinate\.systems\/nix/i);
+    ).rejects.toThrow(/nix-installer\/releases\/tag\/v3\.15\.2/i);
 
     expect(updateDeployCredsEnvFileMock).not.toHaveBeenCalled();
     expect(runMock).not.toHaveBeenCalled();
@@ -123,12 +126,20 @@ describe("quickstart command", () => {
         "npx convex env set CONVEX_SITE_URL https://demo-123.convex.site",
       ]),
     );
+    expect(commandLines.some((line) => line.includes("BETTER_AUTH_SECRET"))).toBe(false);
+    expect(captureWithInputMock).toHaveBeenCalledWith(
+      "npx",
+      ["convex", "env", "set", "BETTER_AUTH_SECRET"],
+      expect.any(String),
+      expect.objectContaining({ cwd: webDir }),
+    );
 
     const envFileText = fs.readFileSync(envFilePath, "utf8");
     expect(envFileText).toContain("VITE_SITE_URL=http://localhost:3000");
     expect(envFileText).toContain("SITE_URL=http://localhost:3000");
     expect(envFileText).toContain("VITE_CONVEX_SITE_URL=https://demo-123.convex.site");
     expect(envFileText).toMatch(/BETTER_AUTH_SECRET=/);
+    expect(fs.statSync(envFilePath).mode & 0o777).toBe(0o600);
     expect(summary?.ok).toBe(true);
     expect((summary?.nix as any)?.nixBin).toBe("/nix/var/nix/profiles/default/bin/nix");
     expect((summary?.convex as any)?.deployment).toBe("dev:demo-123");
@@ -178,10 +189,57 @@ describe("quickstart command", () => {
       logSpy.mockRestore();
     }
 
+    const commandLines = runMock.mock.calls.map(([cmd, args]) => `${String(cmd)} ${Array.isArray(args) ? args.join(" ") : ""}`);
+    expect(commandLines.join("\n")).not.toContain("stable-secret");
+    expect(captureWithInputMock).toHaveBeenCalledTimes(2);
+    for (const call of captureWithInputMock.mock.calls) {
+      expect(call[2]).toBe("stable-secret\n");
+    }
+
     const envFileText = fs.readFileSync(envFilePath, "utf8");
     expect(envFileText).toContain("BETTER_AUTH_SECRET=stable-secret");
     expect((envFileText.match(/^BETTER_AUTH_SECRET=/gm) || []).length).toBe(1);
     expect((envFileText.match(/^VITE_SITE_URL=/gm) || []).length).toBe(1);
     expect((envFileText.match(/^VITE_CONVEX_URL=/gm) || []).length).toBe(1);
+    expect(fs.statSync(envFilePath).mode & 0o777).toBe(0o600);
+  });
+
+  it("rejects --json unless --ui=none", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-quickstart-json-ui-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    const { quickstart } = await import("../src/commands/quickstart/index.js");
+
+    await expect(
+      quickstart.run({
+        args: {
+          confirm: false,
+          json: true,
+          ui: "dev",
+        },
+      } as any),
+    ).rejects.toThrow(/--json requires --ui=none/i);
+
+    expect(runMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects --convex-dir outside repo root", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-quickstart-root-"));
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "clawlets-quickstart-outside-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    const { quickstart } = await import("../src/commands/quickstart/index.js");
+
+    await expect(
+      quickstart.run({
+        args: {
+          confirm: false,
+          installNix: "auto",
+          setupConvex: false,
+          ui: "none",
+          convexDir: outsideDir,
+        },
+      } as any),
+    ).rejects.toThrow(/--convex-dir must resolve inside repo root/i);
+
+    expect(runMock).not.toHaveBeenCalled();
   });
 });
