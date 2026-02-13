@@ -45,6 +45,10 @@ const SEALED_INPUT_MAX_CHARS = 2 * 1024 * 1024;
 const LEASE_WINDOW_SIZE = 100;
 const JOB_KIND_RE = /^[A-Za-z0-9._-]+$/;
 
+// Threat model: control-plane rows are for scheduling and audit only.
+// For sealed-input flows, the control plane must persist ciphertext metadata and enforce
+// bounds/validation, but never store plaintext secret-bearing fields.
+
 const JobStatusArg = v.union(...literals(JOB_STATUSES));
 
 function validateSealedInputB64(raw: string): string {
