@@ -3,7 +3,8 @@ title: Quickstart
 description: One command from blank machine to local dashboard.
 ---
 
-Use quickstart when setting up a fresh macOS/Linux workstation for the dashboard.
+This page is the operator/end-user onboarding flow for dashboard + runner.
+Use it when setting up a fresh macOS/Linux workstation.
 
 ```bash
 clawlets quickstart
@@ -34,6 +35,16 @@ Useful flags:
 - `--ui dev|prod|none`
 - `--ui-port 3000`
 
+## Verify
+
+Quickstart is working when:
+
+- The dashboard starts on your local URL (default `http://localhost:3000`)
+- `apps/web/.env.local` exists with Convex deployment values
+- `.clawlets/env` contains `NIX_BIN`
+
+Next step: open the dashboard setup flow and create/start a runner token.
+
 ## If Nix is intentionally skipped
 
 `clawlets quickstart --install-nix=never` exits fast when `nix` is missing.
@@ -45,3 +56,9 @@ If your shell cannot resolve `nix`, set `NIX_BIN`:
 ```bash
 NIX_BIN=/nix/var/nix/profiles/default/bin/nix
 ```
+
+Related:
+
+- Top-level onboarding: [Quickstart](/quickstart)
+- Dashboard flow: [Dashboard overview](/dashboard)
+- CLI-first path: [CLI overview](/cli)

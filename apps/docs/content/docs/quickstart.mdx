@@ -1,0 +1,61 @@
+---
+title: Quickstart
+description: Fastest operator onboarding path for dashboard + runner.
+---
+
+Use this page if you are an operator or team end user running Clawlets via the
+dashboard and local runner. This is the primary onboarding path.
+
+If you are developing Clawlets itself, use [Contributing](/contribution). If you are
+running command-first workflows, use [CLI overview](/cli).
+
+## Prerequisites
+
+- macOS or Linux
+- Node 22+
+- Convex account (free tier is enough for local setup)
+
+## Steps
+
+<Steps>
+  <Step>
+    Install the CLI:
+    ```bash
+    npm install -g clawlets
+    clawlets --help
+    ```
+  </Step>
+  <Step>
+    Run quickstart:
+    ```bash
+    clawlets quickstart
+    ```
+  </Step>
+  <Step>
+    Open the dashboard and continue setup:
+    - Dashboard flow: [Dashboard overview](/dashboard)
+    - Host setup flow: [Host setup](/dashboard/setup)
+  </Step>
+</Steps>
+
+## Verify
+
+Quickstart is working when:
+
+- The dashboard starts on your local URL (default `http://localhost:3000`)
+- `apps/web/.env.local` exists with Convex deployment values
+- `.clawlets/env` contains `NIX_BIN`
+
+## Non-interactive mode
+
+Use this for CI/bootstrap scripts:
+
+```bash
+clawlets quickstart --no-confirm --ui none --json
+```
+
+## Troubleshooting
+
+- Nix install or discovery issues: [Install Nix](/operations/install-nix)
+- Quickstart flags and behavior details: [Operations quickstart](/operations/quickstart)
+- Dashboard + Convex issues: [Dashboard troubleshooting](/dashboard/troubleshooting)
