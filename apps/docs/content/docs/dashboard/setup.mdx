@@ -4,8 +4,8 @@ description: Guided first deploy checklist.
 ---
 
 Setup is a command center for getting a new project to its first successful deploy.
-It is derived from real state (config, secrets, local deploy credentials, and runs),
-so you can stop halfway and resume later.
+Setup is derived from desired state for this host (pending edits + setup draft + config fallback),
+so you can stop halfway and resume later without split-brain gating.
 Step saves persist as setup drafts. Runner execution happens once at deploy time via a single
 sealed `setup_apply` job.
 
@@ -42,9 +42,9 @@ Open:
   <Step>
     <strong>Provider Tokens</strong>
     <br />
-    Configure remaining local-only credentials in <code>.clawlets/env</code>.
-    Setup requires <code>GITHUB_TOKEN</code> and <code>SOPS_AGE_KEY_FILE</code> from{" "}
-    [Deploy credentials](/dashboard/deploy-credentials).
+    Save provider credentials as sealed setup draft data.
+    Setup requires <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and{" "}
+    <code>SOPS_AGE_KEY_FILE</code> in the draft before final install.
   </Step>
   <Step>
     <strong>Server Passwords</strong>
@@ -128,12 +128,12 @@ Save the token in setup once to mark the draft section as set.
 
 ### Deploy says credentials missing
 
-Open the Deploy credentials step and set the required keys in <code>.clawlets/env</code>.
-These are local-only and must not be committed.
+Open Setup → Pre-Deploy (and Hetzner setup for <code>HCLOUD_TOKEN</code>) and save provider tokens.
+In setup mode, readiness is draft-first and apply happens only during <code>setup_apply</code>.
 
 Recommended path:
 
-- Set `HCLOUD_TOKEN` (Hetzner): [Hetzner token setup](/dashboard/hetzner-token)
-- Set `GITHUB_TOKEN`: [GitHub token setup](/dashboard/github-token)
-- Set `SOPS_AGE_KEY_FILE`: [SOPS age key setup](/dashboard/sops-age-key)
+- Save `HCLOUD_TOKEN` (Hetzner): [Hetzner token setup](/dashboard/hetzner-token)
+- Save `GITHUB_TOKEN`: [GitHub token setup](/dashboard/github-token)
+- Save `SOPS_AGE_KEY_FILE`: [SOPS age key setup](/dashboard/sops-age-key)
 - See provider docs: [Hetzner](/providers/hetzner)

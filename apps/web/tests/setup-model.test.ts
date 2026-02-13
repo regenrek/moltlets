@@ -1,26 +1,36 @@
 import { describe, expect, it } from "vitest"
 import { deriveHostSetupStepper, deriveSetupModel } from "../src/lib/setup/setup-model"
 
-describe("deriveSetupModel", () => {
-  const infrastructureConfig = {
-    hosts: {
-      h1: {
-        provisioning: { provider: "hetzner" },
-        hetzner: {
-          serverType: "cx43",
-          image: "",
-          location: "nbg1",
-          allowTailscaleUdpIngress: true,
-        },
+const baseConfig = {
+  hosts: {
+    h1: {
+      provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
+      hetzner: {
+        serverType: "cx43",
+        image: "",
+        location: "nbg1",
+        allowTailscaleUdpIngress: true,
       },
     },
-  }
+  },
+  fleet: {
+    sshAuthorizedKeys: ["ssh-ed25519 AAAATEST fleet"],
+  },
+}
 
+function withDeployCredsDraftSet() {
+  return {
+    sealedSecretDrafts: {
+      deployCreds: { status: "set" as const },
+    },
+  }
+}
+
+describe("deriveSetupModel", () => {
   it("starts at infrastructure and locks downstream steps when host config is missing", () => {
     const model = deriveSetupModel({
       config: null,
       hostFromRoute: "h1",
-      deployCreds: null,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -39,7 +49,6 @@ describe("deriveSetupModel", () => {
       config: null,
       hostFromRoute: "h1",
       stepFromSearch: "deploy",
-      deployCreds: null,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -50,28 +59,9 @@ describe("deriveSetupModel", () => {
 
   it("keeps tailscale lockdown incomplete when enabled and no key is configured", () => {
     const model = deriveSetupModel({
-      config: {
-        hosts: {
-          h1: {
-            provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
-            hetzner: {
-              serverType: "cx43",
-              image: "",
-              location: "nbg1",
-              allowTailscaleUdpIngress: true,
-            },
-          },
-        },
-        fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
-      },
+      config: baseConfig,
       hostFromRoute: "h1",
-      deployCreds: {
-        keys: [
-          { key: "HCLOUD_TOKEN", status: "set" as const },
-          { key: "GITHUB_TOKEN", status: "set" as const },
-          { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
-        ],
-      },
+      setupDraft: withDeployCredsDraftSet(),
       useTailscaleLockdown: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
@@ -83,28 +73,9 @@ describe("deriveSetupModel", () => {
 
   it("marks tailscale lockdown complete when a key is already configured", () => {
     const model = deriveSetupModel({
-      config: {
-        hosts: {
-          h1: {
-            provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
-            hetzner: {
-              serverType: "cx43",
-              image: "",
-              location: "nbg1",
-              allowTailscaleUdpIngress: true,
-            },
-          },
-        },
-        fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
-      },
+      config: baseConfig,
       hostFromRoute: "h1",
-      deployCreds: {
-        keys: [
-          { key: "HCLOUD_TOKEN", status: "set" as const },
-          { key: "GITHUB_TOKEN", status: "set" as const },
-          { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
-        ],
-      },
+      setupDraft: withDeployCredsDraftSet(),
       useTailscaleLockdown: true,
       hasTailscaleAuthKey: true,
       latestBootstrapRun: null,
@@ -115,11 +86,10 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("deploy")
   })
 
-  it("keeps infrastructure active when HCLOUD draft secret is missing", () => {
+  it("keeps infrastructure active when deploy credentials draft is missing", () => {
     const model = deriveSetupModel({
-      config: infrastructureConfig,
+      config: baseConfig,
       hostFromRoute: "h1",
-      deployCreds: null,
       setupDraft: {
         sealedSecretDrafts: {
           deployCreds: { status: "missing" },
@@ -133,101 +103,17 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("infrastructure")
   })
 
-  it("marks infrastructure done when HCLOUD draft secret is set", () => {
+  it("marks infrastructure done when deploy credentials draft is set", () => {
     const model = deriveSetupModel({
-      config: infrastructureConfig,
+      config: baseConfig,
       hostFromRoute: "h1",
-      deployCreds: null,
-      setupDraft: {
-        sealedSecretDrafts: {
-          deployCreds: { status: "set" },
-        },
-      },
+      setupDraft: withDeployCredsDraftSet(),
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
 
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
-    expect(model.activeStepId).toBe("connection")
-  })
-
-  it("walks through required setup steps", () => {
-    const step1 = deriveSetupModel({
-      config: infrastructureConfig,
-      hostFromRoute: "h1",
-      deployCreds: { keys: [] },
-      latestBootstrapRun: null,
-      latestBootstrapSecretsVerifyRun: null,
-    })
-    expect(step1.activeStepId).toBe("infrastructure")
-
-    const step2 = deriveSetupModel({
-      config: infrastructureConfig,
-      hostFromRoute: "h1",
-      deployCreds: {
-        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
-      },
-      latestBootstrapRun: null,
-      latestBootstrapSecretsVerifyRun: null,
-    })
-    expect(step2.activeStepId).toBe("connection")
-
-    const connectionConfig = {
-      ...infrastructureConfig,
-      fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
-      hosts: {
-        h1: {
-          provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
-          hetzner: {
-            serverType: "cx43",
-            image: "",
-            location: "nbg1",
-            allowTailscaleUdpIngress: true,
-          },
-        },
-      },
-    }
-
-    const step3 = deriveSetupModel({
-      config: connectionConfig,
-      hostFromRoute: "h1",
-      deployCreds: {
-        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
-      },
-      latestBootstrapRun: null,
-      latestBootstrapSecretsVerifyRun: null,
-    })
-    expect(step3.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
-    expect(step3.activeStepId).toBe("predeploy")
-
-    const readyCreds = {
-      keys: [
-        { key: "HCLOUD_TOKEN", status: "set" as const },
-        { key: "GITHUB_TOKEN", status: "set" as const },
-        { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
-      ],
-    }
-
-    const step4 = deriveSetupModel({
-      config: connectionConfig,
-      hostFromRoute: "h1",
-      deployCreds: readyCreds,
-      latestBootstrapRun: null,
-      latestBootstrapSecretsVerifyRun: null,
-    })
-    expect(step4.activeStepId).toBe("deploy")
-    expect(step4.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
-
-    const step5 = deriveSetupModel({
-      config: connectionConfig,
-      hostFromRoute: "h1",
-      deployCreds: readyCreds,
-      latestBootstrapRun: { status: "succeeded" },
-      latestBootstrapSecretsVerifyRun: null,
-    })
-    expect(step5.hasBootstrapped).toBe(true)
-    expect(step5.showCelebration).toBe(true)
-    expect(step5.steps.find((s) => s.id === "verify")?.status).toBe("pending")
+    expect(model.activeStepId).toBe("deploy")
   })
 
   it("uses pending non-secret edits to unlock downstream steps before final commit", () => {
@@ -236,17 +122,13 @@ describe("deriveSetupModel", () => {
         hosts: {
           h1: {
             provisioning: { provider: "hetzner" },
-            hetzner: {
-              serverType: "",
-              location: "",
-            },
+            hetzner: { serverType: "", location: "" },
           },
         },
+        fleet: { sshAuthorizedKeys: [] },
       },
       hostFromRoute: "h1",
-      deployCreds: {
-        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
-      },
+      setupDraft: withDeployCredsDraftSet(),
       pendingNonSecretDraft: {
         infrastructure: {
           serverType: "cx22",
@@ -265,7 +147,8 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
-    expect(model.activeStepId).toBe("predeploy")
+    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.activeStepId).toBe("deploy")
   })
 
   it("resumes step completion from setup draft values", () => {
@@ -274,15 +157,12 @@ describe("deriveSetupModel", () => {
         hosts: {
           h1: {
             provisioning: { provider: "hetzner" },
-            hetzner: {
-              serverType: "",
-              location: "",
-            },
+            hetzner: { serverType: "", location: "" },
           },
         },
+        fleet: { sshAuthorizedKeys: [] },
       },
       hostFromRoute: "h1",
-      deployCreds: { keys: [] },
       setupDraft: {
         nonSecretDraft: {
           infrastructure: {
@@ -292,6 +172,7 @@ describe("deriveSetupModel", () => {
           connection: {
             adminCidr: "203.0.113.10/32",
             sshKeyCount: 1,
+            sshAuthorizedKeys: ["ssh-ed25519 AAAATEST draft"],
           },
         },
         sealedSecretDrafts: {
@@ -308,33 +189,47 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
+
+  it("treats draft SSH keys as connection-ready even when config fleet keys are empty (#222 regression)", () => {
+    const model = deriveSetupModel({
+      config: {
+        hosts: {
+          h1: {
+            provisioning: { provider: "hetzner" },
+            hetzner: { serverType: "cx22", location: "nbg1" },
+          },
+        },
+        fleet: { sshAuthorizedKeys: [] },
+      },
+      hostFromRoute: "h1",
+      setupDraft: {
+        nonSecretDraft: {
+          connection: {
+            adminCidr: "203.0.113.10/32",
+            sshAuthorizedKeys: ["ssh-ed25519 AAAATEST draft"],
+            sshKeyCount: 1,
+          },
+        },
+        sealedSecretDrafts: {
+          deployCreds: { status: "set" },
+        },
+      },
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.activeStepId).toBe("deploy")
+  })
 })
 
 describe("deriveHostSetupStepper", () => {
   it("keeps canonical setup step order", () => {
     const model = deriveSetupModel({
-      config: {
-        fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
-        hosts: {
-          h1: {
-            provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
-            hetzner: {
-              serverType: "cx43",
-              image: "",
-              location: "nbg1",
-              allowTailscaleUdpIngress: true,
-            },
-          },
-        },
-      },
+      config: baseConfig,
       hostFromRoute: "h1",
-      deployCreds: {
-        keys: [
-          { key: "HCLOUD_TOKEN", status: "set" as const },
-          { key: "GITHUB_TOKEN", status: "set" as const },
-          { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
-        ],
-      },
+      setupDraft: withDeployCredsDraftSet(),
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -356,7 +251,6 @@ describe("deriveHostSetupStepper", () => {
       config: null,
       hostFromRoute: "h1",
       stepFromSearch: "deploy",
-      deployCreds: null,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })

@@ -361,7 +361,6 @@ function StepContent(props: {
         projectId={projectId}
         config={setup.config}
         setupDraft={setup.setupDraft}
-        deployCreds={setup.deployCreds}
         host={host}
         stepStatus={step.status}
         onDraftChange={props.onPendingInfrastructureDraftChange}

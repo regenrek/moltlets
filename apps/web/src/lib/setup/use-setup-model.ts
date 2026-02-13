@@ -7,7 +7,6 @@ import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
 import { deriveRepoProbeState, setupConfigProbeQueryOptions, type RepoProbeState } from "~/lib/setup/repo-probe"
-import { getDeployCredsStatus } from "~/sdk/infra"
 import { setupDraftGet } from "~/sdk/setup"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
@@ -61,15 +60,6 @@ export function useSetupModel(params: {
     () => isProjectRunnerOnline(runners),
     [runners],
   )
-
-  const deployCredsQuery = useQuery({
-    queryKey: ["deployCreds", projectId],
-    queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
-    enabled: Boolean(projectId && isReady && runnerOnline),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
-  const deployCreds = deployCredsQuery.data ?? null
 
   const configQuery = useQuery({
     ...setupConfigProbeQueryOptions(projectId),
@@ -160,7 +150,6 @@ export function useSetupModel(params: {
         config,
         hostFromRoute: params.host,
         stepFromSearch: params.search.step,
-        deployCreds,
         setupDraft,
         pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
         hasTailscaleAuthKey: hasTailscaleAuthKeyConfigured,
@@ -171,7 +160,6 @@ export function useSetupModel(params: {
       }),
     [
       config,
-      deployCreds,
       setupDraft,
       params.pendingNonSecretDraft,
       hasTailscaleAuthKeyConfigured,
@@ -218,8 +206,6 @@ export function useSetupModel(params: {
     runnersQuery,
     runners,
     runnerOnline,
-    deployCredsQuery,
-    deployCreds,
     configQuery,
     config,
     repoProbeOk,

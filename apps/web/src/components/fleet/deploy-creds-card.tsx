@@ -45,6 +45,7 @@ type SaveFieldInput = {
   kind: "save" | "remove"
   value: string
 }
+
 export function DeployCredsCard({
   projectId,
   setupHref = null,
@@ -60,6 +61,11 @@ export function DeployCredsCard({
   const showHcloudToken = visibleKeySet.has("HCLOUD_TOKEN")
   const showGithubToken = visibleKeySet.has("GITHUB_TOKEN")
   const showSopsAgeKeyFile = visibleKeySet.has("SOPS_AGE_KEY_FILE")
+  const setupMode = Boolean(setupDraftFlow)
+  const [setupDraftValues, setSetupDraftValues] = useState<Partial<Record<EditableDeployCredKey, string>>>({})
+  useEffect(() => {
+    setSetupDraftValues({})
+  }, [projectId, setupDraftFlow?.host])
 
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
@@ -91,11 +97,11 @@ export function DeployCredsCard({
   const creds = useQuery({
     queryKey: ["deployCreds", projectId],
     queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
-    enabled: runnerOnline,
+    enabled: runnerOnline && !setupDraftFlow,
   })
 
   const credsByKey = useMemo(() => {
-    const out: Record<string, any> = {}
+    const out: Record<string, { status?: "set" | "unset"; value?: string }> = {}
     for (const k of creds.data?.keys || []) out[k.key] = k
     return out
   }, [creds.data?.keys])
@@ -105,9 +111,9 @@ export function DeployCredsCard({
   const [sopsAgeKeyFileOverride, setSopsAgeKeyFileOverride] = useState<string | undefined>(undefined)
   const [sopsStatus, setSopsStatus] = useState<{ kind: "ok" | "warn" | "error"; message: string } | null>(null)
 
-  const defaultSopsAgeKeyFile = String(
-    credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "",
-  )
+  const defaultSopsAgeKeyFile = setupMode
+    ? ""
+    : String(credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "")
   const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
   const githubTokenRequired = Boolean(setupDraftFlow && showGithubToken)
   const setupDraftDeployCredsSet = setupDraftFlow?.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
@@ -125,10 +131,6 @@ export function DeployCredsCard({
       const normalized = input.kind === "remove" ? "" : input.value.trim()
       if (input.kind === "save" && !normalized) throw new Error("Value is required")
 
-      const updates: Record<string, string> = {
-        [input.key]: normalized,
-      }
-
       const runner = pickTargetRunner()
       if (!runner) throw new Error("Select a sealed-capable runner")
 
@@ -137,6 +139,54 @@ export function DeployCredsCard({
       const keyId = String(runner.capabilities?.sealedInputKeyId || "").trim()
       const alg = String(runner.capabilities?.sealedInputAlg || "").trim()
       if (!runnerPub || !keyId || !alg) throw new Error("runner sealed-input capabilities incomplete")
+
+      if (setupDraftFlow) {
+        const sessionValues = { ...setupDraftValues }
+        if (input.kind === "remove") delete sessionValues[input.key]
+        else sessionValues[input.key] = normalized
+
+        const updates = Object.fromEntries(
+          Object.entries(sessionValues)
+            .filter(([, value]) => typeof value === "string" && value.trim().length > 0),
+        ) as Record<string, string>
+        if (Object.keys(updates).length === 0) {
+          throw new Error("At least one deploy credential value is required for setup draft")
+        }
+
+        const setupAad = buildSetupDraftSectionAad({
+          projectId,
+          host: setupDraftFlow.host,
+          section: "deployCreds",
+          targetRunnerId,
+        })
+        const setupDraftSealedInputB64 = await sealForRunner({
+          runnerPubSpkiB64: runnerPub,
+          keyId,
+          alg,
+          aad: setupAad,
+          plaintextJson: JSON.stringify(updates),
+        })
+
+        await setupDraftSaveSealedSection({
+          data: {
+            projectId,
+            host: setupDraftFlow.host,
+            section: "deployCreds",
+            targetRunnerId,
+            sealedInputB64: setupDraftSealedInputB64,
+            sealedInputAlg: alg,
+            sealedInputKeyId: keyId,
+            aad: setupAad,
+            expectedVersion: setupDraftFlow.setupDraft?.version,
+          },
+        })
+        setSetupDraftValues(updates)
+        return input
+      }
+
+      const updates: Record<string, string> = {
+        [input.key]: normalized,
+      }
 
       const reserve = await updateDeployCreds({
         data: {
@@ -175,36 +225,6 @@ export function DeployCredsCard({
         },
       })
 
-      if (setupDraftFlow) {
-        const setupAad = buildSetupDraftSectionAad({
-          projectId,
-          host: setupDraftFlow.host,
-          section: "deployCreds",
-          targetRunnerId,
-        })
-        const setupDraftSealedInputB64 = await sealForRunner({
-          runnerPubSpkiB64: runnerPub,
-          keyId,
-          alg,
-          aad: setupAad,
-          plaintextJson: JSON.stringify(updates),
-        })
-
-        await setupDraftSaveSealedSection({
-          data: {
-            projectId,
-            host: setupDraftFlow.host,
-            section: "deployCreds",
-            targetRunnerId,
-            sealedInputB64: setupDraftSealedInputB64,
-            sealedInputAlg: alg,
-            sealedInputKeyId: keyId,
-            aad: setupAad,
-            expectedVersion: setupDraftFlow.setupDraft?.version,
-          },
-        })
-      }
-
       return input
     },
     onSuccess: async (input) => {
@@ -212,10 +232,8 @@ export function DeployCredsCard({
       if (input.key === "HCLOUD_TOKEN") setHcloudToken("")
       if (input.key === "GITHUB_TOKEN") setGithubToken("")
       if (input.key === "SOPS_AGE_KEY_FILE") setSopsAgeKeyFileOverride(input.kind === "remove" ? "" : undefined)
-      await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
-      if (setupDraftFlow) {
-        await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
-      }
+      if (setupDraftFlow) await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
+      else await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -261,10 +279,11 @@ export function DeployCredsCard({
   })
 
   const keyIsSet = (key: EditableDeployCredKey): boolean => {
+    if (setupDraftFlow) return Boolean(setupDraftValues[key]?.trim())
     const status = credsByKey[key]?.status
     if (status === "set") return true
     if (status === "unset") return false
-    return setupDraftDeployCredsSet
+    return false
   }
 
   const runSaveKey = (key: EditableDeployCredKey, value: string) => {
@@ -304,12 +323,18 @@ export function DeployCredsCard({
         </div>
       ) : null}
 
-      {!runnerOnline ? null : creds.isPending ? (
+      {!runnerOnline ? null : !setupMode && creds.isPending ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
-      ) : creds.error ? (
+      ) : !setupMode && creds.error ? (
         <div className="text-sm text-destructive">{String(creds.error)}</div>
       ) : (
         <div className="space-y-4">
+          {setupMode && setupDraftDeployCredsSet ? (
+            <div className="text-xs text-muted-foreground">
+              Existing setup draft credentials are write-only. Enter new values to replace what is sealed.
+            </div>
+          ) : null}
+
           {sealedRunners.length > 1 ? (
             <StackedField
               id="deployCredsRunner"

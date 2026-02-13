@@ -23,7 +23,6 @@ import type { SetupConfig } from "~/lib/setup/repo-probe"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
 import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
-import type { DeployCredsStatus } from "~/sdk/infra"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
@@ -71,9 +70,7 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
   }
 }
 
-function readHcloudTokenState(setupDraft: SetupDraftView | null, deployCreds: DeployCredsStatus | null): "set" | "unset" {
-  const row = deployCreds?.keys.find((entry) => entry.key === "HCLOUD_TOKEN")
-  if (row?.status === "set") return "set"
+function readHcloudTokenState(setupDraft: SetupDraftView | null): "set" | "unset" {
   if (setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set") return "set"
   return "unset"
 }
@@ -82,7 +79,6 @@ export function SetupStepInfrastructure(props: {
   projectId: Id<"projects">
   config: SetupConfig | null
   setupDraft: SetupDraftView | null
-  deployCreds: DeployCredsStatus | null
   host: string
   stepStatus: SetupStepStatus
   onDraftChange: (next: SetupDraftInfrastructure) => void
@@ -96,7 +92,7 @@ export function SetupStepInfrastructure(props: {
   const [volumeSizeGbText, setVolumeSizeGbText] = useState(() => String(defaults.volumeSizeGb))
   const parsedVolumeSizeGb = parsePositiveInt(volumeSizeGbText)
   const volumeSettingsReady = !volumeEnabled || parsedVolumeSizeGb !== null
-  const hcloudTokenState = readHcloudTokenState(props.setupDraft, props.deployCreds)
+  const hcloudTokenState = readHcloudTokenState(props.setupDraft)
   const hcloudTokenReady = hcloudTokenState === "set"
   const missingRequirements = [
     ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
