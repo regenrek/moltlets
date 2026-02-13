@@ -27,14 +27,19 @@ import {
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog"
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
-import { WEB_DEPLOY_CREDS_VISIBLE_KEY_SET } from "~/lib/deploy-creds-ui"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { getDeployCredsStatus } from "~/sdk/infra"
 import { gitPushExecute, gitRepoStatus } from "~/sdk/vcs"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
 import { DeployInitialInstallSetup } from "~/components/deploy/deploy-initial-setup"
+import type { SetupDraftConnection, SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
+
+type SetupPendingBootstrapSecrets = {
+  adminPassword: string
+  tailscaleAuthKey: string
+  useTailscaleLockdown: boolean
+}
 
 type DeployInitialInstallProps = {
   projectSlug: string
@@ -43,6 +48,10 @@ type DeployInitialInstallProps = {
   hasBootstrapped?: boolean
   onBootstrapped?: () => void
   headerBadge?: ReactNode
+  setupDraft?: SetupDraftView | null
+  pendingInfrastructureDraft?: SetupDraftInfrastructure | null
+  pendingConnectionDraft?: SetupDraftConnection | null
+  pendingBootstrapSecrets?: SetupPendingBootstrapSecrets
 }
 
 export function DeployInitialInstall({
@@ -52,6 +61,14 @@ export function DeployInitialInstall({
   hasBootstrapped = false,
   onBootstrapped,
   headerBadge,
+  setupDraft = null,
+  pendingInfrastructureDraft = null,
+  pendingConnectionDraft = null,
+  pendingBootstrapSecrets = {
+    adminPassword: "",
+    tailscaleAuthKey: "",
+    useTailscaleLockdown: true,
+  },
 }: DeployInitialInstallProps) {
   if (variant === "setup") {
     return (
@@ -61,6 +78,10 @@ export function DeployInitialInstall({
         hasBootstrapped={hasBootstrapped}
         onContinue={onBootstrapped}
         headerBadge={headerBadge}
+        setupDraft={setupDraft}
+        pendingInfrastructureDraft={pendingInfrastructureDraft}
+        pendingConnectionDraft={pendingConnectionDraft}
+        pendingBootstrapSecrets={pendingBootstrapSecrets}
       />
     )
   }
@@ -92,13 +113,6 @@ function DeployInitialInstallDefault({
     gcTime: 5_000,
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
-
-  const creds = useQuery({
-    queryKey: ["deployCreds", projectId],
-    queryFn: async () =>
-      await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
-    enabled: Boolean(projectId && runnerOnline),
-  })
   const hostSummary = hostsQuery.data?.find((row) => row.hostName === host) ?? null
   const tailnetMode = String(hostSummary?.desired?.tailnetMode || "none")
   const [mode, setMode] = useState<"nixos-anywhere" | "image">("nixos-anywhere")
@@ -359,120 +373,25 @@ function DeployInitialInstallDefault({
                 />
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Deploy initial install?</AlertDialogTitle>
+                    <AlertDialogTitle>Start deploy?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This provisions a new host. Only run once per host unless you intend to reinstall.
+                      {cliCmd}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      disabled={start.isPending || !canBootstrap}
-                      pending={start.isPending}
-                      pendingText="Deploying..."
-                      onClick={() => start.mutate()}
-                    >
-                      Deploy
-                    </AlertDialogAction>
+                    <AlertDialogAction onClick={() => start.mutate()}>Deploy</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              {!canBootstrap ? (
-                <div className="text-xs text-muted-foreground">
-                  {!runnerOnline
-                    ? "Start runner to run doctor and deploy."
-                    : repoGateBlocked
-                    ? (localSelected
-                      ? "Push your local commit (Local deploy), or switch to Remote deploy."
-                      : "Configure a git remote and push at least once, then refresh.")
-                    : doctorGateOk || force
-                      ? "Waiting for requirements."
-                      : "Run doctor first (or enable force)."}
-                </div>
-              ) : null}
             </div>
 
-            <div className="rounded-md border bg-muted/30 p-3">
-              <div className="text-sm font-medium">Command</div>
-              <pre className="mt-2 text-xs whitespace-pre-wrap break-words">{cliCmd}</pre>
-            </div>
+            <BootstrapChecklist
+              projectId={projectId as Id<"projects">}
+              host={host}
+              hostDesired={hostSummary?.desired ?? null}
+            />
           </div>
-
-          <div className="rounded-lg border bg-card p-6 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="font-medium">Deploy credentials</div>
-                <div className="text-xs text-muted-foreground">
-                  Initial install requires <code>HCLOUD_TOKEN</code> and a secure <code>.clawlets/env</code>.
-                </div>
-              </div>
-              <AsyncButton
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={creds.isFetching || !runnerOnline}
-                pending={creds.isFetching}
-                pendingText="Refreshing..."
-                onClick={() => {
-                  if (!runnerOnline) return
-                  void creds.refetch()
-                }}
-              >
-                Refresh
-              </AsyncButton>
-            </div>
-            {!runnerOnline ? (
-              <div className="text-muted-foreground text-sm">Runner offline. Start runner to read deploy credentials.</div>
-            ) : creds.isPending ? (
-              <div className="text-muted-foreground text-sm">Loading…</div>
-            ) : creds.error ? (
-              <div className="text-sm text-destructive">{String(creds.error)}</div>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2">
-                {(creds.data?.keys || [])
-                  .filter((k: any) => WEB_DEPLOY_CREDS_VISIBLE_KEY_SET.has(String(k?.key || "")))
-                  .map((k: any) => (
-                  <div key={k.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{k.key}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {k.status} · {k.source}
-                        {k.value ? ` · ${k.value}` : ""}
-                      </div>
-                    </div>
-                    <div className={k.status === "set" ? "text-xs text-muted-foreground" : "text-xs text-destructive"}>
-                      {k.status}
-                    </div>
-                  </div>
-                  ))}
-              </div>
-            )}
-          </div>
-
-          {doctor ? (
-            <div className="rounded-lg border bg-card p-6 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium">Doctor gate</div>
-                <Badge variant={doctor.ok ? "secondary" : "destructive"}>{doctor.ok ? "ok" : "failed"}</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Scope: bootstrap
-              </div>
-              <div className="grid gap-2">
-                {doctor.checks.map((c: any, idx: number) => (
-                  <div key={`${idx}-${c.label}`} className="flex items-start justify-between gap-3 border-b last:border-b-0 pb-2 last:pb-0">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{c.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {c.status}{c.detail ? ` · ${c.detail}` : ""}
-                      </div>
-                    </div>
-                    <Badge variant={c.status === "missing" ? "destructive" : "secondary"}>{c.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {runId ? (
             <RunLogTail
@@ -482,43 +401,27 @@ function DeployInitialInstallDefault({
               }}
             />
           ) : null}
-
-          {host ? (
-            <div id="lockdown">
-              <BootstrapChecklist
-                projectId={projectId as Id<"projects">}
-                host={host}
-                hostDesired={hostSummary?.desired ?? null}
-              />
-            </div>
-          ) : null}
         </div>
       )}
     </>
   )
 
-  if (variant === "embedded") {
-    return <div className="space-y-6">{content}</div>
-  }
+  if (variant === "embedded") return content
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">Deploy</h1>
-          <p className="text-muted-foreground">
-            Initial install. Run once per host, then switch to apply changes.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={<Link to="/$projectSlug/setup/doctor" params={{ projectSlug }} />}
-        >
-          Open Doctor
-        </Button>
-      </div>
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       {content}
+      <div className="text-xs text-muted-foreground">
+        Need broader host deploy controls? Use the full host Deploy page.
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        nativeButton={false}
+        render={<Link to="/$projectSlug/hosts/$host/deploy" params={{ projectSlug, host }} />}
+      >
+        Open full Deploy page
+      </Button>
     </div>
   )
 }

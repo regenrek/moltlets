@@ -15,7 +15,33 @@ export type SetupSearch = {
   step?: string
 }
 
-export function useSetupModel(params: { projectSlug: string; host: string; search: SetupSearch }) {
+type PendingNonSecretDraft = {
+  infrastructure?: {
+    serverType?: string
+    image?: string
+    location?: string
+    allowTailscaleUdpIngress?: boolean
+  }
+  connection?: {
+    adminCidr?: string
+    sshExposureMode?: "bootstrap" | "tailnet" | "public"
+    sshKeyCount?: number
+    sshAuthorizedKeys?: string[]
+  }
+}
+
+type PendingBootstrapSecrets = {
+  tailscaleAuthKey?: string
+  useTailscaleLockdown?: boolean
+}
+
+export function useSetupModel(params: {
+  projectSlug: string
+  host: string
+  search: SetupSearch
+  pendingNonSecretDraft?: PendingNonSecretDraft | null
+  pendingBootstrapSecrets?: PendingBootstrapSecrets | null
+}) {
   const router = useRouter()
   const projectQuery = useProjectBySlug(params.projectSlug)
   const projectId = projectQuery.projectId
@@ -98,6 +124,24 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     ),
   })
 
+  const tailscaleSecretWiringQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.secretWiring.listByProjectHost,
+      projectId && params.host
+        ? {
+            projectId,
+            hostName: params.host,
+          }
+        : "skip",
+    ),
+  })
+  const hasTailscaleAuthKeyConfigured = React.useMemo(() => {
+    for (const row of tailscaleSecretWiringQuery.data ?? []) {
+      if (row?.status === "configured" && String(row.secretName || "").trim() === "tailscale_auth_key") return true
+    }
+    return false
+  }, [tailscaleSecretWiringQuery.data])
+
   const projectInitRunsPageQuery = useQuery({
     ...convexQuery(
       api.controlPlane.runs.listByProjectPage,
@@ -118,6 +162,10 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
         stepFromSearch: params.search.step,
         deployCreds,
         setupDraft,
+        pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
+        hasTailscaleAuthKey: hasTailscaleAuthKeyConfigured,
+        pendingTailscaleAuthKey: params.pendingBootstrapSecrets?.tailscaleAuthKey,
+        useTailscaleLockdown: params.pendingBootstrapSecrets?.useTailscaleLockdown,
         latestBootstrapRun: latestBootstrapRunQuery.data ?? null,
         latestBootstrapSecretsVerifyRun: latestBootstrapSecretsVerifyRunQuery.data ?? null,
       }),
@@ -125,6 +173,10 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
       config,
       deployCreds,
       setupDraft,
+      params.pendingNonSecretDraft,
+      hasTailscaleAuthKeyConfigured,
+      params.pendingBootstrapSecrets?.tailscaleAuthKey,
+      params.pendingBootstrapSecrets?.useTailscaleLockdown,
       latestBootstrapRunQuery.data,
       latestBootstrapSecretsVerifyRunQuery.data,
       params.host,
@@ -180,6 +232,7 @@ export function useSetupModel(params: { projectSlug: string; host: string; searc
     projectInitRunsPageQuery,
     model,
     selectedHost: model.selectedHost,
+    hasTailscaleAuthKeyConfigured,
     setStep,
     advance,
   }

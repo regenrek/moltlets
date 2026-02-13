@@ -3,6 +3,7 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import * as React from "react"
+import { CheckIcon } from "@heroicons/react/24/solid"
 import { z } from "zod"
 import type { HostTheme } from "@clawlets/core/lib/host/host-theme"
 import type { Id } from "../../../../../convex/_generated/dataModel"
@@ -11,10 +12,10 @@ import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { SetupCelebration } from "~/components/setup/setup-celebration"
 import { SetupHeader } from "~/components/setup/setup-header"
 import { SetupStepConnection } from "~/components/setup/steps/step-connection"
-import { SetupStepCreds } from "~/components/setup/steps/step-creds"
 import { SetupStepDeploy } from "~/components/setup/steps/step-deploy"
 import { SetupStepInfrastructure } from "~/components/setup/steps/step-infrastructure"
-import { SetupStepSecrets } from "~/components/setup/steps/step-secrets"
+import { SetupStepPredeploy } from "~/components/setup/steps/step-predeploy"
+import { SetupStepTailscaleLockdown } from "~/components/setup/steps/step-tailscale-lockdown"
 import { SetupStepVerify } from "~/components/setup/steps/step-verify"
 import {
   Stepper,
@@ -32,6 +33,7 @@ import { buildHostPath, slugifyProjectName } from "~/lib/project-routing"
 import type { SetupStepId, SetupStepStatus } from "~/lib/setup/setup-model"
 import { SETUP_STEP_IDS, coerceSetupStepId, deriveHostSetupStepper } from "~/lib/setup/setup-model"
 import { useSetupModel } from "~/lib/setup/use-setup-model"
+import type { SetupDraftConnection, SetupDraftInfrastructure } from "~/sdk/setup"
 
 const SetupSearchSchema = z.object({
   step: z.string().trim().optional(),
@@ -71,9 +73,9 @@ export const Route = createFileRoute("/$projectSlug/hosts/$host/setup")({
 const STEP_META: Record<string, { title: string; description: string }> = {
   infrastructure: { title: "Hetzner Setup", description: "Token and provisioning defaults" },
   connection: { title: "Server Access", description: "Network and SSH settings" },
-  creds: { title: "Provider Tokens", description: "GitHub and SOPS credentials" },
-  secrets: { title: "Server Passwords", description: "Secrets encryption and sync" },
-  deploy: { title: "Install Server", description: "Bootstrap and deploy the host" },
+  "tailscale-lockdown": { title: "Tailscale lockdown", description: "Enable safer SSH access path" },
+  predeploy: { title: "Pre-Deploy", description: "GitHub, SOPS, first push" },
+  deploy: { title: "Install Server", description: "Final check and bootstrap" },
   verify: { title: "Secure and Verify", description: "Lock down SSH and verify" },
 }
 
@@ -85,11 +87,49 @@ function isStepCompleted(status: SetupStepStatus) {
   return status === "done"
 }
 
+type SetupPendingBootstrapSecrets = {
+  adminPassword: string
+  tailscaleAuthKey: string
+  useTailscaleLockdown: boolean
+}
+
 function HostSetupPage() {
   const { projectSlug, host } = Route.useParams()
   const search = Route.useSearch()
-  const setup = useSetupModel({ projectSlug, host, search })
+  const [pendingInfrastructureDraft, setPendingInfrastructureDraft] = React.useState<SetupDraftInfrastructure | null>(null)
+  const [pendingConnectionDraft, setPendingConnectionDraft] = React.useState<SetupDraftConnection | null>(null)
+  const [pendingBootstrapSecrets, setPendingBootstrapSecrets] = React.useState<SetupPendingBootstrapSecrets>({
+    adminPassword: "",
+    tailscaleAuthKey: "",
+    useTailscaleLockdown: true,
+  })
+
+  const pendingNonSecretDraft = React.useMemo(() => ({
+    infrastructure: pendingInfrastructureDraft ?? undefined,
+    connection: pendingConnectionDraft ?? undefined,
+  }), [pendingConnectionDraft, pendingInfrastructureDraft])
+
+  const setup = useSetupModel({
+    projectSlug,
+    host,
+    search,
+    pendingNonSecretDraft,
+    pendingBootstrapSecrets: {
+      tailscaleAuthKey: pendingBootstrapSecrets.tailscaleAuthKey,
+      useTailscaleLockdown: pendingBootstrapSecrets.useTailscaleLockdown,
+    },
+  })
   const projectId = setup.projectId
+
+  React.useEffect(() => {
+    setPendingInfrastructureDraft(null)
+    setPendingConnectionDraft(null)
+    setPendingBootstrapSecrets({
+      adminPassword: "",
+      tailscaleAuthKey: "",
+      useTailscaleLockdown: true,
+    })
+  }, [host])
 
   if (setup.projectQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
@@ -211,27 +251,34 @@ function HostSetupPage() {
         }}
         orientation="vertical"
         activationMode="manual"
-        className="xl:flex-row xl:items-start xl:gap-8"
+        className="xl:grid xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start xl:gap-8"
       >
-        <StepperList className="xl:w-[280px] xl:shrink-0 xl:self-start xl:sticky xl:top-6">
-          {stepperSteps.map((step) => (
-            <StepperItem
-              key={step.id}
-              value={step.id}
-              completed={isStepCompleted(step.status)}
-              disabled={step.status === "locked"}
-            >
-              <StepperTrigger className="not-last:pb-6">
-                <StepperIndicator />
-                <div className="flex flex-col gap-1">
-                  <StepperTitle>{stepMeta(step.id).title}</StepperTitle>
-                  <StepperDescription>{stepMeta(step.id).description}</StepperDescription>
-                </div>
-              </StepperTrigger>
-              <StepperSeparator className="pointer-events-none absolute inset-y-0 top-5 left-4 z-0 -order-1 h-full -translate-x-1/2" />
-            </StepperItem>
-          ))}
-        </StepperList>
+        <div className="xl:sticky xl:top-6 xl:self-start">
+          <StepperList className="xl:w-[280px] xl:shrink-0">
+            {stepperSteps.map((step, stepIndex) => (
+              <StepperItem
+                key={step.id}
+                value={step.id}
+                completed={isStepCompleted(step.status)}
+                disabled={step.status === "locked"}
+              >
+                <StepperTrigger className="not-last:pb-6">
+                  <StepperIndicator>
+                    {(state) =>
+                      state === "completed"
+                        ? <CheckIcon aria-hidden className="size-4" />
+                        : String(stepIndex + 1)}
+                  </StepperIndicator>
+                  <div className="flex flex-col gap-1">
+                    <StepperTitle>{stepMeta(step.id).title}</StepperTitle>
+                    <StepperDescription>{stepMeta(step.id).description}</StepperDescription>
+                  </div>
+                </StepperTrigger>
+                <StepperSeparator className="pointer-events-none absolute inset-y-0 top-5 left-4 z-0 -order-1 h-full -translate-x-1/2" />
+              </StepperItem>
+            ))}
+          </StepperList>
+        </div>
 
         <div className="space-y-4 xl:min-w-0 xl:flex-1">
           {stepperSteps.map((step) => (
@@ -260,6 +307,14 @@ function HostSetupPage() {
                     projectSlug={projectSlug}
                     host={activeHost}
                     setup={setup}
+                    pendingInfrastructureDraft={pendingInfrastructureDraft}
+                    pendingConnectionDraft={pendingConnectionDraft}
+                    pendingBootstrapSecrets={pendingBootstrapSecrets}
+                    onPendingInfrastructureDraftChange={setPendingInfrastructureDraft}
+                    onPendingConnectionDraftChange={setPendingConnectionDraft}
+                    onPendingBootstrapSecretsChange={(next) => {
+                      setPendingBootstrapSecrets((prev) => ({ ...prev, ...next }))
+                    }}
                     onContinueFromStep={continueFromStep}
                   />
                 )}
@@ -279,9 +334,25 @@ function StepContent(props: {
   projectSlug: string
   host: string
   setup: ReturnType<typeof useSetupModel>
+  pendingInfrastructureDraft: SetupDraftInfrastructure | null
+  pendingConnectionDraft: SetupDraftConnection | null
+  pendingBootstrapSecrets: SetupPendingBootstrapSecrets
+  onPendingInfrastructureDraftChange: (next: SetupDraftInfrastructure) => void
+  onPendingConnectionDraftChange: (next: SetupDraftConnection) => void
+  onPendingBootstrapSecretsChange: (next: Partial<SetupPendingBootstrapSecrets>) => void
   onContinueFromStep: (stepId: SetupStepId) => void
 }) {
-  const { stepId, step, projectId, projectSlug, host, setup } = props
+  const {
+    stepId,
+    step,
+    projectId,
+    projectSlug,
+    host,
+    setup,
+    pendingInfrastructureDraft,
+    pendingConnectionDraft,
+    pendingBootstrapSecrets,
+  } = props
 
   if (stepId === "infrastructure") {
     return (
@@ -293,6 +364,7 @@ function StepContent(props: {
         deployCreds={setup.deployCreds}
         host={host}
         stepStatus={step.status}
+        onDraftChange={props.onPendingInfrastructureDraftChange}
       />
     )
   }
@@ -300,29 +372,33 @@ function StepContent(props: {
   if (stepId === "connection") {
     return (
       <SetupStepConnection
-        projectId={projectId}
         config={setup.config}
         setupDraft={setup.setupDraft}
         host={host}
         stepStatus={step.status}
+        onDraftChange={props.onPendingConnectionDraftChange}
+        adminPassword={pendingBootstrapSecrets.adminPassword}
+        onAdminPasswordChange={(value) => props.onPendingBootstrapSecretsChange({ adminPassword: value })}
       />
     )
   }
 
-  if (stepId === "creds") {
+  if (stepId === "tailscale-lockdown") {
     return (
-      <SetupStepCreds
-        projectId={projectId}
-        host={host}
-        setupDraft={setup.setupDraft}
+      <SetupStepTailscaleLockdown
         stepStatus={step.status}
+        tailscaleAuthKey={pendingBootstrapSecrets.tailscaleAuthKey}
+        hasTailscaleAuthKey={setup.hasTailscaleAuthKeyConfigured}
+        useTailscaleLockdown={pendingBootstrapSecrets.useTailscaleLockdown}
+        onTailscaleAuthKeyChange={(value) => props.onPendingBootstrapSecretsChange({ tailscaleAuthKey: value })}
+        onUseTailscaleLockdownChange={(value) => props.onPendingBootstrapSecretsChange({ useTailscaleLockdown: value })}
       />
     )
   }
 
-  if (stepId === "secrets") {
+  if (stepId === "predeploy") {
     return (
-      <SetupStepSecrets
+      <SetupStepPredeploy
         projectId={projectId}
         host={host}
         setupDraft={setup.setupDraft}
@@ -339,6 +415,10 @@ function StepContent(props: {
         hasBootstrapped={setup.model.hasBootstrapped}
         onContinue={() => props.onContinueFromStep(stepId)}
         stepStatus={step.status}
+        setupDraft={setup.setupDraft}
+        pendingInfrastructureDraft={pendingInfrastructureDraft}
+        pendingConnectionDraft={pendingConnectionDraft}
+        pendingBootstrapSecrets={pendingBootstrapSecrets}
       />
     )
   }

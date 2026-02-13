@@ -4,13 +4,13 @@ import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { AsyncButton } from "~/components/ui/async-button"
-import { Button } from "~/components/ui/button"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { Input } from "~/components/ui/input"
 import { Textarea } from "~/components/ui/textarea"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
+import { maskKnownHostEntry, maskSshPublicKey } from "~/lib/ssh-redaction"
 import { addProjectSshKeys, configDotMultiGet, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
@@ -234,7 +234,7 @@ function SecuritySshKeys() {
                   <div className="space-y-2">
                     {fleetSshKeys.authorized.map((k: string) => (
                       <div key={k} className="flex items-center justify-between gap-2">
-                        <code className="text-xs break-all">{k}</code>
+                        <code className="text-xs break-all">{maskSshPublicKey(k)}</code>
                         <AsyncButton
                           size="sm"
                           variant="secondary"
@@ -261,7 +261,7 @@ function SecuritySshKeys() {
                   <div className="space-y-2">
                     {fleetSshKeys.knownHosts.map((entry: string) => (
                       <div key={entry} className="flex items-center justify-between gap-2">
-                        <code className="text-xs break-all">{entry}</code>
+                        <code className="text-xs break-all">{maskKnownHostEntry(entry)}</code>
                         <AsyncButton
                           size="sm"
                           variant="secondary"

@@ -1,6 +1,5 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
 import { CheckCircleIcon, SparklesIcon } from "@heroicons/react/24/solid"
 import { useMemo, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
@@ -16,18 +15,26 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { configDotSet } from "~/sdk/config"
 import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
-import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
+import { bootstrapExecute, bootstrapStart, getDeployCredsStatus, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
 import { deriveDeploySshKeyReadiness } from "~/lib/setup/deploy-ssh-key-readiness"
+import { sealForRunner } from "~/lib/security/sealed-input"
 import { gitRepoStatus } from "~/sdk/vcs"
 import { lockdownExecute, lockdownStart } from "~/sdk/infra"
 import { serverUpdateApplyExecute, serverUpdateApplyStart } from "~/sdk/server"
-import { setupDraftCommit } from "~/sdk/setup"
+import {
+  buildSetupDraftSectionAad,
+  setupDraftCommit,
+  setupDraftSaveNonSecret,
+  setupDraftSaveSealedSection,
+  type SetupDraftConnection,
+  type SetupDraftInfrastructure,
+  type SetupDraftView,
+} from "~/sdk/setup"
 import {
   deriveDeployReadiness,
-  deriveFirstPushGuidance,
   extractIssueMessage,
   initialFinalizeSteps,
   stepBadgeLabel,
@@ -38,25 +45,93 @@ import {
   type FinalizeStepStatus,
 } from "~/components/deploy/deploy-setup-model"
 
+type SetupPendingBootstrapSecrets = {
+  adminPassword: string
+  tailscaleAuthKey: string
+  useTailscaleLockdown: boolean
+}
+
 function formatShortSha(sha?: string | null): string {
   const value = String(sha || "").trim()
   return value ? value.slice(0, 7) : "none"
 }
 
-async function copyText(label: string, value: string): Promise<void> {
-  if (!value.trim()) {
-    toast.error(`${label} is empty`)
-    return
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function toUniqueStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  return Array.from(new Set(values.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)))
+}
+
+function resolveInfrastructureForDeploy(params: {
+  config: any | null
+  host: string
+  setupDraft: SetupDraftView | null
+  pendingInfrastructureDraft: SetupDraftInfrastructure | null
+}): SetupDraftInfrastructure {
+  const hostCfg = asRecord(params.config?.hosts?.[params.host]) ?? {}
+  const hetzner = asRecord(hostCfg.hetzner) ?? {}
+  const draft = params.setupDraft?.nonSecretDraft?.infrastructure ?? null
+  const pending = params.pendingInfrastructureDraft ?? null
+  const allowPending = pending?.allowTailscaleUdpIngress
+  const allowDraft = draft?.allowTailscaleUdpIngress
+  const allowConfig = hetzner.allowTailscaleUdpIngress
+
+  return {
+    serverType: asString(pending?.serverType) || asString(draft?.serverType) || asString(hetzner.serverType),
+    image: asString(pending?.image) || asString(draft?.image) || asString(hetzner.image),
+    location: asString(pending?.location) || asString(draft?.location) || asString(hetzner.location),
+    allowTailscaleUdpIngress:
+      typeof allowPending === "boolean"
+        ? allowPending
+        : typeof allowDraft === "boolean"
+          ? allowDraft
+          : typeof allowConfig === "boolean"
+            ? allowConfig
+            : true,
   }
-  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-    toast.error("Clipboard unavailable")
-    return
-  }
-  try {
-    await navigator.clipboard.writeText(value)
-    toast.success(`${label} copied`)
-  } catch {
-    toast.error("Copy failed")
+}
+
+function resolveConnectionForDeploy(params: {
+  config: any | null
+  host: string
+  setupDraft: SetupDraftView | null
+  pendingConnectionDraft: SetupDraftConnection | null
+}): SetupDraftConnection {
+  const hostCfg = asRecord(params.config?.hosts?.[params.host]) ?? {}
+  const provisioning = asRecord(hostCfg.provisioning) ?? {}
+  const sshExposure = asRecord(hostCfg.sshExposure) ?? {}
+  const fleet = asRecord(params.config?.fleet) ?? {}
+
+  const draft = params.setupDraft?.nonSecretDraft?.connection ?? null
+  const pending = params.pendingConnectionDraft ?? null
+
+  const modeRaw = asString(pending?.sshExposureMode) || asString(draft?.sshExposureMode) || asString(sshExposure.mode) || "bootstrap"
+  const sshExposureMode = (modeRaw === "bootstrap" || modeRaw === "tailnet" || modeRaw === "public")
+    ? modeRaw
+    : "bootstrap"
+
+  const keysFromPending = toUniqueStringArray(pending?.sshAuthorizedKeys)
+  const keysFromDraft = toUniqueStringArray(draft?.sshAuthorizedKeys)
+  const keysFromFleet = toUniqueStringArray(fleet.sshAuthorizedKeys)
+  const sshAuthorizedKeys = keysFromPending.length > 0
+    ? keysFromPending
+    : keysFromDraft.length > 0
+      ? keysFromDraft
+      : keysFromFleet
+
+  return {
+    adminCidr: asString(pending?.adminCidr) || asString(draft?.adminCidr) || asString(provisioning.adminCidr),
+    sshExposureMode,
+    sshKeyCount: sshAuthorizedKeys.length,
+    sshAuthorizedKeys,
   }
 }
 
@@ -66,6 +141,10 @@ export function DeployInitialInstallSetup(props: {
   hasBootstrapped: boolean
   onContinue?: () => void
   headerBadge?: ReactNode
+  setupDraft: SetupDraftView | null
+  pendingInfrastructureDraft: SetupDraftInfrastructure | null
+  pendingConnectionDraft: SetupDraftConnection | null
+  pendingBootstrapSecrets: SetupPendingBootstrapSecrets
 }) {
   const projectQuery = useProjectBySlug(props.projectSlug)
   const projectId = projectQuery.projectId
@@ -90,6 +169,24 @@ export function DeployInitialInstallSetup(props: {
     ),
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
+  const sealedRunners = useMemo(
+    () =>
+      (runnersQuery.data ?? [])
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runnersQuery.data],
+  )
+
   const hostSummary = useMemo(
     () => (hostsQuery.data ?? []).find((row) => row.hostName === props.host) ?? null,
     [hostsQuery.data, props.host],
@@ -118,6 +215,18 @@ export function DeployInitialInstallSetup(props: {
     ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && runnerOnline),
   })
+  const deployCredsQuery = useQuery({
+    queryKey: ["deployCreds", projectId],
+    queryFn: async () => await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
+    enabled: Boolean(projectId && runnerOnline),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+
+  const deployCredsByKey = new Map((deployCredsQuery.data?.keys || []).map((entry) => [entry.key, entry.status]))
+  const deployCredsDraftSet = props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+  const githubCredReady = deployCredsByKey.get("GITHUB_TOKEN") === "set" || deployCredsDraftSet
+  const sopsCredReady = deployCredsByKey.get("SOPS_AGE_KEY_FILE") === "set" || deployCredsDraftSet
 
   const selectedRev = repoStatus.data?.originHead
   const missingRev = !selectedRev
@@ -133,7 +242,7 @@ export function DeployInitialInstallSetup(props: {
   })
   const repoGateBlocked = readiness.blocksDeploy
   const statusReason = readiness.message
-  const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
+
   const sshKeyReadiness = deriveDeploySshKeyReadiness({
     fleetSshAuthorizedKeys: setupConfigQuery.data?.fleet?.sshAuthorizedKeys,
   })
@@ -151,10 +260,32 @@ export function DeployInitialInstallSetup(props: {
         : sshKeyReadiness.ready
           ? null
           : "SSH key required before deploy. Add at least one fleet SSH key in Server Access."
-  const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked
-  const deployStatusReason = repoGateBlocked ? statusReason : (sshKeyGateMessage || statusReason)
 
-  const canAutoLockdown = isTailnet && hasTailscaleSecret
+  const credsGateBlocked = runnerOnline && (
+    deployCredsQuery.isPending
+    || !githubCredReady
+    || !sopsCredReady
+  )
+  const missingCredLabels = [
+    ...(githubCredReady ? [] : ["GITHUB_TOKEN"]),
+    ...(sopsCredReady ? [] : ["SOPS_AGE_KEY_FILE"]),
+  ]
+  const credsGateMessage = !runnerOnline
+    ? null
+    : deployCredsQuery.isPending
+      ? "Checking provider token status..."
+      : missingCredLabels.length > 0
+        ? `Missing provider tokens: ${missingCredLabels.join(", ")}. Open Pre-Deploy.`
+        : null
+
+  const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked || credsGateBlocked
+  const deployStatusReason = repoGateBlocked
+    ? statusReason
+    : sshKeyGateMessage || credsGateMessage || statusReason
+
+  const wantsTailscaleLockdown = props.pendingBootstrapSecrets.useTailscaleLockdown
+  const hasPendingTailscaleKey = props.pendingBootstrapSecrets.tailscaleAuthKey.trim().length > 0
+  const canAutoLockdown = isTailnet && wantsTailscaleLockdown && (hasTailscaleSecret || hasPendingTailscaleKey)
 
   const [bootstrapRunId, setBootstrapRunId] = useState<Id<"runs"> | null>(null)
   const [setupApplyRunId, setSetupApplyRunId] = useState<Id<"runs"> | null>(null)
@@ -245,7 +376,7 @@ export function DeployInitialInstallSetup(props: {
         setStepStatus("switchTailnetTarget", "skipped", "Tailnet mode disabled")
         setStepStatus("switchSshExposure", "skipped", "Tailnet mode disabled")
         setStepStatus("lockdown", "skipped", "Tailnet mode disabled")
-      } else if (!hasTailscaleSecret) {
+      } else if (!hasTailscaleSecret && !hasPendingTailscaleKey) {
         setStepStatus("switchTailnetTarget", "skipped", "Tailscale auth key missing")
         setStepStatus("switchSshExposure", "skipped", "Tailscale auth key missing")
         setStepStatus("lockdown", "skipped", "Tailscale auth key missing")
@@ -361,9 +492,107 @@ export function DeployInitialInstallSetup(props: {
       if (!projectId) throw new Error("Project not ready")
       if (!props.host.trim()) throw new Error("Host is required")
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
-      if (!selectedRev) {
-        throw new Error("No pushed revision found.")
+      if (!selectedRev) throw new Error("No pushed revision found.")
+      if (!githubCredReady || !sopsCredReady) {
+        const missing = [
+          ...(githubCredReady ? [] : ["GITHUB_TOKEN"]),
+          ...(sopsCredReady ? [] : ["SOPS_AGE_KEY_FILE"]),
+        ]
+        throw new Error(`Missing provider tokens: ${missing.join(", ")}.`)
       }
+
+      const infrastructurePatch = resolveInfrastructureForDeploy({
+        config: setupConfigQuery.data,
+        host: props.host,
+        setupDraft: props.setupDraft,
+        pendingInfrastructureDraft: props.pendingInfrastructureDraft,
+      })
+      const connectionPatch = resolveConnectionForDeploy({
+        config: setupConfigQuery.data,
+        host: props.host,
+        setupDraft: props.setupDraft,
+        pendingConnectionDraft: props.pendingConnectionDraft,
+      })
+
+      if (!infrastructurePatch.serverType?.trim() || !infrastructurePatch.location?.trim()) {
+        throw new Error("Host settings incomplete. Set server type and location.")
+      }
+      if (!connectionPatch.adminCidr?.trim()) {
+        throw new Error("Server access incomplete. Set admin CIDR.")
+      }
+      if (!connectionPatch.sshAuthorizedKeys?.length) {
+        throw new Error("Server access incomplete. Add at least one SSH key.")
+      }
+
+      const savedNonSecretDraft = await setupDraftSaveNonSecret({
+        data: {
+          projectId: projectId as Id<"projects">,
+          host: props.host,
+          expectedVersion: props.setupDraft?.version,
+          patch: {
+            infrastructure: infrastructurePatch,
+            connection: {
+              ...connectionPatch,
+              sshKeyCount: connectionPatch.sshAuthorizedKeys.length,
+            },
+          },
+        },
+      })
+
+      const preferredRunnerId = savedNonSecretDraft?.sealedSecretDrafts?.deployCreds?.targetRunnerId
+        || props.setupDraft?.sealedSecretDrafts?.deployCreds?.targetRunnerId
+      const targetRunner = preferredRunnerId
+        ? sealedRunners.find((runner) => String(runner._id) === String(preferredRunnerId))
+        : sealedRunners.length === 1
+          ? sealedRunners[0]
+          : null
+      if (!targetRunner) {
+        throw new Error("Token runner missing. Save deploy credentials first with an online sealed-capable runner.")
+      }
+
+      const targetRunnerId = String(targetRunner._id) as Id<"runners">
+      const runnerPub = String(targetRunner.capabilities?.sealedInputPubSpkiB64 || "").trim()
+      const keyId = String(targetRunner.capabilities?.sealedInputKeyId || "").trim()
+      const alg = String(targetRunner.capabilities?.sealedInputAlg || "").trim()
+      if (!runnerPub || !keyId || !alg) throw new Error("Runner sealed-input capabilities incomplete")
+
+      const bootstrapSecretsPayload: Record<string, string> = {}
+      const adminPassword = props.pendingBootstrapSecrets.adminPassword.trim()
+      const tailscaleAuthKey = props.pendingBootstrapSecrets.useTailscaleLockdown
+        ? props.pendingBootstrapSecrets.tailscaleAuthKey.trim()
+        : ""
+      if (adminPassword) bootstrapSecretsPayload.adminPasswordHash = adminPassword
+      if (tailscaleAuthKey) bootstrapSecretsPayload.tailscaleAuthKey = tailscaleAuthKey
+
+      const aad = buildSetupDraftSectionAad({
+        projectId: projectId as Id<"projects">,
+        host: props.host,
+        section: "bootstrapSecrets",
+        targetRunnerId,
+      })
+      const sealedInputB64 = await sealForRunner({
+        runnerPubSpkiB64: runnerPub,
+        keyId,
+        alg,
+        aad,
+        plaintextJson: JSON.stringify(bootstrapSecretsPayload),
+      })
+      await setupDraftSaveSealedSection({
+        data: {
+          projectId: projectId as Id<"projects">,
+          host: props.host,
+          section: "bootstrapSecrets",
+          targetRunnerId,
+          sealedInputB64,
+          sealedInputAlg: alg,
+          sealedInputKeyId: keyId,
+          aad,
+          expectedVersion: savedNonSecretDraft?.version,
+        },
+      })
+
+      await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, props.host] })
+
       const setupApply = await setupDraftCommit({
         data: {
           projectId: projectId as Id<"projects">,
@@ -371,7 +600,7 @@ export function DeployInitialInstallSetup(props: {
         },
       })
       setSetupApplyRunId(setupApply.runId)
-      await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, props.host] })
+
       await runDoctor({
         data: {
           projectId: projectId as Id<"projects">,
@@ -379,6 +608,7 @@ export function DeployInitialInstallSetup(props: {
           scope: "bootstrap",
         },
       })
+
       const started = await bootstrapStart({
         data: {
           projectId: projectId as Id<"projects">,
@@ -478,7 +708,7 @@ export function DeployInitialInstallSetup(props: {
               <div className="pt-1">Enable tailnet mode and run lockdown to close public SSH access.</div>
             </AlertDescription>
           </Alert>
-        ) : !isBootstrapped && !canAutoLockdown ? (
+        ) : !isBootstrapped && !canAutoLockdown && wantsTailscaleLockdown ? (
           <Alert
             variant="default"
             className="border-amber-300/50 bg-amber-50/50 text-amber-900 [&_[data-slot=alert-description]]:text-amber-900/90"
@@ -486,7 +716,7 @@ export function DeployInitialInstallSetup(props: {
             <AlertTitle>Auto-lockdown disabled</AlertTitle>
             <AlertDescription>
               <div>Deploy can leave SSH (22) open until tailnet mode is enabled and a Tailscale auth key is configured.</div>
-              <div className="pt-1">Tailnet mode: <code>{tailnetMode || "unknown"}</code>. Tailscale auth key: <code>{hasTailscaleSecret ? "configured" : "missing"}</code>.</div>
+              <div className="pt-1">Tailnet mode: <code>{tailnetMode || "unknown"}</code>. Tailscale auth key: <code>{(hasTailscaleSecret || hasPendingTailscaleKey) ? "configured" : "missing"}</code>.</div>
             </AlertDescription>
           </Alert>
         ) : null}
@@ -556,30 +786,24 @@ export function DeployInitialInstallSetup(props: {
               </AlertTitle>
               <AlertDescription>
                 <div>{sshKeyGateMessage}</div>
-                {!setupConfigQuery.isPending ? (
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                    <Link
-                      className="underline underline-offset-4 hover:text-foreground"
-                      to="/$projectSlug/hosts/$host/setup"
-                      params={{ projectSlug: props.projectSlug, host: props.host }}
-                      search={{ step: "connection" }}
-                    >
-                      Open Server Access
-                    </Link>
-                    <span aria-hidden="true">·</span>
-                    <Link
-                      className="underline underline-offset-4 hover:text-foreground"
-                      to="/$projectSlug/security/ssh-keys"
-                      params={{ projectSlug: props.projectSlug }}
-                    >
-                      Open SSH keys
-                    </Link>
-                  </div>
-                ) : null}
               </AlertDescription>
             </Alert>
           ) : null}
 
+
+          {!isBootstrapped && credsGateMessage && !repoGateBlocked && !sshKeyGateBlocked ? (
+            <Alert
+              variant={deployCredsQuery.isPending ? "default" : "destructive"}
+              className={deployCredsQuery.isPending
+                ? "border-sky-300/50 bg-sky-50/50 text-sky-900 [&_[data-slot=alert-description]]:text-sky-900/90"
+                : undefined}
+            >
+              <AlertTitle>{deployCredsQuery.isPending ? "Checking provider tokens" : "Provider token required"}</AlertTitle>
+              <AlertDescription>
+                <div>{credsGateMessage}</div>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {!isBootstrapped && readiness.reason !== "ready" && readiness.reason !== "repo_pending" ? (
             <Alert
               variant={readiness.severity === "error" ? "destructive" : "default"}
@@ -595,31 +819,6 @@ export function DeployInitialInstallSetup(props: {
                 ) : null}
               </AlertDescription>
             </Alert>
-          ) : null}
-
-          {!isBootstrapped && readiness.showFirstPushGuidance ? (
-            <div className="rounded-md border bg-background p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium">First push help</div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void copyText("Git commands", firstPushGuidance.commands)}
-                >
-                  Copy commands
-                </Button>
-              </div>
-              <div className="text-muted-foreground">
-                {firstPushGuidance.hasUpstream
-                  ? `Upstream detected (${repoStatus.data?.upstream}). Push once, then refresh.`
-                  : "No upstream detected. Set or update origin, push once, then refresh."}
-              </div>
-              <pre className="rounded-md border bg-muted/30 p-2 whitespace-pre-wrap break-words">
-                {firstPushGuidance.commands}
-              </pre>
-              <div className="text-muted-foreground">{firstPushGuidance.note}</div>
-            </div>
           ) : null}
         </div>
 

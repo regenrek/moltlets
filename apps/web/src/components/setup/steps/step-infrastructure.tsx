@@ -1,6 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
-import { toast } from "sonner"
+import { useEffect, useState } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
 import {
@@ -13,7 +11,6 @@ import {
   isKnownHetznerServerType,
 } from "~/components/hosts/hetzner-options"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
-import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
@@ -23,7 +20,7 @@ import { Switch } from "~/components/ui/switch"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
 import { cn } from "~/lib/utils"
-import { setupDraftSaveNonSecret, type SetupDraftView } from "~/sdk/setup"
+import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
 import type { DeployCredsStatus } from "~/sdk/infra"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
@@ -67,8 +64,8 @@ export function SetupStepInfrastructure(props: {
   deployCreds: DeployCredsStatus | null
   host: string
   stepStatus: SetupStepStatus
+  onDraftChange: (next: SetupDraftInfrastructure) => void
 }) {
-  const queryClient = useQueryClient()
   const defaults = resolveHostDefaults(props.config, props.host, props.setupDraft)
   const [serverType, setServerType] = useState(() => defaults.serverType)
   const [image, setImage] = useState(() => defaults.image)
@@ -76,7 +73,6 @@ export function SetupStepInfrastructure(props: {
   const [allowTailscaleUdpIngress, setAllowTailscaleUdpIngress] = useState(() => defaults.allowTailscaleUdpIngress)
   const hcloudTokenState = readHcloudTokenState(props.setupDraft, props.deployCreds)
   const hcloudTokenReady = hcloudTokenState === "set"
-  const hostConfigReady = serverType.trim().length > 0 && location.trim().length > 0
   const missingRequirements = [
     ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
     ...(serverType.trim().length > 0 ? [] : ["hetzner.serverType"]),
@@ -89,34 +85,14 @@ export function SetupStepInfrastructure(props: {
   const serverTypeRadioValue = serverTypeKnown ? serverTypeTrimmed : HETZNER_RADIO_CUSTOM_VALUE
   const locationRadioValue = locationKnown ? locationTrimmed : HETZNER_RADIO_CUSTOM_VALUE
 
-  const saveHostSettings = useMutation({
-    mutationFn: async () => {
-      if (!props.host.trim()) throw new Error("missing host")
-      if (!hostConfigReady) throw new Error("Set server type and location first.")
-      return await setupDraftSaveNonSecret({
-        data: {
-          projectId: props.projectId,
-          host: props.host,
-          expectedVersion: props.setupDraft?.version,
-          patch: {
-            infrastructure: {
-              serverType: serverType.trim(),
-              image: image.trim(),
-              location: location.trim(),
-              allowTailscaleUdpIngress: Boolean(allowTailscaleUdpIngress),
-            },
-          },
-        },
-      })
-    },
-    onSuccess: async () => {
-      toast.success("Draft saved")
-      await queryClient.invalidateQueries({ queryKey: ["setupDraft", props.projectId, props.host] })
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
-  })
+  useEffect(() => {
+    props.onDraftChange({
+      serverType: serverType.trim(),
+      image: image.trim(),
+      location: location.trim(),
+      allowTailscaleUdpIngress: Boolean(allowTailscaleUdpIngress),
+    })
+  }, [allowTailscaleUdpIngress, image, location, props.onDraftChange, serverType])
 
   return (
     <div className="space-y-4">
@@ -147,19 +123,8 @@ export function SetupStepInfrastructure(props: {
 
       <SettingsSection
         title="Hetzner host configuration"
-        description="Set the provisioning defaults for this host."
-        statusText={missingRequirements.length > 0 ? `Missing: ${missingRequirements.join(", ")}.` : undefined}
-        actions={(
-          <AsyncButton
-            type="button"
-            disabled={saveHostSettings.isPending || !hostConfigReady}
-            pending={saveHostSettings.isPending}
-            pendingText="Saving..."
-            onClick={() => saveHostSettings.mutate()}
-          >
-            Save host settings
-          </AsyncButton>
-        )}
+        description="Set provisioning defaults. Values are committed during final deploy."
+        statusText={missingRequirements.length > 0 ? `Missing: ${missingRequirements.join(", ")}.` : "Ready for final deploy check."}
       >
         <div className="space-y-4">
           <StackedField
