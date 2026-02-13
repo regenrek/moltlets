@@ -8,8 +8,9 @@ import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
 import {
   HETZNER_LOCATION_OPTIONS,
-  HETZNER_RADIO_CUSTOM_VALUE,
   HETZNER_SERVER_TYPE_OPTIONS,
+  HETZNER_SETUP_DEFAULT_LOCATION,
+  HETZNER_SETUP_DEFAULT_SERVER_TYPE,
   isKnownHetznerLocation,
   isKnownHetznerServerType,
 } from "~/components/hosts/hetzner-options"
@@ -28,12 +29,10 @@ export function HostProviderSettingsSection(props: {
   hetznerAllowTailscaleUdpIngress: boolean
   setHetznerAllowTailscaleUdpIngress: (value: boolean) => void
 }) {
-  const serverType = props.serverType.trim()
-  const location = props.hetznerLocation.trim()
-  const serverTypeKnown = isKnownHetznerServerType(serverType)
-  const locationKnown = isKnownHetznerLocation(location)
-  const serverTypeRadioValue = serverTypeKnown ? serverType : HETZNER_RADIO_CUSTOM_VALUE
-  const locationRadioValue = locationKnown ? location : HETZNER_RADIO_CUSTOM_VALUE
+  const serverTypeRaw = props.serverType.trim()
+  const locationRaw = props.hetznerLocation.trim()
+  const serverType = isKnownHetznerServerType(serverTypeRaw) ? serverTypeRaw : HETZNER_SETUP_DEFAULT_SERVER_TYPE
+  const location = isKnownHetznerLocation(locationRaw) ? locationRaw : HETZNER_SETUP_DEFAULT_LOCATION
 
   return (
     <SettingsSection
@@ -52,10 +51,8 @@ export function HostProviderSettingsSection(props: {
           help={setupFieldHelp.hosts.hetznerServerType}
         >
           <RadioGroup
-            value={serverTypeRadioValue}
-            onValueChange={(value) => {
-              if (value !== HETZNER_RADIO_CUSTOM_VALUE) props.setServerType(value)
-            }}
+            value={serverType}
+            onValueChange={props.setServerType}
             className="gap-3"
           >
             {HETZNER_SERVER_TYPE_OPTIONS.map((option) => (
@@ -63,7 +60,7 @@ export function HostProviderSettingsSection(props: {
                 key={option.value}
                 className={cn(
                   "flex items-start gap-3 rounded-md border bg-muted/10 p-3",
-                  serverTypeRadioValue === option.value && "border-primary bg-muted/20",
+                  serverType === option.value && "border-primary bg-muted/20",
                 )}
               >
                 <RadioGroupItem value={option.value} id={`serverType-${option.value}`} />
@@ -73,17 +70,6 @@ export function HostProviderSettingsSection(props: {
                 </span>
               </label>
             ))}
-            {!serverTypeKnown && serverType ? (
-              <label className="flex items-start gap-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3">
-                <RadioGroupItem value={HETZNER_RADIO_CUSTOM_VALUE} id="serverType-custom" />
-                <span className="space-y-1">
-                  <span className="block text-sm font-medium">Custom ({serverType})</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Current config value is not in presets. Selecting a preset will replace it.
-                  </span>
-                </span>
-              </label>
-            ) : null}
           </RadioGroup>
         </StackedField>
 
@@ -93,10 +79,8 @@ export function HostProviderSettingsSection(props: {
           help={setupFieldHelp.hosts.hetznerLocation}
         >
           <RadioGroup
-            value={locationRadioValue}
-            onValueChange={(value) => {
-              if (value !== HETZNER_RADIO_CUSTOM_VALUE) props.setHetznerLocation(value)
-            }}
+            value={location}
+            onValueChange={props.setHetznerLocation}
             className="grid gap-3 md:grid-cols-2"
           >
             {HETZNER_LOCATION_OPTIONS.map((option) => (
@@ -104,7 +88,7 @@ export function HostProviderSettingsSection(props: {
                 key={option.value}
                 className={cn(
                   "flex items-start gap-3 rounded-md border bg-muted/10 p-3",
-                  locationRadioValue === option.value && "border-primary bg-muted/20",
+                  location === option.value && "border-primary bg-muted/20",
                 )}
               >
                 <RadioGroupItem value={option.value} id={`location-${option.value}`} />
@@ -119,17 +103,6 @@ export function HostProviderSettingsSection(props: {
                 </span>
               </label>
             ))}
-            {!locationKnown && location ? (
-              <label className="flex items-start gap-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 md:col-span-2">
-                <RadioGroupItem value={HETZNER_RADIO_CUSTOM_VALUE} id="location-custom" />
-                <span className="space-y-1">
-                  <span className="block text-sm font-medium">Custom ({location})</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Current config value is not in presets. Selecting a preset will replace it.
-                  </span>
-                </span>
-              </label>
-            ) : null}
           </RadioGroup>
         </StackedField>
 

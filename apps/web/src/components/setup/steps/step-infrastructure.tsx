@@ -3,7 +3,6 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
 import {
   HETZNER_LOCATION_OPTIONS,
-  HETZNER_RADIO_CUSTOM_VALUE,
   HETZNER_SERVER_TYPE_OPTIONS,
   HETZNER_SETUP_DEFAULT_LOCATION,
   HETZNER_SETUP_DEFAULT_SERVER_TYPE,
@@ -50,10 +49,20 @@ function parsePositiveInt(value: string): number | null {
   return parsed
 }
 
+function resolveServerTypePreset(value: string): string {
+  return isKnownHetznerServerType(value) ? value : HETZNER_SETUP_DEFAULT_SERVER_TYPE
+}
+
+function resolveLocationPreset(value: string): string {
+  return isKnownHetznerLocation(value) ? value : HETZNER_SETUP_DEFAULT_LOCATION
+}
+
 function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraft: SetupDraftView | null) {
   const hostCfg = asRecord(config?.hosts?.[host]) ?? {}
   const hetznerCfg = asRecord(hostCfg.hetzner) ?? {}
   const draft = setupDraft?.nonSecretDraft?.infrastructure ?? null
+  const serverType = resolveServerTypePreset(asString(draft?.serverType, asString(hetznerCfg.serverType, HETZNER_SETUP_DEFAULT_SERVER_TYPE)).trim())
+  const location = resolveLocationPreset(asString(draft?.location, asString(hetznerCfg.location, HETZNER_SETUP_DEFAULT_LOCATION)).trim())
   const configuredVolumeSizeGb = asNonNegativeInt(hetznerCfg.volumeSizeGb, 0)
   const draftVolumeEnabled = typeof draft?.volumeEnabled === "boolean" ? draft.volumeEnabled : undefined
   const draftVolumeSizeGb = asNonNegativeInt(draft?.volumeSizeGb, configuredVolumeSizeGb)
@@ -61,9 +70,9 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
   const volumeSizeGb = Math.max(1, draftVolumeSizeGb > 0 ? draftVolumeSizeGb : 50)
 
   return {
-    serverType: asString(draft?.serverType, asString(hetznerCfg.serverType, HETZNER_SETUP_DEFAULT_SERVER_TYPE)),
+    serverType,
     image: asString(draft?.image, asString(hetznerCfg.image, "")),
-    location: asString(draft?.location, asString(hetznerCfg.location, HETZNER_SETUP_DEFAULT_LOCATION)),
+    location,
     allowTailscaleUdpIngress: asBoolean(draft?.allowTailscaleUdpIngress, asBoolean(hetznerCfg.allowTailscaleUdpIngress, true)),
     volumeEnabled,
     volumeSizeGb,
@@ -94,29 +103,35 @@ export function SetupStepInfrastructure(props: {
   const volumeSettingsReady = !volumeEnabled || parsedVolumeSizeGb !== null
   const hcloudTokenState = readHcloudTokenState(props.setupDraft)
   const hcloudTokenReady = hcloudTokenState === "set"
-  const missingRequirements = [
-    ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
-    ...(serverType.trim().length > 0 ? [] : ["hetzner.serverType"]),
-    ...(location.trim().length > 0 ? [] : ["hetzner.location"]),
-    ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
-  ]
   const serverTypeTrimmed = serverType.trim()
   const locationTrimmed = location.trim()
-  const serverTypeKnown = isKnownHetznerServerType(serverTypeTrimmed)
-  const locationKnown = isKnownHetznerLocation(locationTrimmed)
-  const serverTypeRadioValue = serverTypeKnown ? serverTypeTrimmed : HETZNER_RADIO_CUSTOM_VALUE
-  const locationRadioValue = locationKnown ? locationTrimmed : HETZNER_RADIO_CUSTOM_VALUE
+  const resolvedServerType = resolveServerTypePreset(serverTypeTrimmed)
+  const resolvedLocation = resolveLocationPreset(locationTrimmed)
+  const missingRequirements = [
+    ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
+    ...(resolvedServerType.length > 0 ? [] : ["hetzner.serverType"]),
+    ...(resolvedLocation.length > 0 ? [] : ["hetzner.location"]),
+    ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
+  ]
 
   useEffect(() => {
     props.onDraftChange({
-      serverType: serverType.trim(),
+      serverType: resolvedServerType,
       image: image.trim(),
-      location: location.trim(),
+      location: resolvedLocation,
       allowTailscaleUdpIngress: Boolean(allowTailscaleUdpIngress),
       volumeEnabled,
       volumeSizeGb: volumeEnabled ? parsedVolumeSizeGb ?? undefined : 0,
     })
-  }, [allowTailscaleUdpIngress, image, location, parsedVolumeSizeGb, props.onDraftChange, serverType, volumeEnabled])
+  }, [
+    allowTailscaleUdpIngress,
+    image,
+    parsedVolumeSizeGb,
+    props.onDraftChange,
+    resolvedLocation,
+    resolvedServerType,
+    volumeEnabled,
+  ])
 
   return (
     <div className="space-y-4">
@@ -157,10 +172,8 @@ export function SetupStepInfrastructure(props: {
             help={setupFieldHelp.hosts.hetznerServerType}
           >
             <RadioGroup
-              value={serverTypeRadioValue}
-              onValueChange={(value) => {
-                if (value !== HETZNER_RADIO_CUSTOM_VALUE) setServerType(value)
-              }}
+              value={resolvedServerType}
+              onValueChange={setServerType}
               className="gap-3"
             >
               {HETZNER_SERVER_TYPE_OPTIONS.map((option) => (
@@ -168,7 +181,7 @@ export function SetupStepInfrastructure(props: {
                   key={option.value}
                   className={cn(
                     "flex items-start gap-3 rounded-md border bg-muted/10 p-3",
-                    serverTypeRadioValue === option.value && "border-primary bg-muted/20",
+                    resolvedServerType === option.value && "border-primary bg-muted/20",
                   )}
                 >
                   <RadioGroupItem value={option.value} id={`setup-hetzner-server-type-${option.value}`} />
@@ -178,17 +191,6 @@ export function SetupStepInfrastructure(props: {
                   </span>
                 </label>
               ))}
-              {!serverTypeKnown && serverTypeTrimmed ? (
-                <label className="flex items-start gap-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3">
-                  <RadioGroupItem value={HETZNER_RADIO_CUSTOM_VALUE} id="setup-hetzner-server-type-custom" />
-                  <span className="space-y-1">
-                    <span className="block text-sm font-medium">Custom ({serverTypeTrimmed})</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Current config value is not in presets. Selecting a preset will replace it.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
             </RadioGroup>
           </StackedField>
 
@@ -198,10 +200,8 @@ export function SetupStepInfrastructure(props: {
             help={setupFieldHelp.hosts.hetznerLocation}
           >
             <RadioGroup
-              value={locationRadioValue}
-              onValueChange={(value) => {
-                if (value !== HETZNER_RADIO_CUSTOM_VALUE) setLocation(value)
-              }}
+              value={resolvedLocation}
+              onValueChange={setLocation}
               className="grid gap-3 md:grid-cols-2"
             >
               {HETZNER_LOCATION_OPTIONS.map((option) => (
@@ -209,7 +209,7 @@ export function SetupStepInfrastructure(props: {
                   key={option.value}
                   className={cn(
                     "flex items-start gap-3 rounded-md border bg-muted/10 p-3",
-                    locationRadioValue === option.value && "border-primary bg-muted/20",
+                    resolvedLocation === option.value && "border-primary bg-muted/20",
                   )}
                 >
                   <RadioGroupItem value={option.value} id={`setup-hetzner-location-${option.value}`} />
@@ -224,17 +224,6 @@ export function SetupStepInfrastructure(props: {
                   </span>
                 </label>
               ))}
-              {!locationKnown && locationTrimmed ? (
-                <label className="flex items-start gap-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 md:col-span-2">
-                  <RadioGroupItem value={HETZNER_RADIO_CUSTOM_VALUE} id="setup-hetzner-location-custom" />
-                  <span className="space-y-1">
-                    <span className="block text-sm font-medium">Custom ({locationTrimmed})</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Current config value is not in presets. Selecting a preset will replace it.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
             </RadioGroup>
           </StackedField>
 

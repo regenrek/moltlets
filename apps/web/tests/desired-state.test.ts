@@ -23,7 +23,7 @@ describe("deriveEffectiveSetupDesiredState", () => {
       setupDraft: {
         nonSecretDraft: {
           infrastructure: {
-            serverType: "cx22",
+            serverType: "cpx22",
             image: "draft-image",
             location: "nbg1",
             allowTailscaleUdpIngress: true,

@@ -302,7 +302,7 @@ function SetupStepConnectionForm(props: {
                 id="setup-new-ssh-key"
                 value={newKeyText}
                 onChange={(event) => setNewKeyText(event.target.value)}
-                className="font-mono min-h-[110px]"
+                className="field-sizing-fixed max-w-full min-h-[110px] break-all [overflow-wrap:anywhere] font-mono"
                 placeholder="ssh-ed25519 AAAA... user@host"
               />
             </div>
@@ -320,9 +320,17 @@ function SetupStepConnectionForm(props: {
             </div>
           </div>
 
-          <DialogFooter showCloseButton>
+          <DialogFooter>
             <InputGroupButton
               type="button"
+              variant="outline"
+              onClick={() => setAddKeyOpen(false)}
+            >
+              Close
+            </InputGroupButton>
+            <InputGroupButton
+              type="button"
+              variant="default"
               disabled={!newKeyText.trim()}
               onClick={addKeyFromDialog}
             >
