@@ -35,6 +35,18 @@ Which repository is it checking?
 - `fleet/clawlets.json` field `baseFlake` when it is set (for example `github:owner/repo`)
 - the current repo's `origin` remote when `baseFlake` is empty
 
+Does Clawlets ever change it for you?
+
+No. The code only reads `baseFlake` to resolve where to evaluate the flake; it does not
+rewrite it during bootstrap or setup. You change it only when you edit `fleet/clawlets.json`
+yourself (or via `clawlets config set baseFlake ...`).
+
+Why is this option there?
+
+It is an explicit escape hatch when the project repo is not where Nix evaluation should
+pull inputs from (for example when sharing a template repo, pinning a different remote repo,
+or temporarily overriding for one-off bootstrap flows with `--flake`).
+
 For projects created by `clawlets project init`, this usually points to the same repository
 where you keep `fleet/clawlets.json` and `secrets/`.
 
