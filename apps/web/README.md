@@ -54,17 +54,6 @@ VITE_CONVEX_URL=https://<deployment>.convex.cloud
 VITE_CONVEX_SITE_URL=https://<deployment>.convex.site
 ```
 
-Dev-only auth bypass is available for local debugging:
-
-```sh
-# apps/web/.env.local
-VITE_CLAWLETS_AUTH_DISABLED=true
-CLAWLETS_AUTH_DISABLED=true
-
-# Convex deployment env
-npx convex env set CLAWLETS_AUTH_DISABLED true
-```
-
 ## Build
 
 ```sh
