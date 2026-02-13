@@ -200,6 +200,8 @@ export const SetupDraftInfrastructure = v.object({
   image: v.optional(v.string()),
   location: v.optional(v.string()),
   allowTailscaleUdpIngress: v.optional(v.boolean()),
+  volumeEnabled: v.optional(v.boolean()),
+  volumeSizeGb: v.optional(v.number()),
 });
 export const SetupDraftConnection = v.object({
   adminCidr: v.optional(v.string()),

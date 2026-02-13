@@ -37,6 +37,11 @@ import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import { resolveBundledOpenTofuAssetDir } from "../lib/infra/opentofu-assets.js";
 import type { ProvisionerRuntime } from "../lib/infra/types.js";
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 export async function addDeployChecks(params: {
   cwd: string;
   repoRoot: string;
@@ -168,6 +173,71 @@ export async function addDeployChecks(params: {
       push({ status: "ok", label: "tailnet configured", detail: "(tailscale)" });
     } else {
       push({ status: "warn", label: "tailnet configured", detail: `(unknown: ${mode})` });
+    }
+
+    {
+      const hostCfg = clawletsHostCfg as unknown as Record<string, unknown>;
+      const gatewaysById = asRecord(hostCfg.gateways) || {};
+      const gatewaysOrder = Array.isArray(hostCfg.gatewaysOrder)
+        ? hostCfg.gatewaysOrder
+            .map((entry) => coerceTrimmedString(entry))
+            .filter(Boolean)
+        : [];
+      const gatewayIds = gatewaysOrder.length > 0 ? gatewaysOrder : Object.keys(gatewaysById);
+      const qmdGateways: string[] = [];
+      const memoryConfiguredGateways: string[] = [];
+
+      for (const gatewayId of gatewayIds) {
+        const gatewayCfg = asRecord(gatewaysById[gatewayId]) || {};
+        const openclaw = asRecord(gatewayCfg.openclaw) || {};
+        const memory = asRecord(openclaw.memory) || {};
+        const backend = String(memory.backend || "").trim();
+        const agents = asRecord(gatewayCfg.agents) || {};
+        const defaults = asRecord(agents.defaults) || {};
+        const memorySearch = asRecord(defaults.memorySearch);
+        const memoryConfigured = backend === "qmd" || backend === "builtin" || memorySearch != null;
+        if (memoryConfigured) memoryConfiguredGateways.push(gatewayId);
+        if (backend === "qmd") qmdGateways.push(gatewayId);
+      }
+
+      if (qmdGateways.length > 0) {
+        push({
+          status: openclawEnabled ? "ok" : "warn",
+          label: "qmd tooling",
+          detail: openclawEnabled
+            ? `qmd backend selected (${qmdGateways.join(", ")}); nix bridge auto-enables openclaw tools (qmd on PATH)`
+            : `qmd backend selected (${qmdGateways.join(", ")}) but services.openclawFleet.enable=false`,
+        });
+      }
+
+      const volumeSizeGb = Math.max(0, Math.trunc(Number((clawletsHostCfg as any).hetzner?.volumeSizeGb ?? 0)));
+      const volumeLinuxDevice = String((clawletsHostCfg as any).hetzner?.volumeLinuxDevice || "").trim();
+      if (volumeSizeGb > 0) {
+        push({
+          status: volumeLinuxDevice ? "ok" : "warn",
+          label: "hetzner.volumeLinuxDevice",
+          detail: volumeLinuxDevice || "(missing; run bootstrap so provisioning outputs can be persisted before install)",
+        });
+      }
+
+      if (memoryConfiguredGateways.length > 0 && clawletsCfg) {
+        const resticEnabled = Boolean((clawletsCfg as any).fleet?.backups?.restic?.enable);
+        if (volumeSizeGb <= 0 && !resticEnabled) {
+          push({
+            status: "warn",
+            label: "memory persistence",
+            detail: `memory configured on gateways (${memoryConfiguredGateways.join(", ")}) with no volume and restic disabled; memory/session data can be lost on host replacement`,
+          });
+        } else {
+          push({
+            status: "ok",
+            label: "memory persistence",
+            detail: volumeSizeGb > 0
+              ? `memory configured on gateways (${memoryConfiguredGateways.join(", ")}); persistent volume enabled (${volumeSizeGb}GB)`
+              : `memory configured on gateways (${memoryConfiguredGateways.join(", ")}); restic backups enabled`,
+          });
+        }
+      }
     }
   }
 

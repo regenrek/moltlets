@@ -25,6 +25,7 @@ export type HetznerProvisionSpec = HostProvisionSpecBase & {
     image: string;
     location: string;
     allowTailscaleUdpIngress: boolean;
+    volumeSizeGb: number;
   };
 };
 
@@ -49,6 +50,10 @@ export type ProvisionedHost = {
   instanceId: string;
   ipv4: string;
   sshUser: "root" | "admin";
+  providerMeta?: {
+    volumeId?: string;
+    volumeLinuxDevice?: string;
+  };
 };
 
 export type ProvisionerRuntime = {

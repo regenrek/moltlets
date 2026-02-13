@@ -76,6 +76,18 @@ variable "location" {
   default = "fsn1"
 }
 
+variable "volume_size_gb" {
+  type    = number
+  default = 0
+  validation {
+    condition = (
+      floor(var.volume_size_gb) == var.volume_size_gb &&
+      (var.volume_size_gb == 0 || (var.volume_size_gb >= 10 && var.volume_size_gb <= 10240))
+    )
+    error_message = "volume_size_gb must be 0 (disabled) or an integer between 10 and 10240."
+  }
+}
+
 provider "hcloud" {}
 
 module "host" {
@@ -90,4 +102,5 @@ module "host" {
   server_type   = var.server_type
   image         = var.image
   location      = var.location
+  volume_size_gb = var.volume_size_gb
 }

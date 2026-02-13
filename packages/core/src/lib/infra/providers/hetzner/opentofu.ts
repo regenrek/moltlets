@@ -69,6 +69,8 @@ function buildSharedTfArgs(params: {
     `tailnet_mode=${params.spec.tailnetMode}`,
     "-var",
     `tailscale_udp_ingress_enabled=${params.spec.hetzner.allowTailscaleUdpIngress ? "true" : "false"}`,
+    "-var",
+    `volume_size_gb=${String(Math.max(0, Math.trunc(Number(params.spec.hetzner.volumeSizeGb || 0))))}`,
   ];
 
   const serverType = String(params.spec.hetzner.serverType || "").trim();

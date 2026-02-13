@@ -76,6 +76,48 @@ describe("gateway command", () => {
     expect(logSpy).toHaveBeenCalledWith("ok: removed gateway maren (host=alpha)");
   });
 
+  it("sets gateway memory backend/settings", async () => {
+    const config = makeConfig({
+      hostOverrides: {
+        gatewaysOrder: ["maren"],
+        gateways: {
+          maren: {
+            openclaw: {},
+            agents: { defaults: {} },
+          },
+        },
+      },
+    });
+    loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });
+    const { gateway } = await import("../src/commands/openclaw/gateway.js");
+    await gateway.subCommands?.set?.run?.({
+      args: {
+        gateway: "maren",
+        backend: "qmd",
+        "builtin-enabled": "true",
+        "builtin-session-memory": "true",
+        "builtin-max-results": "7",
+        "builtin-min-score": "0.3",
+        "qmd-command": "/run/current-system/sw/bin/qmd",
+        "qmd-sessions-enabled": "true",
+        "qmd-max-results": "9",
+      },
+    } as any);
+
+    expect(writeClawletsConfigMock).toHaveBeenCalled();
+    const written = writeClawletsConfigMock.mock.calls[0]?.[0]?.config;
+    const gatewayCfg = written?.hosts?.alpha?.gateways?.maren as any;
+    expect(gatewayCfg?.openclaw?.memory?.backend).toBe("qmd");
+    expect(gatewayCfg?.openclaw?.memory?.qmd?.command).toBe("/run/current-system/sw/bin/qmd");
+    expect(gatewayCfg?.openclaw?.memory?.qmd?.sessions?.enabled).toBe(true);
+    expect(gatewayCfg?.openclaw?.memory?.qmd?.limits?.maxResults).toBe(9);
+    expect(gatewayCfg?.agents?.defaults?.memorySearch?.enabled).toBe(true);
+    expect(gatewayCfg?.agents?.defaults?.memorySearch?.experimental?.sessionMemory).toBe(true);
+    expect(gatewayCfg?.agents?.defaults?.memorySearch?.query?.maxResults).toBe(7);
+    expect(gatewayCfg?.agents?.defaults?.memorySearch?.query?.minScore).toBe(0.3);
+    expect(logSpy).toHaveBeenCalledWith("ok: updated gateway maren (host=alpha)");
+  });
+
   it("errors on interactive without TTY", async () => {
     const config = makeConfig({ hostOverrides: { gatewaysOrder: [], gateways: {} } });
     loadClawletsConfigMock.mockReturnValue({ configPath: "/repo/fleet/clawlets.json", config });

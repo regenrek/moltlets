@@ -16,6 +16,8 @@ export const setupFieldHelp = {
     hetznerLocation: "Hetzner DC location (e.g. `fsn1`).",
     hetznerImage: "Optional Hetzner image override (usually leave empty when using nixos-anywhere).",
     hetznerAllowTailscaleUdpIngress: "Controls inbound UDP/41641 for direct Tailscale WireGuard paths. Disable for relay-only mode and reduced public exposure.",
+    hetznerVolumeEnabled: "Attach a dedicated Hetzner volume for durable OpenClaw state and mount it at `/srv/openclaw`.",
+    hetznerVolumeSizeGb: "Volume size in GB. Set 0 to disable the volume.",
     flakeHost: "Override the Nix flake host target (advanced; usually leave empty).",
     agentModelPrimary: "Default model identifier used by agents on this host (provider/model).",
     cacheSubstituters: "Nix substituters (binary caches) for this host. One per line. Used by the updater allowlist; manifests may only specify a subset.",

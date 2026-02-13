@@ -26,6 +26,7 @@ in {
   ];
 
   clawlets.diskDevice = hostCfg.diskDevice or "/dev/sda";
+  clawlets.openclawState.volumeLinuxDevice = ((hostCfg.hetzner or { }).volumeLinuxDevice or null);
 
   clawlets.sshExposure.mode = sshExposureMode;
 
@@ -204,6 +205,7 @@ in {
 
   services.openclawFleet = {
     enable = openclawHostCfg.enable or false;
+    tools.enable = fleet.toolsEnable;
     gateways = fleet.gateways;
     secretEnv = fleet.secretEnv;
     secretFiles = fleet.secretFiles;

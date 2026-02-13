@@ -69,6 +69,14 @@ in
       };
     };
 
+    openclawState = {
+      volumeLinuxDevice = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Optional Linux block device mounted at /srv/openclaw for durable OpenClaw state.";
+      };
+    };
+
     tailnet = {
       mode = lib.mkOption {
         type = lib.types.enum [ "none" "tailscale" ];
@@ -207,6 +215,14 @@ in
         size = 16384;
       }
     ];
+
+    fileSystems = lib.mkIf ((cfg.openclawState.volumeLinuxDevice or null) != null && (cfg.openclawState.volumeLinuxDevice or "") != "") {
+      "/srv/openclaw" = {
+        device = cfg.openclawState.volumeLinuxDevice;
+        fsType = "ext4";
+        options = [ "discard" "defaults" "nofail" ];
+      };
+    };
 
     nix.settings = {
       max-jobs = lib.mkDefault 1;

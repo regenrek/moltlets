@@ -1,0 +1,39 @@
+---
+title: Persistence
+description: What persists across updates/replacement and how to protect memory/session state.
+---
+
+Clawlets hosts are replaceable. Persistent state must be explicitly configured.
+
+## Durable state for OpenClaw
+
+Use a Hetzner volume for OpenClaw runtime state:
+
+- Set `hosts.<host>.hetzner.volumeSizeGb` (for example `50`)
+- Bootstrap the host so `hosts.<host>.hetzner.volumeLinuxDevice` is persisted
+- Nix mounts that device at `/srv/openclaw`
+
+This keeps sessions, builtin memory SQLite, and QMD indexes on persistent storage.
+
+## Backup layer
+
+Enable restic for off-host recovery:
+
+- `fleet.backups.restic.enable=true`
+- `fleet.backups.restic.repository="<repo>"`
+
+Volume + restic is the recommended combination:
+
+- Volume handles fast local persistence.
+- Restic covers host replacement, accidental deletion, and rollback scenarios.
+
+## Managed workspace sync behavior
+
+`sync-managed-docs.sh` only updates the managed docs/skills overlay.
+
+It intentionally does not overwrite runtime memory artifacts such as:
+
+- `workspace/MEMORY.md`
+- `workspace/memory/**`
+- session logs
+- builtin/QMD SQLite data under `/srv/openclaw/<gateway>/...`

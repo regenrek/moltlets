@@ -7,6 +7,7 @@ import { listPinnedChannelUiModels } from "@clawlets/core/lib/openclaw/channel-u
 import { SecretNameSchema, SkillIdSchema } from "@clawlets/shared/lib/identifiers"
 import { ChannelsRuntimeCard } from "./cards/channels-runtime-card"
 import { ChannelsConfigCard } from "./cards/channels-card"
+import { MemoryConfigCard, type MemoryCardSaveInput } from "./cards/memory-card"
 import { buildGatewayConfigPath } from "./shared/config-path"
 import { HooksConfigCard } from "./cards/hooks-card"
 import { PluginsConfigCard } from "./cards/plugins-card"
@@ -14,6 +15,12 @@ import { SecretWiringDetails } from "./secret-wiring"
 import { SkillsConfigCard } from "./cards/skills-card"
 import { formatIssues, isPlainObject, listEnabledChannels, readInlineSecretWarnings } from "./helpers"
 import { configDotBatch, configDotSet } from "~/sdk/config"
+import {
+  buildBuiltinMemoryOps,
+  buildOpenclawMemoryConfig,
+  readGatewayMemoryState,
+  setGatewayOpenclawConfig,
+} from "~/sdk/openclaw"
 
 export function GatewayIntegrations(props: {
   projectId: string
@@ -97,6 +104,10 @@ export function GatewayIntegrations(props: {
   const pluginsDenyDefault = pluginsDeny.map(String).join("\n")
   const pluginsPathsDefault = pluginsPaths.map(String).join("\n")
   const pluginsKey = `${props.gatewayId}:${pluginsAllowDefault}:${pluginsDenyDefault}:${pluginsPathsDefault}`
+  const memoryState = useMemo(
+    () => readGatewayMemoryState({ openclaw: props.openclaw, agents: props.agents }),
+    [props.openclaw, props.agents],
+  )
 
   const writeChannels = useMutation({
     mutationFn: async (params: { channelId: string; enabled?: boolean; allowFrom?: string[] }) => {
@@ -200,6 +211,45 @@ export function GatewayIntegrations(props: {
     onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
   })
 
+  const writeMemory = useMutation({
+    mutationFn: async (input: MemoryCardSaveInput) => {
+      const builtinOps = buildBuiltinMemoryOps({
+        host: props.host,
+        gatewayId: props.gatewayId,
+        settings: input.builtin,
+      })
+      const typedResult = await configDotBatch({
+        data: {
+          projectId: props.projectId as Id<"projects">,
+          ops: builtinOps,
+        },
+      })
+      if (!typedResult.ok) throw new Error(formatIssues(typedResult.issues))
+
+      const nextOpenclaw = buildOpenclawMemoryConfig({
+        openclaw: props.openclaw,
+        backend: input.backend,
+        qmd: input.qmd,
+      })
+      const openclawResult = await setGatewayOpenclawConfig({
+        data: {
+          projectId: props.projectId as Id<"projects">,
+          host: props.host,
+          gatewayId: props.gatewayId,
+          schemaMode: "pinned",
+          openclaw: nextOpenclaw,
+        },
+      })
+      if (!openclawResult.ok) throw new Error(formatIssues(openclawResult.issues))
+      return { ok: true as const }
+    },
+    onSuccess: async () => {
+      toast.success("Memory config updated")
+      await refreshQueries()
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+  })
+
   return (
     <div className="space-y-4">
       <ChannelsRuntimeCard
@@ -221,6 +271,17 @@ export function GatewayIntegrations(props: {
         pending={writeChannels.isPending}
         onToggleChannel={({ channelId, enabled }) => writeChannels.mutate({ channelId, enabled })}
         onSaveAllowFrom={({ channelId, allowFrom }) => writeChannels.mutate({ channelId, allowFrom })}
+      />
+
+      <MemoryConfigCard
+        host={props.host}
+        gatewayId={props.gatewayId}
+        canEdit={props.canEdit}
+        pending={writeMemory.isPending}
+        initialBackend={memoryState.backend}
+        initialBuiltin={memoryState.builtin}
+        initialQmd={memoryState.qmd}
+        onSave={(input) => writeMemory.mutate(input)}
       />
 
       <HooksConfigCard

@@ -14,6 +14,7 @@ import {
   writeClawletsConfig,
   HETZNER_DEFAULT_LOCATION,
   HETZNER_DEFAULT_SERVER_TYPE,
+  HETZNER_DEFAULT_VOLUME_SIZE_GB,
   type ClawletsHostConfig,
 } from "@clawlets/core/lib/config/clawlets-config";
 import { DEFAULT_NIX_SUBSTITUTERS, DEFAULT_NIX_TRUSTED_PUBLIC_KEYS } from "@clawlets/core/lib/nix/nix-cache";
@@ -34,6 +35,16 @@ function toStringArray(v: unknown): string[] {
   if (v == null) return [];
   if (Array.isArray(v)) return v.map((x) => coerceString(x));
   return [coerceString(v)];
+}
+
+function parseNonNegativeIntOrUndefined(v: unknown, flag: string): number | undefined {
+  if (v === undefined || v === null) return undefined;
+  const s = coerceTrimmedString(v);
+  if (!s) return undefined;
+  if (!/^[0-9]+$/.test(s)) throw new Error(`invalid ${flag} (expected non-negative integer)`);
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`invalid ${flag} (expected non-negative integer)`);
+  return n;
 }
 
 const add = defineCommand({
@@ -67,6 +78,7 @@ const add = defineCommand({
         image: "",
         location: HETZNER_DEFAULT_LOCATION,
         allowTailscaleUdpIngress: true,
+        volumeSizeGb: HETZNER_DEFAULT_VOLUME_SIZE_GB,
       },
       aws: {
         region: "",
@@ -178,6 +190,8 @@ const set = defineCommand({
     "hetzner-image": { type: "string", description: "Hetzner image ID/name (custom image or snapshot)." },
     "hetzner-location": { type: "string", description: "Hetzner location (e.g. fsn1, nbg1)." },
     "hetzner-allow-tailscale-udp-ingress": { type: "string", description: "Allow inbound UDP/41641 for direct Tailscale (true/false)." },
+    "hetzner-volume-size-gb": { type: "string", description: "Optional attached Hetzner state volume size in GB (0 disables)." },
+    "clear-hetzner-volume-device": { type: "boolean", description: "Clear hetzner.volumeLinuxDevice.", default: false },
     "admin-cidr": { type: "string", description: "ADMIN_CIDR (e.g. 1.2.3.4/32)." },
     "ssh-pubkey-file": { type: "string", description: "SSH public key file path used for provisioning (e.g. ~/.ssh/id_ed25519.pub)." },
     "clear-ssh-keys": { type: "boolean", description: "Clear fleet.sshAuthorizedKeys.", default: false },
@@ -312,6 +326,16 @@ const set = defineCommand({
     if ((args as any)["hetzner-allow-tailscale-udp-ingress"] !== undefined) {
       const v = parseBoolOrUndefined((args as any)["hetzner-allow-tailscale-udp-ingress"]);
       if (v !== undefined) next.hetzner.allowTailscaleUdpIngress = v;
+    }
+    if ((args as any)["hetzner-volume-size-gb"] !== undefined) {
+      const n = parseNonNegativeIntOrUndefined((args as any)["hetzner-volume-size-gb"], "--hetzner-volume-size-gb");
+      if (n !== undefined) {
+        next.hetzner.volumeSizeGb = n;
+        if (n === 0) delete (next.hetzner as Record<string, unknown>).volumeLinuxDevice;
+      }
+    }
+    if ((args as any)["clear-hetzner-volume-device"]) {
+      delete (next.hetzner as Record<string, unknown>).volumeLinuxDevice;
     }
     if ((args as any)["admin-cidr"] !== undefined) next.provisioning.adminCidr = String((args as any)["admin-cidr"]).trim();
     if ((args as any)["ssh-pubkey-file"] !== undefined) next.provisioning.sshPubkeyFile = String((args as any)["ssh-pubkey-file"]).trim();

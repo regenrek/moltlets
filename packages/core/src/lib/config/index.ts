@@ -30,6 +30,7 @@ export {
   type ProvisioningProvider,
   HETZNER_DEFAULT_SERVER_TYPE,
   HETZNER_DEFAULT_LOCATION,
+  HETZNER_DEFAULT_VOLUME_SIZE_GB,
   HETZNER_SERVER_TYPES,
   HETZNER_LOCATIONS,
 } from "./providers/index.js";

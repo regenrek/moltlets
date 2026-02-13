@@ -30,6 +30,8 @@ export const hetznerProvisionerDriver: ProvisionerDriver = {
     const hcloudToken = requireHcloudToken(runtime);
     const ipv4 = await readHetznerOpenTofuOutput({ name: "ipv4", runtime, spec, hcloudToken });
     const instanceId = await readHetznerOpenTofuOutput({ name: "instance_id", runtime, spec, hcloudToken });
+    const volumeId = await readHetznerOpenTofuOutput({ name: "volume_id", runtime, spec, hcloudToken });
+    const volumeLinuxDevice = await readHetznerOpenTofuOutput({ name: "volume_linux_device", runtime, spec, hcloudToken });
 
     return {
       hostName: spec.hostName,
@@ -37,6 +39,10 @@ export const hetznerProvisionerDriver: ProvisionerDriver = {
       instanceId,
       ipv4,
       sshUser: "root",
+      providerMeta: {
+        ...(volumeId ? { volumeId } : {}),
+        ...(volumeLinuxDevice ? { volumeLinuxDevice } : {}),
+      },
     };
   },
   async destroy({ spec, runtime }): Promise<void> {

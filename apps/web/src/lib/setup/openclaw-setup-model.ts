@@ -1,6 +1,7 @@
 export const OPENCLAW_SETUP_STEP_IDS = [
   "enable",
   "gateway",
+  "memory",
   "secrets",
   "deploy",
 ] as const
@@ -42,6 +43,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
+function hasExplicitMemoryBackend(gatewayCfg: unknown): boolean {
+  const gateway = asRecord(gatewayCfg) ?? {}
+  const openclaw = asRecord(gateway.openclaw) ?? {}
+  const memory = asRecord(openclaw.memory) ?? {}
+  const backend = typeof memory.backend === "string" ? memory.backend.trim() : ""
+  return backend === "builtin" || backend === "qmd"
+}
+
 export function coerceOpenClawSetupStepId(value: unknown): OpenClawSetupStepId | null {
   if (typeof value !== "string") return null
   return (OPENCLAW_SETUP_STEP_IDS as readonly string[]).includes(value)
@@ -67,6 +76,8 @@ export function deriveOpenClawSetupModel(input: DeriveOpenClawSetupModelInput): 
     : []
   const gatewayMap = asRecord(hostCfg?.gateways) ?? {}
   const hasGateway = gatewaysOrder.length > 0 || Object.keys(gatewayMap).length > 0
+  const gatewayIds = gatewaysOrder.length > 0 ? gatewaysOrder : Object.keys(gatewayMap)
+  const memoryConfigured = hasGateway && gatewayIds.every((gatewayId) => hasExplicitMemoryBackend(gatewayMap[gatewayId]))
   const secretsOk = input.latestOpenClawSecretsVerifyRun?.status === "succeeded"
   const deployOk = input.latestUpdateApplyRun?.status === "succeeded"
 
@@ -82,9 +93,14 @@ export function deriveOpenClawSetupModel(input: DeriveOpenClawSetupModelInput): 
       status: !enabled ? "locked" : hasGateway ? "done" : "active",
     },
     {
+      id: "memory",
+      title: "Memory Backend",
+      status: !hasGateway ? "locked" : memoryConfigured ? "done" : "active",
+    },
+    {
       id: "secrets",
       title: "App Secrets",
-      status: !hasGateway ? "locked" : secretsOk ? "done" : "active",
+      status: !memoryConfigured ? "locked" : secretsOk ? "done" : "active",
     },
     {
       id: "deploy",
