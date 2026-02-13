@@ -21,6 +21,7 @@ import {
 } from "./controlPlane/httpParsers";
 import { storeRunnerCommandResultBlob } from "./controlPlane/jobCommandResultBlobs";
 import { touchRunnerTokenLastUsed } from "./controlPlane/runnerAuth";
+import { runLeaseNextWithWait } from "./shared/runnerLeaseWait";
 
 const http = httpRouter();
 type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
@@ -46,6 +47,10 @@ async function readJson(request: Request): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -158,12 +163,18 @@ http.route({
       typeof payload.leaseTtlMs === "number" && Number.isFinite(payload.leaseTtlMs)
         ? Math.trunc(payload.leaseTtlMs)
         : undefined;
-    const job = await ctx.runMutation(internal.controlPlane.jobs.leaseNextInternal, {
-      projectId: auth.projectId,
-      runnerId: auth.runnerId,
-      leaseTtlMs,
+    const leased = await runLeaseNextWithWait({
+      waitMsRaw: payload.waitMs,
+      waitPollMsRaw: payload.waitPollMs,
+      sleep,
+      leaseNext: async () =>
+        await ctx.runMutation(internal.controlPlane.jobs.leaseNextInternal, {
+          projectId: auth.projectId,
+          runnerId: auth.runnerId,
+          leaseTtlMs,
+        }),
     });
-    return json(200, { job });
+    return json(200, leased);
   }),
 });
 

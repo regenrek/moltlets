@@ -6,7 +6,8 @@ import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
-import { deriveRepoProbeState, setupConfigProbeQueryOptions, type RepoProbeState } from "~/lib/setup/repo-probe"
+import { deriveRepoHealth } from "~/lib/setup/repo-health"
+import { setupConfigProbeQueryOptions, type SetupConfig } from "~/lib/setup/repo-probe"
 import { setupDraftGet } from "~/sdk/setup"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
@@ -61,13 +62,18 @@ export function useSetupModel(params: {
     [runners],
   )
 
-  const configQuery = useQuery({
+  const projectConfigsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectConfigs.listByProject,
+      projectId && isReady && runnerOnline ? { projectId } : "skip",
+    ),
+  })
+  const setupConfigQuery = useQuery({
     ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && isReady && runnerOnline),
   })
-  const config = configQuery.data ?? null
+  const config: SetupConfig | null = setupConfigQuery.data ?? null
 
-  const hasConfig = Boolean(configQuery.data)
   const setupDraftQuery = useQuery({
     queryKey: ["setupDraft", projectId, params.host],
     queryFn: async () => {
@@ -80,13 +86,13 @@ export function useSetupModel(params: {
   })
   const setupDraft = setupDraftQuery.data ?? null
 
-  const repoProbeOk = runnerOnline && hasConfig
-  const repoProbeState: RepoProbeState = deriveRepoProbeState({
+  const repoHealth = deriveRepoHealth({
     runnerOnline,
-    hasConfig,
-    hasError: configQuery.isError,
+    configs: projectConfigsQuery.data ?? [],
   })
-  const repoProbeError = repoProbeState === "error" ? configQuery.error : null
+  const repoProbeState = repoHealth.state
+  const repoProbeOk = repoProbeState === "ok"
+  const repoProbeError = repoProbeState === "error" ? repoHealth.error : null
 
   const latestBootstrapRunQuery = useQuery({
     ...convexQuery(
@@ -206,7 +212,6 @@ export function useSetupModel(params: {
     runnersQuery,
     runners,
     runnerOnline,
-    configQuery,
     config,
     repoProbeOk,
     repoProbeState,

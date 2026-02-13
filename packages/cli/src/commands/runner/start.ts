@@ -139,6 +139,10 @@ const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
 const RUNNER_POST_JOB_IDLE_POLL_MS = 500;
+const RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS = 2_000;
+const RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT = 0;
+const RUNNER_IDLE_POLL_MS_DEFAULT = 4_000;
+const RUNNER_IDLE_POLL_MAX_MS_DEFAULT = 8_000;
 
 // Threat model: this path materializes runtime secrets on disk for execution only.
 // Temp files must be short-lived, owner-only readable, and scrubbed on all terminal paths.
@@ -1002,8 +1006,13 @@ export const runnerStart = defineCommand({
     repoRoot: { type: "string", description: "Repo root path (defaults to detected root)." },
     runtimeDir: { type: "string", description: "Runtime dir passthrough." },
     controlPlaneUrl: { type: "string", description: "Control plane base URL." },
-    pollMs: { type: "string", description: "Idle poll interval ms.", default: "4000" },
-    pollMaxMs: { type: "string", description: "Maximum idle poll interval ms.", default: "30000" },
+    pollMs: { type: "string", description: "Idle poll interval ms.", default: String(RUNNER_IDLE_POLL_MS_DEFAULT) },
+    pollMaxMs: { type: "string", description: "Maximum idle poll interval ms.", default: String(RUNNER_IDLE_POLL_MAX_MS_DEFAULT) },
+    leaseWaitMs: {
+      type: "string",
+      description: "Idle lease long-poll window ms (0 disables).",
+      default: String(RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT),
+    },
     leaseTtlMs: { type: "string", description: "Lease TTL ms.", default: "30000" },
     heartbeatMs: { type: "string", description: "Runner heartbeat interval ms.", default: "30000" },
     maxAttempts: { type: "string", description: "Maximum lease attempts before failing a job.", default: "3" },
@@ -1017,8 +1026,10 @@ export const runnerStart = defineCommand({
 
     const controlPlaneUrl = resolveControlPlaneUrl((args as any).controlPlaneUrl);
     const runnerName = String((args as any).name || `${envName()}-${os.hostname()}`).trim() || `runner-${os.hostname()}`;
-    const pollMs = toInt((args as any).pollMs, 4000, 250, 30_000);
-    const pollMaxMs = Math.max(pollMs, toInt((args as any).pollMaxMs, 30_000, 1_000, 120_000));
+    const runOnce = Boolean((args as any).once);
+    const pollMs = toInt((args as any).pollMs, RUNNER_IDLE_POLL_MS_DEFAULT, 250, 30_000);
+    const pollMaxMs = Math.max(pollMs, toInt((args as any).pollMaxMs, RUNNER_IDLE_POLL_MAX_MS_DEFAULT, 1_000, 120_000));
+    const leaseWaitMs = toInt((args as any).leaseWaitMs, RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT, 0, 60_000);
     const leaseTtlMs = toInt((args as any).leaseTtlMs, 30_000, 5_000, 120_000);
     const heartbeatMs = toInt((args as any).heartbeatMs, 30_000, 2_000, 120_000);
     const maxAttempts = toInt((args as any).maxAttempts, 3, 1, 25);
@@ -1136,15 +1147,71 @@ export const runnerStart = defineCommand({
         console.error(`metadata sync failed (${params.context}): ${message}`);
       }
     };
-    await syncMetadataIfNeeded({ context: "startup" });
+    let metadataSyncInFlight = false;
+    let metadataSyncWorker: Promise<void> | null = null;
+    let pendingMetadataSync:
+      | {
+          lastRunId?: string;
+          lastRunStatus?: "queued" | "running" | "succeeded" | "failed" | "canceled";
+          context: "startup" | "job";
+          jobId?: string;
+        }
+      | null = null;
+    const scheduleMetadataSync = (params: {
+      lastRunId?: string;
+      lastRunStatus?: "queued" | "running" | "succeeded" | "failed" | "canceled";
+      context: "startup" | "job";
+      jobId?: string;
+    }) => {
+      pendingMetadataSync = params;
+      if (metadataSyncInFlight) return;
+      metadataSyncInFlight = true;
+      metadataSyncWorker = (async () => {
+        while (pendingMetadataSync) {
+          const next = pendingMetadataSync;
+          pendingMetadataSync = null;
+          await syncMetadataIfNeeded(next);
+        }
+      })().finally(() => {
+        metadataSyncInFlight = false;
+        metadataSyncWorker = null;
+      });
+    };
+    const flushPendingMetadataSync = async () => {
+      if (!metadataSyncInFlight && !pendingMetadataSync) return;
+      if (!metadataSyncInFlight && pendingMetadataSync) {
+        scheduleMetadataSync(pendingMetadataSync);
+      }
+      if (!metadataSyncWorker) return;
+      await Promise.race([
+        metadataSyncWorker.catch(() => undefined),
+        sleep(RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS),
+      ]);
+    };
+    scheduleMetadataSync({ context: "startup" });
+    let lastRunId: string | undefined;
+    let lastRunStatus: "queued" | "running" | "succeeded" | "failed" | "canceled" | undefined;
+    const metadataTicker = setInterval(() => {
+      scheduleMetadataSync({
+        context: "startup",
+        ...(lastRunId ? { lastRunId } : {}),
+        ...(lastRunStatus ? { lastRunStatus } : {}),
+      });
+    }, RUNNER_METADATA_SYNC_MAX_AGE_MS);
 
     try {
       let leaseErrorStreak = 0;
       let emptyLeaseStreak = 0;
       while (running) {
         let lease: Awaited<ReturnType<RunnerApiClient["leaseNext"]>>;
+        const requestedWaitMs = runOnce ? 0 : leaseWaitMs;
         try {
-          lease = await client.leaseNext({ projectId, leaseTtlMs });
+          lease = await client.leaseNext({
+            projectId,
+            leaseTtlMs,
+            waitMs: requestedWaitMs,
+            waitPollMs: Math.max(1_000, pollMaxMs),
+          });
           leaseErrorStreak = 0;
         } catch (err) {
           const kind = classifyRunnerHttpError(err);
@@ -1165,15 +1232,18 @@ export const runnerStart = defineCommand({
         }
         const job = lease.job;
         if (!job) {
-          if ((args as any).once) break;
+          if (runOnce) break;
           emptyLeaseStreak = Math.min(RUNNER_EMPTY_LEASE_MAX_STREAK, emptyLeaseStreak + 1);
-          await sleep(
-            computeIdleLeasePollDelayMs({
-              pollMs,
-              pollMaxMs,
-              emptyLeaseStreak,
-            }),
-          );
+          const serverHonoredWait = requestedWaitMs > 0 && lease.waitApplied === true;
+          if (!serverHonoredWait) {
+            await sleep(
+              computeIdleLeasePollDelayMs({
+                pollMs,
+                pollMaxMs,
+                emptyLeaseStreak,
+              }),
+            );
+          }
           continue;
         }
         emptyLeaseStreak = 0;
@@ -1233,12 +1303,14 @@ export const runnerStart = defineCommand({
           }
         }
 
-        await syncMetadataIfNeeded({
+        scheduleMetadataSync({
           context: "job",
           jobId: job.jobId,
           lastRunId: job.runId,
           lastRunStatus: terminal,
         });
+        lastRunId = job.runId;
+        lastRunStatus = terminal;
         if (RUNNER_POST_JOB_IDLE_POLL_MS > 0) {
           await sleep(RUNNER_POST_JOB_IDLE_POLL_MS);
         }
@@ -1247,10 +1319,12 @@ export const runnerStart = defineCommand({
           running = false;
         }
 
-        if ((args as any).once) break;
+        if (runOnce) break;
       }
     } finally {
       clearInterval(ticker);
+      clearInterval(metadataTicker);
+      await flushPendingMetadataSync();
       await sendHeartbeat("offline");
       process.off("SIGINT", stop);
       process.off("SIGTERM", stop);

@@ -10,9 +10,17 @@ import {
   __test_shouldSyncMetadata,
   __test_shouldStopOnCompletionError,
   __test_validateSealedInputKeysForJob,
+  runnerStart,
 } from "../src/commands/runner/start.js";
 
 describe("runner job arg mapping", () => {
+  it("exposes reduced default idle polling cap", () => {
+    const args = (runnerStart as any).args as Record<string, { default?: string }>;
+    expect(args.pollMs?.default).toBe("4000");
+    expect(args.pollMaxMs?.default).toBe("8000");
+    expect(args.leaseWaitMs?.default).toBe("0");
+  });
+
   it("maps standard kinds to CLI args", () => {
     const args = __test_defaultArgsForJob({
       jobId: "job_1",

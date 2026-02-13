@@ -11,6 +11,11 @@ Dashboard setup checks for a **fresh** runner heartbeat. Current freshness windo
 about 30 seconds. If no heartbeat lands in that window, the runner is treated as
 offline for setup gating.
 
+Repo readiness in setup/header UI is metadata-based:
+
+- `Repo: Reachable` means runner metadata sync has a fresh `fleet` config entry with no `lastError`.
+- UI does not enqueue a `config show` runner job just to render readiness badges.
+
 ## Pairing
 
 Create a runner token from the dashboard/admin surface, then start the runner:
@@ -27,9 +32,19 @@ Optional flags:
 - `--name <runner-name>`
 - `--repoRoot <repo-path>`
 - `--pollMs <interval>`
+- `--pollMaxMs <max-interval>`
+- `--leaseWaitMs <idle-long-poll-window>`
 - `--leaseTtlMs <ttl>`
 - `--heartbeatMs <ttl>`
 - `--maxAttempts <n>`
+
+Current defaults:
+
+- `pollMs=4000`
+- `pollMaxMs=8000`
+- `leaseWaitMs=0`
+- `heartbeatMs=30000`
+- `leaseTtlMs=30000`
 
 ## Heartbeats and capabilities
 
@@ -90,6 +105,7 @@ Runner HTTP errors are classified as:
 Runner behavior:
 
 - Lease loop: `auth`/`permanent` stop; `transient`/`malformed`/`unknown` retry with backoff.
+- Lease responses can include `waitApplied` so runner skips duplicate local sleep when control-plane long-poll already waited.
 - Job completion call: `auth`/`permanent` stop; `transient`/`malformed`/`unknown` continue.
 - Heartbeat, metadata sync, and run-event append failures are logged and non-fatal.
 

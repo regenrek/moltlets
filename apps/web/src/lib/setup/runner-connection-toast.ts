@@ -1,4 +1,4 @@
-import type { RunnerHeaderState } from "~/lib/setup/repo-probe"
+import type { RunnerHeaderState } from "~/lib/setup/repo-health"
 
 export type RunnerConnectionToastKind = "connecting" | "ready" | "offline"
 

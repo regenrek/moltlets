@@ -164,7 +164,7 @@ export function SetupStepRunner(props: {
             <Badge variant={props.runnerOnline ? "secondary" : "outline"}>{runnerStatusLabel}</Badge>
             {showRepoProbe ? (
               <>
-                <span>Repo probe:</span>
+                <span>Repo:</span>
                 <Badge variant={props.repoProbeOk ? "secondary" : props.repoProbeState === "error" ? "destructive" : "outline"}>
                   {props.repoProbeState === "checking" ? <Spinner className="mr-1 size-3" /> : null}
                   {repoStatusLabel}
@@ -173,7 +173,7 @@ export function SetupStepRunner(props: {
             ) : null}
           </div>
           {props.repoProbeState === "error" ? (
-            <div className="text-xs text-destructive">{String(props.repoProbeError || "Repo probe failed")}</div>
+            <div className="text-xs text-destructive">{String(props.repoProbeError || "Repo metadata sync failed")}</div>
           ) : null}
 
           {runnerState === "connecting" ? (

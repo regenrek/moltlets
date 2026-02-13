@@ -6,9 +6,23 @@ import { splitFullConfig } from "@clawlets/core/lib/config/split";
 import { getRepoLayout, getHostSecretsDir } from "@clawlets/core/repo-layout";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { makeConfig } from "./fixtures.js";
-import { buildMetadataSnapshot } from "../src/commands/runner/metadata.js";
+import { __test_sanitizeMetadataErrorMessage, buildMetadataSnapshot } from "../src/commands/runner/metadata.js";
 
 describe("runner metadata snapshot", () => {
+  it("redacts secret-like values from metadata errors", () => {
+    const message = __test_sanitizeMetadataErrorMessage(
+      new Error("Authorization: Bearer secret123 https://user:pw@example.com?token=abc"),
+      "fallback",
+    );
+    expect(message).toContain("Authorization: Bearer <redacted>");
+    expect(message).toContain("https://<redacted>@example.com?token=<redacted>");
+    expect(message).not.toContain("secret123");
+  });
+
+  it("falls back when metadata errors have no message", () => {
+    expect(__test_sanitizeMetadataErrorMessage("   ", "metadata parse failed")).toBe("metadata parse failed");
+  });
+
   it("derives hashes, host/gateway summary, and secret wiring names only", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-meta-"));
     const layout = getRepoLayout(repoRoot);
