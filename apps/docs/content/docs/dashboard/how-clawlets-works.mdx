@@ -31,12 +31,13 @@ flowchart LR
 
 1. Sign in at `http://localhost:3000`.
 2. Create project (or import) and set runner repo path (default: `~/.clawlets/projects/<slug>`).
-3. Start runner with the token/command shown in the dialog.
-4. Wait for project init/import run to finish.
-5. Open host setup at `/<projectSlug>/hosts/<host>/setup`.
-   Created projects are initialized locally on the runner; no dedicated bootstrap repository is
-   created by Clawlets. For remote/CI usage, create a private GitHub repository yourself,
-   set it as `origin`, and push the local project repo manually.
+3. Runner creates/loads the project repo in that local path. The dashboard does not create
+   any extra bootstrap repo for you.
+4. Start runner with the token/command shown in the dialog.
+5. Wait for project init/import run to finish.
+6. For remote/CI workflows, create a private GitHub repo, add it as <code>origin</code>, and
+   push the local project repo manually.
+7. Open host setup at `/<projectSlug>/hosts/<host>/setup`.
 
 For UI details: [First login](/dashboard/first-login).
 

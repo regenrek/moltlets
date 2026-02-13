@@ -16,19 +16,19 @@ Subsequent users default to `viewer` unless promoted by an admin.
 
 ## 2) Create a project
 
-From the Projects screen, create or import a project, set the runner repo path, and
-start a runner. Default repo path is `~/.clawlets/projects/<project-slug>`.
-
-Create does not generate a GitHub repository for you. It creates/initializes the local project directory
-at the runner path (typically with `git init`), so you keep the generated files locally first.
-When you want dashboard + remote CI or team visibility, create a private GitHub repo separately,
-add it as `origin`, and push manually after first setup changes.
+From the Projects screen, create or import a project and set the runner repo path
+(default: `~/.clawlets/projects/<project-slug>`). This creates the local project folder only;
+it does not create a GitHub repository.
+If you want team/CI flow, create a private GitHub repo, add it as `origin`,
+and push your local project manually.
 
 1. Create a new project.
 2. Configure runner repo path, runner name, and optional template override (`owner/repo`, path, ref).
 3. Copy token + runner command and run it on the runner host.
 4. Wait for project init/import run to finish.
-5. Continue to **Setup** (dashboard redirects automatically on success).
+5. If you want a remote source of truth, create a private GitHub repo, add it as
+   `origin`, and push.
+6. Continue to **Setup** (dashboard redirects automatically on success).
 
 ## 3) Run through Setup
 

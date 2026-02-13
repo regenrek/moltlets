@@ -33,7 +33,8 @@ The top-level keys split global fleet settings and per-host settings:
 - `schemaVersion`: currently `2`
 - `defaultHost` (optional): used when `--host` is omitted
 - `baseFlake` (optional): flake URI for the evaluation source (e.g. `github:<owner>/<repo>`).
-  Leave empty to use the project repo’s `origin` remote as the default evaluation source.
+  Leave empty to use the project repo’s `origin` remote by default.
+  Set this only when you intentionally want Nix to evaluate a different repo.
 - `fleet.*`: global secrets + policy (shared across hosts)
 - `hosts.<host>`: host entries keyed by host name (includes the gateways that run on that host)
 
