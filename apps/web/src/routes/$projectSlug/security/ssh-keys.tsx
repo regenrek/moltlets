@@ -78,6 +78,9 @@ function SecuritySshKeys() {
         void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
       } else toast.error("Failed")
     },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : String(error))
+    },
   })
 
   const removeAuthorizedKey = useMutation({

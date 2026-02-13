@@ -79,7 +79,7 @@ export function SetupStepPredeploy(props: {
           setupDraft: props.setupDraft,
         }}
         title="Provider tokens"
-        description="GitHub token + SOPS key path. Saved immediately."
+        description="GitHub token + SOPS key path. Stored as sealed setup draft and applied during setup apply."
         headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
       />
 

@@ -15,11 +15,11 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { configDotSet } from "~/sdk/config"
 import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
-import { bootstrapExecute, bootstrapStart, getDeployCredsStatus, runDoctor } from "~/sdk/infra"
+import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
-import { deriveDeploySshKeyReadiness } from "~/lib/setup/deploy-ssh-key-readiness"
+import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state"
 import { sealForRunner } from "~/lib/security/sealed-input"
 import { gitRepoStatus } from "~/sdk/vcs"
 import { lockdownExecute, lockdownStart } from "~/sdk/infra"
@@ -54,85 +54,6 @@ type SetupPendingBootstrapSecrets = {
 function formatShortSha(sha?: string | null): string {
   const value = String(sha || "").trim()
   return value ? value.slice(0, 7) : "none"
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : ""
-}
-
-function toUniqueStringArray(values: unknown): string[] {
-  if (!Array.isArray(values)) return []
-  return Array.from(new Set(values.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)))
-}
-
-function resolveInfrastructureForDeploy(params: {
-  config: any | null
-  host: string
-  setupDraft: SetupDraftView | null
-  pendingInfrastructureDraft: SetupDraftInfrastructure | null
-}): SetupDraftInfrastructure {
-  const hostCfg = asRecord(params.config?.hosts?.[params.host]) ?? {}
-  const hetzner = asRecord(hostCfg.hetzner) ?? {}
-  const draft = params.setupDraft?.nonSecretDraft?.infrastructure ?? null
-  const pending = params.pendingInfrastructureDraft ?? null
-  const allowPending = pending?.allowTailscaleUdpIngress
-  const allowDraft = draft?.allowTailscaleUdpIngress
-  const allowConfig = hetzner.allowTailscaleUdpIngress
-
-  return {
-    serverType: asString(pending?.serverType) || asString(draft?.serverType) || asString(hetzner.serverType),
-    image: asString(pending?.image) || asString(draft?.image) || asString(hetzner.image),
-    location: asString(pending?.location) || asString(draft?.location) || asString(hetzner.location),
-    allowTailscaleUdpIngress:
-      typeof allowPending === "boolean"
-        ? allowPending
-        : typeof allowDraft === "boolean"
-          ? allowDraft
-          : typeof allowConfig === "boolean"
-            ? allowConfig
-            : true,
-  }
-}
-
-function resolveConnectionForDeploy(params: {
-  config: any | null
-  host: string
-  setupDraft: SetupDraftView | null
-  pendingConnectionDraft: SetupDraftConnection | null
-}): SetupDraftConnection {
-  const hostCfg = asRecord(params.config?.hosts?.[params.host]) ?? {}
-  const provisioning = asRecord(hostCfg.provisioning) ?? {}
-  const sshExposure = asRecord(hostCfg.sshExposure) ?? {}
-  const fleet = asRecord(params.config?.fleet) ?? {}
-
-  const draft = params.setupDraft?.nonSecretDraft?.connection ?? null
-  const pending = params.pendingConnectionDraft ?? null
-
-  const modeRaw = asString(pending?.sshExposureMode) || asString(draft?.sshExposureMode) || asString(sshExposure.mode) || "bootstrap"
-  const sshExposureMode = (modeRaw === "bootstrap" || modeRaw === "tailnet" || modeRaw === "public")
-    ? modeRaw
-    : "bootstrap"
-
-  const keysFromPending = toUniqueStringArray(pending?.sshAuthorizedKeys)
-  const keysFromDraft = toUniqueStringArray(draft?.sshAuthorizedKeys)
-  const keysFromFleet = toUniqueStringArray(fleet.sshAuthorizedKeys)
-  const sshAuthorizedKeys = keysFromPending.length > 0
-    ? keysFromPending
-    : keysFromDraft.length > 0
-      ? keysFromDraft
-      : keysFromFleet
-
-  return {
-    adminCidr: asString(pending?.adminCidr) || asString(draft?.adminCidr) || asString(provisioning.adminCidr),
-    sshExposureMode,
-    sshKeyCount: sshAuthorizedKeys.length,
-    sshAuthorizedKeys,
-  }
 }
 
 export function DeployInitialInstallSetup(props: {
@@ -215,18 +136,26 @@ export function DeployInitialInstallSetup(props: {
     ...setupConfigProbeQueryOptions(projectId),
     enabled: Boolean(projectId && runnerOnline),
   })
-  const deployCredsQuery = useQuery({
-    queryKey: ["deployCreds", projectId],
-    queryFn: async () => await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
-    enabled: Boolean(projectId && runnerOnline),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
-
-  const deployCredsByKey = new Map((deployCredsQuery.data?.keys || []).map((entry) => [entry.key, entry.status]))
+  const desired = useMemo(
+    () =>
+      deriveEffectiveSetupDesiredState({
+        config: setupConfigQuery.data ?? null,
+        host: props.host,
+        setupDraft: props.setupDraft,
+        pendingNonSecretDraft: {
+          infrastructure: props.pendingInfrastructureDraft ?? undefined,
+          connection: props.pendingConnectionDraft ?? undefined,
+        },
+      }),
+    [
+      props.host,
+      props.pendingConnectionDraft,
+      props.pendingInfrastructureDraft,
+      props.setupDraft,
+      setupConfigQuery.data,
+    ],
+  )
   const deployCredsDraftSet = props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
-  const githubCredReady = deployCredsByKey.get("GITHUB_TOKEN") === "set" || deployCredsDraftSet
-  const sopsCredReady = deployCredsByKey.get("SOPS_AGE_KEY_FILE") === "set" || deployCredsDraftSet
 
   const selectedRev = repoStatus.data?.originHead
   const missingRev = !selectedRev
@@ -243,40 +172,24 @@ export function DeployInitialInstallSetup(props: {
   const repoGateBlocked = readiness.blocksDeploy
   const statusReason = readiness.message
 
-  const sshKeyReadiness = deriveDeploySshKeyReadiness({
-    fleetSshAuthorizedKeys: setupConfigQuery.data?.fleet?.sshAuthorizedKeys,
-  })
-  const sshKeyGateBlocked = runnerOnline && (
-    setupConfigQuery.isPending
-    || setupConfigQuery.isError
-    || !sshKeyReadiness.ready
-  )
+  const hasDesiredSshKeys = desired.connection.sshAuthorizedKeys.length > 0
+  const sshKeyGateBlocked = runnerOnline && !hasDesiredSshKeys
   const sshKeyGateMessage = !runnerOnline
     ? null
-    : setupConfigQuery.isPending
-      ? "Checking SSH key source..."
-      : setupConfigQuery.isError
-        ? "Unable to read SSH key settings. Open Server Access and retry."
-        : sshKeyReadiness.ready
-          ? null
-          : "SSH key required before deploy. Add at least one fleet SSH key in Server Access."
+    : !hasDesiredSshKeys
+      ? setupConfigQuery.isPending
+        ? "Checking desired SSH key state..."
+        : setupConfigQuery.isError
+          ? "Unable to read config fallback. Open Server Access and retry."
+          : "SSH key required before deploy. Add at least one key in Server Access. Setup uses pending/draft values until setup apply."
+      : null
 
-  const credsGateBlocked = runnerOnline && (
-    deployCredsQuery.isPending
-    || !githubCredReady
-    || !sopsCredReady
-  )
-  const missingCredLabels = [
-    ...(githubCredReady ? [] : ["GITHUB_TOKEN"]),
-    ...(sopsCredReady ? [] : ["SOPS_AGE_KEY_FILE"]),
-  ]
+  const credsGateBlocked = runnerOnline && !deployCredsDraftSet
   const credsGateMessage = !runnerOnline
     ? null
-    : deployCredsQuery.isPending
-      ? "Checking provider token status..."
-      : missingCredLabels.length > 0
-        ? `Missing provider tokens: ${missingCredLabels.join(", ")}. Open Pre-Deploy.`
-        : null
+    : !deployCredsDraftSet
+      ? "Missing provider credentials draft. Open Pre-Deploy and save credentials. Setup applies them during setup apply."
+      : null
 
   const deployGateBlocked = repoGateBlocked || sshKeyGateBlocked || credsGateBlocked
   const deployStatusReason = repoGateBlocked
@@ -493,26 +406,22 @@ export function DeployInitialInstallSetup(props: {
       if (!props.host.trim()) throw new Error("Host is required")
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (!selectedRev) throw new Error("No pushed revision found.")
-      if (!githubCredReady || !sopsCredReady) {
-        const missing = [
-          ...(githubCredReady ? [] : ["GITHUB_TOKEN"]),
-          ...(sopsCredReady ? [] : ["SOPS_AGE_KEY_FILE"]),
-        ]
-        throw new Error(`Missing provider tokens: ${missing.join(", ")}.`)
+      if (!deployCredsDraftSet) {
+        throw new Error("Missing provider credentials draft. Open Pre-Deploy and save credentials.")
       }
 
-      const infrastructurePatch = resolveInfrastructureForDeploy({
-        config: setupConfigQuery.data,
-        host: props.host,
-        setupDraft: props.setupDraft,
-        pendingInfrastructureDraft: props.pendingInfrastructureDraft,
-      })
-      const connectionPatch = resolveConnectionForDeploy({
-        config: setupConfigQuery.data,
-        host: props.host,
-        setupDraft: props.setupDraft,
-        pendingConnectionDraft: props.pendingConnectionDraft,
-      })
+      const infrastructurePatch: SetupDraftInfrastructure = {
+        serverType: desired.infrastructure.serverType,
+        image: desired.infrastructure.image,
+        location: desired.infrastructure.location,
+        allowTailscaleUdpIngress: desired.infrastructure.allowTailscaleUdpIngress,
+      }
+      const connectionPatch: SetupDraftConnection = {
+        adminCidr: desired.connection.adminCidr,
+        sshExposureMode: desired.connection.sshExposureMode,
+        sshKeyCount: desired.connection.sshKeyCount,
+        sshAuthorizedKeys: desired.connection.sshAuthorizedKeys,
+      }
 
       if (!infrastructurePatch.serverType?.trim() || !infrastructurePatch.location?.trim()) {
         throw new Error("Host settings incomplete. Set server type and location.")
@@ -792,13 +701,8 @@ export function DeployInitialInstallSetup(props: {
 
 
           {!isBootstrapped && credsGateMessage && !repoGateBlocked && !sshKeyGateBlocked ? (
-            <Alert
-              variant={deployCredsQuery.isPending ? "default" : "destructive"}
-              className={deployCredsQuery.isPending
-                ? "border-sky-300/50 bg-sky-50/50 text-sky-900 [&_[data-slot=alert-description]]:text-sky-900/90"
-                : undefined}
-            >
-              <AlertTitle>{deployCredsQuery.isPending ? "Checking provider tokens" : "Provider token required"}</AlertTitle>
+            <Alert variant="destructive">
+              <AlertTitle>Provider token required</AlertTitle>
               <AlertDescription>
                 <div>{credsGateMessage}</div>
               </AlertDescription>

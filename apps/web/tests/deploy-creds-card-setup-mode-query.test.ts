@@ -9,9 +9,20 @@ function readFile(relPath: string): string {
 }
 
 describe("deploy creds card setup-mode query behavior", () => {
-  it("keeps live deploy-creds status enabled in setup mode", () => {
+  it("disables live deploy-creds status query in setup mode and uses component-scoped draft merge state", () => {
     const source = readFile("components/fleet/deploy-creds-card.tsx")
-    expect(source).toContain("enabled: runnerOnline")
+    expect(source).toContain("enabled: runnerOnline && !setupDraftFlow")
     expect(source).toContain("setupDraftSaveSealedSection")
+    expect(source).toContain("const [setupDraftValues, setSetupDraftValues] = useState")
+    expect(source).not.toContain("setupDraftDeployCredsSession")
+    expect(source).toContain("const sessionValues = { ...setupDraftValues }")
+    expect(source).toContain("setSetupDraftValues(updates)")
+
+    const setupBranchStart = source.indexOf("if (setupDraftFlow) {")
+    const setupBranchReturn = source.indexOf("return input", setupBranchStart)
+    const reserveIdx = source.indexOf("const reserve = await updateDeployCreds")
+    expect(setupBranchStart).toBeGreaterThan(-1)
+    expect(setupBranchReturn).toBeGreaterThan(setupBranchStart)
+    expect(setupBranchReturn).toBeLessThan(reserveIdx)
   })
 })

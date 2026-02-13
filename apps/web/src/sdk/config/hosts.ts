@@ -96,11 +96,19 @@ export const generateHostName = createServerFn({ method: "POST" })
 export const addProjectSshKeys = createServerFn({ method: "POST" })
   .inputValidator(parseProjectSshKeysInput)
   .handler(async ({ data }) => {
-    if (!data.keyText.trim() && !data.knownHostsText.trim()) {
+    const keyText = data.keyText.trim()
+    const knownHostsText = data.knownHostsText.trim()
+    if (!keyText && !knownHostsText) {
       throw new Error("no ssh keys or known_hosts entries provided")
     }
-    const keysFromText = data.keyText.trim() ? parseSshPublicKeysFromText(data.keyText) : []
-    const knownHostsFromText = data.knownHostsText.trim() ? parseKnownHostsFromText(data.knownHostsText) : []
+    const keysFromText = keyText ? parseSshPublicKeysFromText(data.keyText) : []
+    const knownHostsFromText = knownHostsText ? parseKnownHostsFromText(data.knownHostsText) : []
+    if (keyText && keysFromText.length === 0) {
+      throw new Error("no valid SSH public keys parsed from input")
+    }
+    if (knownHostsText && knownHostsFromText.length === 0) {
+      throw new Error("no valid known_hosts entries parsed from input")
+    }
     const [existingKeysNode, existingKnownHostsNode] = await Promise.all([
       configDotGet({ data: { projectId: data.projectId, path: "fleet.sshAuthorizedKeys" } }),
       configDotGet({ data: { projectId: data.projectId, path: "fleet.sshKnownHosts" } }),
