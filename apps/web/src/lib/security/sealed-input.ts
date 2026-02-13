@@ -1,5 +1,9 @@
 const SEALED_INPUT_ALG = "rsa-oaep-3072/aes-256-gcm";
 
+// Threat model: this code only emits a ciphertext envelope for browser->runner transfer.
+// Plaintext secret material must never leave the browser/runner boundaries as a durable
+// control-plane value.
+
 function toBase64Url(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i] ?? 0);

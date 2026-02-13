@@ -112,6 +112,10 @@ const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
 const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
+
+// Threat model: this path materializes runtime secrets on disk for execution only.
+// Temp files must be short-lived, owner-only readable, and scrubbed on all terminal paths.
+
 const RUNNER_ERROR_AUTH_BEARER_RE = /(Authorization:\s*Bearer\s+)([^\s]+)/gi;
 const RUNNER_ERROR_AUTH_BASIC_RE = /(Authorization:\s*Basic\s+)([^\s]+)/gi;
 const RUNNER_ERROR_URL_CREDENTIALS_RE = /(https?:\/\/)([^/\s@]+@)/g;

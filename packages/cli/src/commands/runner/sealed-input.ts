@@ -14,6 +14,10 @@ import {
 export const RUNNER_SEALED_INPUT_ALG = "rsa-oaep-3072/aes-256-gcm";
 const SEALED_INPUT_ENVELOPE_MAX_CHARS = 2 * 1024 * 1024;
 
+// Threat model: runner-side transport must avoid sending plaintext deploy credential values
+// through control-plane APIs. The CLI only receives and handles ciphertext envelopes,
+// then decrypts only on the target runner execution path.
+
 function sanitizeKeySegment(value: string, fallback: string): string {
   const trimmed = String(value || "").trim();
   const safe = trimmed.replace(/[^A-Za-z0-9._-]/g, "_");

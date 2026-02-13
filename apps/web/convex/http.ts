@@ -27,6 +27,10 @@ type HttpActionCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
 const RUNNER_COMMAND_RESULT_MAX_BYTES = 512 * 1024;
 const RUNNER_COMMAND_RESULT_BLOB_MAX_BYTES = 5 * 1024 * 1024;
 
+// Threat model: runner-submitted logs/metadata are untrusted telemetry.
+// Before persistence, these routes pass payloads through sanitizers to reduce secret leakage
+// from run events, patches, and gateway status.
+
 authComponent.registerRoutes(http, createAuth);
 
 function json(status: number, body: unknown): Response {
