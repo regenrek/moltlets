@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import {
   parseGatewayCapabilityPresetInput,
+  parseGatewayCapabilityPresetPreviewInput,
   parseGatewayOpenclawConfigInput,
   parseProjectSshKeysInput,
   parseProjectIdInput,
   parseProjectGatewayInput,
   parseProjectHostInput,
+  parseProjectHostGatewayInput,
   parseProjectHostScopeInput,
   parseProjectHostRequiredInput,
   parseProjectRunHostInput,
@@ -24,6 +26,7 @@ import {
   parseServerRestartExecuteInput,
   parseServerRestartStartInput,
   parseServerUpdateApplyStartInput,
+  parseServerUpdateApplyExecuteInput,
   parseServerUpdateStatusExecuteInput,
   parseServerUpdateLogsStartInput,
   parseServerUpdateLogsExecuteInput,
@@ -66,6 +69,26 @@ describe("serverfn validators", () => {
         op: "rm",
       }),
     ).toThrow()
+  })
+
+  it("rejects non-string and empty server channel ops", () => {
+    expect(() =>
+      parseServerChannelsStartInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+        op: 123 as any,
+      }),
+    ).toThrow(/invalid op/i)
+
+    expect(() =>
+      parseServerChannelsStartInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+        op: "   ",
+      }),
+    ).toThrow(/invalid op/i)
   })
 
   it("rejects invalid host/gateway ids", () => {
@@ -123,6 +146,41 @@ describe("serverfn validators", () => {
     ).toThrow(/invalid timeout/i)
   })
 
+  it("handles timeout fallback and malformed timeout values", () => {
+    expect(
+      parseServerChannelsExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        gatewayId: "maren",
+        op: "status",
+        timeout: "   ",
+      }),
+    ).toMatchObject({ timeoutMs: 10000 })
+
+    expect(() =>
+      parseServerChannelsExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        gatewayId: "maren",
+        op: "status",
+        timeout: "abc",
+      }),
+    ).toThrow(/invalid timeout/i)
+
+    expect(() =>
+      parseServerChannelsExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        gatewayId: "maren",
+        op: "status",
+        timeout: "9".repeat(1000),
+      }),
+    ).toThrow(/invalid timeout/i)
+  })
+
   it("rejects overlong optional args", () => {
     const longChannel = "a".repeat(65)
     expect(() =>
@@ -155,6 +213,18 @@ describe("serverfn validators", () => {
   it("parses project+host inputs", () => {
     expect(parseProjectHostInput({ projectId: "p1", host: "alpha" })).toEqual({ projectId: "p1", host: "alpha" })
     expect(parseProjectHostInput({ projectId: "p1", host: "" })).toEqual({ projectId: "p1", host: "" })
+    expect(parseProjectHostInput({ projectId: "p1", host: 123 as any })).toEqual({ projectId: "p1", host: "" })
+  })
+
+  it("rejects non-string project ids in nested validators", () => {
+    expect(() =>
+      parseServerChannelsStartInput({
+        projectId: 123 as any,
+        host: "alpha",
+        gatewayId: "maren",
+        op: "status",
+      }),
+    ).toThrow(/invalid projectId/i)
   })
 
   it("parses scoped project+host inputs", () => {
@@ -205,12 +275,36 @@ describe("serverfn validators", () => {
     ).toThrow(/invalid schemamode/i)
   })
 
+  it("defaults schemaMode to pinned for blank/unknown optional values", () => {
+    expect(
+      parseGatewayCapabilityPresetInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+        kind: "channel",
+        presetId: "discord",
+        schemaMode: "",
+      }),
+    ).toMatchObject({ schemaMode: "pinned" })
+
+    expect(
+      parseGatewayOpenclawConfigInput({
+        projectId: "p1",
+        gatewayId: "maren",
+        host: "alpha",
+        schemaMode: "",
+        openclaw: {},
+      }),
+    ).toMatchObject({ schemaMode: "pinned" })
+  })
+
   it("requires host when configured", () => {
     expect(parseProjectHostRequiredInput({ projectId: "p1", host: "alpha" })).toEqual({
       projectId: "p1",
       host: "alpha",
     })
     expect(() => parseProjectHostRequiredInput({ projectId: "p1", host: "" })).toThrow()
+    expect(() => parseProjectHostRequiredInput({ projectId: "p1", host: 1 as any })).toThrow()
   })
 
   it("parses project+run+host inputs", () => {
@@ -258,6 +352,17 @@ describe("serverfn validators", () => {
     ).toThrow(/invalid lines/i)
   })
 
+  it("preserves explicit numeric lines values", () => {
+    expect(
+      parseServerLogsExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        lines: "450",
+      }),
+    ).toMatchObject({ lines: "450" })
+  })
+
   it("parses host/confirm/status/audit/log start validators", () => {
     expect(parseProjectHostTargetInput({ projectId: "p1", host: "alpha", targetHost: "admin@1.2.3.4" })).toEqual({
       projectId: "p1",
@@ -269,6 +374,12 @@ describe("serverfn validators", () => {
       runId: "r1",
       host: "alpha",
       confirm: "yes",
+    })
+    expect(parseProjectRunHostConfirmInput({ projectId: "p1", runId: "r1", host: "alpha", confirm: 123 as any })).toEqual({
+      projectId: "p1",
+      runId: "r1",
+      host: "alpha",
+      confirm: "",
     })
     expect(parseServerStatusStartInput({ projectId: "p1", host: "alpha" })).toEqual({
       projectId: "p1",
@@ -361,6 +472,31 @@ describe("serverfn validators", () => {
       secretNames: ["discord_token"],
       targetRunnerId: "rr1",
     })
+
+    expect(
+      parseWriteHostSecretsInput({
+        projectId: "p1",
+        host: "alpha",
+        secretNames: ["discord_token", 123, "discord_token"] as any,
+        targetRunnerId: "rr1",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      secretNames: ["discord_token"],
+      targetRunnerId: "rr1",
+    })
+  })
+
+  it("rejects non-array secretNames", () => {
+    expect(() =>
+      parseWriteHostSecretsInput({
+        projectId: "p1",
+        host: "alpha",
+        secretNames: "discord_token" as any,
+        targetRunnerId: "rr1",
+      }),
+    ).toThrow(/invalid secretNames/i)
   })
 
   it("parses writeHostSecrets finalize with sealed fields", () => {
@@ -406,6 +542,17 @@ describe("serverfn validators", () => {
         confirm: "restart openclaw-agent.service",
       }),
     ).toMatchObject({ unit: "openclaw-agent.service", confirm: "restart openclaw-agent.service" })
+
+    expect(
+      parseServerRestartExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        unit: "openclaw-agent.service",
+        targetHost: "",
+        confirm: false as any,
+      }),
+    ).toMatchObject({ confirm: "" })
   })
 
   it("parses server update status/logs inputs", () => {
@@ -447,6 +594,16 @@ describe("serverfn validators", () => {
       projectId: "p1",
       host: "alpha",
     })
+
+    expect(
+      parseServerUpdateApplyExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetHost: "",
+        confirm: 1 as any,
+      }),
+    ).toMatchObject({ confirm: "" })
   })
 
   it("rejects ssh key import file paths", () => {
@@ -456,6 +613,15 @@ describe("serverfn validators", () => {
         keyText: "",
         knownHostsText: "",
         keyFilePath: "/etc/passwd",
+      }),
+    ).toThrow(/file path imports/i)
+
+    expect(() =>
+      parseProjectSshKeysInput({
+        projectId: "p1",
+        keyText: "",
+        knownHostsText: "",
+        knownHostsFilePath: "/etc/hosts",
       }),
     ).toThrow(/file path imports/i)
   })
@@ -495,5 +661,101 @@ describe("serverfn validators", () => {
         presetId: "",
       }),
     ).toThrow(/presetId/i)
+  })
+
+  it("parses project+host+gateway validator", () => {
+    expect(
+      parseProjectHostGatewayInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+      }),
+    ).toEqual({
+      projectId: "p1",
+      host: "alpha",
+      gatewayId: "maren",
+    })
+  })
+
+  it("parses gateway capability preset preview inputs", () => {
+    expect(
+      parseGatewayCapabilityPresetPreviewInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+        kind: "channel",
+        presetId: "discord",
+      }),
+    ).toMatchObject({ gatewayId: "maren", kind: "channel", presetId: "discord" })
+
+    expect(() =>
+      parseGatewayCapabilityPresetPreviewInput({
+        projectId: "p1",
+        host: "alpha",
+        gatewayId: "maren",
+        kind: "channel",
+        presetId: "",
+      }),
+    ).toThrow(/presetId/i)
+  })
+
+  it("rejects writeHostSecrets finalize payload when sealed fields are missing", () => {
+    expect(() =>
+      parseWriteHostSecretsFinalizeInput({
+        projectId: "p1",
+        host: "alpha",
+        jobId: "job1",
+        kind: "",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+        sealedInputB64: "",
+        sealedInputAlg: "",
+        sealedInputKeyId: "",
+      }),
+    ).toThrow(/kind required|sealedInputB64 required/i)
+  })
+
+  it("requires sealed fields once kind is set", () => {
+    expect(() =>
+      parseWriteHostSecretsFinalizeInput({
+        projectId: "p1",
+        host: "alpha",
+        jobId: "job1",
+        kind: "secrets_write",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+        sealedInputB64: "",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "kid123",
+      }),
+    ).toThrow(/sealedInputB64 required/i)
+
+    expect(() =>
+      parseWriteHostSecretsFinalizeInput({
+        projectId: "p1",
+        host: "alpha",
+        jobId: "job1",
+        kind: "secrets_write",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+        sealedInputB64: "cipher",
+        sealedInputAlg: "",
+        sealedInputKeyId: "kid123",
+      }),
+    ).toThrow(/sealedInputAlg required/i)
+
+    expect(() =>
+      parseWriteHostSecretsFinalizeInput({
+        projectId: "p1",
+        host: "alpha",
+        jobId: "job1",
+        kind: "secrets_write",
+        secretNames: ["discord_token"],
+        targetRunnerId: "rr1",
+        sealedInputB64: "cipher",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: "",
+      }),
+    ).toThrow(/sealedInputKeyId required/i)
   })
 })
