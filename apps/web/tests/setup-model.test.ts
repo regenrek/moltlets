@@ -29,7 +29,8 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("infrastructure")
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
-    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("locked")
+    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("locked")
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
   })
 
@@ -45,6 +46,73 @@ describe("deriveSetupModel", () => {
 
     expect(model.activeStepId).toBe("deploy")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+  })
+
+  it("keeps tailscale lockdown incomplete when enabled and no key is configured", () => {
+    const model = deriveSetupModel({
+      config: {
+        hosts: {
+          h1: {
+            provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
+            hetzner: {
+              serverType: "cx43",
+              image: "",
+              location: "nbg1",
+              allowTailscaleUdpIngress: true,
+            },
+          },
+        },
+        fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
+      },
+      hostFromRoute: "h1",
+      deployCreds: {
+        keys: [
+          { key: "HCLOUD_TOKEN", status: "set" as const },
+          { key: "GITHUB_TOKEN", status: "set" as const },
+          { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
+        ],
+      },
+      useTailscaleLockdown: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("active")
+    expect(model.activeStepId).toBe("tailscale-lockdown")
+  })
+
+  it("marks tailscale lockdown complete when a key is already configured", () => {
+    const model = deriveSetupModel({
+      config: {
+        hosts: {
+          h1: {
+            provisioning: { provider: "hetzner", adminCidr: "203.0.113.10/32" },
+            hetzner: {
+              serverType: "cx43",
+              image: "",
+              location: "nbg1",
+              allowTailscaleUdpIngress: true,
+            },
+          },
+        },
+        fleet: { sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"] },
+      },
+      hostFromRoute: "h1",
+      deployCreds: {
+        keys: [
+          { key: "HCLOUD_TOKEN", status: "set" as const },
+          { key: "GITHUB_TOKEN", status: "set" as const },
+          { key: "SOPS_AGE_KEY_FILE", status: "set" as const },
+        ],
+      },
+      useTailscaleLockdown: true,
+      hasTailscaleAuthKey: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.activeStepId).toBe("predeploy")
   })
 
   it("keeps infrastructure active when HCLOUD draft secret is missing", () => {
@@ -129,7 +197,8 @@ describe("deriveSetupModel", () => {
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step3.activeStepId).toBe("creds")
+    expect(step3.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(step3.activeStepId).toBe("predeploy")
 
     const readyCreds = {
       keys: [
@@ -146,30 +215,60 @@ describe("deriveSetupModel", () => {
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step4.activeStepId).toBe("secrets")
+    expect(step4.activeStepId).toBe("deploy")
+    expect(step4.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
 
     const step5 = deriveSetupModel({
       config: connectionConfig,
       hostFromRoute: "h1",
       deployCreds: readyCreds,
-      latestBootstrapRun: null,
-      latestBootstrapSecretsVerifyRun: { status: "succeeded" },
-    })
-    expect(step5.activeStepId).toBe("deploy")
-
-    const step6 = deriveSetupModel({
-      config: connectionConfig,
-      hostFromRoute: "h1",
-      deployCreds: readyCreds,
       latestBootstrapRun: { status: "succeeded" },
-      latestBootstrapSecretsVerifyRun: { status: "succeeded" },
+      latestBootstrapSecretsVerifyRun: null,
     })
-    expect(step6.hasBootstrapped).toBe(true)
-    expect(step6.showCelebration).toBe(true)
-    expect(step6.steps.find((s) => s.id === "verify")?.status).toBe("pending")
+    expect(step5.hasBootstrapped).toBe(true)
+    expect(step5.showCelebration).toBe(true)
+    expect(step5.steps.find((s) => s.id === "verify")?.status).toBe("pending")
   })
 
-  it("resumes step completion from setup draft values and secret status", () => {
+  it("uses pending non-secret edits to unlock downstream steps before final commit", () => {
+    const model = deriveSetupModel({
+      config: {
+        hosts: {
+          h1: {
+            provisioning: { provider: "hetzner" },
+            hetzner: {
+              serverType: "",
+              location: "",
+            },
+          },
+        },
+      },
+      hostFromRoute: "h1",
+      deployCreds: {
+        keys: [{ key: "HCLOUD_TOKEN", status: "set" as const }],
+      },
+      pendingNonSecretDraft: {
+        infrastructure: {
+          serverType: "cx22",
+          location: "nbg1",
+        },
+        connection: {
+          adminCidr: "203.0.113.10/32",
+          sshKeyCount: 1,
+          sshAuthorizedKeys: ["ssh-ed25519 AAAATEST pending"],
+        },
+      },
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.activeStepId).toBe("predeploy")
+  })
+
+  it("resumes step completion from setup draft values", () => {
     const model = deriveSetupModel({
       config: {
         hosts: {
@@ -197,7 +296,6 @@ describe("deriveSetupModel", () => {
         },
         sealedSecretDrafts: {
           deployCreds: { status: "set" },
-          bootstrapSecrets: { status: "set" },
         },
       },
       latestBootstrapRun: null,
@@ -206,8 +304,8 @@ describe("deriveSetupModel", () => {
 
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "secrets")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 })
@@ -242,8 +340,15 @@ describe("deriveHostSetupStepper", () => {
     })
 
     const stepper = deriveHostSetupStepper({ steps: model.steps, activeStepId: model.activeStepId })
-    expect(stepper.steps.map((s) => s.id)).toEqual(["infrastructure", "connection", "creds", "secrets", "deploy", "verify"])
-    expect(stepper.activeStepId).toBe("secrets")
+    expect(stepper.steps.map((s) => s.id)).toEqual([
+      "infrastructure",
+      "connection",
+      "tailscale-lockdown",
+      "predeploy",
+      "deploy",
+      "verify",
+    ])
+    expect(stepper.activeStepId).toBe("deploy")
   })
 
   it("keeps selected step even if locked", () => {

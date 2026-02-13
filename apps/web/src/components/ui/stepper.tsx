@@ -222,7 +222,7 @@ function StepperTrigger(props: StepperTriggerProps) {
   )
 }
 
-type StepperIndicatorProps = React.ComponentProps<"div"> & {
+type StepperIndicatorProps = Omit<React.ComponentProps<"div">, "children"> & {
   children?: React.ReactNode | ((state: "inactive" | "active" | "completed") => React.ReactNode)
 }
 

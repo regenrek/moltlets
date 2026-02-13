@@ -1,11 +1,5 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
-import type { Id } from "../../../../convex/_generated/dataModel"
-import { api } from "../../../../convex/_generated/api"
+import { useEffect, useMemo, useState } from "react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
-import { AsyncButton } from "~/components/ui/async-button"
 import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
 import { Checkbox } from "~/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
@@ -16,8 +10,8 @@ import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { sealForRunner } from "~/lib/security/sealed-input"
-import { buildSetupDraftSectionAad, setupDraftSaveNonSecret, setupDraftSaveSealedSection, type SetupDraftView } from "~/sdk/setup"
+import { maskSshPublicKey } from "~/lib/ssh-redaction"
+import type { SetupDraftConnection, SetupDraftView } from "~/sdk/setup"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
@@ -37,11 +31,13 @@ function deriveSshLabel(key: string): string {
 }
 
 export function SetupStepConnection(props: {
-  projectId: Id<"projects">
   config: any | null
   setupDraft: SetupDraftView | null
   host: string
   stepStatus: SetupStepStatus
+  onDraftChange: (next: SetupDraftConnection) => void
+  adminPassword: string
+  onAdminPasswordChange: (value: string) => void
 }) {
   const hostCfg = props.config?.hosts?.[props.host] || null
   const fleetSshKeys = Array.isArray(props.config?.fleet?.sshAuthorizedKeys)
@@ -59,25 +55,28 @@ export function SetupStepConnection(props: {
   return (
     <SetupStepConnectionForm
       key={props.host}
-      projectId={props.projectId}
       host={props.host}
       hostCfg={hostCfg}
       fleetSshKeys={fleetSshKeys}
       setupDraft={props.setupDraft}
       stepStatus={props.stepStatus}
+      onDraftChange={props.onDraftChange}
+      adminPassword={props.adminPassword}
+      onAdminPasswordChange={props.onAdminPasswordChange}
     />
   )
 }
 
 function SetupStepConnectionForm(props: {
-  projectId: Id<"projects">
   host: string
   hostCfg: any
   fleetSshKeys: string[]
   setupDraft: SetupDraftView | null
   stepStatus: SetupStepStatus
+  onDraftChange: (next: SetupDraftConnection) => void
+  adminPassword: string
+  onAdminPasswordChange: (value: string) => void
 }) {
-  const queryClient = useQueryClient()
   const draftConnection = props.setupDraft?.nonSecretDraft?.connection
 
   const [adminCidr, setAdminCidr] = useState(() => String(draftConnection?.adminCidr || props.hostCfg?.provisioning?.adminCidr || ""))
@@ -103,28 +102,20 @@ function SetupStepConnectionForm(props: {
   const [newKeyLabel, setNewKeyLabel] = useState("")
   const [manualLabels, setManualLabels] = useState<Record<string, string>>({})
 
-  const [adminPassword, setAdminPassword] = useState("")
+  const existingMode = (String(
+    draftConnection?.sshExposureMode
+    || props.hostCfg?.sshExposure?.mode
+    || "bootstrap",
+  ).trim() || "bootstrap") as "bootstrap" | "tailnet" | "public"
 
-  const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
-  })
-  const sealedRunners = useMemo(
-    () =>
-      (runnersQuery.data ?? [])
-        .filter(
-          (runner) =>
-            runner.lastStatus === "online"
-            && runner.capabilities?.supportsSealedInput === true
-            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
-            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
-            && typeof runner.capabilities?.sealedInputKeyId === "string"
-            && runner.capabilities.sealedInputKeyId.trim().length > 0
-            && typeof runner.capabilities?.sealedInputAlg === "string"
-            && runner.capabilities.sealedInputAlg.trim().length > 0,
-        )
-        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
-    [runnersQuery.data],
-  )
+  useEffect(() => {
+    props.onDraftChange({
+      adminCidr: adminCidr.trim(),
+      sshExposureMode: existingMode,
+      sshKeyCount: selectedKeys.length,
+      sshAuthorizedKeys: toUniqueKeys(selectedKeys),
+    })
+  }, [adminCidr, existingMode, props.onDraftChange, selectedKeys])
 
   const missingRequirements = useMemo(() => {
     const missing: string[] = []
@@ -133,105 +124,6 @@ function SetupStepConnectionForm(props: {
     if (selectedKeys.length === 0) missing.push("SSH public key")
     return missing
   }, [adminCidr, props.host, selectedKeys.length])
-
-  const canSaveConnection = missingRequirements.length === 0
-  const adminPasswordSet = props.setupDraft?.sealedSecretDrafts?.bootstrapSecrets?.status === "set"
-
-  const saveConnection = useMutation({
-    mutationFn: async () => {
-      if (!props.host.trim()) throw new Error("missing host")
-      if (!adminCidr.trim()) throw new Error("Admin CIDR is required")
-      if (selectedKeys.length === 0) throw new Error("Select at least one SSH key")
-
-      const existingMode = String(
-        draftConnection?.sshExposureMode
-        || props.hostCfg?.sshExposure?.mode
-        || "bootstrap",
-      ).trim() || "bootstrap"
-
-      return await setupDraftSaveNonSecret({
-        data: {
-          projectId: props.projectId,
-          host: props.host,
-          expectedVersion: props.setupDraft?.version,
-          patch: {
-            connection: {
-              adminCidr: adminCidr.trim(),
-              sshExposureMode: existingMode as "bootstrap" | "tailnet" | "public",
-              sshKeyCount: selectedKeys.length,
-              sshAuthorizedKeys: toUniqueKeys(selectedKeys),
-            },
-          },
-        },
-      })
-    },
-    onSuccess: async () => {
-      toast.success("Access settings saved")
-      await queryClient.invalidateQueries({ queryKey: ["setupDraft", props.projectId, props.host] })
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
-  })
-
-  const saveAdminPassword = useMutation({
-    mutationFn: async (kind: "save" | "remove") => {
-      const preferredRunnerId = props.setupDraft?.sealedSecretDrafts?.deployCreds?.targetRunnerId
-      const runner = preferredRunnerId
-        ? sealedRunners.find((row) => String(row._id) === String(preferredRunnerId))
-        : sealedRunners.length === 1
-          ? sealedRunners[0]
-          : null
-      if (!runner) throw new Error("Save a token first with an online sealed runner.")
-
-      const runnerId = String(runner._id) as Id<"runners">
-      const runnerPub = String(runner.capabilities?.sealedInputPubSpkiB64 || "").trim()
-      const keyId = String(runner.capabilities?.sealedInputKeyId || "").trim()
-      const alg = String(runner.capabilities?.sealedInputAlg || "").trim()
-      if (!runnerPub || !keyId || !alg) throw new Error("Runner sealed-input capabilities incomplete")
-
-      const value = kind === "remove" ? "" : adminPassword.trim()
-      if (kind === "save" && !value) throw new Error("Admin password is required")
-
-      const aad = buildSetupDraftSectionAad({
-        projectId: props.projectId,
-        host: props.host,
-        section: "bootstrapSecrets",
-        targetRunnerId: runnerId,
-      })
-      const sealedInputB64 = await sealForRunner({
-        runnerPubSpkiB64: runnerPub,
-        keyId,
-        alg,
-        aad,
-        plaintextJson: JSON.stringify({ adminPasswordHash: value }),
-      })
-
-      await setupDraftSaveSealedSection({
-        data: {
-          projectId: props.projectId,
-          host: props.host,
-          section: "bootstrapSecrets",
-          targetRunnerId: runnerId,
-          sealedInputB64,
-          sealedInputAlg: alg,
-          sealedInputKeyId: keyId,
-          aad,
-          expectedVersion: props.setupDraft?.version,
-        },
-      })
-
-      return kind
-    },
-    onSuccess: async (kind) => {
-      if (kind === "save") setAdminPassword("")
-      toast.success(kind === "remove" ? "Admin password removed" : "Admin password saved")
-      await queryClient.invalidateQueries({ queryKey: ["setupDraft", props.projectId, props.host] })
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : String(err))
-    },
-  })
 
   const toggleSelectedKey = (key: string, checked: boolean) => {
     setSelectedKeys((prev) => {
@@ -243,10 +135,7 @@ function SetupStepConnectionForm(props: {
   const addKeyFromDialog = () => {
     const key = newKeyText.trim()
     const label = newKeyLabel.trim()
-    if (!isSshPublicKey(key)) {
-      toast.error("Enter a valid SSH public key")
-      return
-    }
+    if (!isSshPublicKey(key)) return
     setKnownKeys((prev) => toUniqueKeys([...prev, key]))
     setSelectedKeys((prev) => toUniqueKeys([...prev, key]))
     if (label) {
@@ -255,7 +144,6 @@ function SetupStepConnectionForm(props: {
     setNewKeyText("")
     setNewKeyLabel("")
     setAddKeyOpen(false)
-    toast.success("SSH key added")
   }
 
   return (
@@ -264,18 +152,7 @@ function SetupStepConnectionForm(props: {
         title="Server access"
         description="SSH access and admin network settings for bootstrap."
         headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
-        statusText={!canSaveConnection ? `Missing: ${missingRequirements.join(", ")}.` : undefined}
-        actions={(
-          <AsyncButton
-            type="button"
-            disabled={saveConnection.isPending || !canSaveConnection}
-            pending={saveConnection.isPending}
-            pendingText="Saving..."
-            onClick={() => saveConnection.mutate()}
-          >
-            Save access settings
-          </AsyncButton>
-        )}
+        statusText={missingRequirements.length > 0 ? `Missing: ${missingRequirements.join(", ")}.` : "Ready for final deploy check."}
       >
         <div className="space-y-6">
           <div className="space-y-2">
@@ -299,7 +176,7 @@ function SetupStepConnectionForm(props: {
                         <Field orientation="horizontal" data-checked={checked ? "" : undefined}>
                           <FieldContent className="min-w-0">
                             <span className="block truncate text-sm font-medium">{label}</span>
-                            <code className="block truncate text-xs text-muted-foreground">{key}</code>
+                            <code className="block truncate text-xs text-muted-foreground">{maskSshPublicKey(key)}</code>
                           </FieldContent>
                           <Checkbox
                             id={checkboxId}
@@ -348,41 +225,29 @@ function SetupStepConnectionForm(props: {
                       Admin password
                     </LabelWithHelp>
 
-                    {adminPasswordSet ? (
-                      <InputGroup>
-                        <InputGroupInput id="setup-admin-password" readOnly value="Saved for this host" />
+                    <InputGroup>
+                      <InputGroupInput
+                        id="setup-admin-password"
+                        type="password"
+                        value={props.adminPassword}
+                        onChange={(event) => props.onAdminPasswordChange(event.target.value)}
+                        placeholder="Optional"
+                      />
+                      {props.adminPassword.trim() ? (
                         <InputGroupAddon align="inline-end">
                           <InputGroupButton
-                            disabled={saveAdminPassword.isPending}
-                            pending={saveAdminPassword.isPending}
-                            pendingText="Removing..."
-                            onClick={() => saveAdminPassword.mutate("remove")}
+                            type="button"
+                            variant="outline"
+                            onClick={() => props.onAdminPasswordChange("")}
                           >
-                            Remove
+                            Clear
                           </InputGroupButton>
                         </InputGroupAddon>
-                      </InputGroup>
-                    ) : (
-                      <InputGroup>
-                        <InputGroupInput
-                          id="setup-admin-password"
-                          type="password"
-                          value={adminPassword}
-                          onChange={(event) => setAdminPassword(event.target.value)}
-                          placeholder="Set admin password"
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupButton
-                            disabled={saveAdminPassword.isPending || !adminPassword.trim()}
-                            pending={saveAdminPassword.isPending}
-                            pendingText="Saving..."
-                            onClick={() => saveAdminPassword.mutate("save")}
-                          >
-                            Save
-                          </InputGroupButton>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    )}
+                      ) : null}
+                    </InputGroup>
+                    <div className="text-xs text-muted-foreground">
+                      Stored as encrypted draft data during final deploy.
+                    </div>
                   </div>
                 </div>
               </AccordionContent>
