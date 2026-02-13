@@ -3,15 +3,66 @@ title: GitHub token
 description: Create and validate GITHUB_TOKEN for Clawlets setup.
 ---
 
-Clawlets uses <code>GITHUB_TOKEN</code> during setup/deploy to read your base flake repository.
-If that repository is private, the Setup <code>Provider Tokens</code> step stays blocked
-without a valid token.
+Clawlets uses <code>GITHUB_TOKEN</code> during setup to prove access to the repository
+that Nix uses as the base flake source, and to fetch GitHub-hosted flake inputs during
+bootstrap/update runs.
+
+You can think in two repos:
+
+- **Project repo**: created by <code>clawlets project init</code>; contains
+  <code>fleet/clawlets.json</code>, <code>flake.nix</code>, and <code>secrets/</code>.
+- **Base flake repo**: the repo Nix reads from. Usually this is the same project
+  repo, unless you set <code>baseFlake</code> to a different GitHub repo.
+
+Clawlets does not create a separate bootstrap repo. If this is your first setup, there is
+typically only the project repo unless you intentionally override <code>baseFlake</code>.
+
+If the base flake repo is private, the Setup <code>Provider Tokens</code> step stays blocked
+until the token can authenticate.
+
+That token lets the runner:
+
+- verify GitHub API visibility for your base flake repo, and
+- pass a GitHub access token to Nix when it evaluates/pulls `github:` flake inputs.
+
+Even on a public repo this token is used by setup to keep a single credential model and
+avoid run-time surprises. For private repos, it is required.
+
+Which repository is it checking?
+
+`GITHUB_TOKEN` is checked against the base flake repo in this order:
+
+- `fleet/clawlets.json` field `baseFlake` when it is set (for example `github:owner/repo`)
+- the current repo's `origin` remote when `baseFlake` is empty
+
+Does Clawlets ever change it for you?
+
+No. The code only reads `baseFlake` to resolve where to evaluate the flake; it does not
+rewrite it during bootstrap or setup. You change it only when you edit `fleet/clawlets.json`
+yourself (or via `clawlets config set baseFlake ...`).
+
+Why is this option there?
+
+It is an explicit escape hatch when the project repo is not where Nix evaluation should
+pull inputs from (for example when sharing a template repo, pinning a different remote repo,
+or temporarily overriding for one-off bootstrap flows with `--flake`).
+
+For projects created by `clawlets project init`, this usually points to the same repository
+where you keep `fleet/clawlets.json` and `secrets/`.
+
+Quick checks:
+
+```bash
+cat fleet/clawlets.json | sed -n '1,120p'  # check baseFlake
+git remote get-url origin                  # check origin fallback
+```
 
 Use this page as the canonical operator flow for creating the token and saving it in the dashboard.
 
 ## Prereqs
 
 - GitHub account with read access to your base flake repository.
+- Base flake source is in <code>fleet/clawlets.json</code> field <code>baseFlake</code> (fallback is git origin).
 - Project setup route open in dashboard: <code>/$projectSlug/hosts/$host/setup?step=creds</code>.
 - Preferred: a fine-grained personal access token (PAT).
 
@@ -91,5 +142,5 @@ clawlets env show --json
 
 ### Setup still says token missing
 
-- Reopen `/$projectSlug/security/api-keys` and verify `GITHUB_TOKEN` is marked as set.
+- Reopen <code>/$projectSlug/security/api-keys</code> and verify <code>GITHUB_TOKEN</code> is marked as set.
 - Save again, then refresh Setup.

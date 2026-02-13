@@ -32,7 +32,8 @@ The top-level keys split global fleet settings and per-host settings:
 
 - `schemaVersion`: currently `2`
 - `defaultHost` (optional): used when `--host` is omitted
-- `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`)
+- `baseFlake` (optional): flake URI for remote builds (e.g. `github:<owner>/<repo>`).
+  Leave empty to use the project repo origin as the base flake repo.
 - `fleet.*`: global secrets + policy (shared across hosts)
 - `hosts.<host>`: host entries keyed by host name (includes the gateways that run on that host)
 
