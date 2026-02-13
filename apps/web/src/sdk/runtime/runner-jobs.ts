@@ -67,7 +67,7 @@ export async function listRunMessages(params: {
 }): Promise<string[]> {
   const page = await params.client.query(api.controlPlane.runEvents.pageByRun, {
     runId: params.runId,
-    paginationOpts: { numItems: Math.max(1, Math.min(500, params.limit ?? 200)), cursor: null },
+    paginationOpts: { numItems: Math.max(1, Math.min(500, params.limit ?? 100)), cursor: null },
   })
   return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
 }

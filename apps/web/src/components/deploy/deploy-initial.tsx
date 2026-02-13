@@ -7,7 +7,6 @@ import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
-import { BootstrapChecklist } from "~/components/hosts/bootstrap-checklist"
 import { BootstrapDeploySourceSection } from "~/components/hosts/bootstrap-deploy-source"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
@@ -106,11 +105,13 @@ function DeployInitialInstallDefault({
   const projectId = projectQuery.projectId
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   })
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, projectId ? { projectId } : "skip"),
-    gcTime: 5_000,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
   const runnerNixReadiness = useMemo(
@@ -403,11 +404,27 @@ function DeployInitialInstallDefault({
               </AlertDialog>
             </div>
 
-            <BootstrapChecklist
-              projectId={projectId as Id<"projects">}
-              host={host}
-              hostDesired={hostSummary?.desired ?? null}
-            />
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <div className="text-sm font-medium">Post-bootstrap setup</div>
+              <div className="text-xs text-muted-foreground">
+                Open the setup flow to run tailscale + lockdown and complete verification.
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/$projectSlug/hosts/$host/setup"
+                    params={{ projectSlug, host }}
+                    search={{ step: "verify" }}
+                  />
+                }
+              >
+                Continue setup verify
+              </Button>
+            </div>
           </div>
 
           {runId ? (

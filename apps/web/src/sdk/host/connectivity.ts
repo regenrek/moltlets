@@ -103,7 +103,7 @@ async function listRunMessages(runId: Id<"runs">): Promise<string[]> {
   const client = createConvexClient()
   const page = await client.query(api.controlPlane.runEvents.pageByRun, {
     runId,
-    paginationOpts: { numItems: 200, cursor: null },
+    paginationOpts: { numItems: 100, cursor: null },
   })
   return (page.page || []).map((row: any) => String(row.message || "")).filter(Boolean).toReversed()
 }
@@ -129,7 +129,7 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
 
   const eventsPage = await client.query(api.controlPlane.runEvents.pageByRun, {
     runId: match._id,
-    paginationOpts: { numItems: 200, cursor: null },
+    paginationOpts: { numItems: 100, cursor: null },
   })
   const messages = (eventsPage.page || []).map((ev: any) => String(ev.message || ""))
   const ipv4 = parseBootstrapIpv4FromLogs(messages)
