@@ -28,7 +28,7 @@ import {
 } from "~/components/ui/alert-dialog"
 import { canBootstrapFromDoctorGate } from "~/lib/bootstrap-gate"
 import { useProjectBySlug } from "~/lib/project-data"
-import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
+import { deriveProjectRunnerNixReadiness, isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { gitPushExecute, gitRepoStatus } from "~/sdk/vcs"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
@@ -113,6 +113,10 @@ function DeployInitialInstallDefault({
     gcTime: 5_000,
   })
   const runnerOnline = useMemo(() => isProjectRunnerOnline(runnersQuery.data ?? []), [runnersQuery.data])
+  const runnerNixReadiness = useMemo(
+    () => deriveProjectRunnerNixReadiness(runnersQuery.data ?? []),
+    [runnersQuery.data],
+  )
   const hostSummary = hostsQuery.data?.find((row) => row.hostName === host) ?? null
   const tailnetMode = String(hostSummary?.desired?.tailnetMode || "none")
   const [mode, setMode] = useState<"nixos-anywhere" | "image">("nixos-anywhere")
@@ -212,7 +216,8 @@ function DeployInitialInstallDefault({
   const lockdownAfter = canAutoLockdown && lockdownAfterRequested
 
   const doctorGateOk = canBootstrapFromDoctorGate({ host, force, doctor })
-  const canBootstrap = runnerOnline && doctorGateOk && !repoGateBlocked
+  const nixGateBlocked = runnerOnline && !runnerNixReadiness.ready
+  const canBootstrap = runnerOnline && doctorGateOk && !repoGateBlocked && !nixGateBlocked
   const cliCmd = useMemo(() => {
     if (!host) return ""
     const parts = ["clawlets", "bootstrap", "--host", host, "--mode", mode]
@@ -245,6 +250,18 @@ function DeployInitialInstallDefault({
             runnerOnline={runnerOnline}
             isChecking={runnersQuery.isPending}
           />
+          {nixGateBlocked ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              Deploy blocked: connected runner does not report Nix. Install Nix on the runner host and restart runner.
+              <div className="pt-1">
+                Install: <code>curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm</code>
+              </div>
+              <div className="pt-1">
+                Runner: <code>{runnerNixReadiness.runnerName || "unknown"}</code>.
+                {runnerNixReadiness.nixBin ? <> NIX_BIN: <code>{runnerNixReadiness.nixBin}</code>.</> : null}
+              </div>
+            </div>
+          ) : null}
           {!hostSummary ? (
             <div className="rounded-md border border-amber-300/40 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
               Host metadata not synced yet. Showing defaults until runner sync.

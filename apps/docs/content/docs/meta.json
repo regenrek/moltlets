@@ -1,6 +1,7 @@
 {
   "pages": [
     "index",
+    "quickstart",
     "ai-agent-setup",
     "---Dashboard---",
     "dashboard",

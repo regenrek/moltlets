@@ -10,6 +10,9 @@ describe("runner heartbeat capabilities", () => {
         sealedInputPubSpkiB64: "AQID",
         sealedInputKeyId: "A5BYxvLAy0ksUzsKTRTvd8wPeKvMztUofYShogEc-4E",
         supportsInfraApply: true,
+        hasNix: true,
+        nixBin: "/nix/var/nix/profiles/default/bin/nix",
+        nixVersion: "nix (Nix) 2.24.9",
       }),
     ).resolves.toEqual({
       ok: true,
@@ -19,6 +22,9 @@ describe("runner heartbeat capabilities", () => {
         sealedInputPubSpkiB64: "AQID",
         sealedInputKeyId: "A5BYxvLAy0ksUzsKTRTvd8wPeKvMztUofYShogEc-4E",
         supportsInfraApply: true,
+        hasNix: true,
+        nixBin: "/nix/var/nix/profiles/default/bin/nix",
+        nixVersion: "nix (Nix) 2.24.9",
       },
     });
   });
@@ -48,6 +54,44 @@ describe("runner heartbeat capabilities", () => {
     ).resolves.toEqual({
       ok: false,
       error: "invalid capabilities.sealedInputKeyId",
+    });
+  });
+
+  it("rejects hasNix=true without nixVersion", async () => {
+    await expect(
+      parseRunnerHeartbeatCapabilities({
+        hasNix: true,
+        nixBin: "/nix/var/nix/profiles/default/bin/nix",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "invalid capabilities.hasNix",
+    });
+  });
+
+  it("infers hasNix=true when nixVersion is present", async () => {
+    await expect(
+      parseRunnerHeartbeatCapabilities({
+        nixVersion: "nix (Nix) 2.24.9",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      capabilities: {
+        hasNix: true,
+        nixVersion: "nix (Nix) 2.24.9",
+      },
+    });
+  });
+
+  it("rejects nix fields when hasNix is false", async () => {
+    await expect(
+      parseRunnerHeartbeatCapabilities({
+        hasNix: false,
+        nixVersion: "nix (Nix) 2.24.9",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "invalid capabilities.hasNix",
     });
   });
 });

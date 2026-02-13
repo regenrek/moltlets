@@ -13,11 +13,29 @@ project’s focus on maintainable, production-grade workflows.
 - Follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`).
 - Prefer deterministic, non-interactive commands.
 
-## Setup
+## Contributor local setup
+
+From repo root:
 
 ```bash
 pnpm install
 ```
+
+Optional deterministic toolchain (recommended for contributor work):
+
+```bash
+devenv shell
+```
+
+If you need to test the local CLI build through a stable wrapper:
+
+```bash
+./scripts/dev-install-clawlets-wrapper.sh
+clawlets --help
+```
+
+If you are an operator/end user onboarding a workstation, use
+[Quickstart](/quickstart) instead of this contributor flow.
 
 ## Tests
 

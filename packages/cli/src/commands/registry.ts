@@ -17,6 +17,7 @@ import { secrets } from "./secrets/index.js";
 import { server } from "./openclaw/server/index.js";
 import { runner } from "./runner/index.js";
 import { setup } from "./setup/index.js";
+import { quickstart } from "./quickstart/index.js";
 
 export const baseCommands = {
   gateway,
@@ -38,6 +39,7 @@ export const baseCommands = {
   server,
   runner,
   setup,
+  quickstart,
 };
 
 export const baseCommandNames = Object.freeze(Object.keys(baseCommands));

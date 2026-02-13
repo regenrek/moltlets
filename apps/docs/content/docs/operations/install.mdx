@@ -8,6 +8,12 @@ assumption is local, self‑hosted operation: you run the dashboard and CLI from
 workstation, then bootstrap a host through the configured infrastructure provider.
 The canonical production path is Hetzner. AWS exists, but remains experimental.
 
+## Choose your audience
+
+- **Operators / end users (recommended):** start with [Quickstart](/quickstart)
+- **CLI users:** install CLI here, then use [CLI overview](/cli) and [Command reference](/cli/commands)
+- **Contributors:** use [Contributing](/contribution) for local dev setup
+
 ## Install clawlets (CLI)
 
 Choose one install path:
@@ -35,6 +41,17 @@ Wrapper installer behavior:
 
 Node >= 22 required.
 
+## One-command local setup
+
+For fresh workstations, prefer the canonical quickstart command:
+
+```bash
+clawlets quickstart
+```
+
+Quickstart handles Nix detection/install, Convex bootstrap, and local UI startup.
+See [Quickstart](/quickstart) for onboarding and [Operations quickstart](/operations/quickstart) for detailed flags.
+
 ## Install Nix (required)
 
 Clawlets shells out to `nix` for tooling (`age-keygen`, `sops`, `mkpasswd`, `nixos-anywhere`, builds/evals).
@@ -45,6 +62,8 @@ Verify:
 ```bash
 nix --version
 ```
+
+Dedicated install guide: [Install Nix](/operations/install-nix)
 
 If the dashboard/runner cannot find `nix`, set `NIX_BIN` in `.clawlets/env` to the full path (common on macOS: `/nix/var/nix/profiles/default/bin/nix`).
 
@@ -95,13 +114,15 @@ Get token:
 
 - Hetzner API token guide: https://docs.hetzner.com/cloud/api/getting-started/generating-api-token
 
-## Deterministic dev env (recommended)
+## Deterministic dev env (contributors)
 
 Use a deterministic dev shell so tooling versions match CI and the template:
 
 ```bash
 devenv shell
 ```
+
+This is optional for operators using quickstart. It is mainly for contributor/dev workflows.
 
 ## Tooling bundle (optional)
 

@@ -6,6 +6,17 @@ description: Common dashboard + Convex issues.
 These are the most common local setup issues when running the dashboard. Each item
 includes the quickest fix so you can get back to a working local environment.
 
+## “spawn nix ENOENT”
+
+This means the runner host cannot execute `nix`.
+
+- Install Nix on the runner host:
+  - Follow [Install Nix](/operations/install-nix) (checksum-verified installer).
+- Restart the runner process.
+- If needed, set `NIX_BIN` to the full binary path (for example `/nix/var/nix/profiles/default/bin/nix`).
+
+The Deploy setup gate blocks deploy while runner Nix capability is missing.
+
 ## “missing VITE_CONVEX_URL”
 
 This means the dashboard does not know which Convex deployment to talk to. Make sure

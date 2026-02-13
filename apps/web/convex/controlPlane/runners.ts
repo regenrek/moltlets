@@ -32,6 +32,9 @@ async function upsertHeartbeatInternalDb(params: {
       sealedInputPubSpkiB64?: string;
       sealedInputKeyId?: string;
       supportsInfraApply?: boolean;
+      hasNix?: boolean;
+      nixBin?: string;
+      nixVersion?: string;
     };
     status?: string;
   };

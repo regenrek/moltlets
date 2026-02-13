@@ -4,6 +4,15 @@ export type RunnerPresence = {
   runnerName?: string | null
   lastStatus?: string | null
   lastSeenAt?: number | null
+  capabilities?: unknown
+}
+
+export type RunnerNixReadiness = {
+  ready: boolean
+  hasFreshOnlineRunner: boolean
+  runnerName?: string
+  nixVersion?: string
+  nixBin?: string
 }
 
 export function isRunnerFreshOnline(runner: RunnerPresence, now = Date.now()): boolean {
@@ -31,4 +40,63 @@ export function pickRunnerName(runners: RunnerPresence[] | null | undefined, fal
     if (name) return name
   }
   return fallback
+}
+
+function parseRunnerNixCapability(capabilities: unknown): {
+  hasNix: boolean
+  nixVersion?: string
+  nixBin?: string
+} {
+  if (!capabilities || typeof capabilities !== "object" || Array.isArray(capabilities)) {
+    return { hasNix: false }
+  }
+  const row = capabilities as Record<string, unknown>
+  const hasNixRaw = typeof row.hasNix === "boolean" ? row.hasNix : undefined
+  const nixVersion = typeof row.nixVersion === "string" ? row.nixVersion.trim() : ""
+  const nixBin = typeof row.nixBin === "string" ? row.nixBin.trim() : ""
+  const hasNix = hasNixRaw ?? Boolean(nixVersion)
+  if (!hasNix || !nixVersion) return { hasNix: false }
+  return {
+    hasNix: true,
+    nixVersion,
+    nixBin: nixBin || undefined,
+  }
+}
+
+export function deriveProjectRunnerNixReadiness(
+  runners: RunnerPresence[] | null | undefined,
+  now = Date.now(),
+): RunnerNixReadiness {
+  if (!Array.isArray(runners) || runners.length === 0) {
+    return { ready: false, hasFreshOnlineRunner: false }
+  }
+  let hasFreshOnlineRunner = false
+  let bestReadySeenAt = Number.NEGATIVE_INFINITY
+  let bestReady: RunnerNixReadiness | null = null
+
+  for (const runner of runners) {
+    if (!isRunnerFreshOnline(runner, now)) continue
+    hasFreshOnlineRunner = true
+    const nix = parseRunnerNixCapability(runner.capabilities)
+    if (!nix.hasNix) continue
+    const seenAt =
+      typeof runner.lastSeenAt === "number" && Number.isFinite(runner.lastSeenAt)
+        ? runner.lastSeenAt
+        : Number.NEGATIVE_INFINITY
+    if (seenAt <= bestReadySeenAt) continue
+    bestReadySeenAt = seenAt
+    bestReady = {
+      ready: true,
+      hasFreshOnlineRunner: true,
+      runnerName: typeof runner.runnerName === "string" ? runner.runnerName.trim() || undefined : undefined,
+      nixVersion: nix.nixVersion,
+      nixBin: nix.nixBin,
+    }
+  }
+
+  if (bestReady) return bestReady
+  return {
+    ready: false,
+    hasFreshOnlineRunner,
+  }
 }

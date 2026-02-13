@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 export type RunOpts = {
   cwd?: string;
@@ -22,6 +23,20 @@ function redactLine(line: string, values?: string[]): string {
     redacted = redacted.split(trimmed).join("<redacted>");
   }
   return redacted;
+}
+
+function normalizeSpawnError(cmd: string, err: Error): Error {
+  const errno = (err as NodeJS.ErrnoException).code;
+  const syscall = String((err as NodeJS.ErrnoException).syscall || "");
+  const spawnPath = String((err as NodeJS.ErrnoException).path || "").trim();
+  const cmdBase = path.basename(String(cmd || "").trim());
+  const spawnBase = spawnPath ? path.basename(spawnPath) : "";
+
+  if (errno === "ENOENT" && syscall.startsWith("spawn") && (cmdBase === "nix" || spawnBase === "nix")) {
+    return new Error("nix not found (install Nix first)");
+  }
+
+  return err;
 }
 
 export async function run(
@@ -67,7 +82,7 @@ export async function run(
           finish(new Error(`${cmd} timed out after ${opts.timeoutMs}ms`));
         }, opts.timeoutMs)
       : null;
-    child.on("error", (err) => finish(err as Error));
+    child.on("error", (err) => finish(normalizeSpawnError(cmd, err as Error)));
     child.on("exit", (code) => {
       if (code === 0) finish();
       else finish(new Error(`${cmd} exited with code ${code ?? "null"}`));
@@ -122,7 +137,7 @@ export async function capture(
       }
       chunks.push(Buffer.from(buf));
     });
-    child.on("error", (err) => finish(err as Error));
+    child.on("error", (err) => finish(normalizeSpawnError(cmd, err as Error)));
     child.on("exit", (code) => {
       if (code === 0) {
         const output = Buffer.concat(chunks).toString("utf8").trim();
@@ -179,7 +194,7 @@ export async function captureWithInput(
       }
       chunks.push(Buffer.from(buf));
     });
-    child.on("error", (err) => finish(err as Error));
+    child.on("error", (err) => finish(normalizeSpawnError(cmd, err as Error)));
     child.stdin.write(input);
     child.stdin.end();
     child.on("exit", (code) => {

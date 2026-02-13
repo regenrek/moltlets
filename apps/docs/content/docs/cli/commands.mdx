@@ -25,6 +25,25 @@ Common flags (varies by command):
 These commands are the backbone of a Clawlets setup: provisioning, secrets, host
 operations, and lockdown.
 
+### `clawlets quickstart`
+
+Canonical local bootstrap for fresh operator machines.
+
+Examples:
+
+- interactive operator flow: `clawlets quickstart`
+- non-interactive machine output: `clawlets quickstart --no-confirm --ui none --json`
+- require preinstalled Nix: `clawlets quickstart --install-nix=never`
+
+Key flags:
+
+- `--no-confirm`
+- `--install-nix auto|always|never`
+- `--skip-nix`
+- `--setup-convex` / `--skip-convex`
+- `--ui dev|prod|none`
+- `--json`
+
 ### `clawlets bootstrap`
 
 Provision through the selected provider driver, then install NixOS.

@@ -1,5 +1,6 @@
 const SAFE_ERROR_PATTERNS: RegExp[] = [
   /^nix not found/i,
+  /^spawn nix enoent$/i,
   /^invalid projectid$/i,
   /^sign-in required$/i,
   /^project access denied$/i,

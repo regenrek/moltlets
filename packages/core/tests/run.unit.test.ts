@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { run, capture, captureWithInput } from "../src/lib/runtime/run";
 
@@ -104,6 +106,11 @@ describe("run helpers", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("normalizes missing nix errors", async () => {
+    const missingNixPath = path.join(os.tmpdir(), `clawlets-missing-${Date.now()}`, "nix");
+    await expect(capture(missingNixPath, ["--version"])).rejects.toThrow("nix not found (install Nix first)");
   });
 
   it("throws when command exits non-zero", async () => {

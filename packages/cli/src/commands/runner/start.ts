@@ -80,6 +80,32 @@ function resolveRunnerNixBin(): string | null {
   return cachedRunnerNixBin;
 }
 
+type RunnerNixCapabilities = {
+  hasNix: boolean;
+  nixBin?: string;
+  nixVersion?: string;
+};
+
+async function detectRunnerNixCapabilities(): Promise<RunnerNixCapabilities> {
+  const nixBin = resolveRunnerNixBin();
+  if (!nixBin) return { hasNix: false };
+  try {
+    const version = await capture(nixBin, ["--version"], {
+      stdin: "ignore",
+      maxOutputBytes: 8 * 1024,
+    });
+    const nixVersion = version.trim();
+    if (!nixVersion) return { hasNix: false };
+    return {
+      hasNix: true,
+      nixBin,
+      nixVersion,
+    };
+  } catch {
+    return { hasNix: false };
+  }
+}
+
 function runnerCommandEnv(): Record<string, string | undefined> {
   const nixBin = resolveRunnerNixBin();
   return {
@@ -1038,6 +1064,7 @@ export const runnerStart = defineCommand({
     };
     process.on("SIGINT", stop);
     process.on("SIGTERM", stop);
+    const runnerNixCapabilities = await detectRunnerNixCapabilities();
 
     const sendHeartbeat = async (status: "online" | "offline") => {
       try {
@@ -1051,6 +1078,9 @@ export const runnerStart = defineCommand({
             sealedInputPubSpkiB64: sealedKeyPair.publicKeySpkiB64,
             sealedInputKeyId: sealedKeyPair.keyId,
             supportsInfraApply: true,
+            hasNix: runnerNixCapabilities.hasNix,
+            nixBin: runnerNixCapabilities.nixBin,
+            nixVersion: runnerNixCapabilities.nixVersion,
           },
         });
       } catch (err) {

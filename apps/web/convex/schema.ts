@@ -188,6 +188,9 @@ export const RunnerCapabilities = v.object({
   sealedInputPubSpkiB64: v.optional(v.string()),
   sealedInputKeyId: v.optional(v.string()),
   supportsInfraApply: v.optional(v.boolean()),
+  hasNix: v.optional(v.boolean()),
+  nixBin: v.optional(v.string()),
+  nixVersion: v.optional(v.string()),
 });
 export const SetupDraftStatus = v.union(
   v.literal("draft"),

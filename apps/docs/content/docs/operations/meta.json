@@ -4,7 +4,9 @@
   "icon": "Settings",
   "pages": [
     "index",
+    "quickstart",
     "install",
+    "install-nix",
     "deploy",
     "persistence",
     "deployment-scenarios",

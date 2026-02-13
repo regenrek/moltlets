@@ -172,6 +172,9 @@ export type ParsedRunnerCapabilities = {
   sealedInputPubSpkiB64?: string;
   sealedInputKeyId?: string;
   supportsInfraApply?: boolean;
+  hasNix?: boolean;
+  nixBin?: string;
+  nixVersion?: string;
 };
 
 export async function parseRunnerHeartbeatCapabilities(
@@ -187,6 +190,26 @@ export async function parseRunnerHeartbeatCapabilities(
       : undefined;
   const supportsInfraApply =
     typeof capabilities?.supportsInfraApply === "boolean" ? capabilities.supportsInfraApply : undefined;
+  const hasNixRaw = capabilities?.hasNix;
+  const hasNix = typeof hasNixRaw === "boolean" ? hasNixRaw : undefined;
+
+  const nixBinRaw =
+    typeof capabilities?.nixBin === "string"
+      ? capabilities.nixBin
+      : undefined;
+  const nixBin = nixBinRaw?.trim();
+  if (nixBinRaw !== undefined && (!nixBin || nixBin.length > CONTROL_PLANE_LIMITS.projectConfigPath)) {
+    return { ok: false, error: "invalid capabilities.nixBin" };
+  }
+
+  const nixVersionRaw =
+    typeof capabilities?.nixVersion === "string"
+      ? capabilities.nixVersion
+      : undefined;
+  const nixVersion = nixVersionRaw?.trim();
+  if (nixVersionRaw !== undefined && (!nixVersion || nixVersion.length > CONTROL_PLANE_LIMITS.projectConfigPath)) {
+    return { ok: false, error: "invalid capabilities.nixVersion" };
+  }
 
   const sealedInputAlgRaw =
     typeof capabilities?.sealedInputAlg === "string"
@@ -240,6 +263,15 @@ export async function parseRunnerHeartbeatCapabilities(
   ) {
     return { ok: false, error: "invalid capabilities.supportsSealedInput" };
   }
+
+  const hasNixNormalized = hasNix ?? (nixVersion ? true : undefined);
+  if (hasNixNormalized === false && (nixBin || nixVersion)) {
+    return { ok: false, error: "invalid capabilities.hasNix" };
+  }
+  if (hasNixNormalized === true && !nixVersion) {
+    return { ok: false, error: "invalid capabilities.hasNix" };
+  }
+
   return {
     ok: true,
     capabilities: {
@@ -248,6 +280,9 @@ export async function parseRunnerHeartbeatCapabilities(
       sealedInputPubSpkiB64,
       sealedInputKeyId: derivedKeyId ?? sealedInputKeyId,
       supportsInfraApply,
+      hasNix: hasNixNormalized,
+      nixBin,
+      nixVersion,
     },
   };
 }

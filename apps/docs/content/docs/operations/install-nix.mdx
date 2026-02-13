@@ -1,0 +1,63 @@
+---
+title: Install Nix
+description: Required Nix install path for runner and deploy workflows.
+---
+
+Clawlets bootstrap/deploy/security flows require `nix` on the machine running the
+runner or CLI.
+
+For local operator machines, `clawlets quickstart` can install Nix automatically.
+Use the manual flow below when you need to install Nix directly on a host.
+
+Manual installer (macOS + Linux, checksum-verified binary):
+
+```bash
+VERSION="v3.15.2"
+PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
+
+case "${PLATFORM}-${ARCH}" in
+  darwin-arm64)
+    ASSET="nix-installer-aarch64-darwin"
+    EXPECTED_SHA256="b4dd473e3665db0d84d219cf22cc12b2b13d6f1c228c8b2d395820ca01be56a0"
+    ;;
+  linux-aarch64|linux-arm64)
+    ASSET="nix-installer-aarch64-linux"
+    EXPECTED_SHA256="97cad8e8975327eb24ed1158deaf6b475145b665c597b19f441e8438605014fb"
+    ;;
+  linux-x86_64|linux-amd64)
+    ASSET="nix-installer-x86_64-linux"
+    EXPECTED_SHA256="dfc15179d7f46cf4a604e3a9bb6e986d78b6fee4620c4e418673e43c649640de"
+    ;;
+  *)
+    echo "Unsupported platform: ${PLATFORM}-${ARCH}" >&2
+    exit 1
+    ;;
+esac
+
+curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+  --output "${ASSET}" \
+  "https://github.com/DeterminateSystems/nix-installer/releases/download/${VERSION}/${ASSET}"
+echo "${EXPECTED_SHA256}  ${ASSET}" | shasum -a 256 -c -
+chmod +x "${ASSET}"
+"./${ASSET}" install --no-confirm
+```
+
+Verify:
+
+```bash
+nix --version
+```
+
+If your shell/GUI environment cannot find `nix`, set `NIX_BIN` explicitly:
+
+```bash
+NIX_BIN=/nix/var/nix/profiles/default/bin/nix
+```
+
+Persist in local deploy creds:
+
+```bash
+clawlets env init
+clawlets env apply-json --from-json <(printf '{"NIX_BIN":"%s"}' "$NIX_BIN")
+```

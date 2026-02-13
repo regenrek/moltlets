@@ -4,16 +4,16 @@ description: Why Clawlets exists and what it does.
 icon: House
 ---
 
-import { Activity, Boxes, LayoutDashboard, Terminal } from "lucide-react"
+import { Activity, Boxes, GitBranch, LayoutDashboard, Terminal } from "lucide-react"
 
 <img src="/clawlets_banner_full.png" alt="Clawlets overview banner" />
 
 <div className="not-prose my-10 flex justify-center">
   <a
-    href="/dashboard"
+    href="/quickstart"
     className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-6 py-3 text-base font-semibold text-fd-primary-foreground transition-colors hover:text-fd-primary-foreground"
   >
-    Getting started
+    Operator quickstart
   </a>
 </div>
 
@@ -28,7 +28,30 @@ cases.
   hosting to reduce exposure.
 </Callout>
 
-## Getting started
+## Choose your path
+
+<Cards>
+  <Card
+    title="Operators (recommended)"
+    description="Fastest path to local dashboard + runner onboarding."
+    icon={<LayoutDashboard />}
+    href="/quickstart"
+  />
+  <Card
+    title="CLI users"
+    description="Command-first workflows and automation."
+    icon={<Terminal />}
+    href="/cli"
+  />
+  <Card
+    title="Contributors"
+    description="Local dev setup for working on Clawlets itself."
+    icon={<GitBranch />}
+    href="/contribution"
+  />
+</Cards>
+
+## Explore by section
 
 <Cards>
   <Card
@@ -118,15 +141,14 @@ keys, extra-files payloads, provisioning state, and image build artifacts.
 
 ## Start here
 
-If you are new, begin with the dashboard and the configuration reference, then read
-through security and operations before your first bootstrap. The CLI reference is
-useful once you start automating workflows.
+If you are new, start with the path that matches your role, then move into deeper
+reference docs.
 
-- [Dashboard](/dashboard): self-hosted UI (primary workflow)
+- [Quickstart](/quickstart): operator onboarding from blank machine
+- [CLI overview](/cli): command-first onboarding + automation
+- [Contributing](/contribution): contributor setup and test workflows
+- [Dashboard](/dashboard): self-hosted UI workflows
 - [Configuration](/configuration): schema and invariants
-- [Security](/security): threat model and hardening
-- [Operations](/operations): bootstrap, deploy, and runbook
-- [CLI](/cli): automation workflows
 
 ### What are Clawlets?
 

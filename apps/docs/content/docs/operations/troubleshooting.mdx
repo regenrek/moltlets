@@ -6,6 +6,16 @@ description: Known errors and fixes.
 These are common operator issues during bootstrap and day‑2 ops. Most fixes are
 CLI‑driven so the host stays consistent with the project repo.
 
+## `spawn nix ENOENT` / `nix not found (install Nix first)`
+
+The runner host is missing `nix` (or cannot resolve it in PATH).
+
+Install Nix on that machine with the checksum-verified flow in
+[Install Nix](/operations/install-nix).
+
+Then restart runner and retry. If shell PATH differs from service PATH, set `NIX_BIN`
+explicitly in `.clawlets/env`.
+
 ## `ssh-keygen` / “REMOTE HOST IDENTIFICATION HAS CHANGED”
 
 After reinstall, host keys change. Remove the old key from `known_hosts` and try again.
