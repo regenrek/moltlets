@@ -26,6 +26,21 @@ describe("repo health", () => {
     expect(health).toEqual({ state: "error", error: "config parse failed" })
   })
 
+  it("redacts secret-like values in metadata error text", () => {
+    const health = deriveRepoHealth({
+      runnerOnline: true,
+      configs: [{
+        type: "fleet",
+        lastSyncAt: Date.now(),
+        lastError: "Authorization: Bearer secret123 https://user:pw@example.com?token=abc",
+      }],
+    })
+    expect(health.state).toBe("error")
+    expect(health.error).toContain("Authorization: Bearer <redacted>")
+    expect(health.error).toContain("https://<redacted>@example.com?token=<redacted>")
+    expect(health.error).not.toContain("secret123")
+  })
+
   it("returns checking when fleet metadata is stale", () => {
     const now = 500_000
     const health = deriveRepoHealth({

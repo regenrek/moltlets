@@ -138,6 +138,7 @@ const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
 const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
+const RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS = 2_000;
 const RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT = 0;
 const RUNNER_IDLE_POLL_MS_DEFAULT = 4_000;
 const RUNNER_IDLE_POLL_MAX_MS_DEFAULT = 8_000;
@@ -1147,6 +1148,7 @@ export const runnerStart = defineCommand({
       }
     };
     let metadataSyncInFlight = false;
+    let metadataSyncWorker: Promise<void> | null = null;
     let pendingMetadataSync:
       | {
           lastRunId?: string;
@@ -1164,7 +1166,7 @@ export const runnerStart = defineCommand({
       pendingMetadataSync = params;
       if (metadataSyncInFlight) return;
       metadataSyncInFlight = true;
-      void (async () => {
+      metadataSyncWorker = (async () => {
         while (pendingMetadataSync) {
           const next = pendingMetadataSync;
           pendingMetadataSync = null;
@@ -1172,7 +1174,19 @@ export const runnerStart = defineCommand({
         }
       })().finally(() => {
         metadataSyncInFlight = false;
+        metadataSyncWorker = null;
       });
+    };
+    const flushPendingMetadataSync = async () => {
+      if (!metadataSyncInFlight && !pendingMetadataSync) return;
+      if (!metadataSyncInFlight && pendingMetadataSync) {
+        scheduleMetadataSync(pendingMetadataSync);
+      }
+      if (!metadataSyncWorker) return;
+      await Promise.race([
+        metadataSyncWorker.catch(() => undefined),
+        sleep(RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS),
+      ]);
     };
     scheduleMetadataSync({ context: "startup" });
     let lastRunId: string | undefined;
@@ -1307,6 +1321,7 @@ export const runnerStart = defineCommand({
     } finally {
       clearInterval(ticker);
       clearInterval(metadataTicker);
+      await flushPendingMetadataSync();
       await sendHeartbeat("offline");
       process.off("SIGINT", stop);
       process.off("SIGTERM", stop);

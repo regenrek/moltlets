@@ -11,6 +11,7 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { Textarea } from "~/components/ui/textarea"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { maskSshPublicKey } from "~/lib/ssh-redaction"
+import { deriveConnectionLateHydration } from "~/lib/setup/connection-hydration"
 import type { SetupDraftConnection, SetupDraftView } from "~/sdk/setup"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
@@ -54,6 +55,7 @@ export function SetupStepConnection(props: {
       <SetupStepConnectionForm
         key={props.host}
         host={props.host}
+        configLoaded={Boolean(props.config)}
         hostCfg={hostCfg ?? {}}
         fleetSshKeys={fleetSshKeys}
         setupDraft={props.setupDraft}
@@ -68,6 +70,7 @@ export function SetupStepConnection(props: {
 
 function SetupStepConnectionForm(props: {
   host: string
+  configLoaded: boolean
   hostCfg: any
   fleetSshKeys: string[]
   setupDraft: SetupDraftView | null
@@ -106,6 +109,32 @@ function SetupStepConnectionForm(props: {
     || props.hostCfg?.sshExposure?.mode
     || "bootstrap",
   ).trim() || "bootstrap") as "bootstrap" | "tailnet" | "public"
+
+  useEffect(() => {
+    const hydration = deriveConnectionLateHydration({
+      configLoaded: props.configLoaded,
+      draftAdminCidr: draftConnection?.adminCidr,
+      draftSshAuthorizedKeys: draftConnection?.sshAuthorizedKeys,
+      hostAdminCidr: props.hostCfg?.provisioning?.adminCidr,
+      fleetSshKeys: props.fleetSshKeys,
+      currentAdminCidr: adminCidr,
+      currentKnownKeys: knownKeys,
+      currentSelectedKeys: selectedKeys,
+    })
+    if (!hydration) return
+    if (typeof hydration.adminCidr === "string") setAdminCidr(hydration.adminCidr)
+    if (hydration.knownKeys) setKnownKeys(hydration.knownKeys)
+    if (hydration.selectedKeys) setSelectedKeys(hydration.selectedKeys)
+  }, [
+    adminCidr,
+    draftConnection?.adminCidr,
+    draftConnection?.sshAuthorizedKeys,
+    knownKeys,
+    props.configLoaded,
+    props.fleetSshKeys,
+    props.hostCfg?.provisioning?.adminCidr,
+    selectedKeys,
+  ])
 
   useEffect(() => {
     props.onDraftChange({

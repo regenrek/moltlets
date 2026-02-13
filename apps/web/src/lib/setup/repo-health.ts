@@ -1,3 +1,5 @@
+import { redactKnownSecretsText } from "@clawlets/core/lib/runtime/redaction"
+
 export type RepoHealthState = "idle" | "checking" | "ok" | "error"
 
 export type RepoHealth = {
@@ -22,6 +24,12 @@ function asFiniteNumber(value: unknown): number | null {
   return value
 }
 
+function sanitizeRepoHealthError(value: unknown): string {
+  const trimmed = trimOrEmpty(value)
+  if (!trimmed) return ""
+  return redactKnownSecretsText(trimmed).trim()
+}
+
 export function deriveRepoHealth(params: {
   runnerOnline: boolean
   configs: ProjectConfigSummary[] | null | undefined
@@ -34,7 +42,7 @@ export function deriveRepoHealth(params: {
   const fleetConfig = configs.find((row) => trimOrEmpty(row?.type) === "fleet") ?? null
   if (!fleetConfig) return { state: "checking" }
 
-  const error = trimOrEmpty(fleetConfig.lastError)
+  const error = sanitizeRepoHealthError(fleetConfig.lastError)
   if (error) return { state: "error", error }
 
   const now = asFiniteNumber(params.now) ?? Date.now()
