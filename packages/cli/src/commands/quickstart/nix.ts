@@ -5,8 +5,8 @@ import { createHash } from "node:crypto";
 import process from "node:process";
 import { resolveNixBin } from "@clawlets/core/lib/nix/nix-bin";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
-import { confirmOrAbort, printHuman } from "./shared";
-import type { InstallNixMode, NixEnsureResult } from "./types";
+import { confirmOrAbort, printHuman } from "./shared.js";
+import type { InstallNixMode, NixEnsureResult } from "./types.js";
 
 const DETERMINATE_NIX_INSTALLER_VERSION = "v3.15.2";
 

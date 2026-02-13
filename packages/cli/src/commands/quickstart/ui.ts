@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import process from "node:process";
 import { run } from "@clawlets/core/lib/runtime/run";
-import { printHuman } from "./shared";
-import type { UiMode } from "./types";
+import { printHuman } from "./shared.js";
+import type { UiMode } from "./types.js";
 
 async function ensureUiDirExists(uiDir: string): Promise<void> {
   let stat: Awaited<ReturnType<typeof fs.stat>> | null = null;

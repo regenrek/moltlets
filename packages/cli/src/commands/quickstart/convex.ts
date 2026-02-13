@@ -3,8 +3,8 @@ import path from "node:path";
 import { parseDotenv, upsertDotenv } from "@clawlets/core/lib/storage/dotenv-file";
 import { writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe";
 import { capture, captureWithInput, run } from "@clawlets/core/lib/runtime/run";
-import { deriveConvexSiteUrl, printHuman, randomSecret } from "./shared";
-import type { ConvexBootstrapResult } from "./types";
+import { deriveConvexSiteUrl, printHuman, randomSecret } from "./shared.js";
+import type { ConvexBootstrapResult } from "./types.js";
 
 async function ensureConvexDirExists(convexDir: string): Promise<void> {
   let stat: Awaited<ReturnType<typeof fs.stat>> | null = null;

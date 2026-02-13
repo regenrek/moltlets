@@ -3,8 +3,8 @@ import process from "node:process";
 import { defineCommand } from "citty";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { updateDeployCredsEnvFile } from "@clawlets/core/lib/infra/deploy-creds";
-import { bootstrapConvex } from "./convex";
-import { ensureNix, ensurePnpmInstall } from "./nix";
+import { bootstrapConvex } from "./convex.js";
+import { ensureNix, ensurePnpmInstall } from "./nix.js";
 import {
   confirmOrAbort,
   enforceJsonUiInvariant,
@@ -16,9 +16,9 @@ import {
   requireNode22OrNewer,
   requireSupportedPlatform,
   resolveConvexDir,
-} from "./shared";
-import type { ConvexBootstrapResult, QuickstartSummary } from "./types";
-import { startUi } from "./ui";
+} from "./shared.js";
+import type { ConvexBootstrapResult, QuickstartSummary } from "./types.js";
+import { startUi } from "./ui.js";
 
 export const quickstart = defineCommand({
   meta: {

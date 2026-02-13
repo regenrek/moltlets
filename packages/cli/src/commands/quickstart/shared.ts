@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { randomBytes } from "node:crypto";
 import * as p from "@clack/prompts";
-import type { InstallNixMode, UiMode } from "./types";
+import type { InstallNixMode, UiMode } from "./types.js";
 
 export function normalizeInstallNixMode(
   modeRaw: unknown,
