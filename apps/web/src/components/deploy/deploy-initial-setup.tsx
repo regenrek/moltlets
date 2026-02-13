@@ -18,8 +18,9 @@ import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
 import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deriveProjectRunnerNixReadiness, isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
 import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state"
+import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
+import { deriveSshKeyGateUi } from "~/lib/setup/ssh-key-gate"
 import { sealForRunner } from "~/lib/security/sealed-input"
 import { gitRepoStatus } from "~/sdk/vcs"
 import { lockdownExecute, lockdownStart } from "~/sdk/infra"
@@ -152,11 +153,11 @@ export function DeployInitialInstallSetup(props: {
         },
       }),
     [
+      setupConfigQuery.data,
       props.host,
       props.pendingConnectionDraft,
       props.pendingInfrastructureDraft,
       props.setupDraft,
-      setupConfigQuery.data,
     ],
   )
   const deployCredsDraftSet = props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
@@ -183,16 +184,14 @@ export function DeployInitialInstallSetup(props: {
     : runnerNixReadiness.ready
       ? null
       : "Runner is online but Nix is missing. Install Nix on the runner host, then restart the runner."
-  const sshKeyGateBlocked = runnerOnline && !hasDesiredSshKeys
-  const sshKeyGateMessage = !runnerOnline
-    ? null
-    : !hasDesiredSshKeys
-      ? setupConfigQuery.isPending
-        ? "Checking desired SSH key state..."
-        : setupConfigQuery.isError
-          ? "Unable to read config fallback. Open Server Access and retry."
-          : "SSH key required before deploy. Add at least one key in Server Access. Setup uses pending/draft values until setup apply."
-      : null
+  const sshKeyGateUi = deriveSshKeyGateUi({
+    runnerOnline,
+    hasDesiredSshKeys,
+    probePending: setupConfigQuery.isPending,
+    probeError: setupConfigQuery.isError,
+  })
+  const sshKeyGateBlocked = sshKeyGateUi.blocked
+  const sshKeyGateMessage = sshKeyGateUi.message
 
   const credsGateBlocked = runnerOnline && !deployCredsDraftSet
   const credsGateMessage = !runnerOnline
@@ -396,10 +395,10 @@ export function DeployInitialInstallSetup(props: {
       setFinalizeState("succeeded")
       toast.success("Server hardening queued")
       void queryClient.invalidateQueries({
-        queryKey: setupConfigProbeQueryKey(projectId),
+        queryKey: ["gitRepoStatus", projectId],
       })
       void queryClient.invalidateQueries({
-        queryKey: ["gitRepoStatus", projectId],
+        queryKey: setupConfigProbeQueryKey(projectId),
       })
     },
     onError: (error) => {
@@ -707,17 +706,10 @@ export function DeployInitialInstallSetup(props: {
 
           {!isBootstrapped && sshKeyGateMessage && !repoGateBlocked && !nixGateBlocked ? (
             <Alert
-              variant={setupConfigQuery.isPending ? "default" : "destructive"}
-              className={setupConfigQuery.isPending
-                ? "border-sky-300/50 bg-sky-50/50 text-sky-900 [&_[data-slot=alert-description]]:text-sky-900/90"
-                : undefined}
+              variant={sshKeyGateUi.variant}
             >
               <AlertTitle>
-                {setupConfigQuery.isPending
-                  ? "Checking SSH key source"
-                  : setupConfigQuery.isError
-                    ? "SSH key settings unavailable"
-                    : "SSH key required"}
+                {sshKeyGateUi.title || "SSH key required"}
               </AlertTitle>
               <AlertDescription>
                 <div>{sshKeyGateMessage}</div>

@@ -10,7 +10,7 @@ import { AsyncButton } from "~/components/ui/async-button"
 import { Button } from "~/components/ui/button"
 import { useProjectBySlug } from "~/lib/project-data"
 import { projectsListQueryOptions } from "~/lib/query-options"
-import { deriveRepoProbeState, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
+import { deriveRepoHealth } from "~/lib/setup/repo-health"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { slugifyProjectName } from "~/lib/project-routing"
 import { projectRetryInit } from "~/sdk/project"
@@ -73,15 +73,17 @@ function ProjectRunnerOnboarding() {
   const runners = runnersQuery.data ?? []
   const runnerOnline = isProjectRunnerOnline(runners)
 
-  const configQuery = useQuery({
-    ...setupConfigProbeQueryOptions(projectId),
-    enabled: Boolean(projectId && runnerOnline),
+  const projectConfigsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectConfigs.listByProject,
+      projectId && runnerOnline ? { projectId } : "skip",
+    ),
   })
-  const repoProbeState = deriveRepoProbeState({
+  const repoHealth = deriveRepoHealth({
     runnerOnline,
-    hasConfig: Boolean(configQuery.data),
-    hasError: configQuery.isError,
+    configs: projectConfigsQuery.data ?? [],
   })
+  const repoProbeState = repoHealth.state
 
   const runsQuery = useQuery({
     ...convexQuery(
@@ -170,7 +172,7 @@ function ProjectRunnerOnboarding() {
         runnerOnline={runnerOnline}
         repoProbeOk={repoProbeState === "ok"}
         repoProbeState={repoProbeState}
-        repoProbeError={configQuery.error}
+        repoProbeError={repoHealth.error}
         runners={(runners as any[]).map((runner: any) => ({
           runnerName: String(runner.runnerName || ""),
           lastStatus: String(runner.lastStatus || "offline"),

@@ -8,6 +8,7 @@ import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS 
 import { rateLimit } from "../shared/rateLimit";
 import { ProjectConfigDoc } from "../shared/validators";
 import { ProjectConfigType } from "../schema";
+import { redactKnownSecretsText } from "@clawlets/core/lib/runtime/redaction";
 
 const UpsertManyArgs = {
   projectId: v.id("projects"),
@@ -45,12 +46,13 @@ async function upsertManyImpl(
 
   for (const entry of entries) {
     const path = ensureBoundedString(entry.path, "entries.path", CONTROL_PLANE_LIMITS.projectConfigPath);
+    const sanitizedError = typeof entry.error === "string" ? redactKnownSecretsText(entry.error).trim() : undefined;
     const next = {
       type: entry.type,
       path,
       lastHash: ensureOptionalBoundedString(entry.sha256, "entries.sha256", CONTROL_PLANE_LIMITS.hash),
       lastSyncAt: now,
-      lastError: ensureOptionalBoundedString(entry.error, "entries.error", CONTROL_PLANE_LIMITS.errorMessage),
+      lastError: ensureOptionalBoundedString(sanitizedError, "entries.error", CONTROL_PLANE_LIMITS.errorMessage),
     };
 
     const existing = byPath.get(path);
@@ -64,6 +66,13 @@ async function upsertManyImpl(
   }
 
   return { updated };
+}
+
+export async function __test_upsertManyImplHandler(
+  ctx: MutationCtx,
+  params: { projectId: Id<"projects">; entries: ProjectConfigEntryInput[] },
+): Promise<{ updated: number }> {
+  return await upsertManyImpl(ctx, params.projectId, params.entries);
 }
 
 export const upsertMany = mutation({

@@ -15,7 +15,7 @@ import {
   RUNNER_CONNECTION_TOAST_MESSAGES,
 } from "~/lib/setup/runner-connection-toast"
 import { deriveRunnerDialogView } from "~/lib/setup/runner-dialog-view"
-import { deriveRepoProbeState, deriveRunnerHeaderState, setupConfigProbeQueryOptions } from "~/lib/setup/repo-probe"
+import { deriveRepoHealth, deriveRunnerHeaderState } from "~/lib/setup/repo-health"
 import { buildRunnerStartCommand } from "~/lib/setup/runner-start-command"
 import { isProjectRunnerOnline, isRunnerFreshOnline, pickRunnerName } from "~/lib/setup/runner-status"
 import { createRunnerToken } from "~/sdk/runtime"
@@ -74,16 +74,20 @@ export function RunnerStatusControl(props: RunnerStatusControlProps) {
   const runners = runnersQuery.data ?? []
   const runnerOnline = isProjectRunnerOnline(runners)
 
-  const repoProbeQuery = useQuery({
-    ...setupConfigProbeQueryOptions(props.projectId),
-    enabled: props.projectStatus === "ready" && runnerOnline,
+  const projectConfigsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectConfigs.listByProject,
+      props.projectStatus === "ready" && runnerOnline
+        ? { projectId: props.projectId }
+        : "skip",
+    ),
   })
-  const repoProbeState = deriveRepoProbeState({
+  const repoHealth = deriveRepoHealth({
     runnerOnline,
-    hasConfig: Boolean(repoProbeQuery.data),
-    hasError: repoProbeQuery.isError,
+    configs: projectConfigsQuery.data ?? [],
   })
-  let state = deriveRunnerHeaderState({ runnerOnline, repoProbeState })
+  const repoProbeState = repoHealth.state
+  let state = deriveRunnerHeaderState({ runnerOnline, repoHealthState: repoProbeState })
   if (runnersQuery.isPending && runners.length === 0) state = "connecting"
   const dialogView = deriveRunnerDialogView(state)
   const showRemediation = dialogView.showRemediation
@@ -227,9 +231,9 @@ export function RunnerStatusControl(props: RunnerStatusControlProps) {
 
           <div className="text-xs text-muted-foreground">{dialogView.statusHint}</div>
 
-          {repoProbeQuery.isError ? (
+          {repoProbeState === "error" ? (
             <div className="text-xs text-destructive">
-              {repoProbeQuery.error instanceof Error ? repoProbeQuery.error.message : String(repoProbeQuery.error)}
+              {repoHealth.error || "Repo metadata sync failed"}
             </div>
           ) : null}
 

@@ -1,8 +1,6 @@
 import type { Id } from "../../../convex/_generated/dataModel"
 import { configDotMultiGet, type ConfigDotMultiGetResponse } from "~/sdk/config/dot-get"
 
-export type RepoProbeState = "idle" | "checking" | "ok" | "error"
-
 export type SetupConfig = {
   hosts: Record<string, Record<string, unknown>>
   fleet: {
@@ -84,26 +82,4 @@ export function setupConfigProbeQueryOptions(projectId: Id<"projects"> | null | 
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   }
-}
-
-export function deriveRepoProbeState(params: {
-  runnerOnline: boolean
-  hasConfig: boolean
-  hasError: boolean
-}): RepoProbeState {
-  if (!params.runnerOnline) return "idle"
-  if (params.hasConfig) return "ok"
-  if (params.hasError) return "error"
-  return "checking"
-}
-
-export type RunnerHeaderState = "offline" | "connecting" | "ready"
-
-export function deriveRunnerHeaderState(params: {
-  runnerOnline: boolean
-  repoProbeState: RepoProbeState
-}): RunnerHeaderState {
-  if (!params.runnerOnline) return "offline"
-  if (params.repoProbeState === "ok") return "ready"
-  return "connecting"
 }

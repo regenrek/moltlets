@@ -148,4 +148,61 @@ describe("runner api client", () => {
       }),
     ).resolves.toEqual({});
   });
+
+  it("forwards lease wait options to lease-next payload", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || "{}")) as {
+        waitMs?: number;
+        waitPollMs?: number;
+      };
+      expect(body.waitMs).toBe(24_000);
+      expect(body.waitPollMs).toBe(8_000);
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new RunnerApiClient("http://127.0.0.1:3000", "token");
+    await expect(
+      client.leaseNext({
+        projectId: "p1",
+        waitMs: 24_000,
+        waitPollMs: 8_000,
+      }),
+    ).resolves.toEqual({});
+  });
+
+  it("sanitizes lease wait options before sending", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || "{}")) as {
+        waitMs?: number;
+        waitPollMs?: number;
+      };
+      expect(body.waitMs).toBe(0);
+      expect(body.waitPollMs).toBe(0);
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new RunnerApiClient("http://127.0.0.1:3000", "token");
+    await expect(
+      client.leaseNext({
+        projectId: "p1",
+        waitMs: -1 as any,
+        waitPollMs: 0.9 as any,
+      } as any),
+    ).resolves.toEqual({});
+  });
+
+  it("surfaces lease wait application flag from control plane", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ job: null, waitApplied: true }), { status: 200 })),
+    );
+    const client = new RunnerApiClient("http://127.0.0.1:3000", "token");
+    await expect(
+      client.leaseNext({
+        projectId: "p1",
+        waitMs: 24_000,
+        waitPollMs: 8_000,
+      }),
+    ).resolves.toEqual({ job: null, waitApplied: true });
+  });
 });

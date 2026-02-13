@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadFullConfig, type ClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 import { getRepoLayout, getHostSecretsDir } from "@clawlets/core/repo-layout";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
+import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 import type { RunnerMetadataSyncPayload } from "./client.js";
 
@@ -93,6 +94,18 @@ async function inferSecretStatus(params: {
   }
 }
 
+function sanitizeMetadataErrorMessage(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : String(err || "");
+  const trimmed = message.trim();
+  if (!trimmed) return fallback;
+  const sanitized = redactKnownSecrets(trimmed).text.trim();
+  return sanitized || fallback;
+}
+
+export function __test_sanitizeMetadataErrorMessage(err: unknown, fallback: string): string {
+  return sanitizeMetadataErrorMessage(err, fallback);
+}
+
 export async function buildMetadataSnapshot(params: {
   repoRoot: string;
   lastRunId?: string;
@@ -122,7 +135,7 @@ export async function buildMetadataSnapshot(params: {
       payload.projectConfigs.push({
         type: file.type,
         path: path.relative(params.repoRoot, file.path).replace(/\\/g, "/"),
-        error: err instanceof Error ? err.message : String(err),
+        error: sanitizeMetadataErrorMessage(err, "metadata read failed"),
       });
     }
   }
@@ -218,7 +231,7 @@ export async function buildMetadataSnapshot(params: {
       }
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = sanitizeMetadataErrorMessage(err, "metadata parse failed");
     payload.projectConfigs.push({
       type: "fleet",
       path: "fleet/clawlets.json",

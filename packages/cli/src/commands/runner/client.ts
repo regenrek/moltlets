@@ -174,9 +174,10 @@ export class RunnerApiClient {
     if (!this.token) throw new Error("runner token required");
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, timeoutMs = this.timeoutMs): Promise<T> {
+    const requestTimeoutMs = Math.max(1_000, Math.min(120_000, Math.trunc(timeoutMs)));
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
@@ -193,7 +194,7 @@ export class RunnerApiClient {
         throw new RunnerHttpError({
           kind: "transient",
           path,
-          message: `${path} failed: request timed out after ${this.timeoutMs}ms`,
+          message: `${path} failed: request timed out after ${requestTimeoutMs}ms`,
         });
       }
       const detail = err instanceof Error ? err.message : String(err);
@@ -240,8 +241,28 @@ export class RunnerApiClient {
   async leaseNext(params: {
     projectId: string;
     leaseTtlMs?: number;
-  }): Promise<{ job: RunnerLeaseJob | null }> {
-    return await this.post("/runner/jobs/lease-next", params);
+    waitMs?: number;
+    waitPollMs?: number;
+  }): Promise<{ job: RunnerLeaseJob | null; waitApplied?: boolean }> {
+    const waitMs =
+      typeof params.waitMs === "number" && Number.isFinite(params.waitMs) ? Math.max(0, Math.trunc(params.waitMs)) : 0;
+    const waitPollMs =
+      typeof params.waitPollMs === "number" && Number.isFinite(params.waitPollMs) ? Math.max(0, Math.trunc(params.waitPollMs)) : undefined;
+    const timeoutMs = waitMs > 0 ? this.timeoutMs + waitMs + 5_000 : this.timeoutMs;
+    return await this.post(
+      "/runner/jobs/lease-next",
+      {
+        projectId: params.projectId,
+        ...(typeof params.leaseTtlMs === "number" && Number.isFinite(params.leaseTtlMs)
+          ? { leaseTtlMs: Math.trunc(params.leaseTtlMs) }
+          : {}),
+        ...(typeof params.waitMs !== "undefined" || typeof params.waitPollMs !== "undefined"
+          ? { waitMs }
+          : {}),
+        ...(typeof waitPollMs === "number" ? { waitPollMs } : {}),
+      },
+      timeoutMs,
+    );
   }
 
   async heartbeatJob(params: { projectId: string; jobId: string; leaseId: string; leaseTtlMs?: number }): Promise<{ ok: boolean; status: JobStatus }> {
