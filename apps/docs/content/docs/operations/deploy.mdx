@@ -210,7 +210,7 @@ See `nix/infra/modules/clawlets-host-baseline.nix` for module options.
 If you have a Linux builder, `clawlets release manifest build` can build the toplevel locally.
 macOS builders are not supported for NixOS system builds.
 
-### Private base repo + PAT (bootstrap/lockdown)
+### Private evaluation repo + PAT (bootstrap/lockdown)
 
-`bootstrap`/`lockdown` may still need `GITHUB_TOKEN` if your base flake is private.
+`bootstrap`/`lockdown` may still need `GITHUB_TOKEN` if your evaluation repo is private.
 Updates do not require GitHub access on the host.

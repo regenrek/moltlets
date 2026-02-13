@@ -43,15 +43,16 @@ Open:
     <strong>Provider Tokens</strong>
     <br />
     Configure remaining local-only credentials in <code>.clawlets/env</code>.
-    Setup requires <code>GITHUB_TOKEN</code> and <code>SOPS_AGE_KEY_FILE</code> from{" "}
-    [Deploy credentials](/dashboard/deploy-credentials).
+    Complete them via [Deploy credentials](/dashboard/deploy-credentials).{" "}
+    Setup uses <code>GITHUB_TOKEN</code> to access the repo where Nix evaluates flakes.
+    For Dashboard-created projects, this is usually the local project repo's <code>origin</code> remote and is not a separate
+    Clawlets bootstrap repo.
     Save provider credentials as sealed setup draft data.
-    <code>GITHUB_TOKEN</code> gives the runner access to the project repository where
-    Clawlets evaluates Nix. If that repo is private, the token is required.
+    <code>GITHUB_TOKEN</code> is required for private repos and optional for public repos.
     The evaluation source is:
 
-    - <code>fleet/clawlets.json</code> → <code>baseFlake</code> when set (advanced override)
-    - otherwise the repo <code>origin</code> remote of the local project folder
+    - <code>fleet/clawlets.json</code> → <code>baseFlake</code> (advanced override)
+    - otherwise the project repo <code>origin</code> remote
   </Step>
   <Step>
     <strong>Server Passwords</strong>

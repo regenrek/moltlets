@@ -34,6 +34,9 @@ flowchart LR
 3. Start runner with the token/command shown in the dialog.
 4. Wait for project init/import run to finish.
 5. Open host setup at `/<projectSlug>/hosts/<host>/setup`.
+   Created projects are initialized locally on the runner; no dedicated bootstrap repository is
+   created by Clawlets. For remote/CI usage, create a private GitHub repository yourself,
+   set it as `origin`, and push the local project repo manually.
 
 For UI details: [First login](/dashboard/first-login).
 
