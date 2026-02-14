@@ -158,11 +158,17 @@ async function loadRunnerStartLoopHarness(params?: {
     error: vi.fn(),
   };
   logger.child.mockImplementation(() => logger);
-  vi.doMock("../src/lib/logging/logger.js", () => ({
-    createRunnerLogger: vi.fn(() => logger),
-    parseLogLevel: vi.fn((_raw: unknown, fallback: string) => fallback),
-    resolveRunnerLogFile: vi.fn(() => "/tmp/clawlets-runner.jsonl"),
-  }));
+  vi.doMock("../src/lib/logging/logger.js", async () => {
+    const actual = await vi.importActual<typeof import("../src/lib/logging/logger.js")>(
+      "../src/lib/logging/logger.js",
+    );
+    return {
+      ...actual,
+      createRunnerLogger: vi.fn(() => logger),
+      parseLogLevel: vi.fn((_raw: unknown, fallback: string) => fallback),
+      resolveRunnerLogFile: vi.fn(() => "/tmp/clawlets-runner.jsonl"),
+    };
+  });
 
   const mod = await import("../src/commands/runner/start.js");
   const runStart = async (args: Record<string, unknown>) => {
