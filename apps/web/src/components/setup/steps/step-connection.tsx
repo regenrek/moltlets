@@ -273,6 +273,8 @@ function SetupStepConnectionForm(props: {
             description="Who can SSH during bootstrap/provisioning (usually your current IP with /32)."
           />
 
+          <SetupSopsAgeKeyField projectId={props.projectId} />
+
           <Accordion className="rounded-lg border bg-muted/20">
             <AccordionItem value="advanced" className="px-4">
               <AccordionTrigger className="rounded-none border-0 px-0 py-2.5 hover:no-underline">
@@ -313,8 +315,6 @@ function SetupStepConnectionForm(props: {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-
-          <SetupSopsAgeKeyField projectId={props.projectId} />
         </div>
       </SettingsSection>
 

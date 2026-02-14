@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react"
+import { convexQuery } from "@convex-dev/react-query"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo, useState } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
+import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
+import {
+  deriveDeployReadiness,
+  deriveFirstPushGuidance,
+} from "~/components/deploy/deploy-setup-model"
 import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import {
   HETZNER_LOCATION_OPTIONS,
@@ -18,9 +26,11 @@ import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import { setupFieldHelp } from "~/lib/setup-field-help"
+import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
+import { gitRepoStatus } from "~/sdk/vcs"
 import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -102,6 +112,30 @@ export function SetupStepInfrastructure(props: {
     ...(resolvedLocation.length > 0 ? [] : ["hetzner.location"]),
     ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
   ]
+  const runnersQuery = useQuery({
+    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
+  })
+  const runnerOnline = useMemo(
+    () => isProjectRunnerOnline(runnersQuery.data ?? []),
+    [runnersQuery.data],
+  )
+  const repoStatus = useQuery({
+    queryKey: ["gitRepoStatus", props.projectId],
+    queryFn: async () => await gitRepoStatus({ data: { projectId: props.projectId } }),
+    enabled: runnerOnline,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+  const githubReadiness = deriveDeployReadiness({
+    runnerOnline,
+    repoPending: repoStatus.isPending,
+    repoError: repoStatus.error,
+    missingRev: !repoStatus.data?.originHead,
+    needsPush: Boolean(repoStatus.data?.needsPush),
+    localSelected: false,
+    allowLocalDeploy: false,
+  })
+  const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
 
   useEffect(() => {
     props.onDraftChange({
@@ -267,6 +301,46 @@ export function SetupStepInfrastructure(props: {
           </Accordion>
         </div>
       </SettingsSection>
+
+      <DeployCredsCard
+        projectId={props.projectId}
+        visibleKeys={["GITHUB_TOKEN"]}
+        setupDraftFlow={{
+          host: props.host,
+          setupDraft: props.setupDraft,
+        }}
+        title="GitHub access"
+        description="GitHub token used for repository access during setup apply."
+        githubReadiness={{
+          runnerOnline,
+          pending: repoStatus.isPending,
+          refreshing: repoStatus.isFetching,
+          originHead: repoStatus.data?.originHead,
+          branch: repoStatus.data?.branch,
+          upstream: repoStatus.data?.upstream,
+          ahead: repoStatus.data?.ahead,
+          behind: repoStatus.data?.behind,
+          onRefresh: () => {
+            if (!runnerOnline) return
+            void repoStatus.refetch()
+          },
+          alert: githubReadiness.reason !== "ready" && githubReadiness.reason !== "repo_pending"
+            ? {
+                severity: githubReadiness.severity,
+                message: githubReadiness.message,
+                title: githubReadiness.title,
+                detail: githubReadiness.detail,
+              }
+            : null,
+        }}
+        githubFirstPushGuidance={githubReadiness.showFirstPushGuidance
+          ? {
+              commands: firstPushGuidance.commands,
+              hasUpstream: firstPushGuidance.hasUpstream,
+              upstream: repoStatus.data?.upstream,
+            }
+          : null}
+      />
     </div>
   )
 }

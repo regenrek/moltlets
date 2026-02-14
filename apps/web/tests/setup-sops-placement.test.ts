@@ -9,15 +9,16 @@ function readFile(relPath: string): string {
 }
 
 describe("setup sops placement", () => {
-  it("moves SOPS key path to server access and keeps pre-deploy GitHub-only", () => {
+  it("keeps SOPS key path in server access and GitHub token in infrastructure", () => {
     const connectionStep = readFile("components/setup/steps/step-connection.tsx")
-    const predeployStep = readFile("components/setup/steps/step-predeploy.tsx")
-    const setupRoute = readFile("routes/$projectSlug/hosts/$host/setup.tsx")
+    const infrastructureStep = readFile("components/setup/steps/step-infrastructure.tsx")
+    const setupModel = readFile("lib/setup/setup-model.ts")
 
     expect(connectionStep).toContain("SetupSopsAgeKeyField")
-    expect(predeployStep).toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
-    expect(predeployStep).not.toContain("visibleKeys={[\"GITHUB_TOKEN\", \"SOPS_AGE_KEY_FILE\"]}")
-    expect(predeployStep).toContain("title=\"GitHub access\"")
-    expect(setupRoute).toContain("GitHub token and first push")
+    expect(connectionStep.indexOf("SetupSopsAgeKeyField")).toBeLessThan(connectionStep.indexOf("Advanced options"))
+    expect(infrastructureStep).toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
+    expect(infrastructureStep).not.toContain("visibleKeys={[\"GITHUB_TOKEN\", \"SOPS_AGE_KEY_FILE\"]}")
+    expect(infrastructureStep).toContain("title=\"GitHub access\"")
+    expect(setupModel).not.toContain('"predeploy"')
   })
 })

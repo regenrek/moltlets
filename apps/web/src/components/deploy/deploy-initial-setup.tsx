@@ -197,7 +197,7 @@ export function DeployInitialInstallSetup(props: {
     : deployCredsStatusError
       ? `Could not read deploy credentials: ${String(deployCredsStatusError)}`
       : !effectiveDeployCredsReady
-        ? "Missing credentials. Add GitHub token in Pre-Deploy and SOPS path in Server access."
+        ? "Missing credentials. Add GitHub token in Hetzner setup and SOPS path in Server access."
       : null
 
   const deployGateBlocked = repoGateBlocked || nixGateBlocked || sshKeyGateBlocked || credsGateBlocked
@@ -416,7 +416,7 @@ export function DeployInitialInstallSetup(props: {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (!selectedRev) throw new Error("No pushed revision found.")
       if (!effectiveDeployCredsReady) {
-        throw new Error("Missing credentials. Set GitHub token in Pre-Deploy and SOPS path in Server access.")
+        throw new Error("Missing credentials. Set GitHub token in Hetzner setup and SOPS path in Server access.")
       }
 
       const infrastructurePatch: SetupDraftInfrastructure = {
@@ -480,7 +480,7 @@ export function DeployInitialInstallSetup(props: {
         if (projectSopsAgeKeyPath) deployCredsPayload.SOPS_AGE_KEY_FILE = projectSopsAgeKeyPath
 
         if (Object.keys(deployCredsPayload).length === 0) {
-          throw new Error("Could not auto-seal deploy credentials for setup. Open Pre-Deploy and save credentials.")
+          throw new Error("Could not auto-seal deploy credentials for setup. Open Hetzner setup and save credentials.")
         }
 
         const deployCredsAad = buildSetupDraftSectionAad({

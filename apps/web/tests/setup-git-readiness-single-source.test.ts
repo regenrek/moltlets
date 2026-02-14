@@ -9,13 +9,15 @@ function readFile(relPath: string): string {
 }
 
 describe("setup git readiness single source", () => {
-  it("keeps git push readiness in repository setup only", () => {
-    const predeploy = readFile("components/setup/steps/step-predeploy.tsx")
+  it("keeps git push readiness in github access only", () => {
+    const infrastructure = readFile("components/setup/steps/step-infrastructure.tsx")
+    const deployCredsCard = readFile("components/fleet/deploy-creds-card.tsx")
     const deploySetup = readFile("components/deploy/deploy-initial-setup.tsx")
 
-    expect(predeploy).toContain("Git push readiness")
-    expect(predeploy).toContain("Revision to deploy")
-    expect(predeploy).toContain("Upstream")
+    expect(infrastructure).toContain("githubReadiness={{")
+    expect(deployCredsCard).toContain("Git push readiness")
+    expect(deployCredsCard).toContain("Revision to deploy")
+    expect(deployCredsCard).toContain("Upstream")
 
     expect(deploySetup).not.toContain("Git readiness")
     expect(deploySetup).not.toContain("Remote deploy (default branch)")

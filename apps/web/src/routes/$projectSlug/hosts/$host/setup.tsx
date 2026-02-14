@@ -14,7 +14,6 @@ import { SetupHeader } from "~/components/setup/setup-header";
 import { SetupStepConnection } from "~/components/setup/steps/step-connection";
 import { SetupStepDeploy } from "~/components/setup/steps/step-deploy";
 import { SetupStepInfrastructure } from "~/components/setup/steps/step-infrastructure";
-import { SetupStepPredeploy } from "~/components/setup/steps/step-predeploy";
 import { SetupStepTailscaleLockdown } from "~/components/setup/steps/step-tailscale-lockdown";
 import { SetupStepVerify } from "~/components/setup/steps/step-verify";
 import {
@@ -99,7 +98,6 @@ const STEP_META: Record<string, { title: string; description: string }> = {
     title: "Tailscale lockdown",
     description: "Enable safer SSH access path",
   },
-  predeploy: { title: "Pre-Deploy", description: "GitHub token and first push" },
   deploy: { title: "Install Server", description: "Final check and bootstrap" },
   verify: {
     title: "Secure and Verify",
@@ -513,17 +511,6 @@ function StepContent(props: {
             });
           }
         }}
-      />
-    );
-  }
-
-  if (stepId === "predeploy") {
-    return (
-      <SetupStepPredeploy
-        projectId={projectId}
-        host={host}
-        setupDraft={setup.setupDraft}
-        stepStatus={step.status}
       />
     );
   }

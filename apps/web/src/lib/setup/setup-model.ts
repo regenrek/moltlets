@@ -4,7 +4,6 @@ export const SETUP_STEP_IDS = [
   "infrastructure",
   "connection",
   "tailscale-lockdown",
-  "predeploy",
   "deploy",
   "verify",
 ] as const
@@ -133,7 +132,8 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const githubCredsOk = draftDeployCredsSet || Boolean(input.hasProjectGithubToken)
   const sopsCredsOk = Boolean(input.hasProjectSopsAgeKeyPath)
   const providerCredsOk = githubCredsOk && sopsCredsOk
-  const infrastructureOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
+  const infrastructureProvisioningOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
+  const infrastructureStepDone = infrastructureProvisioningOk && githubCredsOk
   const connectionStepDone = connectionOk && sopsCredsOk
   const useTailscaleLockdown = input.useTailscaleLockdown === true
   const hasTailscaleAuthKey = Boolean(input.hasActiveTailscaleAuthKey)
@@ -144,12 +144,12 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     {
       id: "infrastructure",
       title: "Hetzner setup",
-      status: infrastructureOk ? "done" : "active",
+      status: infrastructureStepDone ? "done" : "active",
     },
     {
       id: "connection",
       title: "Server Access",
-      status: !infrastructureOk ? "locked" : connectionStepDone ? "done" : "active",
+      status: !infrastructureProvisioningOk ? "locked" : connectionStepDone ? "done" : "active",
     },
     {
       id: "tailscale-lockdown",
@@ -158,14 +158,9 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
       status: !connectionStepDone ? "locked" : tailscaleLockdownOk ? "done" : "active",
     },
     {
-      id: "predeploy",
-      title: "Pre-deploy",
-      status: !connectionStepDone ? "locked" : githubCredsOk ? "done" : "active",
-    },
-    {
       id: "deploy",
       title: "Install server",
-      status: !providerCredsOk || !hcloudOk ? "locked" : latestBootstrapOk ? "done" : "active",
+      status: !connectionStepDone || !providerCredsOk || !hcloudOk ? "locked" : latestBootstrapOk ? "done" : "active",
     },
     {
       id: "verify",

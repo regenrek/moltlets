@@ -52,15 +52,25 @@ export function SetupStepTailscaleLockdown(props: {
           />
         </div>
         {props.useTailscaleLockdown ? (
-          <ProjectTokenKeyringCard
-            projectId={props.projectId}
-            kind="tailscale"
-            title="Tailscale API keys"
-            description="Project-wide keys. Add multiple keys and select the one used for setup/deploy."
-            onActiveValueChange={props.onTailscaleAuthKeyChange}
-            showRunnerStatusBanner={false}
-            showRunnerStatusDetails={false}
-          />
+          <div className="space-y-2">
+            <LabelWithHelp htmlFor="setup-tailscale-keyring" help={setupFieldHelp.secrets.tailscaleAuthKey}>
+              Tailscale API keys
+            </LabelWithHelp>
+            <div className="text-xs text-muted-foreground">
+              Project-wide keys. Add multiple keys and select the one used for setup/deploy.
+            </div>
+            <div id="setup-tailscale-keyring">
+              <ProjectTokenKeyringCard
+                projectId={props.projectId}
+                kind="tailscale"
+                title="Tailscale API keys"
+                onActiveValueChange={props.onTailscaleAuthKeyChange}
+                wrapInSection={false}
+                showRunnerStatusBanner={false}
+                showRunnerStatusDetails={false}
+              />
+            </div>
+          </div>
         ) : null}
 
         <Accordion className="rounded-lg border bg-muted/20">

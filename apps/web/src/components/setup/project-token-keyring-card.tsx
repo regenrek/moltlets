@@ -90,11 +90,13 @@ export function ProjectTokenKeyringCard(props: {
   title: string
   description?: ReactNode
   headerBadge?: ReactNode
+  wrapInSection?: boolean
   onActiveValueChange?: (value: string) => void
   showRunnerStatusBanner?: boolean
   showRunnerStatusDetails?: boolean
 }) {
   const cfg = KEYRING_KIND_CONFIG[props.kind]
+  const wrapInSection = props.wrapInSection !== false
   const showRunnerStatusBanner = props.showRunnerStatusBanner !== false
   const showRunnerStatusDetails = props.showRunnerStatusDetails !== false
   const queryClient = useQueryClient()
@@ -271,8 +273,8 @@ export function ProjectTokenKeyringCard(props: {
     void writeKeyring.mutate({ keyring: { items: nextItems }, activeId: nextActive })
   }
 
-  return (
-    <SettingsSection title={props.title} description={props.description} headerBadge={props.headerBadge}>
+  const content = (
+    <>
       {showRunnerStatusBanner ? (
         <RunnerStatusBanner
           projectId={props.projectId}
@@ -429,6 +431,14 @@ export function ProjectTokenKeyringCard(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  )
+
+  if (!wrapInSection) return content
+
+  return (
+    <SettingsSection title={props.title} description={props.description} headerBadge={props.headerBadge}>
+      {content}
     </SettingsSection>
   )
 }

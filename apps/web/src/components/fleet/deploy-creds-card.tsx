@@ -5,9 +5,14 @@ import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
+import { AsyncButton } from "~/components/ui/async-button"
+import { Badge } from "~/components/ui/badge"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
+import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
+import { Spinner } from "~/components/ui/spinner"
 import { StackedField } from "~/components/ui/stacked-field"
 import { WEB_DEPLOY_CREDS_EDITABLE_KEYS } from "~/lib/deploy-creds-ui"
 import { sealForRunner } from "~/lib/security/sealed-input"
@@ -42,6 +47,23 @@ type DeployCredsCardProps = {
     hasUpstream: boolean
     upstream?: string | null
   } | null
+  githubReadiness?: {
+    runnerOnline: boolean
+    pending: boolean
+    refreshing: boolean
+    originHead?: string | null
+    branch?: string | null
+    upstream?: string | null
+    ahead?: number | null
+    behind?: number | null
+    onRefresh?: () => void
+    alert?: {
+      severity: "info" | "warning" | "error"
+      message: string
+      title?: string
+      detail?: string
+    } | null
+  } | null
 }
 
 type EditableDeployCredKey = (typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]
@@ -62,6 +84,7 @@ export function DeployCredsCard({
   headerBadge,
   githubRepoHint = null,
   githubFirstPushGuidance = null,
+  githubReadiness = null,
 }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const keysToShow = visibleKeys?.length ? visibleKeys : WEB_DEPLOY_CREDS_EDITABLE_KEYS
@@ -104,7 +127,7 @@ export function DeployCredsCard({
   const creds = useQuery({
     queryKey: ["deployCreds", projectId],
     queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
-    enabled: runnerOnline,
+    enabled: runnerOnline && !setupDraftFlow,
   })
 
   const credsByKey = useMemo(() => {
@@ -129,19 +152,13 @@ export function DeployCredsCard({
     && !projectKeyIsSet("GITHUB_TOKEN"),
   )
 
-  async function copyText(value: string): Promise<void> {
-    if (!value.trim()) return
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return
-    try {
-      await navigator.clipboard.writeText(value)
-    } catch {
-      // ignore
-    }
-  }
-
   const pickTargetRunner = () => {
     if (sealedRunners.length === 1) return sealedRunners[0]
     return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
+  }
+
+  function formatShortSha(sha?: string | null): string {
+    return String(sha || "").trim().slice(0, 7) || "none"
   }
 
   const saveField = useMutation({
@@ -392,32 +409,71 @@ export function DeployCredsCard({
           ) : null}
 
           {showGithubToken ? (
-            <StackedField
-              id="githubToken"
-              label="GitHub token"
-              help={githubTokenRequired
-                ? "GitHub token (GITHUB_TOKEN). Required for setup."
-                : "GitHub token (GITHUB_TOKEN)."}
-            >
-              {githubRepoHint ? (
-                <div className="mb-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  {githubRepoHint}
+            <div className="space-y-2">
+              {githubReadiness ? (
+                <div className="mb-2 rounded-md border bg-muted/30 p-3 text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">Git push readiness</div>
+                    <AsyncButton
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!githubReadiness.runnerOnline || githubReadiness.refreshing}
+                      pending={githubReadiness.refreshing}
+                      pendingText="Refreshing..."
+                      onClick={() => githubReadiness.onRefresh?.()}
+                    >
+                      Refresh
+                    </AsyncButton>
+                  </div>
+
+                  {githubReadiness.pending ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Spinner className="size-3" />
+                      Checking repo state...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1 text-muted-foreground">
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Revision to deploy</span>
+                          <code>{formatShortSha(githubReadiness.originHead)}</code>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Branch</span>
+                          <span>{githubReadiness.branch || "unknown"}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Upstream</span>
+                          <span>{githubReadiness.upstream || "unset"}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">ahead {githubReadiness.ahead ?? 0}</Badge>
+                        <Badge variant="outline">behind {githubReadiness.behind ?? 0}</Badge>
+                      </div>
+                    </>
+                  )}
                 </div>
+              ) : null}
+
+              {githubReadiness?.alert ? (
+                <Alert
+                  variant={githubReadiness.alert.severity === "error" ? "destructive" : "default"}
+                  className={githubReadiness.alert.severity === "warning"
+                    ? "mb-2 border-amber-300/50 bg-amber-50/50 text-amber-900 [&_[data-slot=alert-description]]:text-amber-900/90"
+                    : "mb-2"}
+                >
+                  <AlertTitle>{githubReadiness.alert.title || "Deploy blocked"}</AlertTitle>
+                  <AlertDescription>
+                    {githubReadiness.alert.detail || githubReadiness.alert.message}
+                  </AlertDescription>
+                </Alert>
               ) : null}
 
               {githubFirstPushGuidance ? (
                 <div className="mb-2 rounded-md border bg-muted/20 p-2 text-xs space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium">First push help</div>
-                    <InputGroupButton
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void copyText(githubFirstPushGuidance.commands)}
-                    >
-                      Copy commands
-                    </InputGroupButton>
-                  </div>
+                  <div className="font-medium">First push help</div>
                   <div className="text-muted-foreground">
                     {githubFirstPushGuidance.hasUpstream
                       ? `Upstream detected (${githubFirstPushGuidance.upstream || "configured"}). Push once, then refresh.`
@@ -428,6 +484,22 @@ export function DeployCredsCard({
                   </pre>
                 </div>
               ) : null}
+
+              {githubRepoHint ? (
+                <div className="mb-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  {githubRepoHint}
+                </div>
+              ) : null}
+
+              <LabelWithHelp
+                htmlFor="githubToken"
+                className="text-sm font-medium"
+                help={githubTokenRequired
+                  ? "GitHub token (GITHUB_TOKEN). Required for setup."
+                  : "GitHub token (GITHUB_TOKEN)."}
+              >
+                GitHub token
+              </LabelWithHelp>
 
               {keyIsSet("GITHUB_TOKEN") ? (
                 <InputGroup>
@@ -464,7 +536,7 @@ export function DeployCredsCard({
                   </InputGroupAddon>
                 </InputGroup>
               )}
-            </StackedField>
+            </div>
           ) : null}
 
           {showSopsAgeKeyFile ? (

@@ -8,12 +8,19 @@ function readFile(relPath: string): string {
   return fs.readFileSync(path.join(ROOT, relPath), "utf8")
 }
 
-describe("setup predeploy order", () => {
-  it("keeps repository setup before provider token inputs and passes first-push guidance into github token card", () => {
-    const source = readFile("components/setup/steps/step-predeploy.tsx")
+describe("setup github access order", () => {
+  it("keeps git readiness first, first-push help second, and token input third with no copy button", () => {
+    const infrastructure = readFile("components/setup/steps/step-infrastructure.tsx")
+    const deployCredsCard = readFile("components/fleet/deploy-creds-card.tsx")
 
-    expect(source.indexOf("title=\"Repository setup\"")).toBeLessThan(source.indexOf("<DeployCredsCard"))
-    expect(source).toContain("githubRepoHint=\"Create the repository first")
-    expect(source).toContain("githubFirstPushGuidance={readiness.showFirstPushGuidance")
+    expect(infrastructure).toContain("title=\"GitHub access\"")
+    expect(infrastructure).toContain("githubReadiness={{")
+    expect(infrastructure).toContain("githubFirstPushGuidance={githubReadiness.showFirstPushGuidance")
+
+    expect(deployCredsCard.indexOf("Git push readiness")).toBeLessThan(deployCredsCard.indexOf("First push help"))
+    expect(deployCredsCard.indexOf("First push help")).toBeLessThan(
+      deployCredsCard.indexOf("placeholder={githubTokenRequired ? \"Required\" : \"Recommended\"}"),
+    )
+    expect(deployCredsCard).not.toContain("Copy commands")
   })
 })

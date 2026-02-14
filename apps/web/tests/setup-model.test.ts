@@ -39,7 +39,6 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("infrastructure")
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
-    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("locked")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
   })
@@ -122,7 +121,23 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("deploy")
   })
 
-  it("unlocks predeploy/deploy when project deploy creds exist even without a host draft section", () => {
+  it("keeps infrastructure active when GitHub token is missing even if Hetzner setup is complete", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+    expect(model.activeStepId).toBe("infrastructure")
+  })
+
+  it("unlocks deploy when project deploy creds exist even without a host draft section", () => {
     const model = deriveSetupModel({
       config: baseConfig,
       hostFromRoute: "h1",
@@ -133,7 +148,7 @@ describe("deriveSetupModel", () => {
       latestBootstrapSecretsVerifyRun: null,
     })
 
-    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("active")
     expect(model.activeStepId).toBe("deploy")
   })
@@ -171,7 +186,6 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 
@@ -211,7 +225,6 @@ describe("deriveSetupModel", () => {
 
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
@@ -247,7 +260,7 @@ describe("deriveSetupModel", () => {
     })
 
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 })
@@ -269,7 +282,6 @@ describe("deriveHostSetupStepper", () => {
       "infrastructure",
       "connection",
       "tailscale-lockdown",
-      "predeploy",
       "deploy",
       "verify",
     ])
