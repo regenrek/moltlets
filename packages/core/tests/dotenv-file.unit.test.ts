@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import dotenv from "dotenv";
 import { formatDotenvValue, redactDotenv, upsertDotenv } from "../src/lib/storage/dotenv-file";
 
 describe("dotenv-file", () => {
@@ -29,6 +30,11 @@ describe("dotenv-file", () => {
     expect(formatDotenvValue("plain")).toBe("plain");
     expect(formatDotenvValue("has space")).toBe('"has space"');
     expect(formatDotenvValue("has$sign")).toBe('"has$sign"');
+    expect(formatDotenvValue('{"x":1}')).toBe('{"x":1}');
+    const jsonWithSpace = '{"label":"a b"}';
+    expect(dotenv.parse(`K=${formatDotenvValue(jsonWithSpace)}\n`).K).toBe(jsonWithSpace);
+    const jsonWithHash = '{"label":"a#b"}';
+    expect(dotenv.parse(`K=${formatDotenvValue(jsonWithHash)}\n`).K).toBe(jsonWithHash);
   });
 
   it("redacts selected keys", () => {

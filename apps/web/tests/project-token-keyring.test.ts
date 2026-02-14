@@ -23,6 +23,12 @@ describe("project token keyring", () => {
     expect(parsed.items[1]?.label).toContain("Key")
   })
 
+  it("parses dotenv-escaped JSON strings (legacy encoding)", () => {
+    const escaped = '{\\"items\\":[{\\"id\\":\\"a\\",\\"label\\":\\"Alpha\\",\\"value\\":\\"token-a\\"}]}'
+    const parsed = parseProjectTokenKeyring(escaped)
+    expect(parsed.items.map((row) => row.id)).toEqual(["a"])
+  })
+
   it("drops entries that exceed max token length", () => {
     const oversized = "x".repeat(PROJECT_TOKEN_VALUE_MAX_CHARS + 1)
     const parsed = parseProjectTokenKeyring(JSON.stringify({

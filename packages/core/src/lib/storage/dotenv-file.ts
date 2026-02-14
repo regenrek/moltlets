@@ -13,8 +13,23 @@ export function parseDotenv(text: string): DotenvMap {
 export function formatDotenvValue(value: string): string {
   const trimmed = value.trim();
   if (trimmed === "") return "";
+  if (/[\r\n]/.test(trimmed)) {
+    throw new Error("dotenv values cannot contain newlines");
+  }
+
   // Safer default: quote when characters could confuse dotenv parsing.
-  if (/[\s#"'`$]/.test(trimmed)) return JSON.stringify(trimmed);
+  // NOTE: dotenv does NOT unescape `\"` inside double-quoted values. That means
+  // JSON.stringify() corrupts values that contain `"`, including JSON payloads.
+  // Use single quotes in that case.
+  if (/[\s#'`$]/.test(trimmed)) {
+    if (trimmed.includes('\"')) {
+      if (trimmed.includes("'")) {
+        throw new Error("dotenv values cannot contain both single and double quotes");
+      }
+      return `'${trimmed}'`;
+    }
+    return JSON.stringify(trimmed);
+  }
   return trimmed;
 }
 
