@@ -308,6 +308,7 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       const ok = row.ok === true
       const keyPath = typeof row.keyPath === "string" ? row.keyPath : ""
       const publicKey = typeof row.publicKey === "string" ? row.publicKey : ""
+      const created = row.created === false ? false : true
       if (ok && keyPath) {
         await client.mutation(api.security.auditLogs.append, {
           projectId: data.projectId,
@@ -322,7 +323,7 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
           message: typeof row.message === "string" ? row.message : "Unable to generate key.",
         }
       }
-      return { ok: true as const, keyPath, publicKey }
+      return { ok: true as const, keyPath, publicKey, created }
     } catch (err) {
       throw new Error(sanitizeErrorMessage(err, "Unable to generate age key. Check runner."), { cause: err })
     }

@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import os from "node:os";
 import { defineCommand } from "citty";
 import { ensureDir, writeFileAtomic } from "@clawlets/core/lib/storage/fs-safe";
 import { parseDotenv } from "@clawlets/core/lib/storage/dotenv-file";
@@ -220,11 +219,6 @@ export const envDetectAgeKey = defineCommand({
 
     const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"));
     const defaultOperatorPath = getLocalOperatorAgeKeyPath(layout, operatorId);
-    const home = os.homedir();
-    const homePaths = [
-      path.join(home, ".config", "sops", "age", "keys.txt"),
-      path.join(home, ".sops", "age", "keys.txt"),
-    ];
 
     const candidates: string[] = [];
     if (loaded.values.SOPS_AGE_KEY_FILE) candidates.push(String(loaded.values.SOPS_AGE_KEY_FILE));
@@ -235,7 +229,6 @@ export const envDetectAgeKey = defineCommand({
         candidates.push(path.join(layout.localOperatorKeysDir, entry));
       }
     }
-    for (const p of homePaths) candidates.push(p);
 
     const seen = new Set<string>();
     const results: KeyCandidate[] = [];
@@ -306,13 +299,40 @@ export const envGenerateAgeKey = defineCommand({
     const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"));
     const keyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
     const pubPath = `${keyPath}.pub`;
+    const loaded = loadDeployCreds({ cwd, runtimeDir, envFile });
 
     if (fs.existsSync(keyPath)) {
-      const existing = { ok: false as const, message: `key already exists: ${keyPath}` };
+      const parsed = parseAgeKeyFile(fs.readFileSync(keyPath, "utf8"));
+      if (!parsed.secretKey || !parsed.publicKey) {
+        const invalid = {
+          ok: false as const,
+          message: `existing key file invalid: ${keyPath}; fix/remove then retry generate`,
+        };
+        if ((args as any).json) {
+          console.log(JSON.stringify(invalid, null, 2));
+        } else {
+          console.log(invalid.message);
+        }
+        return;
+      }
+      await updateDeployCredsEnvFile({
+        repoRoot,
+        runtimeDir,
+        envFile,
+        updates: {
+          SOPS_AGE_KEY_FILE: keyPath,
+        },
+      });
+      const existing = {
+        ok: true as const,
+        keyPath,
+        publicKey: parsed.publicKey,
+        created: false as const,
+      };
       if ((args as any).json) {
         console.log(JSON.stringify(existing, null, 2));
       } else {
-        console.log(existing.message);
+        console.log(`ok: using existing ${keyPath}`);
       }
       return;
     }
@@ -324,7 +344,6 @@ export const envGenerateAgeKey = defineCommand({
       // best-effort
     }
 
-    const loaded = loadDeployCreds({ cwd, runtimeDir, envFile });
     const nixBin = String(loaded.values.NIX_BIN || "nix").trim() || "nix";
     const keypair = await ageKeygen({ nixBin, cwd: repoRoot });
 
@@ -339,7 +358,7 @@ export const envGenerateAgeKey = defineCommand({
       },
     });
 
-    const out = { ok: true as const, keyPath, publicKey: keypair.publicKey };
+    const out = { ok: true as const, keyPath, publicKey: keypair.publicKey, created: true as const };
     if ((args as any).json) {
       console.log(JSON.stringify(out, null, 2));
       return;

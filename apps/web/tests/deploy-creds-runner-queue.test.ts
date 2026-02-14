@@ -135,6 +135,7 @@ describe("deploy creds runner queue", () => {
         ok: true,
         keyPath: "/tmp/repo/.clawlets/keys/operators/alice.agekey",
         publicKey: "age1test",
+        created: false,
       },
     })
     const ctx = {
@@ -148,6 +149,7 @@ describe("deploy creds runner queue", () => {
       }),
     )
     expect(res.ok).toBe(true)
+    expect(res.created).toBe(false)
     const payload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
     expect(payload).toEqual({
       projectId: "p1",

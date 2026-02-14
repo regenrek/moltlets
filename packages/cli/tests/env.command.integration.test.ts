@@ -152,6 +152,54 @@ describe("env commands", () => {
     }
   });
 
+  it("env detect-age-key --json only scans project-local candidates", async () => {
+    const previousHome = process.env.HOME;
+    const previousUser = process.env.USER;
+    process.env.USER = "alice";
+    const fakeHome = fs.mkdtempSync(path.join(tmpdir(), "clawlets-home-"));
+    process.env.HOME = fakeHome;
+    try {
+      const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-detect-local-"));
+      const runtimeDir = path.join(repoRoot, ".clawlets");
+      fs.mkdirSync(path.join(fakeHome, ".config", "sops", "age"), { recursive: true });
+      const homeKeyPath = path.join(fakeHome, ".config", "sops", "age", "keys.txt");
+      fs.writeFileSync(homeKeyPath, "AGE-SECRET-KEY-1HOMEKEY\n", "utf8");
+      fs.mkdirSync(path.join(runtimeDir, "keys", "operators"), { recursive: true });
+      findRepoRootMock.mockReturnValue(repoRoot);
+      loadDeployCredsMock.mockReturnValue({
+        envFile: null,
+        values: {
+          HCLOUD_TOKEN: "",
+          GITHUB_TOKEN: "",
+          NIX_BIN: "nix",
+          SOPS_AGE_KEY_FILE: "",
+          AWS_ACCESS_KEY_ID: "",
+          AWS_SECRET_ACCESS_KEY: "",
+          AWS_SESSION_TOKEN: "",
+        },
+        sources: {
+          HCLOUD_TOKEN: "unset",
+          GITHUB_TOKEN: "unset",
+          NIX_BIN: "default",
+          SOPS_AGE_KEY_FILE: "unset",
+          AWS_ACCESS_KEY_ID: "unset",
+          AWS_SECRET_ACCESS_KEY: "unset",
+          AWS_SESSION_TOKEN: "unset",
+        },
+      });
+      const { envDetectAgeKey } = await import("../src/commands/infra/env.js");
+      await envDetectAgeKey.run({ args: { json: true } } as any);
+      const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+      expect(payload.candidates.some((row: any) => row.path === homeKeyPath)).toBe(false);
+      expect(payload.recommendedPath).toBe(null);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousUser === undefined) delete process.env.USER;
+      else process.env.USER = previousUser;
+    }
+  });
+
   it("env generate-age-key --json writes key pair and reports path", async () => {
     const previousUser = process.env.USER;
     process.env.USER = "alice";
@@ -187,9 +235,96 @@ describe("env commands", () => {
       await envGenerateAgeKey.run({ args: { json: true } } as any);
       const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
       expect(payload.ok).toBe(true);
+      expect(payload.created).toBe(true);
       expect(String(payload.keyPath || "")).toContain(".clawlets/keys/operators/alice.agekey");
       expect(fs.existsSync(payload.keyPath)).toBe(true);
       expect(fs.existsSync(`${payload.keyPath}.pub`)).toBe(true);
+    } finally {
+      if (previousUser === undefined) delete process.env.USER;
+      else process.env.USER = previousUser;
+    }
+  });
+
+  it("env generate-age-key --json reuses existing valid key and updates env", async () => {
+    const previousUser = process.env.USER;
+    process.env.USER = "alice";
+    try {
+      const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-generate-existing-"));
+      const keyPath = path.join(repoRoot, ".clawlets", "keys", "operators", "alice.agekey");
+      fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+      fs.writeFileSync(keyPath, "# public key: age1existing\nAGE-SECRET-KEY-1EXISTING\n", "utf8");
+      findRepoRootMock.mockReturnValue(repoRoot);
+      loadDeployCredsMock.mockReturnValue({
+        envFile: null,
+        values: {
+          HCLOUD_TOKEN: "",
+          GITHUB_TOKEN: "",
+          NIX_BIN: "nix",
+          SOPS_AGE_KEY_FILE: "",
+          AWS_ACCESS_KEY_ID: "",
+          AWS_SECRET_ACCESS_KEY: "",
+          AWS_SESSION_TOKEN: "",
+        },
+        sources: {
+          HCLOUD_TOKEN: "unset",
+          GITHUB_TOKEN: "unset",
+          NIX_BIN: "default",
+          SOPS_AGE_KEY_FILE: "unset",
+          AWS_ACCESS_KEY_ID: "unset",
+          AWS_SECRET_ACCESS_KEY: "unset",
+          AWS_SESSION_TOKEN: "unset",
+        },
+      });
+      const { envGenerateAgeKey } = await import("../src/commands/infra/env.js");
+      await envGenerateAgeKey.run({ args: { json: true } } as any);
+      const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+      expect(payload.ok).toBe(true);
+      expect(payload.created).toBe(false);
+      expect(payload.keyPath).toBe(keyPath);
+      expect(payload.publicKey).toBe("age1existing");
+      const envText = fs.readFileSync(path.join(repoRoot, ".clawlets", "env"), "utf8");
+      expect(envText).toContain(`SOPS_AGE_KEY_FILE=${keyPath}`);
+    } finally {
+      if (previousUser === undefined) delete process.env.USER;
+      else process.env.USER = previousUser;
+    }
+  });
+
+  it("env generate-age-key --json fails when existing key file is invalid", async () => {
+    const previousUser = process.env.USER;
+    process.env.USER = "alice";
+    try {
+      const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-generate-invalid-"));
+      const keyPath = path.join(repoRoot, ".clawlets", "keys", "operators", "alice.agekey");
+      fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+      fs.writeFileSync(keyPath, "not-an-age-key\n", "utf8");
+      findRepoRootMock.mockReturnValue(repoRoot);
+      loadDeployCredsMock.mockReturnValue({
+        envFile: null,
+        values: {
+          HCLOUD_TOKEN: "",
+          GITHUB_TOKEN: "",
+          NIX_BIN: "nix",
+          SOPS_AGE_KEY_FILE: "",
+          AWS_ACCESS_KEY_ID: "",
+          AWS_SECRET_ACCESS_KEY: "",
+          AWS_SESSION_TOKEN: "",
+        },
+        sources: {
+          HCLOUD_TOKEN: "unset",
+          GITHUB_TOKEN: "unset",
+          NIX_BIN: "default",
+          SOPS_AGE_KEY_FILE: "unset",
+          AWS_ACCESS_KEY_ID: "unset",
+          AWS_SECRET_ACCESS_KEY: "unset",
+          AWS_SESSION_TOKEN: "unset",
+        },
+      });
+      const { envGenerateAgeKey } = await import("../src/commands/infra/env.js");
+      await envGenerateAgeKey.run({ args: { json: true } } as any);
+      const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+      expect(payload.ok).toBe(false);
+      expect(String(payload.message || "")).toContain("existing key file invalid");
     } finally {
       if (previousUser === undefined) delete process.env.USER;
       else process.env.USER = previousUser;

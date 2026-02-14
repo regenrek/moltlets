@@ -23,17 +23,20 @@ If this key is missing, secrets workflows cannot safely continue.
     Click <strong>Find</strong> to detect an existing operator key.
   </Step>
   <Step>
-    If none is found, click <strong>Generate</strong>.
+    Click <strong>Generate</strong>. If the canonical project key already exists, Clawlets reuses it.
   </Step>
   <Step>
     Save credentials so <code>SOPS_AGE_KEY_FILE</code> is stored for this project.
   </Step>
 </Steps>
 
+Detection and generation only scan project-local runtime paths under
+<code>&lt;repo&gt;/.clawlets/keys/operators</code>.
+
 ## Manual key generation (CLI)
 
 ```bash
-age-keygen -o ~/.clawlets/keys/operators/<operator>.agekey
+mkdir -p .clawlets/keys/operators && age-keygen -o .clawlets/keys/operators/<operator>.agekey
 ```
 
 Then set <code>SOPS_AGE_KEY_FILE</code> to that path in dashboard credentials.
@@ -53,6 +56,11 @@ clawlets env show --json
 
 - Generate a new key in the dashboard or via `age-keygen`.
 - Confirm file path is readable on the runner host.
+
+### “existing key file invalid”
+
+- The canonical key file exists but is not a valid age private key.
+- Fix or remove that file, then run <strong>Generate</strong> again.
 
 ### Setup still reports missing SOPS key
 

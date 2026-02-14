@@ -171,6 +171,10 @@ export const listByProjectPage = query({
           const projectIdStr = row.projectId ? String(row.projectId) : "";
           const operatorId =
             typeof rowData.operatorId === "string" ? String(rowData.operatorId).trim() : "";
+          const runId =
+            typeof rowData.runId === "string" && rowData.runId.trim()
+              ? (rowData.runId as Id<"runs">)
+              : undefined;
           if (projectIdStr && operatorId) {
             const hash = await sha256Hex(`${projectIdStr}:${operatorId}`);
             return {
@@ -184,7 +188,7 @@ export const listByProjectPage = query({
           return {
             ...base,
             target: { doc: ".clawlets/keys/operators" },
-            data: operatorIdHash ? { operatorIdHash } : undefined,
+            data: operatorIdHash ? { operatorIdHash } : runId ? { runId } : undefined,
           };
         }
 
@@ -481,15 +485,22 @@ export const append = mutation({
         const t = asObject(targetRaw, "target");
         const d = asObject(dataRaw, "data");
         ensureNoExtraKeys(t, "target", ["doc"]);
-        ensureNoExtraKeys(d, "data", ["operatorIdHash"]);
+        ensureNoExtraKeys(d, "data", ["operatorIdHash", "runId"]);
         if (typeof t.doc !== "string") fail("conflict", "target.doc required");
-        if (typeof d.operatorIdHash !== "string") fail("conflict", "data.operatorIdHash required");
-        const operatorIdHash = ensureBoundedString(d.operatorIdHash, "data.operatorIdHash", 80);
-        if (!/^sha256:[0-9a-f]{64}$/.test(operatorIdHash)) {
-          fail("conflict", "data.operatorIdHash invalid");
-        }
         target = { doc: ensureRepoRelativePath(t.doc, "target.doc", 128) };
-        data = { operatorIdHash };
+        if (typeof d.operatorIdHash === "string" && d.operatorIdHash.trim()) {
+          const operatorIdHash = ensureBoundedString(d.operatorIdHash, "data.operatorIdHash", 80);
+          if (!/^sha256:[0-9a-f]{64}$/.test(operatorIdHash)) {
+            fail("conflict", "data.operatorIdHash invalid");
+          }
+          data = { operatorIdHash };
+          break;
+        }
+        if (typeof d.runId === "string" && d.runId.trim()) {
+          data = requireRunId({ runId: d.runId });
+          break;
+        }
+        fail("conflict", "data.runId or data.operatorIdHash required");
         break;
       }
       case "workspace.common.write": {

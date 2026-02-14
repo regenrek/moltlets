@@ -266,9 +266,12 @@ export function DeployCredsCard({
     onSuccess: async (res) => {
       if (res.ok) {
         setSopsAgeKeyFileOverride(res.keyPath)
-        setSopsStatus({ kind: "ok", message: `Generated key: ${res.keyPath}` })
+        setSopsStatus({
+          kind: "ok",
+          message: res.created === false ? `Using existing key: ${res.keyPath}` : `Generated key: ${res.keyPath}`,
+        })
         await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
-        toast.success("SOPS key generated")
+        toast.success(res.created === false ? "Using existing SOPS key" : "SOPS key generated")
       } else {
         setSopsStatus({ kind: "warn", message: res.message || "Key already exists." })
       }
