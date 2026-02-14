@@ -43,6 +43,7 @@ import type * as shared_errors from "../shared/errors.js";
 import type * as shared_projectErasureStages from "../shared/projectErasureStages.js";
 import type * as shared_rateLimit from "../shared/rateLimit.js";
 import type * as shared_returnShapes from "../shared/returnShapes.js";
+import type * as shared_runnerLeaseWait from "../shared/runnerLeaseWait.js";
 import type * as shared_validators from "../shared/validators.js";
 import type * as shared_workspaceRef from "../shared/workspaceRef.js";
 
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "shared/projectErasureStages": typeof shared_projectErasureStages;
   "shared/rateLimit": typeof shared_rateLimit;
   "shared/returnShapes": typeof shared_returnShapes;
+  "shared/runnerLeaseWait": typeof shared_runnerLeaseWait;
   "shared/validators": typeof shared_validators;
   "shared/workspaceRef": typeof shared_workspaceRef;
 }>;
