@@ -7,6 +7,7 @@ import {
   redirect,
   useRouter,
   useRouterState,
+  type ErrorComponentProps,
 } from "@tanstack/react-router"
 import * as React from "react"
 import type { QueryClient } from "@tanstack/react-query"
@@ -99,7 +100,7 @@ export const Route = createRootRouteWithContext<{
       { rel: "icon", href: "/favicon.ico" },
     ],
   }),
-  errorComponent: (props) => {
+  errorComponent: (props: ErrorComponentProps) => {
     return (
       <RootDocument>
         <DefaultCatchBoundary {...props} />

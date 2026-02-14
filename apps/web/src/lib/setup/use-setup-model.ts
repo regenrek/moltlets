@@ -139,10 +139,12 @@ export function useSetupModel(params: {
     return out
   }, [deployCredsQuery.data?.keys])
 
-  const hasActiveHcloudToken = React.useMemo(
-    () => deployCredsByKey["HCLOUD_TOKEN"]?.status === "set",
-    [deployCredsByKey],
-  )
+  const hasActiveHcloudToken = React.useMemo(() => {
+    const keyring = parseProjectTokenKeyring(deployCredsByKey["HCLOUD_TOKEN_KEYRING"]?.value)
+    const activeId = String(deployCredsByKey["HCLOUD_TOKEN_KEYRING_ACTIVE"]?.value || "").trim()
+    const activeEntry = resolveActiveProjectTokenEntry({ keyring, activeId })
+    return Boolean(activeEntry?.value?.trim())
+  }, [deployCredsByKey])
 
   const activeTailscaleAuthKey = React.useMemo(() => {
     const keyring = parseProjectTokenKeyring(deployCredsByKey["TAILSCALE_AUTH_KEY_KEYRING"]?.value)
@@ -154,6 +156,14 @@ export function useSetupModel(params: {
   const hasActiveTailscaleAuthKey = React.useMemo(
     () => activeTailscaleAuthKey.trim().length > 0,
     [activeTailscaleAuthKey],
+  )
+  const hasProjectGithubToken = React.useMemo(
+    () => deployCredsByKey["GITHUB_TOKEN"]?.status === "set",
+    [deployCredsByKey],
+  )
+  const hasProjectSopsAgeKeyPath = React.useMemo(
+    () => String(deployCredsByKey["SOPS_AGE_KEY_FILE"]?.value || "").trim().length > 0,
+    [deployCredsByKey],
   )
 
   const projectInitRunsPageQuery = useQuery({
@@ -177,6 +187,8 @@ export function useSetupModel(params: {
         setupDraft,
         pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
         hasActiveHcloudToken,
+        hasProjectGithubToken,
+        hasProjectSopsAgeKeyPath,
         hasActiveTailscaleAuthKey,
         pendingTailscaleAuthKey: params.pendingBootstrapSecrets?.tailscaleAuthKey,
         useTailscaleLockdown: params.pendingBootstrapSecrets?.useTailscaleLockdown,
@@ -188,6 +200,8 @@ export function useSetupModel(params: {
       setupDraft,
       params.pendingNonSecretDraft,
       hasActiveHcloudToken,
+      hasProjectGithubToken,
+      hasProjectSopsAgeKeyPath,
       hasActiveTailscaleAuthKey,
       params.pendingBootstrapSecrets?.tailscaleAuthKey,
       params.pendingBootstrapSecrets?.useTailscaleLockdown,
@@ -244,6 +258,8 @@ export function useSetupModel(params: {
     model,
     selectedHost: model.selectedHost,
     hasActiveHcloudToken,
+    hasProjectGithubToken,
+    hasProjectSopsAgeKeyPath,
     hasActiveTailscaleAuthKey,
     activeTailscaleAuthKey,
     setStep,

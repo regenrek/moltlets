@@ -63,6 +63,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       useTailscaleLockdown: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
@@ -78,6 +79,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       useTailscaleLockdown: true,
       hasActiveTailscaleAuthKey: true,
       latestBootstrapRun: null,
@@ -111,11 +113,28 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
 
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
+    expect(model.activeStepId).toBe("deploy")
+  })
+
+  it("unlocks predeploy/deploy when project deploy creds exist even without a host draft section", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      hasActiveHcloudToken: true,
+      hasProjectGithubToken: true,
+      hasProjectSopsAgeKeyPath: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "predeploy")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("active")
     expect(model.activeStepId).toBe("deploy")
   })
 
@@ -133,6 +152,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       pendingNonSecretDraft: {
         infrastructure: {
           serverType: "cpx22",
@@ -184,6 +204,7 @@ describe("deriveSetupModel", () => {
         },
       },
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -220,6 +241,7 @@ describe("deriveSetupModel", () => {
         },
       },
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -237,6 +259,7 @@ describe("deriveHostSetupStepper", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
+      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })

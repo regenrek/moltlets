@@ -34,7 +34,6 @@ type ProjectTokenKeyringKind = "hcloud" | "tailscale"
 type KeyringKindConfig = {
   keyringKey: string
   activeKey: string
-  activeValueKey?: string
   label: string
   valuePlaceholder: string
 }
@@ -43,7 +42,6 @@ const KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, KeyringKindConfig> = 
   hcloud: {
     keyringKey: "HCLOUD_TOKEN_KEYRING",
     activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE",
-    activeValueKey: "HCLOUD_TOKEN",
     label: "Hetzner API key",
     valuePlaceholder: "hcloud token",
   },
@@ -187,9 +185,6 @@ export function ProjectTokenKeyringCard(props: {
       const updates: Record<string, string> = {
         [cfg.keyringKey]: serializeProjectTokenKeyring(normalized.keyring),
         [cfg.activeKey]: normalized.activeId,
-      }
-      if (cfg.activeValueKey) {
-        updates[cfg.activeValueKey] = normalized.activeEntry?.value || ""
       }
 
       const updatedKeys = Object.keys(updates)

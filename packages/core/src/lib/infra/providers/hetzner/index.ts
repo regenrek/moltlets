@@ -4,7 +4,7 @@ import { applyHetznerOpenTofu, destroyHetznerOpenTofu, readHetznerOpenTofuOutput
 function requireHcloudToken(runtime: ProvisionerRuntime): string {
   const token = String(runtime.credentials.hcloudToken || "").trim();
   if (!token) {
-    throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
+    throw new Error("missing active Hetzner API key (set HCLOUD_TOKEN_KEYRING + HCLOUD_TOKEN_KEYRING_ACTIVE; use Setup -> Hetzner API keys)");
   }
   return token;
 }

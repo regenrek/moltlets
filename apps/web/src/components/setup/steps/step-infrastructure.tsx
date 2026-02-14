@@ -32,10 +32,6 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback
 }
 
-function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback
-}
-
 function asNonNegativeInt(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback
   return Math.max(0, Math.trunc(value))
@@ -73,7 +69,6 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
     serverType,
     image: asString(draft?.image, asString(hetznerCfg.image, "")),
     location,
-    allowTailscaleUdpIngress: asBoolean(draft?.allowTailscaleUdpIngress, asBoolean(hetznerCfg.allowTailscaleUdpIngress, true)),
     volumeEnabled,
     volumeSizeGb,
   }
@@ -92,7 +87,6 @@ export function SetupStepInfrastructure(props: {
   const [serverType, setServerType] = useState(() => defaults.serverType)
   const [image, setImage] = useState(() => defaults.image)
   const [location, setLocation] = useState(() => defaults.location)
-  const [allowTailscaleUdpIngress, setAllowTailscaleUdpIngress] = useState(() => defaults.allowTailscaleUdpIngress)
   const [volumeEnabled, setVolumeEnabled] = useState(() => defaults.volumeEnabled)
   const [volumeSizeGbText, setVolumeSizeGbText] = useState(() => String(defaults.volumeSizeGb))
   const parsedVolumeSizeGb = parsePositiveInt(volumeSizeGbText)
@@ -103,7 +97,7 @@ export function SetupStepInfrastructure(props: {
   const resolvedServerType = resolveServerTypePreset(serverTypeTrimmed)
   const resolvedLocation = resolveLocationPreset(locationTrimmed)
   const missingRequirements = [
-    ...(hcloudTokenReady ? [] : ["HCLOUD_TOKEN"]),
+    ...(hcloudTokenReady ? [] : ["active Hetzner API key"]),
     ...(resolvedServerType.length > 0 ? [] : ["hetzner.serverType"]),
     ...(resolvedLocation.length > 0 ? [] : ["hetzner.location"]),
     ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
@@ -114,12 +108,10 @@ export function SetupStepInfrastructure(props: {
       serverType: resolvedServerType,
       image: image.trim(),
       location: resolvedLocation,
-      allowTailscaleUdpIngress: Boolean(allowTailscaleUdpIngress),
       volumeEnabled,
       volumeSizeGb: volumeEnabled ? parsedVolumeSizeGb ?? undefined : 0,
     })
   }, [
-    allowTailscaleUdpIngress,
     image,
     parsedVolumeSizeGb,
     props.onDraftChange,
@@ -269,22 +261,6 @@ export function SetupStepInfrastructure(props: {
                       onChange={(event) => setImage(event.target.value)}
                     />
                   </StackedField>
-
-                  <div>
-                    <LabelWithHelp htmlFor="setup-hetzner-udp" help={setupFieldHelp.hosts.hetznerAllowTailscaleUdpIngress}>
-                      Allow Tailscale UDP ingress
-                    </LabelWithHelp>
-                    <div className="mt-2 flex items-center gap-3">
-                      <Switch
-                        id="setup-hetzner-udp"
-                        checked={allowTailscaleUdpIngress}
-                        onCheckedChange={setAllowTailscaleUdpIngress}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        Default: enabled. Disable for relay-only mode.
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>

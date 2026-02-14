@@ -98,27 +98,44 @@ async function loadRunnerStartWithMocks(params: {
 
   const inspectTempPath = async (argv: string[]) => {
     for (const token of argv) {
-      if (typeof token !== "string" || !token.includes("clawlets-runner-input.")) continue;
+      if (typeof token !== "string") continue;
+      if (!token.includes("clawlets-runner-input.") && !token.includes("clawlets-runner-secrets.")) continue;
       observed.tempPath = token;
       observed.tempJson = await fs.readFile(token, "utf8");
       break;
     }
   };
 
-  const run = vi.fn(async (_cmd: string, argv: string[], opts: any) => {
-    observed.env = opts?.env;
-    observed.stdin = opts?.stdin;
-    await inspectTempPath(argv);
+  const execCaptureTail = vi.fn(async (args: any) => {
+    observed.env = args?.env;
+    observed.stdin = args?.stdin;
+    await inspectTempPath(Array.isArray(args?.args) ? args.args : []);
+    return {
+      exitCode: 0,
+      signal: null,
+      durationMs: 1,
+      stdoutTail: "",
+      stderrTail: "",
+      stdoutTruncated: false,
+      stderrTruncated: false,
+    };
   });
-  const capture = vi.fn(async (_cmd: string, argv: string[]) => {
-    await inspectTempPath(argv);
-    return params.captureOutput || "";
+  const execCaptureStdout = vi.fn(async (args: any) => {
+    observed.env = args?.env;
+    observed.stdin = args?.stdin;
+    await inspectTempPath(Array.isArray(args?.args) ? args.args : []);
+    return {
+      exitCode: 0,
+      signal: null,
+      durationMs: 1,
+      stdout: params.captureOutput || "",
+      stderrTail: "",
+      stdoutTruncated: false,
+      stderrTruncated: false,
+    };
   });
 
-  vi.doMock("@clawlets/core/lib/runtime/run", () => ({
-    run,
-    capture,
-  }));
+  vi.doMock("../src/commands/runner/exec.js", () => ({ execCaptureTail, execCaptureStdout }));
   vi.doMock("@clawlets/core/lib/nix/nix-bin", () => ({
     resolveNixBin: vi.fn(() => (params.mockNixBin === undefined ? "/usr/bin/nix" : params.mockNixBin)),
   }));
@@ -134,7 +151,7 @@ async function loadRunnerStartWithMocks(params: {
   }));
 
   const mod = await import("../src/commands/runner/start.js");
-  return { mod, run, capture, observed };
+  return { mod, execCaptureTail, execCaptureStdout, observed };
 }
 
 function jsonObjectWithExactBytes(maxBytes: number): string {
@@ -172,7 +189,7 @@ describe("runner sealed input execution", () => {
         plaintext,
       });
 
-      const { mod, run, capture, observed } = await loadRunnerStartWithMocks({
+      const { mod, execCaptureTail, execCaptureStdout, observed } = await loadRunnerStartWithMocks({
         resolvedArgs: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__"],
       });
 
@@ -197,13 +214,14 @@ describe("runner sealed input execution", () => {
         }),
       ).resolves.toEqual({});
 
-      expect(capture).not.toHaveBeenCalled();
-      expect(run).toHaveBeenCalledTimes(1);
+      expect(execCaptureStdout).not.toHaveBeenCalled();
+      expect(execCaptureTail).toHaveBeenCalledTimes(1);
+      expect(execCaptureTail.mock.calls[0]?.[0]?.stdin).toBe("ignore");
+      expect(execCaptureTail.mock.calls[0]?.[0]?.maxStdoutBytes).toBe(0);
+      expect(execCaptureTail.mock.calls[0]?.[0]?.maxStderrBytes).toBe(0);
       expect(observed.env?.["CI"]).toBe("1");
       expect(observed.env?.["CLAWLETS_NON_INTERACTIVE"]).toBe("1");
       expect(observed.stdin).toBe("ignore");
-      expect(run.mock.calls[0]?.[2]?.stdout).toBe("ignore");
-      expect(run.mock.calls[0]?.[2]?.stderr).toBe("ignore");
 
       expect(observed.tempPath).toBeTruthy();
       expect(observed.tempJson).toBeTruthy();
@@ -218,7 +236,7 @@ describe("runner sealed input execution", () => {
   });
 
   it("fails fast when placeholder job is missing sealed input", async () => {
-    const { mod, run } = await loadRunnerStartWithMocks({
+    const { mod, execCaptureTail, execCaptureStdout } = await loadRunnerStartWithMocks({
       resolvedArgs: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__"],
     });
 
@@ -241,7 +259,8 @@ describe("runner sealed input execution", () => {
       }),
     ).rejects.toThrow(/sealed input missing for placeholder job/i);
 
-    expect(run).not.toHaveBeenCalled();
+    expect(execCaptureTail).not.toHaveBeenCalled();
+    expect(execCaptureStdout).not.toHaveBeenCalled();
   });
 
   it("fails when placeholder appears more than once", async () => {
@@ -333,7 +352,7 @@ describe("runner sealed input execution", () => {
         plaintext,
       });
 
-      const { mod, run } = await loadRunnerStartWithMocks({
+      const { mod, execCaptureTail } = await loadRunnerStartWithMocks({
         resolvedKind: kind,
         resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
       });
@@ -358,9 +377,10 @@ describe("runner sealed input execution", () => {
           runnerPrivateKeyPem: keypair.privateKeyPem,
         }),
       ).resolves.toEqual({});
-      expect(run).toHaveBeenCalledTimes(1);
-      expect(run.mock.calls[0]?.[2]?.stdout).toBe("ignore");
-      expect(run.mock.calls[0]?.[2]?.stderr).toBe("ignore");
+      expect(execCaptureTail).toHaveBeenCalledTimes(1);
+      expect(execCaptureTail.mock.calls[0]?.[0]?.stdin).toBe("ignore");
+      expect(execCaptureTail.mock.calls[0]?.[0]?.maxStdoutBytes).toBe(0);
+      expect(execCaptureTail.mock.calls[0]?.[0]?.maxStderrBytes).toBe(0);
 
       await expect(
         mod.__test_executeJob({
@@ -382,7 +402,7 @@ describe("runner sealed input execution", () => {
           runnerPrivateKeyPem: keypair.privateKeyPem,
         }),
       ).rejects.toThrow();
-      expect(run).toHaveBeenCalledTimes(1);
+      expect(execCaptureTail).toHaveBeenCalledTimes(1);
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
@@ -455,7 +475,7 @@ describe("runner sealed input execution", () => {
         plaintext: JSON.stringify(outerPayload),
       });
 
-      const { mod, run, capture, observed } = await loadRunnerStartWithMocks({
+      const { mod, execCaptureTail, execCaptureStdout, observed } = await loadRunnerStartWithMocks({
         resolvedKind: kind,
         resolvedArgs: ["setup", "apply", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
         resolvedResultMode: "json_small",
@@ -488,8 +508,8 @@ describe("runner sealed input execution", () => {
         commandResultJson: "{\"ok\":true,\"summary\":\"safe\"}",
       });
 
-      expect(run).not.toHaveBeenCalled();
-      expect(capture).toHaveBeenCalledTimes(1);
+      expect(execCaptureTail).not.toHaveBeenCalled();
+      expect(execCaptureStdout).toHaveBeenCalledTimes(1);
       const parsed = JSON.parse(String(observed.tempJson || "{}")) as Record<string, unknown>;
       expect(parsed.hostName).toBe(hostName);
       expect(parsed).toMatchObject({
@@ -539,7 +559,7 @@ describe("runner sealed input execution", () => {
   });
 
   it("returns machine JSON via commandResultJson and redacts run-event output", async () => {
-    const { mod, run, capture } = await loadRunnerStartWithMocks({
+    const { mod, execCaptureTail, execCaptureStdout } = await loadRunnerStartWithMocks({
       resolvedArgs: ["env", "show", "--json"],
       resolvedResultMode: "json_small",
       captureOutput: "{\n  \"ok\": true,\n  \"value\": \"x\"\n}\n",
@@ -565,8 +585,8 @@ describe("runner sealed input execution", () => {
       commandResultJson: "{\"ok\":true,\"value\":\"x\"}",
     });
 
-    expect(capture).toHaveBeenCalledTimes(1);
-    expect(run).not.toHaveBeenCalled();
+    expect(execCaptureTail).not.toHaveBeenCalled();
+    expect(execCaptureStdout).toHaveBeenCalledTimes(1);
   });
 
   it("accepts json_small payload exactly at byte limit", async () => {
@@ -694,7 +714,7 @@ describe("runner sealed input execution", () => {
   });
 
   it("returns large structured JSON via commandResultLargeJson", async () => {
-    const { mod, capture } = await loadRunnerStartWithMocks({
+    const { mod, execCaptureTail, execCaptureStdout } = await loadRunnerStartWithMocks({
       resolvedArgs: ["openclaw", "schema", "fetch", "--host", "alpha", "--gateway", "gw1", "--ssh-tty=false"],
       resolvedResultMode: "json_large",
       resolvedResultMaxBytes: 5 * 1024 * 1024,
@@ -721,7 +741,8 @@ describe("runner sealed input execution", () => {
       commandResultLargeJson: "{\"ok\":true,\"schema\":{\"name\":\"x\"}}",
     });
 
-    expect(capture).toHaveBeenCalledTimes(1);
+    expect(execCaptureTail).not.toHaveBeenCalled();
+    expect(execCaptureStdout).toHaveBeenCalledTimes(1);
   });
 
   it("accepts json_large payload exactly at byte limit", async () => {
@@ -854,7 +875,7 @@ describe("runner sealed input execution", () => {
   });
 
   it("executes git jobs with stdin disabled", async () => {
-    const { mod, run, capture, observed } = await loadRunnerStartWithMocks({
+    const { mod, execCaptureTail, execCaptureStdout, observed } = await loadRunnerStartWithMocks({
       resolvedArgs: ["status"],
       resolvedKind: "project_import",
       resolvedExec: "git",
@@ -877,8 +898,10 @@ describe("runner sealed input execution", () => {
       }),
     ).resolves.toEqual({});
 
-    expect(run).toHaveBeenCalledTimes(1);
-    expect(capture).not.toHaveBeenCalled();
+    expect(execCaptureTail).toHaveBeenCalledTimes(1);
+    expect(execCaptureTail.mock.calls[0]?.[0]?.cmd).toBe("git");
+    expect(execCaptureTail.mock.calls[0]?.[0]?.args).toEqual(["status"]);
+    expect(execCaptureStdout).not.toHaveBeenCalled();
     expect(observed.stdin).toBe("ignore");
   });
 });

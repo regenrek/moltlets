@@ -29,7 +29,7 @@ export const imageHetznerUpload = defineCommand({
 
     const deployCreds = loadDeployCreds({ cwd, runtimeDir: (args as any).runtimeDir, envFile: (args as any).envFile });
     const hcloudToken = String(deployCreds.values.HCLOUD_TOKEN || "").trim();
-    if (!hcloudToken) throw new Error("missing HCLOUD_TOKEN (set in .clawlets/env or env var; run: clawlets env init)");
+    if (!hcloudToken) throw new Error("missing active Hetzner API key (set HCLOUD_TOKEN_KEYRING + HCLOUD_TOKEN_KEYRING_ACTIVE; use Setup -> Hetzner API keys)");
 
     const imageUrl = String((args as any)["image-url"] || "").trim();
     if (!imageUrl) throw new Error("missing --image-url");

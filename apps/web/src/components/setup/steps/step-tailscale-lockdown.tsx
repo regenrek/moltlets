@@ -1,9 +1,12 @@
 import { useMemo } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
+import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
 import { Switch } from "~/components/ui/switch"
+import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 export function SetupStepTailscaleLockdown(props: {
@@ -11,8 +14,10 @@ export function SetupStepTailscaleLockdown(props: {
   stepStatus: SetupStepStatus
   tailscaleAuthKey: string
   hasTailscaleAuthKey: boolean
+  allowTailscaleUdpIngress: boolean
   useTailscaleLockdown: boolean
   onTailscaleAuthKeyChange: (value: string) => void
+  onAllowTailscaleUdpIngressChange: (value: boolean) => void
   onUseTailscaleLockdownChange: (value: boolean) => void
 }) {
   const hasTailscaleKey = useMemo(
@@ -46,7 +51,6 @@ export function SetupStepTailscaleLockdown(props: {
             onCheckedChange={props.onUseTailscaleLockdownChange}
           />
         </div>
-
         {props.useTailscaleLockdown ? (
           <ProjectTokenKeyringCard
             projectId={props.projectId}
@@ -58,6 +62,34 @@ export function SetupStepTailscaleLockdown(props: {
             showRunnerStatusDetails={false}
           />
         ) : null}
+
+        <Accordion className="rounded-lg border bg-muted/20">
+          <AccordionItem value="advanced" className="px-4">
+            <AccordionTrigger className="rounded-none border-0 px-0 py-2.5 hover:no-underline">
+              Advanced options
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <div className="space-y-2 rounded-md border bg-muted/10 p-3">
+                <LabelWithHelp
+                  htmlFor="setup-tailscale-udp-ingress"
+                  help={setupFieldHelp.hosts.hetznerAllowTailscaleUdpIngress}
+                >
+                  Allow Tailscale UDP ingress
+                </LabelWithHelp>
+                <div className="mt-1 flex items-center gap-3">
+                  <Switch
+                    id="setup-tailscale-udp-ingress"
+                    checked={props.allowTailscaleUdpIngress}
+                    onCheckedChange={props.onAllowTailscaleUdpIngressChange}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Default: enabled. Disable for relay-only mode.
+                  </span>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </SettingsSection>
   )

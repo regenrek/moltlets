@@ -15,7 +15,7 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { configDotSet } from "~/sdk/config"
 import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
-import { bootstrapExecute, bootstrapStart, runDoctor } from "~/sdk/infra"
+import { bootstrapExecute, bootstrapStart, getDeployCredsStatus, lockdownExecute, lockdownStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deriveProjectRunnerNixReadiness, isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state"
@@ -23,7 +23,6 @@ import { setupConfigProbeQueryKey, setupConfigProbeQueryOptions } from "~/lib/se
 import { deriveSshKeyGateUi } from "~/lib/setup/ssh-key-gate"
 import { sealForRunner } from "~/lib/security/sealed-input"
 import { gitRepoStatus } from "~/sdk/vcs"
-import { lockdownExecute, lockdownStart } from "~/sdk/infra"
 import { serverUpdateApplyExecute, serverUpdateApplyStart } from "~/sdk/server"
 import {
   buildSetupDraftSectionAad,
@@ -50,11 +49,6 @@ type SetupPendingBootstrapSecrets = {
   adminPassword: string
   tailscaleAuthKey: string
   useTailscaleLockdown: boolean
-}
-
-function formatShortSha(sha?: string | null): string {
-  const value = String(sha || "").trim()
-  return value ? value.slice(0, 7) : "none"
 }
 
 export function DeployInitialInstallSetup(props: {
@@ -145,7 +139,25 @@ export function DeployInitialInstallSetup(props: {
       props.setupDraft,
     ],
   )
+
+  const deployCredsStatusQuery = useQuery({
+    queryKey: ["deployCreds", projectId],
+    queryFn: async () =>
+      await getDeployCredsStatus({ data: { projectId: projectId as Id<"projects"> } }),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    enabled: Boolean(projectId && runnerOnline),
+  })
+  const projectDeployCredsByKey = useMemo(() => {
+    const out: Record<string, { status?: "set" | "unset"; value?: string }> = {}
+    for (const row of deployCredsStatusQuery.data?.keys || []) out[row.key] = row
+    return out
+  }, [deployCredsStatusQuery.data?.keys])
+
   const deployCredsDraftSet = props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+  const projectGithubTokenSet = projectDeployCredsByKey["GITHUB_TOKEN"]?.status === "set"
+  const projectSopsAgeKeyPath = String(projectDeployCredsByKey["SOPS_AGE_KEY_FILE"]?.value || "").trim()
+  const effectiveDeployCredsReady = (deployCredsDraftSet || projectGithubTokenSet) && projectSopsAgeKeyPath.length > 0
 
   const selectedRev = repoStatus.data?.originHead
   const missingRev = !selectedRev
@@ -178,11 +190,14 @@ export function DeployInitialInstallSetup(props: {
   const sshKeyGateBlocked = sshKeyGateUi.blocked
   const sshKeyGateMessage = sshKeyGateUi.message
 
-  const credsGateBlocked = runnerOnline && !deployCredsDraftSet
+  const deployCredsStatusError = runnerOnline ? deployCredsStatusQuery.error : null
+  const credsGateBlocked = runnerOnline && (Boolean(deployCredsStatusError) || !effectiveDeployCredsReady)
   const credsGateMessage = !runnerOnline
     ? null
-    : !deployCredsDraftSet
-      ? "Missing provider credentials draft. Open Pre-Deploy and save credentials. Setup applies them during setup apply."
+    : deployCredsStatusError
+      ? `Could not read deploy credentials: ${String(deployCredsStatusError)}`
+      : !effectiveDeployCredsReady
+        ? "Missing credentials. Add GitHub token in Pre-Deploy and SOPS path in Server access."
       : null
 
   const deployGateBlocked = repoGateBlocked || nixGateBlocked || sshKeyGateBlocked || credsGateBlocked
@@ -400,8 +415,8 @@ export function DeployInitialInstallSetup(props: {
       if (!props.host.trim()) throw new Error("Host is required")
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (!selectedRev) throw new Error("No pushed revision found.")
-      if (!deployCredsDraftSet) {
-        throw new Error("Missing provider credentials draft. Open Pre-Deploy and save credentials.")
+      if (!effectiveDeployCredsReady) {
+        throw new Error("Missing credentials. Set GitHub token in Pre-Deploy and SOPS path in Server access.")
       }
 
       const infrastructurePatch: SetupDraftInfrastructure = {
@@ -446,11 +461,9 @@ export function DeployInitialInstallSetup(props: {
         || props.setupDraft?.sealedSecretDrafts?.deployCreds?.targetRunnerId
       const targetRunner = preferredRunnerId
         ? sealedRunners.find((runner) => String(runner._id) === String(preferredRunnerId))
-        : sealedRunners.length === 1
-          ? sealedRunners[0]
-          : null
+        : sealedRunners[0] ?? null
       if (!targetRunner) {
-        throw new Error("Token runner missing. Save deploy credentials first with an online sealed-capable runner.")
+        throw new Error("No sealed-capable runner online. Start runner and retry.")
       }
 
       const targetRunnerId = String(targetRunner._id) as Id<"runners">
@@ -458,6 +471,46 @@ export function DeployInitialInstallSetup(props: {
       const keyId = String(targetRunner.capabilities?.sealedInputKeyId || "").trim()
       const alg = String(targetRunner.capabilities?.sealedInputAlg || "").trim()
       if (!runnerPub || !keyId || !alg) throw new Error("Runner sealed-input capabilities incomplete")
+
+      const deployCredsDraftAlreadySet = savedNonSecretDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+        || props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+      let currentDraftVersion = savedNonSecretDraft?.version
+      if (!deployCredsDraftAlreadySet) {
+        const deployCredsPayload: Record<string, string> = {}
+        if (projectSopsAgeKeyPath) deployCredsPayload.SOPS_AGE_KEY_FILE = projectSopsAgeKeyPath
+
+        if (Object.keys(deployCredsPayload).length === 0) {
+          throw new Error("Could not auto-seal deploy credentials for setup. Open Pre-Deploy and save credentials.")
+        }
+
+        const deployCredsAad = buildSetupDraftSectionAad({
+          projectId: projectId as Id<"projects">,
+          host: props.host,
+          section: "deployCreds",
+          targetRunnerId,
+        })
+        const deployCredsSealedInputB64 = await sealForRunner({
+          runnerPubSpkiB64: runnerPub,
+          keyId,
+          alg,
+          aad: deployCredsAad,
+          plaintextJson: JSON.stringify(deployCredsPayload),
+        })
+        const savedDeployCredsDraft = await setupDraftSaveSealedSection({
+          data: {
+            projectId: projectId as Id<"projects">,
+            host: props.host,
+            section: "deployCreds",
+            targetRunnerId,
+            sealedInputB64: deployCredsSealedInputB64,
+            sealedInputAlg: alg,
+            sealedInputKeyId: keyId,
+            aad: deployCredsAad,
+            expectedVersion: currentDraftVersion,
+          },
+        })
+        currentDraftVersion = savedDeployCredsDraft.version
+      }
 
       const bootstrapSecretsPayload: Record<string, string> = {}
       const adminPassword = props.pendingBootstrapSecrets.adminPassword.trim()
@@ -490,7 +543,7 @@ export function DeployInitialInstallSetup(props: {
           sealedInputAlg: alg,
           sealedInputKeyId: keyId,
           aad,
-          expectedVersion: savedNonSecretDraft?.version,
+          expectedVersion: currentDraftVersion,
         },
       })
 
@@ -627,54 +680,6 @@ export function DeployInitialInstallSetup(props: {
         ) : null}
 
         <div className="space-y-2">
-          <div className="text-sm font-medium">Git readiness</div>
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium">Remote deploy (default branch)</div>
-              <AsyncButton
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!runnerOnline || repoStatus.isFetching}
-                pending={repoStatus.isFetching}
-                pendingText="Refreshing..."
-                onClick={() => {
-                  if (!runnerOnline) return
-                  void repoStatus.refetch()
-                }}
-              >
-                Refresh
-              </AsyncButton>
-            </div>
-            {repoStatus.isPending ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Spinner className="size-3" />
-                Checking repo state...
-              </div>
-              ) : (
-              <>
-                <div className="space-y-1 text-muted-foreground">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Revision to deploy</span>
-                    <code>{formatShortSha(selectedRev)}</code>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Branch</span>
-                    <span>{repoStatus.data?.branch || "unknown"}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Upstream</span>
-                    <span>{repoStatus.data?.upstream || "unset"}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">ahead {repoStatus.data?.ahead ?? 0}</Badge>
-                  <Badge variant="outline">behind {repoStatus.data?.behind ?? 0}</Badge>
-                </div>
-              </>
-            )}
-          </div>
-
           {!isBootstrapped && nixGateMessage && !repoGateBlocked ? (
             <Alert variant="destructive">
               <AlertTitle>Nix missing on runner</AlertTitle>

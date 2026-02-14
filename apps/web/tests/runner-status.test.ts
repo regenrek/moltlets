@@ -10,7 +10,7 @@ describe("runner status helpers", () => {
   it("marks runner online only when status is online and fresh", () => {
     const now = 1_700_000_000_000
     expect(isRunnerFreshOnline({ lastStatus: "online", lastSeenAt: now - 1 }, now)).toBe(true)
-    expect(isRunnerFreshOnline({ lastStatus: "online", lastSeenAt: now - RUNNER_FRESHNESS_MS }, now)).toBe(false)
+    expect(isRunnerFreshOnline({ lastStatus: "online", lastSeenAt: now - RUNNER_FRESHNESS_MS }, now)).toBe(true)
     expect(isRunnerFreshOnline({ lastStatus: "offline", lastSeenAt: now - 1 }, now)).toBe(false)
     expect(isRunnerFreshOnline({ lastStatus: "online", lastSeenAt: null }, now)).toBe(false)
   })

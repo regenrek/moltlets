@@ -22,10 +22,14 @@ type RunnerStartLoopHarness = {
   heartbeatJob: ReturnType<typeof vi.fn>;
   appendRunEvents: ReturnType<typeof vi.fn>;
   syncMetadata: ReturnType<typeof vi.fn>;
-  runCommand: ReturnType<typeof vi.fn>;
-  captureCommand: ReturnType<typeof vi.fn>;
-  errorSpy: ReturnType<typeof vi.spyOn>;
-  logSpy: ReturnType<typeof vi.spyOn>;
+  execCaptureTail: ReturnType<typeof vi.fn>;
+  execCaptureStdout: ReturnType<typeof vi.fn>;
+  logger: {
+    child: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
   makeHttpError: (kind: MockRunnerHttpErrorKind, message: string) => Error;
   getClientInit: () => { baseUrl: string; token: string };
 };
@@ -38,9 +42,26 @@ async function loadRunnerStartLoopHarness(params?: {
 }): Promise<RunnerStartLoopHarness> {
   vi.resetModules();
 
-  const runCommand = vi.fn(async () => {});
-  const capture = vi.fn(async () => "");
-  vi.doMock("@clawlets/core/lib/runtime/run", () => ({ run: runCommand, capture }));
+  const execCaptureTail = vi.fn(async () => ({
+    exitCode: 0,
+    signal: null,
+    durationMs: 1,
+    stdoutTail: "",
+    stderrTail: "",
+    stdoutTruncated: false,
+    stderrTruncated: false,
+  }));
+  const execCaptureStdout = vi.fn(async () => ({
+    exitCode: 0,
+    signal: null,
+    durationMs: 1,
+    stdout: "",
+    stderrTail: "",
+    stdoutTruncated: false,
+    stderrTruncated: false,
+  }));
+  vi.doMock("../src/commands/runner/exec.js", () => ({ execCaptureTail, execCaptureStdout }));
+  vi.doMock("@clawlets/core/lib/nix/nix-bin", () => ({ resolveNixBin: () => null }));
   vi.doMock("@clawlets/core/lib/project/repo", () => ({ findRepoRoot: () => "/repo" }));
   vi.doMock("@clawlets/core/lib/runtime/runner-command-policy-resolve", () => ({
     resolveRunnerJobCommand: vi.fn(async () => ({
@@ -130,8 +151,19 @@ async function loadRunnerStartLoopHarness(params?: {
       error instanceof MockRunnerHttpError ? error.kind : "unknown",
   }));
 
-  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-  const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  const logger = {
+    child: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
+  logger.child.mockImplementation(() => logger);
+  vi.doMock("../src/lib/logging/logger.js", () => ({
+    createRunnerLogger: vi.fn(() => logger),
+    parseLogLevel: vi.fn((_raw: unknown, fallback: string) => fallback),
+    resolveRunnerLogFile: vi.fn(() => "/tmp/clawlets-runner.jsonl"),
+  }));
+
   const mod = await import("../src/commands/runner/start.js");
   const runStart = async (args: Record<string, unknown>) => {
     await mod.runnerStart.run({ args } as any);
@@ -144,19 +176,17 @@ async function loadRunnerStartLoopHarness(params?: {
     completeJob,
     appendRunEvents,
     syncMetadata,
-    runCommand,
-    captureCommand: capture,
-    errorSpy,
-    logSpy,
+    execCaptureTail,
+    execCaptureStdout,
+    logger,
     makeHttpError,
     getClientInit: () => ({ baseUrl: clientBaseUrl, token: clientToken }),
   };
 }
 
-describe("runner start loop", () => {
-  it("requires project and token", async () => {
-    const harness = await loadRunnerStartLoopHarness();
-    try {
+  describe("runner start loop", () => {
+    it("requires project and token", async () => {
+      const harness = await loadRunnerStartLoopHarness();
       await expect(
         harness.runStart({
           token: "runner-token",
@@ -172,18 +202,13 @@ describe("runner start loop", () => {
           once: true,
         }),
       ).rejects.toThrow(/missing --token/i);
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
-
-  it("starts leasing immediately even when startup metadata sync is slow", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [null],
     });
-    harness.syncMetadata.mockImplementation(() => new Promise(() => {}));
-    try {
+
+    it("starts leasing immediately even when startup metadata sync is slow", async () => {
+      const harness = await loadRunnerStartLoopHarness({
+        leaseQueue: [null],
+      });
+      harness.syncMetadata.mockImplementation(() => new Promise(() => {}));
       await harness.runStart({
         project: "p1",
         token: "runner-token",
@@ -201,18 +226,13 @@ describe("runner start loop", () => {
           waitPollMs: 8_000,
         }),
       );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
-
-  it("performs bounded metadata flush on shutdown when sync is in flight", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [null],
     });
-    harness.syncMetadata.mockImplementation(() => new Promise(() => {}));
-    try {
+
+    it("performs bounded metadata flush on shutdown when sync is in flight", async () => {
+      const harness = await loadRunnerStartLoopHarness({
+        leaseQueue: [null],
+      });
+      harness.syncMetadata.mockImplementation(() => new Promise(() => {}));
       const startedAt = Date.now();
       await harness.runStart({
         project: "p1",
@@ -226,11 +246,7 @@ describe("runner start loop", () => {
       expect(harness.heartbeat).toHaveBeenLastCalledWith(
         expect.objectContaining({ status: "offline", projectId: "p1" }),
       );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+    });
 
   it("reads control-plane url from environment and normalizes trailing slashes", async () => {
     const prevControlPlane = process.env.CLAWLETS_CONTROL_PLANE_URL;
@@ -251,15 +267,13 @@ describe("runner start loop", () => {
         baseUrl: "https://cp.example.com",
         token: "runner-token",
       });
-    } finally {
-      if (prevControlPlane === undefined) delete process.env.CLAWLETS_CONTROL_PLANE_URL;
-      else process.env.CLAWLETS_CONTROL_PLANE_URL = prevControlPlane;
-      if (prevConvexSite === undefined) delete process.env.CONVEX_SITE_URL;
-      else process.env.CONVEX_SITE_URL = prevConvexSite;
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    } finally {
+	      if (prevControlPlane === undefined) delete process.env.CLAWLETS_CONTROL_PLANE_URL;
+	      else process.env.CLAWLETS_CONTROL_PLANE_URL = prevControlPlane;
+	      if (prevConvexSite === undefined) delete process.env.CONVEX_SITE_URL;
+	      else process.env.CONVEX_SITE_URL = prevConvexSite;
+	    }
+	  });
 
   it("fails fast when control-plane url is missing from args and env", async () => {
     const prevControlPlane = process.env.CLAWLETS_CONTROL_PLANE_URL;
@@ -276,58 +290,61 @@ describe("runner start loop", () => {
           once: true,
         }),
       ).rejects.toThrow(/missing control-plane url/i);
-    } finally {
-      if (prevControlPlane === undefined) delete process.env.CLAWLETS_CONTROL_PLANE_URL;
-      else process.env.CLAWLETS_CONTROL_PLANE_URL = prevControlPlane;
-      if (prevConvexSite === undefined) delete process.env.CONVEX_SITE_URL;
-      else process.env.CONVEX_SITE_URL = prevConvexSite;
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
-  it("stops on auth lease errors and redacts secret-like error content", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [new Error("placeholder")],
-    });
+	    } finally {
+	      if (prevControlPlane === undefined) delete process.env.CLAWLETS_CONTROL_PLANE_URL;
+	      else process.env.CLAWLETS_CONTROL_PLANE_URL = prevControlPlane;
+	      if (prevConvexSite === undefined) delete process.env.CONVEX_SITE_URL;
+	      else process.env.CONVEX_SITE_URL = prevConvexSite;
+	    }
+	  });
+	it("stops on auth lease errors and redacts secret-like error content", async () => {
+	  const harness = await loadRunnerStartLoopHarness({
+	    leaseQueue: [new Error("placeholder")],
+	  });
     const authError = harness.makeHttpError(
       "auth",
       "Authorization: Bearer secret123 https://user:pw@example.com?token=abc",
     );
-    harness.leaseNext.mockReset();
-    harness.leaseNext.mockRejectedValue(authError);
+	  harness.leaseNext.mockReset();
+	  harness.leaseNext.mockRejectedValue(authError);
 
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-      });
-      expect(harness.heartbeat).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "online", projectId: "p1" }),
-      );
-      expect(harness.heartbeat).toHaveBeenLastCalledWith(expect.objectContaining({ status: "offline" }));
-      expect(harness.completeJob).not.toHaveBeenCalled();
-      expect(harness.leaseNext).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: "p1",
-          waitMs: 0,
-          waitPollMs: 8_000,
-        }),
-      );
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Authorization: Bearer <redacted>"),
-      );
-      expect(harness.errorSpy).toHaveBeenCalledWith(expect.stringContaining("https://<redacted>@example.com?token=<redacted>"));
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	  await harness.runStart({
+	    project: "p1",
+	    token: "runner-token",
+	    controlPlaneUrl: "https://cp.example.com",
+	  });
+	  expect(harness.heartbeat).toHaveBeenCalledWith(
+	    expect.objectContaining({ status: "online", projectId: "p1" }),
+	  );
+	  expect(harness.heartbeat).toHaveBeenLastCalledWith(expect.objectContaining({ status: "offline" }));
+	  expect(harness.completeJob).not.toHaveBeenCalled();
+	  expect(harness.leaseNext).toHaveBeenCalledWith(
+	    expect.objectContaining({
+	      projectId: "p1",
+	      waitMs: 0,
+	      waitPollMs: 8_000,
+	    }),
+	  );
+	  expect(harness.logger.error).toHaveBeenCalledWith(
+	    expect.objectContaining({
+	      kind: "auth",
+	      error: expect.stringContaining("Authorization: Bearer <redacted>"),
+	    }),
+	    expect.stringContaining("runner lease failed"),
+	  );
+	  expect(harness.logger.error).toHaveBeenCalledWith(
+	    expect.objectContaining({
+	      kind: "auth",
+	      error: expect.stringContaining("https://<redacted>@example.com?token=<redacted>"),
+	    }),
+	    expect.stringContaining("runner lease failed"),
+	  );
+	});
 
-  it("processes one leased job, appends run-events, completes, and syncs metadata", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [
-        {
+	  it("processes one leased job, appends run-events, completes, and syncs metadata", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
+	      leaseQueue: [
+	        {
           jobId: "job-1",
           runId: "run-1",
           leaseId: "lease-1",
@@ -335,45 +352,40 @@ describe("runner start loop", () => {
           kind: "custom",
           attempt: 1,
           payloadMeta: { args: ["doctor"] },
-        },
-      ],
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.appendRunEvents).toHaveBeenCalled();
-      expect(harness.completeJob).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: "p1",
-          jobId: "job-1",
-          leaseId: "lease-1",
-          status: "succeeded",
-        }),
-      );
-      expect(harness.syncMetadata).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: "p1",
-          payload: expect.objectContaining({
-            projectConfigs: [],
-            hosts: [],
-            gateways: [],
-            secretWiring: [],
-          }),
-        }),
-      );
-      expect(harness.syncMetadata).toHaveBeenCalledTimes(1);
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	        },
+	      ],
+	    });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.appendRunEvents).toHaveBeenCalled();
+	    expect(harness.completeJob).toHaveBeenCalledWith(
+	      expect.objectContaining({
+	        projectId: "p1",
+	        jobId: "job-1",
+	        leaseId: "lease-1",
+	        status: "succeeded",
+	      }),
+	    );
+	    expect(harness.syncMetadata).toHaveBeenCalledWith(
+	      expect.objectContaining({
+	        projectId: "p1",
+	        payload: expect.objectContaining({
+	          projectConfigs: [],
+	          hosts: [],
+	          gateways: [],
+	          secretWiring: [],
+	        }),
+	      }),
+	    );
+	    expect(harness.syncMetadata).toHaveBeenCalledTimes(1);
+	  });
 
-  it("stops after auth completion failure and logs sanitized message", async () => {
-    const harness = await loadRunnerStartLoopHarness({
+	  it("stops after auth completion failure and logs sanitized message", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [
         {
           jobId: "job-2",
@@ -387,27 +399,27 @@ describe("runner start loop", () => {
       ],
       completeError: new Error("placeholder"),
     });
-    harness.completeJob.mockReset();
-    harness.completeJob.mockRejectedValue(
-      harness.makeHttpError("auth", "Authorization: Basic dXNlcjpzZWNyZXQ="),
-    );
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner completion failed (auth); stopping: Authorization: Basic <redacted>"),
-      );
-      expect(harness.syncMetadata).toHaveBeenCalled();
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    harness.completeJob.mockReset();
+	    harness.completeJob.mockRejectedValue(
+	      harness.makeHttpError("auth", "Authorization: Basic dXNlcjpzZWNyZXQ="),
+	    );
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	    });
+	    expect(harness.logger.error).toHaveBeenCalledWith(
+	      expect.objectContaining({
+	        jobId: "job-2",
+	        kind: "auth",
+	        error: expect.stringContaining("Authorization: Basic <redacted>"),
+	      }),
+	      expect.stringContaining("runner completion failed"),
+	    );
+	    expect(harness.syncMetadata).toHaveBeenCalled();
+	  });
 
-  it("logs non-fatal completion failure for transient errors", async () => {
+	  it("logs non-fatal completion failure for transient errors", async () => {
     const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [
         {
@@ -421,27 +433,27 @@ describe("runner start loop", () => {
         },
       ],
     });
-    harness.completeJob.mockReset();
-    harness.completeJob.mockRejectedValue(
-      harness.makeHttpError("transient", "https://user:pw@example.com?api_key=abc"),
-    );
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner completion failed (transient); continuing: https://<redacted>@example.com?api_key=<redacted>"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    harness.completeJob.mockReset();
+	    harness.completeJob.mockRejectedValue(
+	      harness.makeHttpError("transient", "https://user:pw@example.com?api_key=abc"),
+	    );
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.logger.warn).toHaveBeenCalledWith(
+	      expect.objectContaining({
+	        jobId: "job-3",
+	        kind: "transient",
+	        error: expect.stringContaining("https://<redacted>@example.com?api_key=<redacted>"),
+	      }),
+	      expect.stringContaining("runner completion failed"),
+	    );
+	  });
 
-  it("logs when control plane rejects completion due lease/status mismatch", async () => {
+	  it("logs when control plane rejects completion due lease/status mismatch", async () => {
     const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [
         {
@@ -455,46 +467,38 @@ describe("runner start loop", () => {
         },
       ],
       completeResultOk: false,
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner completion rejected (job-4): lease/status mismatch"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.logger.error).toHaveBeenCalledWith(
+	      expect.objectContaining({ jobId: "job-4" }),
+	      expect.stringContaining("runner completion rejected"),
+	    );
+	  });
 
-  it("logs startup metadata sync failures and continues boot", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [null],
-      syncMetadataError: new Error("startup sync failed"),
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("metadata sync failed (startup): startup sync failed"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	  it("logs startup metadata sync failures and continues boot", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
+	      leaseQueue: [null],
+	      syncMetadataError: new Error("startup sync failed"),
+	    });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.logger.warn).toHaveBeenCalledWith(
+	      expect.objectContaining({ context: "startup", error: expect.stringContaining("startup sync failed") }),
+	      expect.stringContaining("metadata sync failed"),
+	    );
+	  });
 
-  it("logs job metadata sync failures with job id context", async () => {
-    const harness = await loadRunnerStartLoopHarness({
+	  it("logs job metadata sync failures with job id context", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [
         {
           jobId: "job-5",
@@ -506,146 +510,127 @@ describe("runner start loop", () => {
           payloadMeta: { args: ["doctor"] },
         },
       ],
-      syncMetadataError: new Error("job sync failed"),
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("metadata sync failed (job-5): job sync failed"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	      syncMetadataError: new Error("job sync failed"),
+	    });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.logger.warn).toHaveBeenCalledWith(
+	      expect.objectContaining({ jobId: "job-5", error: expect.stringContaining("job sync failed") }),
+	      expect.stringContaining("metadata sync failed"),
+	    );
+	  });
 
-  it("continues after empty lease when once=false, then stops on auth lease error", async () => {
+	  it("continues after empty lease when once=false, then stops on auth lease error", async () => {
     const harness = await loadRunnerStartLoopHarness();
     const stopError = harness.makeHttpError("auth", "lease auth failure");
-    harness.leaseNext.mockReset();
-    harness.leaseNext
-      .mockResolvedValueOnce({ job: null })
-      .mockRejectedValueOnce(stopError);
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        pollMs: "250",
-        pollMaxMs: "1000",
-      });
-      expect(harness.leaseNext).toHaveBeenCalledTimes(2);
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner lease failed (auth); stopping: lease auth failure"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    harness.leaseNext.mockReset();
+	    harness.leaseNext
+	      .mockResolvedValueOnce({ job: null })
+	      .mockRejectedValueOnce(stopError);
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      pollMs: "250",
+	      pollMaxMs: "1000",
+	    });
+	    expect(harness.leaseNext).toHaveBeenCalledTimes(2);
+	    expect(harness.logger.error).toHaveBeenCalledWith(
+	      expect.objectContaining({ kind: "auth", error: expect.stringContaining("lease auth failure") }),
+	      expect.stringContaining("runner lease failed"),
+	    );
+	  });
 
-  it("retries transient lease errors with backoff and then continues", async () => {
+	  it("retries transient lease errors with backoff and then continues", async () => {
     const harness = await loadRunnerStartLoopHarness();
     const transientError = harness.makeHttpError("transient", "temporary lease failure");
-    harness.leaseNext.mockReset();
-    harness.leaseNext
-      .mockRejectedValueOnce(transientError)
-      .mockResolvedValueOnce({ job: null });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-        pollMs: "250",
-        pollMaxMs: "1000",
-      });
-      expect(harness.leaseNext).toHaveBeenCalledTimes(2);
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner lease failed (transient); retrying in"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    harness.leaseNext.mockReset();
+	    harness.leaseNext
+	      .mockRejectedValueOnce(transientError)
+	      .mockResolvedValueOnce({ job: null });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	      pollMs: "250",
+	      pollMaxMs: "1000",
+	    });
+	    expect(harness.leaseNext).toHaveBeenCalledTimes(2);
+	    expect(harness.logger.warn).toHaveBeenCalledWith(
+	      expect.objectContaining({ kind: "transient", error: expect.stringContaining("temporary lease failure"), backoffMs: expect.any(Number) }),
+	      expect.stringContaining("runner lease failed"),
+	    );
+	  });
 
-  it("logs runner heartbeat failures without crashing the loop", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [null],
-    });
-    harness.heartbeat.mockRejectedValue(new Error("heartbeat failed"));
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner heartbeat error: heartbeat failed"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	  it("logs runner heartbeat failures without crashing the loop", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
+	      leaseQueue: [null],
+	    });
+	    harness.heartbeat.mockRejectedValue(new Error("heartbeat failed"));
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      once: true,
+	    });
+	    expect(harness.logger.error).toHaveBeenCalledWith(
+	      expect.objectContaining({ error: expect.stringContaining("heartbeat failed") }),
+	      expect.stringContaining("runner heartbeat error"),
+	    );
+	  });
 
-  it("logs temp-file cleanup failures and continues startup", async () => {
-    const harness = await loadRunnerStartLoopHarness({
-      leaseQueue: [null],
-    });
-    const tmpdirSpy = vi.spyOn(os, "tmpdir").mockImplementation(() => {
-      throw new Error("tmpdir unavailable");
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner temp-file cleanup failed: tmpdir unavailable"),
-      );
-    } finally {
-      tmpdirSpy.mockRestore();
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	  it("logs temp-file cleanup failures and continues startup", async () => {
+	    const harness = await loadRunnerStartLoopHarness({
+	      leaseQueue: [null],
+	    });
+	    const tmpdirSpy = vi.spyOn(os, "tmpdir").mockImplementation(() => {
+	      throw new Error("tmpdir unavailable");
+	    });
+	    try {
+	      await harness.runStart({
+	        project: "p1",
+	        token: "runner-token",
+	        controlPlaneUrl: "https://cp.example.com",
+	        once: true,
+	      });
+	      expect(harness.logger.warn).toHaveBeenCalledWith(
+	        expect.objectContaining({ error: expect.stringContaining("tmpdir unavailable") }),
+	        expect.stringContaining("runner temp-file cleanup failed"),
+	      );
+	    } finally {
+	      tmpdirSpy.mockRestore();
+	    }
+	  });
 
-  it("stops loop on SIGTERM by flipping running flag", async () => {
+	  it("stops loop on SIGTERM by flipping running flag", async () => {
     const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [null, null, null, null],
     });
-    const signalTimer = setTimeout(() => {
-      process.emit("SIGTERM");
-    }, 80);
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        pollMs: "250",
-        pollMaxMs: "500",
-      });
-      expect(harness.heartbeat).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "offline" }),
-      );
-    } finally {
-      clearTimeout(signalTimer);
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  });
+	    const signalTimer = setTimeout(() => {
+	      process.emit("SIGTERM");
+	    }, 80);
+	    try {
+	      await harness.runStart({
+	        project: "p1",
+	        token: "runner-token",
+	        controlPlaneUrl: "https://cp.example.com",
+	        pollMs: "250",
+	        pollMaxMs: "500",
+	      });
+	      expect(harness.heartbeat).toHaveBeenLastCalledWith(
+	        expect.objectContaining({ status: "offline" }),
+	      );
+	    } finally {
+	      clearTimeout(signalTimer);
+	    }
+	  });
 
-  it("logs heartbeat failures while leased job is still running", async () => {
+	  it("logs heartbeat failures while leased job is still running", async () => {
     const harness = await loadRunnerStartLoopHarness({
       leaseQueue: [
         {
@@ -658,27 +643,31 @@ describe("runner start loop", () => {
           payloadMeta: { args: ["doctor"] },
         },
       ],
-    });
-    harness.heartbeatJob.mockRejectedValue(new Error("heartbeat down"));
-    harness.captureCommand.mockImplementation(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 2600));
-      return "";
-    });
-    try {
-      await harness.runStart({
-        project: "p1",
-        token: "runner-token",
-        controlPlaneUrl: "https://cp.example.com",
-        leaseTtlMs: "5000",
-        heartbeatMs: "2000",
-        once: true,
-      });
-      expect(harness.errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("runner job heartbeat failed (job-6): heartbeat down"),
-      );
-    } finally {
-      harness.errorSpy.mockRestore();
-      harness.logSpy.mockRestore();
-    }
-  }, 15_000);
+	    });
+	    harness.heartbeatJob.mockRejectedValue(new Error("heartbeat down"));
+	    harness.execCaptureStdout.mockImplementation(async () => {
+	      await new Promise((resolve) => setTimeout(resolve, 2600));
+	      return {
+	        exitCode: 0,
+	        signal: null,
+	        durationMs: 2600,
+	        stdout: "",
+	        stderrTail: "",
+	        stdoutTruncated: false,
+	        stderrTruncated: false,
+	      };
+	    });
+	    await harness.runStart({
+	      project: "p1",
+	      token: "runner-token",
+	      controlPlaneUrl: "https://cp.example.com",
+	      leaseTtlMs: "5000",
+	      heartbeatMs: "2000",
+	      once: true,
+	    });
+	    expect(harness.logger.warn).toHaveBeenCalledWith(
+	      expect.objectContaining({ jobId: "job-6", error: expect.stringContaining("heartbeat down") }),
+	      expect.stringContaining("runner job heartbeat failed"),
+	    );
+	  }, 15_000);
 });

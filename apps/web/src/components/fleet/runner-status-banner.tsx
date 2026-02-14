@@ -32,7 +32,10 @@ export function RunnerStatusBanner(props: {
     <Alert variant="destructive" className={cn("border-destructive/40 bg-destructive/5", props.className)}>
       <AlertTitle>Runner offline</AlertTitle>
       <AlertDescription>
-        Start your runner to continue deploy and secrets operations.
+        <div>Start your runner to continue deploy and secrets operations.</div>
+        <div className="pt-1 text-xs text-muted-foreground">
+          If it disconnects after a while, open runner logs and check for heartbeat/control-plane errors.
+        </div>
       </AlertDescription>
       {props.setupHref ? (
         <AlertAction>

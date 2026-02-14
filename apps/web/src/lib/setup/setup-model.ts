@@ -90,6 +90,8 @@ export type DeriveSetupModelInput = {
   pendingTailscaleAuthKey?: string
   hasActiveTailscaleAuthKey?: boolean
   hasActiveHcloudToken?: boolean
+  hasProjectGithubToken?: boolean
+  hasProjectSopsAgeKeyPath?: boolean
 }
 
 function asTrimmedString(value: unknown): string {
@@ -128,8 +130,11 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
 
   const hcloudOk = Boolean(input.hasActiveHcloudToken)
-  const providerCredsOk = draftDeployCredsSet
+  const githubCredsOk = draftDeployCredsSet || Boolean(input.hasProjectGithubToken)
+  const sopsCredsOk = Boolean(input.hasProjectSopsAgeKeyPath)
+  const providerCredsOk = githubCredsOk && sopsCredsOk
   const infrastructureOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
+  const connectionStepDone = connectionOk && sopsCredsOk
   const useTailscaleLockdown = input.useTailscaleLockdown === true
   const hasTailscaleAuthKey = Boolean(input.hasActiveTailscaleAuthKey)
   const hasPendingTailscaleAuthKey = asTrimmedString(input.pendingTailscaleAuthKey).length > 0
@@ -144,18 +149,18 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     {
       id: "connection",
       title: "Server Access",
-      status: !infrastructureOk ? "locked" : connectionOk ? "done" : "active",
+      status: !infrastructureOk ? "locked" : connectionStepDone ? "done" : "active",
     },
     {
       id: "tailscale-lockdown",
       title: "Tailscale lockdown",
       optional: true,
-      status: !connectionOk ? "locked" : tailscaleLockdownOk ? "done" : "active",
+      status: !connectionStepDone ? "locked" : tailscaleLockdownOk ? "done" : "active",
     },
     {
       id: "predeploy",
       title: "Pre-deploy",
-      status: !connectionOk ? "locked" : providerCredsOk ? "done" : "active",
+      status: !connectionStepDone ? "locked" : githubCredsOk ? "done" : "active",
     },
     {
       id: "deploy",

@@ -7,7 +7,6 @@ import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import {
@@ -22,16 +21,6 @@ import type { SetupDraftView } from "~/sdk/setup"
 
 function formatShortSha(sha?: string | null): string {
   return String(sha || "").trim().slice(0, 7) || "none"
-}
-
-async function copyText(value: string): Promise<void> {
-  if (!value.trim()) return
-  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return
-  try {
-    await navigator.clipboard.writeText(value)
-  } catch {
-    // ignore
-  }
 }
 
 export function SetupStepPredeploy(props: {
@@ -71,21 +60,10 @@ export function SetupStepPredeploy(props: {
 
   return (
     <div className="space-y-4">
-      <DeployCredsCard
-        projectId={props.projectId}
-        visibleKeys={["GITHUB_TOKEN", "SOPS_AGE_KEY_FILE"]}
-        setupDraftFlow={{
-          host: props.host,
-          setupDraft: props.setupDraft,
-        }}
-        title="Provider tokens"
-        description="GitHub token + SOPS key path. Stored as sealed setup draft and applied during setup apply."
-        headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
-      />
-
       <SettingsSection
-        title="Pre-deploy checks"
-        description="Check readiness and prepare for deploy."
+        title="Repository setup"
+        description="Create and push your Git repo first. Token setup comes after this check."
+        headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
         statusText={statusText}
       >
         <div className="space-y-4">
@@ -150,32 +128,27 @@ export function SetupStepPredeploy(props: {
               </AlertDescription>
             </Alert>
           ) : null}
-
-          {readiness.showFirstPushGuidance ? (
-            <div className="rounded-md border bg-background p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium">First push help</div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void copyText(firstPushGuidance.commands)}
-                >
-                  Copy commands
-                </Button>
-              </div>
-              <div className="text-muted-foreground">
-                {firstPushGuidance.hasUpstream
-                  ? `Upstream detected (${repoStatus.data?.upstream}). Push once, then refresh.`
-                  : "No upstream detected. Set or update origin, push once, then refresh."}
-              </div>
-              <pre className="rounded-md border bg-muted/30 p-2 whitespace-pre-wrap break-words">
-                {firstPushGuidance.commands}
-              </pre>
-            </div>
-          ) : null}
         </div>
       </SettingsSection>
+
+      <DeployCredsCard
+        projectId={props.projectId}
+        visibleKeys={["GITHUB_TOKEN"]}
+        setupDraftFlow={{
+          host: props.host,
+          setupDraft: props.setupDraft,
+        }}
+        title="GitHub access"
+        description="GitHub token used for repository access during setup apply."
+        githubRepoHint="Create the repository first, then create and save a GitHub token with repo access."
+        githubFirstPushGuidance={readiness.showFirstPushGuidance
+          ? {
+              commands: firstPushGuidance.commands,
+              hasUpstream: firstPushGuidance.hasUpstream,
+              upstream: repoStatus.data?.upstream,
+            }
+          : null}
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
+import type { Emoji } from "frimousse"
 import {
   HOST_THEME_COLORS,
   HOST_THEME_DEFAULT_EMOJI,
@@ -201,7 +202,7 @@ function HostThemeEmojiPicker({
       <PopoverContent className="w-[320px] p-0" align="start">
         <EmojiPicker
           className="h-[320px]"
-          onEmojiSelect={(emoji) => {
+          onEmojiSelect={(emoji: Emoji) => {
             onValueChange(emoji.emoji)
             setOpen(false)
           }}

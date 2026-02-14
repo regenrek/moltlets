@@ -69,17 +69,17 @@ export function RunActivityChart(props: { runs: RunRow[] }) {
         </defs>
 
         <CartesianGrid vertical={false} />
-        <XAxis
-          dataKey="date"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          minTickGap={32}
-          tickFormatter={(value) => {
-            const ts = Date.parse(String(value))
-            return Number.isFinite(ts) ? formatShortDate(ts) : String(value)
-          }}
-        />
+	        <XAxis
+	          dataKey="date"
+	          tickLine={false}
+	          axisLine={false}
+	          tickMargin={8}
+	          minTickGap={32}
+	          tickFormatter={(value: unknown) => {
+	            const ts = Date.parse(String(value))
+	            return Number.isFinite(ts) ? formatShortDate(ts) : String(value)
+	          }}
+	        />
 
         <ChartTooltip
           content={(tooltipProps: any) => (

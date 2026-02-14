@@ -1,4 +1,6 @@
-export const RUNNER_FRESHNESS_MS = 30_000
+export const RUNNER_HEARTBEAT_INTERVAL_MS = 30_000
+export const RUNNER_FRESHNESS_GRACE_MULTIPLIER = 2
+export const RUNNER_FRESHNESS_MS = RUNNER_HEARTBEAT_INTERVAL_MS * RUNNER_FRESHNESS_GRACE_MULTIPLIER
 
 export type RunnerPresence = {
   runnerName?: string | null
@@ -18,7 +20,7 @@ export type RunnerNixReadiness = {
 export function isRunnerFreshOnline(runner: RunnerPresence, now = Date.now()): boolean {
   if (runner.lastStatus !== "online") return false
   if (typeof runner.lastSeenAt !== "number" || !Number.isFinite(runner.lastSeenAt)) return false
-  return now - runner.lastSeenAt < RUNNER_FRESHNESS_MS
+  return now - runner.lastSeenAt <= RUNNER_FRESHNESS_MS
 }
 
 export function isProjectRunnerOnline(runners: RunnerPresence[] | null | undefined, now = Date.now()): boolean {

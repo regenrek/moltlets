@@ -60,15 +60,7 @@ export function parseProjectTokenKeyring(raw: unknown): ProjectTokenKeyring {
   try {
     parsed = JSON.parse(json)
   } catch {
-    // Compat: dotenv formatting previously used JSON.stringify(), which results in
-    // values like `{\"items\":...}` after dotenv.parse().
-    try {
-      const unescaped = JSON.parse(`"${json}"`)
-      if (typeof unescaped !== "string") return { items: [] }
-      parsed = JSON.parse(unescaped)
-    } catch {
-      return { items: [] }
-    }
+    return { items: [] }
   }
 
   const root = asRecord(parsed)

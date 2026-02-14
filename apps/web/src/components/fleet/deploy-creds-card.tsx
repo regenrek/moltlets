@@ -36,6 +36,12 @@ type DeployCredsCardProps = {
   description?: ReactNode
   visibleKeys?: ReadonlyArray<(typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]>
   headerBadge?: ReactNode
+  githubRepoHint?: ReactNode
+  githubFirstPushGuidance?: {
+    commands: string
+    hasUpstream: boolean
+    upstream?: string | null
+  } | null
 }
 
 type EditableDeployCredKey = (typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]
@@ -54,11 +60,12 @@ export function DeployCredsCard({
   description = "Local-only operator tokens used by bootstrap, infra, and doctor.",
   visibleKeys,
   headerBadge,
+  githubRepoHint = null,
+  githubFirstPushGuidance = null,
 }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const keysToShow = visibleKeys?.length ? visibleKeys : WEB_DEPLOY_CREDS_EDITABLE_KEYS
   const visibleKeySet = useMemo(() => new Set<string>(keysToShow), [keysToShow])
-  const showHcloudToken = visibleKeySet.has("HCLOUD_TOKEN")
   const showGithubToken = visibleKeySet.has("GITHUB_TOKEN")
   const showSopsAgeKeyFile = visibleKeySet.has("SOPS_AGE_KEY_FILE")
   const setupMode = Boolean(setupDraftFlow)
@@ -97,7 +104,7 @@ export function DeployCredsCard({
   const creds = useQuery({
     queryKey: ["deployCreds", projectId],
     queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
-    enabled: runnerOnline && !setupDraftFlow,
+    enabled: runnerOnline,
   })
 
   const credsByKey = useMemo(() => {
@@ -106,17 +113,31 @@ export function DeployCredsCard({
     return out
   }, [creds.data?.keys])
 
-  const [hcloudToken, setHcloudToken] = useState("")
   const [githubToken, setGithubToken] = useState("")
   const [sopsAgeKeyFileOverride, setSopsAgeKeyFileOverride] = useState<string | undefined>(undefined)
   const [sopsStatus, setSopsStatus] = useState<{ kind: "ok" | "warn" | "error"; message: string } | null>(null)
 
-  const defaultSopsAgeKeyFile = setupMode
-    ? ""
-    : String(credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "")
+  const defaultSopsAgeKeyFile = String(credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "")
   const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
-  const githubTokenRequired = Boolean(setupDraftFlow && showGithubToken)
+  const projectKeyIsSet = (key: EditableDeployCredKey): boolean => credsByKey[key]?.status === "set"
+  const projectVisibleKeysReady = keysToShow.every((key) => projectKeyIsSet(key))
   const setupDraftDeployCredsSet = setupDraftFlow?.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+  const githubTokenRequired = Boolean(
+    setupDraftFlow
+    && showGithubToken
+    && !setupDraftDeployCredsSet
+    && !projectKeyIsSet("GITHUB_TOKEN"),
+  )
+
+  async function copyText(value: string): Promise<void> {
+    if (!value.trim()) return
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      // ignore
+    }
+  }
 
   const pickTargetRunner = () => {
     if (sealedRunners.length === 1) return sealedRunners[0]
@@ -229,7 +250,6 @@ export function DeployCredsCard({
     },
     onSuccess: async (input) => {
       toast.success(input.kind === "remove" ? `${input.key} removed` : `${input.key} saved`)
-      if (input.key === "HCLOUD_TOKEN") setHcloudToken("")
       if (input.key === "GITHUB_TOKEN") setGithubToken("")
       if (input.key === "SOPS_AGE_KEY_FILE") setSopsAgeKeyFileOverride(input.kind === "remove" ? "" : undefined)
       if (setupDraftFlow) await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
@@ -326,12 +346,23 @@ export function DeployCredsCard({
         </div>
       ) : null}
 
-      {!runnerOnline ? null : !setupMode && creds.isPending ? (
+      {!runnerOnline ? null : creds.isPending ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
-      ) : !setupMode && creds.error ? (
+      ) : creds.error ? (
         <div className="text-sm text-destructive">{String(creds.error)}</div>
       ) : (
         <div className="space-y-4">
+          {setupMode && projectVisibleKeysReady ? (
+            <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              {showGithubToken && showSopsAgeKeyFile
+                ? "Project GitHub token and SOPS path already exist."
+                : showGithubToken
+                  ? "Project GitHub token already exists."
+                  : "Project SOPS path already exists."}{" "}
+              Setup reuses project credentials across hosts. Enter values below only to override for this host draft.
+            </div>
+          ) : null}
+
           {setupMode && setupDraftDeployCredsSet ? (
             <div className="text-xs text-muted-foreground">
               Existing setup draft credentials are write-only. Enter new values to replace what is sealed.
@@ -360,46 +391,6 @@ export function DeployCredsCard({
             </StackedField>
           ) : null}
 
-          {showHcloudToken ? (
-            <StackedField id="hcloudToken" label="Hetzner API token" help="Hetzner Cloud API token (HCLOUD_TOKEN).">
-              {keyIsSet("HCLOUD_TOKEN") ? (
-                <InputGroup>
-                  <InputGroupInput id="hcloudToken" readOnly value="Saved for this project" />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      disabled={!canMutateKeys}
-                      pending={keyActionPending("HCLOUD_TOKEN", "remove")}
-                      pendingText="Removing..."
-                      onClick={() => runRemoveKey("HCLOUD_TOKEN")}
-                    >
-                      Remove
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-              ) : (
-                <InputGroup>
-                  <InputGroupInput
-                    id="hcloudToken"
-                    type="password"
-                    value={hcloudToken}
-                    onChange={(e) => setHcloudToken(e.target.value)}
-                    placeholder="Required"
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      disabled={!canMutateKeys || !hcloudToken.trim()}
-                      pending={keyActionPending("HCLOUD_TOKEN", "save")}
-                      pendingText="Saving..."
-                      onClick={() => runSaveKey("HCLOUD_TOKEN", hcloudToken)}
-                    >
-                      Save
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-              )}
-            </StackedField>
-          ) : null}
-
           {showGithubToken ? (
             <StackedField
               id="githubToken"
@@ -408,6 +399,36 @@ export function DeployCredsCard({
                 ? "GitHub token (GITHUB_TOKEN). Required for setup."
                 : "GitHub token (GITHUB_TOKEN)."}
             >
+              {githubRepoHint ? (
+                <div className="mb-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  {githubRepoHint}
+                </div>
+              ) : null}
+
+              {githubFirstPushGuidance ? (
+                <div className="mb-2 rounded-md border bg-muted/20 p-2 text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">First push help</div>
+                    <InputGroupButton
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void copyText(githubFirstPushGuidance.commands)}
+                    >
+                      Copy commands
+                    </InputGroupButton>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {githubFirstPushGuidance.hasUpstream
+                      ? `Upstream detected (${githubFirstPushGuidance.upstream || "configured"}). Push once, then refresh.`
+                      : "No upstream detected. Set or update origin, push once, then refresh."}
+                  </div>
+                  <pre className="rounded-md border bg-muted/30 p-2 whitespace-pre-wrap break-words">
+                    {githubFirstPushGuidance.commands}
+                  </pre>
+                </div>
+              ) : null}
+
               {keyIsSet("GITHUB_TOKEN") ? (
                 <InputGroup>
                   <InputGroupInput id="githubToken" readOnly value="Saved for this project" />

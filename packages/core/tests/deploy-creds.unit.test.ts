@@ -60,7 +60,7 @@ describe("deploy-creds", () => {
     const { dir } = await setupRepo();
     try {
       await mkdir(path.join(dir, ".clawlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await writeFile(path.join(dir, ".clawlets", "env"), ['HCLOUD_TOKEN_KEYRING={"items":[{"id":"default","value":"token"}]}', 'HCLOUD_TOKEN_KEYRING_ACTIVE=default', ""].join("\n"), "utf8");
       await chmod(path.join(dir, ".clawlets", "env"), 0o600);
 
       const loaded = loadDeployCreds({ cwd: dir });
@@ -73,14 +73,15 @@ describe("deploy-creds", () => {
     }
   });
 
-  it("process.env wins over env file", async () => {
+  it("process.env keyring values win over env file", async () => {
     const { dir } = await setupRepo();
     try {
       await mkdir(path.join(dir, ".clawlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=filetoken\n", "utf8");
+      await writeFile(path.join(dir, ".clawlets", "env"), ['HCLOUD_TOKEN_KEYRING={"items":[{"id":"default","value":"filetoken"}]}', 'HCLOUD_TOKEN_KEYRING_ACTIVE=default', ""].join("\n"), "utf8");
       await chmod(path.join(dir, ".clawlets", "env"), 0o600);
 
-      process.env.HCLOUD_TOKEN = "envtoken";
+      process.env.HCLOUD_TOKEN_KEYRING = "{\"items\":[{\"id\":\"default\",\"value\":\"envtoken\"}]}";
+      process.env.HCLOUD_TOKEN_KEYRING_ACTIVE = "default";
 
       const loaded = loadDeployCreds({ cwd: dir });
       expect(loaded.values.HCLOUD_TOKEN).toBe("envtoken");
@@ -90,11 +91,26 @@ describe("deploy-creds", () => {
     }
   });
 
+  it("ignores direct HCLOUD_TOKEN without keyring", async () => {
+    const { dir } = await setupRepo();
+    try {
+      await mkdir(path.join(dir, ".clawlets"), { recursive: true });
+      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=legacy-token\n", "utf8");
+      await chmod(path.join(dir, ".clawlets", "env"), 0o600);
+
+      const loaded = loadDeployCreds({ cwd: dir });
+      expect(loaded.values.HCLOUD_TOKEN).toBeUndefined();
+      expect(loaded.sources.HCLOUD_TOKEN).toBe("unset");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects insecure env file permissions", async () => {
     const { dir } = await setupRepo();
     try {
       await mkdir(path.join(dir, ".clawlets"), { recursive: true });
-      await writeFile(path.join(dir, ".clawlets", "env"), "HCLOUD_TOKEN=token\n", "utf8");
+      await writeFile(path.join(dir, ".clawlets", "env"), ['HCLOUD_TOKEN_KEYRING={"items":[{"id":"default","value":"token"}]}', 'HCLOUD_TOKEN_KEYRING_ACTIVE=default', ""].join("\n"), "utf8");
       await chmod(path.join(dir, ".clawlets", "env"), 0o644);
 
       const loaded = loadDeployCreds({ cwd: dir });
@@ -213,10 +229,14 @@ describe("deploy-creds", () => {
     try {
       const updated = await updateDeployCredsEnvFile({
         repoRoot: dir,
-        updates: { HCLOUD_TOKEN: " token ", NIX_BIN: "" },
+        updates: {
+          HCLOUD_TOKEN_KEYRING: "{\"items\":[{\"id\":\"default\",\"value\":\"token\"}]}",
+          HCLOUD_TOKEN_KEYRING_ACTIVE: "default",
+          NIX_BIN: "",
+        },
       });
       expect(updated.envPath).toBe(path.join(dir, ".clawlets", "env"));
-      expect(updated.updatedKeys).toEqual(["HCLOUD_TOKEN", "NIX_BIN"]);
+      expect(updated.updatedKeys).toEqual(["NIX_BIN", "HCLOUD_TOKEN_KEYRING", "HCLOUD_TOKEN_KEYRING_ACTIVE"]);
 
       const st = await lstat(updated.envPath);
       expect(st.isFile()).toBe(true);
@@ -224,7 +244,8 @@ describe("deploy-creds", () => {
 
       const text = await readFile(updated.envPath, "utf8");
       for (const key of ENV_KEYS) expect(text).toContain(`${key}=`);
-      expect(text).toContain("HCLOUD_TOKEN=token");
+      expect(text).toContain('HCLOUD_TOKEN_KEYRING={"items":[{"id":"default","value":"token"}]}');
+      expect(text).toContain("HCLOUD_TOKEN_KEYRING_ACTIVE=default");
       expect(text).toContain("NIX_BIN=nix");
     } finally {
       await rm(dir, { recursive: true, force: true });

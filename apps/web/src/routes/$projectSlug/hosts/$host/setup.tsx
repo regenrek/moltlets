@@ -30,6 +30,7 @@ import {
 } from "~/components/ui/stepper";
 import { projectsListQueryOptions } from "~/lib/query-options";
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing";
+import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state";
 import type { SetupStepId, SetupStepStatus } from "~/lib/setup/setup-model";
 import {
   SETUP_STEP_IDS,
@@ -98,7 +99,7 @@ const STEP_META: Record<string, { title: string; description: string }> = {
     title: "Tailscale lockdown",
     description: "Enable safer SSH access path",
   },
-  predeploy: { title: "Pre-Deploy", description: "GitHub, SOPS, first push" },
+  predeploy: { title: "Pre-Deploy", description: "GitHub token and first push" },
   deploy: { title: "Install Server", description: "Final check and bootstrap" },
   verify: {
     title: "Secure and Verify",
@@ -372,8 +373,14 @@ function HostSetupPage() {
                   pendingBootstrapSecrets={pendingBootstrapSecrets}
                   hasActiveHcloudToken={setup.hasActiveHcloudToken}
                   hasActiveTailscaleAuthKey={setup.hasActiveTailscaleAuthKey}
+                  hasProjectSopsAgeKeyPath={setup.hasProjectSopsAgeKeyPath}
                   activeTailscaleAuthKey={setup.activeTailscaleAuthKey}
-                  onPendingInfrastructureDraftChange={setPendingInfrastructureDraft}
+                  onPendingInfrastructureDraftChange={(next) => {
+                    setPendingInfrastructureDraft((prev) => ({
+                      ...(prev ?? {}),
+                      ...next,
+                    }));
+                  }}
                   onPendingConnectionDraftChange={setPendingConnectionDraft}
                   onPendingBootstrapSecretsChange={(next) => {
                     setPendingBootstrapSecrets((prev) => ({
@@ -404,6 +411,7 @@ function StepContent(props: {
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets;
   hasActiveHcloudToken: boolean;
   hasActiveTailscaleAuthKey: boolean;
+  hasProjectSopsAgeKeyPath: boolean;
   activeTailscaleAuthKey: string;
   onPendingInfrastructureDraftChange: (next: SetupDraftInfrastructure) => void;
   onPendingConnectionDraftChange: (next: SetupDraftConnection) => void;
@@ -424,8 +432,28 @@ function StepContent(props: {
     pendingBootstrapSecrets,
     hasActiveHcloudToken,
     hasActiveTailscaleAuthKey,
+    hasProjectSopsAgeKeyPath,
     activeTailscaleAuthKey,
   } = props;
+  const desired = React.useMemo(
+    () =>
+      deriveEffectiveSetupDesiredState({
+        config: setup.config,
+        host,
+        setupDraft: setup.setupDraft,
+        pendingNonSecretDraft: {
+          infrastructure: pendingInfrastructureDraft ?? undefined,
+          connection: pendingConnectionDraft ?? undefined,
+        },
+      }),
+    [
+      host,
+      pendingConnectionDraft,
+      pendingInfrastructureDraft,
+      setup.config,
+      setup.setupDraft,
+    ],
+  );
 
   if (stepId === "infrastructure") {
     return (
@@ -445,10 +473,12 @@ function StepContent(props: {
   if (stepId === "connection") {
     return (
       <SetupStepConnection
+        projectId={projectId}
         config={setup.config}
         setupDraft={setup.setupDraft}
         host={host}
         stepStatus={step.status}
+        sopsAgeKeyPathReady={hasProjectSopsAgeKeyPath}
         onDraftChange={props.onPendingConnectionDraftChange}
         adminPassword={pendingBootstrapSecrets.adminPassword}
         onAdminPasswordChange={(value) =>
@@ -465,13 +495,24 @@ function StepContent(props: {
         stepStatus={step.status}
         tailscaleAuthKey={pendingBootstrapSecrets.tailscaleAuthKey}
         hasTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        allowTailscaleUdpIngress={desired.infrastructure.allowTailscaleUdpIngress}
         useTailscaleLockdown={pendingBootstrapSecrets.useTailscaleLockdown}
         onTailscaleAuthKeyChange={(value) =>
           props.onPendingBootstrapSecretsChange({ tailscaleAuthKey: value })
         }
-        onUseTailscaleLockdownChange={(value) =>
-          props.onPendingBootstrapSecretsChange({ useTailscaleLockdown: value })
+        onAllowTailscaleUdpIngressChange={(value) =>
+          props.onPendingInfrastructureDraftChange({
+            allowTailscaleUdpIngress: value,
+          })
         }
+        onUseTailscaleLockdownChange={(value) => {
+          props.onPendingBootstrapSecretsChange({ useTailscaleLockdown: value });
+          if (value) {
+            props.onPendingInfrastructureDraftChange({
+              allowTailscaleUdpIngress: true,
+            });
+          }
+        }}
       />
     );
   }

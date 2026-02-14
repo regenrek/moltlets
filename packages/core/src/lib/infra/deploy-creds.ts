@@ -125,6 +125,60 @@ function trimEnv(v: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+type DeployCredsProjectTokenEntry = { id: string; value: string };
+
+function parseDeployCredsProjectTokenKeyring(raw: string | undefined): DeployCredsProjectTokenEntry[] {
+  const json = trimEnv(raw);
+  if (!json) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  const rows = Array.isArray((parsed as Record<string, unknown>).items)
+    ? (parsed as Record<string, unknown>).items as unknown[]
+    : [];
+
+  const seen = new Set<string>();
+  const out: DeployCredsProjectTokenEntry[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const id = trimEnv((row as Record<string, unknown>).id);
+    const value = trimEnv((row as Record<string, unknown>).value);
+    if (!id || !value) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, value });
+  }
+
+  return out;
+}
+
+function resolveActiveDeployCredsProjectToken(params: {
+  keyringRaw: string | undefined;
+  activeIdRaw: string | undefined;
+}): string | undefined {
+  const keyring = parseDeployCredsProjectTokenKeyring(params.keyringRaw);
+  if (keyring.length === 0) return undefined;
+
+  const activeId = trimEnv(params.activeIdRaw);
+  if (!activeId) return keyring[0]?.value;
+  return keyring.find((entry) => entry.id === activeId)?.value ?? keyring[0]?.value;
+}
+
+function resolveDerivedTokenSource(params: {
+  keyringSource: DeployCredsSource;
+  activeSource: DeployCredsSource;
+}): DeployCredsSource {
+  if (params.keyringSource === "env" || params.activeSource === "env") return "env";
+  if (params.keyringSource === "file" || params.activeSource === "file") return "file";
+  return "unset";
+}
+
 export function renderDeployCredsEnvTemplate(params: { defaultEnvPath?: string; cwd?: string } = {}): string {
   const lines = [
     "# clawlets deploy creds (local-only; never commit)",
@@ -283,6 +337,18 @@ export function loadDeployCreds(params: { cwd: string; runtimeDir?: string; envF
     values[key] = resolvedValue.value;
     sources[key] = resolvedValue.source;
   }
+
+  const resolvedHcloudToken = resolveActiveDeployCredsProjectToken({
+    keyringRaw: values.HCLOUD_TOKEN_KEYRING,
+    activeIdRaw: values.HCLOUD_TOKEN_KEYRING_ACTIVE,
+  });
+  values.HCLOUD_TOKEN = resolvedHcloudToken;
+  sources.HCLOUD_TOKEN = resolvedHcloudToken
+    ? resolveDerivedTokenSource({
+        keyringSource: sources.HCLOUD_TOKEN_KEYRING,
+        activeSource: sources.HCLOUD_TOKEN_KEYRING_ACTIVE,
+      })
+    : "unset";
 
   const sopsAgeKeyFileRaw = values.SOPS_AGE_KEY_FILE ? expandPath(values.SOPS_AGE_KEY_FILE) : undefined;
   values.SOPS_AGE_KEY_FILE = sopsAgeKeyFileRaw

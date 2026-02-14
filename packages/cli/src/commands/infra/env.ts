@@ -147,7 +147,7 @@ export const envInit = defineCommand({
     if (resolved.origin === "explicit") {
       console.log(`note: pass --env-file ${resolved.path} to commands that read deploy creds (bootstrap/infra/lockdown/...).`);
     } else {
-      console.log("next: edit this file and set HCLOUD_TOKEN (required)");
+      console.log("next: configure HCLOUD_TOKEN_KEYRING + HCLOUD_TOKEN_KEYRING_ACTIVE (or use Setup -> Hetzner API keys)");
     }
   },
 });

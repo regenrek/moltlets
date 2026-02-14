@@ -30,14 +30,20 @@ Open:
     <strong>Hetzner setup</strong>
     <br />
     Set <code>HCLOUD_TOKEN</code> and confirm Hetzner host defaults:
-    <code>serverType</code>, <code>location</code>, optional <code>image</code>, and
-    <code>allowTailscaleUdpIngress</code>.
+    <code>serverType</code>, <code>location</code>, optional <code>image</code>.
   </Step>
   <Step>
     <strong>Server Access</strong>
     <br />
     Fill <code>provisioning.adminCidr</code> and add at least one SSH key to{" "}
     <code>fleet.sshAuthorizedKeys</code>. You can add keys inline in Setup or from [SSH keys](/dashboard/ssh-keys).
+  </Step>
+  <Step>
+    <strong>Tailscale lockdown</strong>
+    <br />
+    Enable <code>Use tailscale + lockdown</code> for safer SSH path. Setup auto-enables
+    <code>allowTailscaleUdpIngress</code> when this toggle is enabled, and still allows
+    manual override for relay-only mode.
   </Step>
   <Step>
     <strong>Provider Tokens</strong>
@@ -79,6 +85,8 @@ Non-secret draft fields:
 - `nonSecretDraft.connection.sshExposureMode`
 - `nonSecretDraft.connection.sshKeyCount`
 - `nonSecretDraft.connection.sshAuthorizedKeys`
+
+`allowTailscaleUdpIngress` is controlled in Setup under the Tailscale lockdown step.
 
 Sealed secret section metadata:
 
