@@ -36,6 +36,8 @@ type PendingBootstrapSecrets = {
   useTailscaleLockdown?: boolean
 }
 
+const DEPLOY_CREDS_SUMMARY_STALE_MS = 60_000
+
 export function useSetupModel(params: {
   projectSlug: string
   host: string
@@ -62,6 +64,40 @@ export function useSetupModel(params: {
     () => isProjectRunnerOnline(runners),
     [runners],
   )
+
+  const sealedRunners = React.useMemo(
+    () =>
+      runners
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runners],
+  )
+
+  const [selectedRunnerId, setSelectedRunnerId] = React.useState<string>("")
+  React.useEffect(() => {
+    if (sealedRunners.length === 1) {
+      setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+      return
+    }
+    if (!sealedRunners.some((runner) => String(runner._id) === selectedRunnerId)) {
+      setSelectedRunnerId("")
+    }
+  }, [sealedRunners, selectedRunnerId])
+
+  const targetRunner = React.useMemo(() => {
+    if (sealedRunners.length === 1) return sealedRunners[0] ?? null
+    return sealedRunners.find((runner) => String(runner._id) === selectedRunnerId) ?? null
+  }, [sealedRunners, selectedRunnerId])
 
   const projectConfigsQuery = useQuery({
     ...convexQuery(
@@ -122,34 +158,55 @@ export function useSetupModel(params: {
     ),
   })
 
-  const deployCredsQuery = useQuery({
-    queryKey: ["deployCreds", projectId],
+  const deployCredsSummary = targetRunner?.deployCredsSummary ?? null
+  const targetRunnerId = targetRunner ? String(targetRunner._id) : ""
+  const deployCredsSummaryStale = React.useMemo(() => {
+    const updatedAtMs = Number(deployCredsSummary?.updatedAtMs || 0)
+    if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return true
+    return Date.now() - updatedAtMs > DEPLOY_CREDS_SUMMARY_STALE_MS
+  }, [deployCredsSummary?.updatedAtMs])
+
+  const deployCredsFallbackQuery = useQuery({
+    queryKey: ["deployCredsFallback", projectId, targetRunnerId],
     queryFn: async () => {
       if (!projectId) throw new Error("missing project id")
-      return await getDeployCredsStatus({ data: { projectId } })
+      if (!targetRunnerId) throw new Error("missing target runner id")
+      return await getDeployCredsStatus({
+        data: {
+          projectId,
+          targetRunnerId,
+        },
+      })
     },
-    enabled: Boolean(projectId && isReady && runnerOnline),
+    enabled: Boolean(projectId && isReady && runnerOnline && targetRunnerId && deployCredsSummaryStale),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
 
-  const deployCredsByKey = React.useMemo(() => {
-    const out: Record<string, { status?: "set" | "unset"; value?: string }> = {}
-    for (const row of deployCredsQuery.data?.keys || []) out[row.key] = row
-    return out
-  }, [deployCredsQuery.data?.keys])
+  const fallbackProjectTokenKeyrings = deployCredsFallbackQuery.data?.projectTokenKeyrings
+  const effectiveProjectTokenKeyrings = !deployCredsSummaryStale && deployCredsSummary?.projectTokenKeyrings
+    ? deployCredsSummary.projectTokenKeyrings
+    : fallbackProjectTokenKeyrings ?? deployCredsSummary?.projectTokenKeyrings
+
+  const fallbackHasGithubToken = React.useMemo(
+    () => deployCredsFallbackQuery.data?.keys?.some((row) => row.key === "GITHUB_TOKEN" && row.status === "set") === true,
+    [deployCredsFallbackQuery.data?.keys],
+  )
 
   const hasActiveHcloudToken = React.useMemo(
-    () => deployCredsQuery.data?.projectTokenKeyrings?.hcloud?.hasActive === true,
-    [deployCredsQuery.data?.projectTokenKeyrings?.hcloud?.hasActive],
+    () => effectiveProjectTokenKeyrings?.hcloud?.hasActive === true,
+    [effectiveProjectTokenKeyrings?.hcloud?.hasActive],
   )
   const hasActiveTailscaleAuthKey = React.useMemo(
-    () => deployCredsQuery.data?.projectTokenKeyrings?.tailscale?.hasActive === true,
-    [deployCredsQuery.data?.projectTokenKeyrings?.tailscale?.hasActive],
+    () => effectiveProjectTokenKeyrings?.tailscale?.hasActive === true,
+    [effectiveProjectTokenKeyrings?.tailscale?.hasActive],
   )
   const hasProjectGithubToken = React.useMemo(
-    () => deployCredsByKey["GITHUB_TOKEN"]?.status === "set",
-    [deployCredsByKey],
+    () => {
+      if (!deployCredsSummaryStale) return deployCredsSummary?.hasGithubToken === true
+      return fallbackHasGithubToken || deployCredsSummary?.hasGithubToken === true
+    },
+    [deployCredsSummary?.hasGithubToken, deployCredsSummaryStale, fallbackHasGithubToken],
   )
 
   const projectInitRunsPageQuery = useQuery({
@@ -230,6 +287,12 @@ export function useSetupModel(params: {
     runnersQuery,
     runners,
     runnerOnline,
+    sealedRunners,
+    selectedRunnerId,
+    setSelectedRunnerId,
+    targetRunner,
+    deployCredsSummary,
+    deployCredsSummaryStale,
     config,
     repoProbeOk,
     repoProbeState,

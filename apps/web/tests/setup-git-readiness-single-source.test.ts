@@ -14,7 +14,8 @@ describe("setup git readiness single source", () => {
     const deployCredsCard = readFile("components/fleet/deploy-creds-card.tsx")
     const deploySetup = readFile("components/deploy/deploy-initial-setup.tsx")
 
-    expect(infrastructure).toContain("githubReadiness={{")
+    expect(infrastructure).not.toContain("githubReadiness={{")
+    expect(infrastructure).not.toContain("Git push readiness")
     expect(deployCredsCard).toContain("Git push readiness")
     expect(deployCredsCard).toContain("Revision to deploy")
     expect(deployCredsCard).toContain("Upstream")

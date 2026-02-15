@@ -167,11 +167,13 @@ const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
 const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
-const RUNNER_POST_JOB_IDLE_POLL_MS = 500;
+const RUNNER_POST_JOB_IDLE_POLL_MS = toInt(process.env["RUNNER_POST_JOB_IDLE_POLL_MS"], 100, 0, 5_000);
 const RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS = 2_000;
 const RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT = 0;
 const RUNNER_IDLE_POLL_MS_DEFAULT = 4_000;
 const RUNNER_IDLE_POLL_MAX_MS_DEFAULT = 8_000;
+const TOKEN_KEYRING_MUTATE_ARGS = ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"] as const;
+const TOKEN_KEYRING_MUTATE_ALLOWED_INPUT_KEYS = new Set(["action", "kind", "keyId", "label", "value"]);
 
 // Threat model: this path materializes runtime secrets on disk for execution only.
 // Temp files must be short-lived, owner-only readable, and scrubbed on all terminal paths.
@@ -207,6 +209,15 @@ function computeIdleLeasePollDelayMs(params: {
 
 function metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
   const normalized = {
+    deployCredsSummary: payload.deployCredsSummary
+      ? {
+          envFileOrigin: payload.deployCredsSummary.envFileOrigin,
+          envFileStatus: payload.deployCredsSummary.envFileStatus,
+          hasGithubToken: payload.deployCredsSummary.hasGithubToken,
+          sopsAgeKeyFileSet: payload.deployCredsSummary.sopsAgeKeyFileSet,
+          projectTokenKeyrings: payload.deployCredsSummary.projectTokenKeyrings,
+        }
+      : null,
     projectConfigs: payload.projectConfigs
       .map((row) => ({
         type: row.type,
@@ -667,6 +678,21 @@ function unsealSetupApplyInput(params: {
   };
 }
 
+function payloadMetaArgs(job: RunnerLeaseJob): string[] {
+  return Array.isArray(job.payloadMeta?.args)
+    ? job.payloadMeta.args.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+    : [];
+}
+
+function isTokenKeyringMutateInputJob(job: RunnerLeaseJob): boolean {
+  const args = payloadMetaArgs(job);
+  if (args.length !== TOKEN_KEYRING_MUTATE_ARGS.length) return false;
+  for (let i = 0; i < TOKEN_KEYRING_MUTATE_ARGS.length; i += 1) {
+    if (args[i] !== TOKEN_KEYRING_MUTATE_ARGS[i]) return false;
+  }
+  return true;
+}
+
 function validateSealedInputKeysForJob(params: {
   job: RunnerLeaseJob;
   values: Record<string, string>;
@@ -680,18 +706,38 @@ function validateSealedInputKeysForJob(params: {
 
   const seen = Object.keys(params.values);
   if (params.inputPlaceholder) {
-    const updatedKeys = Array.isArray(params.job.payloadMeta?.updatedKeys)
-      ? params.job.payloadMeta?.updatedKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
-      : [];
-    if (updatedKeys.length === 0) {
-      throw new Error("payloadMeta.updatedKeys required for __RUNNER_INPUT_JSON__ job");
-    }
-    const deployKeySet = new Set<string>(DEPLOY_CREDS_KEYS);
     const allowed = new Set<string>();
-    for (const key of updatedKeys) {
-      if (!deployKeySet.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`);
-      allowed.add(key);
+    const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
+
+    const sealedInputKeys = Array.isArray(params.job.payloadMeta?.sealedInputKeys)
+      ? params.job.payloadMeta?.sealedInputKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+      : [];
+
+    if (sealedInputKeys.length > 0) {
+      if (!isTokenKeyringMutateInputJob(params.job)) {
+        throw new Error("payloadMeta.sealedInputKeys only supported for env token-keyring-mutate jobs");
+      }
+      for (const key of sealedInputKeys) {
+        if (forbiddenKeys.has(key)) throw new Error(`payloadMeta.sealedInputKeys forbids: ${key}`);
+        if (!TOKEN_KEYRING_MUTATE_ALLOWED_INPUT_KEYS.has(key)) {
+          throw new Error(`payloadMeta.sealedInputKeys invalid entry: ${key}`);
+        }
+        allowed.add(key);
+      }
+    } else {
+      const updatedKeys = Array.isArray(params.job.payloadMeta?.updatedKeys)
+        ? params.job.payloadMeta?.updatedKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+        : [];
+      if (updatedKeys.length === 0) {
+        throw new Error("payloadMeta.updatedKeys or payloadMeta.sealedInputKeys required for __RUNNER_INPUT_JSON__ job");
+      }
+      const deployKeySet = new Set<string>(DEPLOY_CREDS_KEYS);
+      for (const key of updatedKeys) {
+        if (!deployKeySet.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`);
+        allowed.add(key);
+      }
     }
+
     for (const key of seen) {
       if (!allowed.has(key)) throw new Error(`sealed input key not allowlisted: ${key}`);
     }

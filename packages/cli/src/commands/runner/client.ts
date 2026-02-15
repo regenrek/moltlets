@@ -21,6 +21,7 @@ export type RunnerLeaseJob = {
     scope?: SecretScope;
     secretNames?: string[];
     updatedKeys?: string[];
+    sealedInputKeys?: string[];
     configPaths?: string[];
     args?: string[];
     note?: string;
@@ -32,6 +33,24 @@ export type RunnerLeaseJob = {
     templateRef?: string;
   };
   attempt: number;
+};
+
+export type RunnerProjectTokenKeyringSummary = {
+  hasActive: boolean;
+  itemCount: number;
+};
+
+export type RunnerDeployCredsSummary = {
+  updatedAtMs: number;
+  envFileOrigin?: "default" | "explicit";
+  envFileStatus?: "ok" | "missing" | "invalid";
+  envFileError?: string;
+  hasGithubToken: boolean;
+  sopsAgeKeyFileSet: boolean;
+  projectTokenKeyrings: {
+    hcloud: RunnerProjectTokenKeyringSummary;
+    tailscale: RunnerProjectTokenKeyringSummary;
+  };
 };
 
 export type RunnerMetadataSyncPayload = {
@@ -89,6 +108,7 @@ export type RunnerMetadataSyncPayload = {
     required: boolean;
     lastVerifiedAt?: number;
   }>;
+  deployCredsSummary?: RunnerDeployCredsSummary;
 };
 
 function trimBase(url: string): string {
@@ -302,6 +322,7 @@ export class RunnerApiClient {
       hosts: params.payload.hosts,
       gateways: params.payload.gateways,
       secretWiring: params.payload.secretWiring,
+      ...(params.payload.deployCredsSummary ? { deployCredsSummary: params.payload.deployCredsSummary } : {}),
     });
   }
 }

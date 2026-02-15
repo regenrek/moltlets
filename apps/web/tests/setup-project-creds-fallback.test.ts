@@ -17,6 +17,8 @@ describe("setup project creds fallback", () => {
     expect(model).toContain("hasProjectGithubToken")
     expect(model).not.toContain("hasProjectSopsAgeKeyPath")
     expect(setupModelHook).toContain("hasProjectGithubToken")
+    expect(setupModelHook).toContain("DEPLOY_CREDS_SUMMARY_STALE_MS")
+    expect(setupModelHook).toContain("getDeployCredsStatus")
     expect(setupModelHook).not.toContain("generateSopsAgeKey")
     expect(deploySetup).toContain("effectiveDeployCredsReady")
     expect(deploySetup).toContain("generateSopsAgeKey")

@@ -16,9 +16,9 @@ describe("setup sops placement", () => {
 
     expect(connectionStep).not.toContain("SetupSopsAgeKeyField")
     expect(connectionStep).not.toContain("SOPS age key path")
-    expect(infrastructureStep).toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
-    expect(infrastructureStep).not.toContain("visibleKeys={[\"GITHUB_TOKEN\", \"SOPS_AGE_KEY_FILE\"]}")
-    expect(infrastructureStep).toContain("title=\"GitHub access\"")
+    expect(infrastructureStep).toContain("updatedKeys: [\"GITHUB_TOKEN\"]")
+    expect(infrastructureStep).toContain("GitHub token queued")
+    expect(infrastructureStep).not.toContain("SOPS_AGE_KEY_FILE")
     expect(setupModel).not.toContain('"predeploy"')
   })
 })

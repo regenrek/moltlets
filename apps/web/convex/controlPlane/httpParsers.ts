@@ -99,8 +99,13 @@ export function sanitizeRunnerRunEventsForStorage(events: unknown[], now = Date.
   return safeEvents;
 }
 
-function asBoundedOptional(value: unknown, field: string, max = CONTROL_PLANE_LIMITS.hash): string | undefined {
+function asBoundedOptional(value: unknown, field: string, max: number = CONTROL_PLANE_LIMITS.hash): string | undefined {
   return ensureOptionalBoundedString(typeof value === "string" ? value : undefined, field, max);
+}
+
+function asNonNegativeInt(value: unknown, max: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(max, Math.trunc(value)));
 }
 
 function fromBase64Url(value: string): Uint8Array {
@@ -164,6 +169,57 @@ export function validateMetadataSyncPayloadSizes(params: {
   if (params.gateways.length > METADATA_SYNC_LIMITS.gateways) return "gateways too large";
   if (params.secretWiring.length > METADATA_SYNC_LIMITS.secretWiring) return "secretWiring too large";
   return null;
+}
+
+export function sanitizeDeployCredsSummary(value: unknown): {
+  updatedAtMs: number;
+  envFileOrigin: "default" | "explicit";
+  envFileStatus: "ok" | "missing" | "invalid";
+  envFileError?: string;
+  hasGithubToken: boolean;
+  sopsAgeKeyFileSet: boolean;
+  projectTokenKeyrings: {
+    hcloud: { hasActive: boolean; itemCount: number };
+    tailscale: { hasActive: boolean; itemCount: number };
+  };
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const updatedAtMs = asNonNegativeInt(row.updatedAtMs, 1_000_000_000_000_000);
+  if (updatedAtMs === null) return null;
+
+  const envFileOrigin = row.envFileOrigin === "explicit" ? "explicit" : "default";
+  const envFileStatus = row.envFileStatus === "ok" || row.envFileStatus === "invalid" ? row.envFileStatus : "missing";
+  const envFileError = asBoundedOptional(row.envFileError, "deployCredsSummary.envFileError", CONTROL_PLANE_LIMITS.projectConfigPath);
+
+  const keyrings =
+    row.projectTokenKeyrings && typeof row.projectTokenKeyrings === "object" && !Array.isArray(row.projectTokenKeyrings)
+      ? row.projectTokenKeyrings as Record<string, unknown>
+      : {};
+  const hcloud =
+    keyrings.hcloud && typeof keyrings.hcloud === "object" && !Array.isArray(keyrings.hcloud)
+      ? keyrings.hcloud as Record<string, unknown>
+      : {};
+  const tailscale =
+    keyrings.tailscale && typeof keyrings.tailscale === "object" && !Array.isArray(keyrings.tailscale)
+      ? keyrings.tailscale as Record<string, unknown>
+      : {};
+
+  const hcloudItemCount = asNonNegativeInt(hcloud.itemCount, 10_000) ?? 0;
+  const tailscaleItemCount = asNonNegativeInt(tailscale.itemCount, 10_000) ?? 0;
+
+  return {
+    updatedAtMs,
+    envFileOrigin,
+    envFileStatus,
+    ...(envFileError ? { envFileError } : {}),
+    hasGithubToken: Boolean(row.hasGithubToken),
+    sopsAgeKeyFileSet: Boolean(row.sopsAgeKeyFileSet),
+    projectTokenKeyrings: {
+      hcloud: { hasActive: Boolean(hcloud.hasActive), itemCount: hcloudItemCount },
+      tailscale: { hasActive: Boolean(tailscale.hasActive), itemCount: tailscaleItemCount },
+    },
+  };
 }
 
 export type ParsedRunnerCapabilities = {

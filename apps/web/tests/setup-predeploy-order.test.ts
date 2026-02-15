@@ -13,9 +13,8 @@ describe("setup github access order", () => {
     const infrastructure = readFile("components/setup/steps/step-infrastructure.tsx")
     const deployCredsCard = readFile("components/fleet/deploy-creds-card.tsx")
 
-    expect(infrastructure).toContain("title=\"GitHub access\"")
-    expect(infrastructure).toContain("githubReadiness={{")
-    expect(infrastructure).toContain("githubFirstPushGuidance={githubReadiness.showFirstPushGuidance")
+    expect(infrastructure).toContain("updatedKeys: [\"GITHUB_TOKEN\"]")
+    expect(infrastructure).toContain("GitHub token queued")
 
     expect(deployCredsCard.indexOf("Git push readiness")).toBeLessThan(deployCredsCard.indexOf("First push help"))
     expect(deployCredsCard.indexOf("First push help")).toBeLessThan(

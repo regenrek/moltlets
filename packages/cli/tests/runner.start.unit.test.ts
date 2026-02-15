@@ -166,7 +166,7 @@ describe("runner job arg mapping", () => {
     ).toThrow(/not allowlisted/i);
   });
 
-  it("requires payloadMeta.updatedKeys for input placeholder jobs", () => {
+  it("requires payloadMeta.updatedKeys or payloadMeta.sealedInputKeys for input placeholder jobs", () => {
     const job = {
       jobId: "job_1",
       runId: "run_1",
@@ -183,7 +183,76 @@ describe("runner job arg mapping", () => {
         inputPlaceholder: true,
         secretsPlaceholder: false,
       }),
-    ).toThrow(/updatedKeys required/i);
+    ).toThrow(/updatedKeys or payloadMeta\.sealedInputKeys required/i);
+  });
+
+  it("accepts token-keyring sealedInputKeys for env token-keyring-mutate jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["action", "kind", "value"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { action: "add", kind: "hcloud", value: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects sealedInputKeys on non token-keyring input jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["HCLOUD_TOKEN"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { HCLOUD_TOKEN: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/only supported for env token-keyring-mutate/i);
+  });
+
+  it("rejects unsupported sealedInputKeys for token-keyring jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["action", "badKey"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { action: "add", badKey: "x" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/invalid entry/i);
   });
 
   it("enforces secretNames allowlist for secrets placeholder jobs", () => {

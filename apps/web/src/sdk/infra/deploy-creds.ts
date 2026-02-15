@@ -12,14 +12,12 @@ import { assertSafeHostName } from "@clawlets/shared/lib/identifiers"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import {
-  generateProjectTokenKeyId,
   maskProjectToken,
   parseProjectTokenKeyring,
-  PROJECT_TOKEN_KEYRING_MAX_ITEMS,
+  PROJECT_TOKEN_KEY_ID_MAX_CHARS,
   PROJECT_TOKEN_KEY_LABEL_MAX_CHARS,
   PROJECT_TOKEN_VALUE_MAX_CHARS,
   resolveActiveProjectTokenEntry,
-  serializeProjectTokenKeyring,
 } from "~/lib/project-token-keyring"
 import { createConvexClient } from "~/server/convex"
 import { requireAdminProjectAccess } from "~/sdk/project"
@@ -89,6 +87,10 @@ export type DeployCredsStatus = {
   projectTokenKeyrings: {
     hcloud: ProjectTokenKeyringSummary
     tailscale: ProjectTokenKeyringSummary
+  }
+  projectTokenKeyringStatuses: {
+    hcloud: ProjectTokenKeyringStatus
+    tailscale: ProjectTokenKeyringStatus
   }
   template: string
 }
@@ -301,6 +303,7 @@ async function runRunnerJsonCommand(params: {
   title: string
   args: string[]
   timeoutMs: number
+  targetRunnerId?: Id<"runners">
 }): Promise<{ runId: Id<"runs">; jobId: Id<"jobs">; json: Record<string, unknown> }> {
   const client = createConvexClient()
   await requireAdminProjectAccess(client, params.projectId)
@@ -311,6 +314,7 @@ async function runRunnerJsonCommand(params: {
     title: params.title,
     args: params.args,
     note: "runner queued from deploy-creds endpoint",
+    targetRunnerId: params.targetRunnerId,
   })
   const terminal = await waitForRunTerminal({
     client,
@@ -361,6 +365,36 @@ async function reserveDeployCredsWrite(params: {
   }
 }
 
+async function reserveProjectTokenKeyringWrite(params: {
+  projectId: Id<"projects">
+  targetRunnerId: Id<"runners">
+  title: string
+  updatedKeys: string[]
+}): Promise<ReserveDeployCredsWriteResult> {
+  const client = createConvexClient()
+  await requireAdminProjectAccess(client, params.projectId)
+  const reserved = await client.mutation(api.controlPlane.jobs.reserveSealedInput, {
+    projectId: params.projectId,
+    kind: "custom",
+    title: params.title,
+    targetRunnerId: params.targetRunnerId,
+    payloadMeta: {
+      args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+      updatedKeys: params.updatedKeys,
+      sealedInputKeys: ["action", "kind", "keyId", "label", "value"],
+      note: "project token keyring sealed input attached at finalize",
+    },
+  })
+  return {
+    runId: reserved.runId,
+    jobId: reserved.jobId,
+    kind: reserved.kind,
+    sealedInputAlg: reserved.sealedInputAlg,
+    sealedInputKeyId: reserved.sealedInputKeyId,
+    sealedInputPubSpkiB64: reserved.sealedInputPubSpkiB64,
+  }
+}
+
 async function finalizeDeployCredsWrite(params: {
   projectId: Id<"projects">
   targetRunnerId: Id<"runners">
@@ -397,7 +431,15 @@ async function finalizeDeployCredsWrite(params: {
 }
 
 export const getDeployCredsStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
+  .inputValidator((data: unknown) => {
+    const base = parseProjectIdInput(data)
+    const d = data as Record<string, unknown>
+    const targetRunnerIdRaw = coerceTrimmedString(d.targetRunnerId)
+    return {
+      ...base,
+      targetRunnerId: targetRunnerIdRaw ? (targetRunnerIdRaw as Id<"runners">) : undefined,
+    }
+  })
   .handler(async ({ data }) => {
     try {
       const result = await runRunnerJsonCommand({
@@ -405,6 +447,7 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
         title: "Deploy creds status",
         args: ["env", "show", "--json"],
         timeoutMs: 20_000,
+        targetRunnerId: data.targetRunnerId,
       })
       const row = result.json
       const rawKeys = parseRunnerDeployCredsStatusKeys(row.keys)
@@ -435,40 +478,22 @@ export const getDeployCredsStatus = createServerFn({ method: "POST" })
             activeIdRaw: byKey.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE?.value,
           }),
         },
+        projectTokenKeyringStatuses: {
+          hcloud: deriveProjectTokenKeyringStatus({
+            kind: "hcloud",
+            keyringRaw: byKey.HCLOUD_TOKEN_KEYRING?.value,
+            activeIdRaw: byKey.HCLOUD_TOKEN_KEYRING_ACTIVE?.value,
+          }),
+          tailscale: deriveProjectTokenKeyringStatus({
+            kind: "tailscale",
+            keyringRaw: byKey.TAILSCALE_AUTH_KEY_KEYRING?.value,
+            activeIdRaw: byKey.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE?.value,
+          }),
+        },
         template: typeof row.template === "string" ? row.template : "",
       } satisfies DeployCredsStatus
     } catch (err) {
       throw new Error(sanitizeErrorMessage(err, "Unable to read deploy creds status. Check runner."), { cause: err })
-    }
-  })
-
-export const getProjectTokenKeyringStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    return {
-      ...base,
-      kind: parseProjectTokenKeyringKind(d.kind),
-    }
-  })
-  .handler(async ({ data }) => {
-    try {
-      const result = await runRunnerJsonCommand({
-        projectId: data.projectId,
-        title: "Project token keyring status",
-        args: ["env", "show", "--json"],
-        timeoutMs: 20_000,
-      })
-      const rawKeys = parseRunnerDeployCredsStatusKeys(result.json.keys)
-      const byKey = indexRunnerDeployCredsStatusKeys(rawKeys)
-      const cfg = PROJECT_TOKEN_KEYRING_KIND_CONFIG[data.kind]
-      return deriveProjectTokenKeyringStatus({
-        kind: data.kind,
-        keyringRaw: byKey[cfg.keyringKey]?.value,
-        activeIdRaw: byKey[cfg.activeKey]?.value,
-      })
-    } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to read project token keyring. Check runner."), { cause: err })
     }
   })
 
@@ -489,6 +514,9 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
     const label = coerceString(d.label).trim()
     const value = coerceString(d.value).trim()
 
+    if (keyId && keyId.length > PROJECT_TOKEN_KEY_ID_MAX_CHARS) {
+      throw new Error(`keyId too long (max ${PROJECT_TOKEN_KEY_ID_MAX_CHARS} chars)`)
+    }
     if (action === "add" && !value) throw new Error("value required")
     if (action === "add" && value.length > PROJECT_TOKEN_VALUE_MAX_CHARS) {
       throw new Error(`value too long (max ${PROJECT_TOKEN_VALUE_MAX_CHARS} chars)`)
@@ -510,72 +538,24 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const cfg = PROJECT_TOKEN_KEYRING_KIND_CONFIG[data.kind]
-    const status = await runRunnerJsonCommand({
-      projectId: data.projectId,
-      title: `Project token keyring update (${cfg.title})`,
-      args: ["env", "show", "--json"],
-      timeoutMs: 20_000,
-    })
-    const rawKeys = parseRunnerDeployCredsStatusKeys(status.json.keys)
-    const byKey = indexRunnerDeployCredsStatusKeys(rawKeys)
-    const currentKeyring = parseProjectTokenKeyring(byKey[cfg.keyringKey]?.value)
-    const currentActive = resolveActiveProjectTokenEntry({
-      keyring: currentKeyring,
-      activeId: coerceTrimmedString(byKey[cfg.activeKey]?.value),
-    })
+    const updatedKeys = data.action === "select"
+      ? [cfg.activeKey]
+      : [cfg.keyringKey, cfg.activeKey]
 
-    let updates: Record<string, string>
-    let updatedKeys: string[]
-
-    if (data.action === "add") {
-      if (currentKeyring.items.length >= PROJECT_TOKEN_KEYRING_MAX_ITEMS) {
-        throw new Error(`keyring full (max ${PROJECT_TOKEN_KEYRING_MAX_ITEMS} items)`)
-      }
-      const existingIds = new Set(currentKeyring.items.map((entry) => entry.id))
-      let id = generateProjectTokenKeyId(data.label)
-      for (let attempt = 0; attempt < 10 && existingIds.has(id); attempt += 1) {
-        id = generateProjectTokenKeyId(`${data.label}-${attempt + 1}`)
-      }
-      if (existingIds.has(id)) throw new Error("could not allocate unique key id")
-
-      const nextItems = [
-        ...currentKeyring.items,
-        {
-          id,
-          label: data.label,
-          value: data.value,
-        },
-      ]
-      updates = {
-        [cfg.keyringKey]: serializeProjectTokenKeyring({ items: nextItems }),
-        [cfg.activeKey]: currentActive?.id || id,
-      }
-      updatedKeys = [cfg.keyringKey, cfg.activeKey]
-    } else if (data.action === "remove") {
-      const nextItems = currentKeyring.items.filter((entry) => entry.id !== data.keyId)
-      if (nextItems.length === currentKeyring.items.length) {
-        throw new Error("key not found")
-      }
-      const nextActiveId = currentActive?.id === data.keyId ? nextItems[0]?.id || "" : currentActive?.id || ""
-      updates = {
-        [cfg.keyringKey]: serializeProjectTokenKeyring({ items: nextItems }),
-        [cfg.activeKey]: nextActiveId,
-      }
-      updatedKeys = [cfg.keyringKey, cfg.activeKey]
-    } else {
-      const nextActive = currentKeyring.items.find((entry) => entry.id === data.keyId)
-      if (!nextActive) throw new Error("key not found")
-      updates = {
-        [cfg.activeKey]: nextActive.id,
-      }
-      updatedKeys = [cfg.activeKey]
-    }
-
-    const reserved = await reserveDeployCredsWrite({
+    const reserved = await reserveProjectTokenKeyringWrite({
       projectId: data.projectId,
       targetRunnerId: data.targetRunnerId,
+      title: `Project token keyring update (${cfg.title})`,
       updatedKeys,
     })
+
+    const payload = {
+      action: data.action,
+      kind: data.kind,
+      ...(data.keyId ? { keyId: data.keyId } : {}),
+      ...(data.label ? { label: data.label } : {}),
+      ...(data.value ? { value: data.value } : {}),
+    }
 
     const aad = `${data.projectId}:${reserved.jobId}:${reserved.kind}:${data.targetRunnerId}`
     const sealedInputB64 = sealForRunnerNode({
@@ -583,7 +563,7 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
       keyId: reserved.sealedInputKeyId,
       alg: reserved.sealedInputAlg,
       aad,
-      plaintextJson: JSON.stringify(updates),
+      plaintextJson: JSON.stringify(payload),
     })
     if (sealedInputB64.length > SEALED_INPUT_B64_MAX_CHARS) {
       throw new Error("sealedInputB64 too large")
@@ -600,18 +580,15 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
       updatedKeys,
     })
 
-    const nextStatus = deriveProjectTokenKeyringStatus({
-      kind: data.kind,
-      keyringRaw: updates[cfg.keyringKey] ?? byKey[cfg.keyringKey]?.value,
-      activeIdRaw: updates[cfg.activeKey] ?? byKey[cfg.activeKey]?.value,
-    })
-
     return {
       ok: true as const,
+      queued: true as const,
       runId: queued.runId,
       jobId: queued.jobId,
       updatedKeys,
-      ...nextStatus,
+      targetRunnerId: data.targetRunnerId,
+      kind: data.kind,
+      action: data.action,
     }
   })
 

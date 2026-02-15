@@ -80,21 +80,21 @@ async function ensureUserByAuthUser(
 
 export async function requireAuthQuery(ctx: QueryCtx): Promise<Authed> {
   const authUser = await authComponent.safeGetAuthUser(ctx);
-  if (!authUser) fail("unauthorized", "sign-in required");
+  if (!authUser) fail("unauthorized", "sign-in required", { reason: "sign_in_required" });
   const obj = asPlainObject(authUser);
   const authUserId = asOptionalString(obj?.["_id"]);
-  if (!authUserId) fail("unauthorized", "invalid auth user");
+  if (!authUserId) fail("unauthorized", "invalid auth user", { reason: "invalid_auth_user" });
   const user = await getUserByAuthUserId(ctx, authUserId);
-  if (!user) fail("unauthorized", "user missing (run users.ensureCurrent)");
+  if (!user) fail("unauthorized", "user missing (run users.ensureCurrent)", { reason: "ensure_current_required" });
   return { user };
 }
 
 export async function requireAuthMutation(ctx: MutationCtx): Promise<Authed> {
   const authUser = await authComponent.safeGetAuthUser(ctx);
-  if (!authUser) fail("unauthorized", "sign-in required");
+  if (!authUser) fail("unauthorized", "sign-in required", { reason: "sign_in_required" });
   const obj = asPlainObject(authUser);
   const authUserId = asOptionalString(obj?.["_id"]);
-  if (!authUserId) fail("unauthorized", "invalid auth user");
+  if (!authUserId) fail("unauthorized", "invalid auth user", { reason: "invalid_auth_user" });
   const picked = {
     _id: authUserId,
     name: typeof obj?.["name"] === "string" ? obj["name"] : null,

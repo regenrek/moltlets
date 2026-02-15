@@ -25,6 +25,8 @@ import { parseAgeKeyFile } from "@clawlets/core/lib/security/age";
 import { ageKeygen } from "@clawlets/core/lib/security/age-keygen";
 import { assertSafeHostName, sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
+import { maskProjectTokenKeyringRaw } from "@clawlets/shared/lib/project-token-keyring";
+import { envTokenKeyringMutate } from "./env-token-keyring-mutate.js";
 
 function resolveEnvFilePath(params: { cwd: string; runtimeDir?: string; envFileArg?: unknown }): { path: string; origin: "default" | "explicit" } {
   const repoRoot = findRepoRoot(params.cwd);
@@ -102,6 +104,10 @@ function buildDeployCredsStatus(params: { cwd: string; runtimeDir?: string; envF
     const status = value ? "set" : "unset";
     const exposeSecretValue = isDeployCredsSecretKey(key) && DEPLOY_CREDS_JSON_EXPOSE_SECRET_VALUES.has(key);
     if (isDeployCredsSecretKey(key) && !exposeSecretValue) return { key, source, status };
+    if (key === "HCLOUD_TOKEN_KEYRING" || key === "TAILSCALE_AUTH_KEY_KEYRING") {
+      const masked = maskProjectTokenKeyringRaw(value ? String(value) : "");
+      return { key, source, status, value: masked || undefined };
+    }
     return { key, source, status, value: value ? String(value) : undefined };
   });
   return {
@@ -474,6 +480,7 @@ export const env = defineCommand({
     show: envShow,
     "detect-age-key": envDetectAgeKey,
     "generate-age-key": envGenerateAgeKey,
+    "token-keyring-mutate": envTokenKeyringMutate,
     "apply-json": envApplyJson,
   },
 });

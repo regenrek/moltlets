@@ -172,6 +172,7 @@ export const JobPayloadMeta = v.object({
   scope: v.optional(JobSecretScope),
   secretNames: v.optional(v.array(v.string())),
   updatedKeys: v.optional(v.array(v.string())),
+  sealedInputKeys: v.optional(v.array(v.string())),
   configPaths: v.optional(v.array(v.string())),
   args: v.optional(v.array(v.string())),
   note: v.optional(v.string()),
@@ -191,6 +192,25 @@ export const RunnerCapabilities = v.object({
   hasNix: v.optional(v.boolean()),
   nixBin: v.optional(v.string()),
   nixVersion: v.optional(v.string()),
+});
+
+export const DeployEnvFileOrigin = v.union(v.literal("default"), v.literal("explicit"));
+export const DeployEnvFileStatus = v.union(v.literal("ok"), v.literal("missing"), v.literal("invalid"));
+export const RunnerProjectTokenKeyringSummary = v.object({
+  hasActive: v.boolean(),
+  itemCount: v.number(),
+});
+export const RunnerDeployCredsSummary = v.object({
+  updatedAtMs: v.number(),
+  envFileOrigin: DeployEnvFileOrigin,
+  envFileStatus: DeployEnvFileStatus,
+  envFileError: v.optional(v.string()),
+  hasGithubToken: v.boolean(),
+  sopsAgeKeyFileSet: v.boolean(),
+  projectTokenKeyrings: v.object({
+    hcloud: RunnerProjectTokenKeyringSummary,
+    tailscale: RunnerProjectTokenKeyringSummary,
+  }),
 });
 export const SetupDraftStatus = v.union(
   v.literal("draft"),
@@ -369,6 +389,7 @@ const schema = defineSchema({
     lastStatus: RunnerStatus,
     version: v.optional(v.string()),
     capabilities: v.optional(RunnerCapabilities),
+    deployCredsSummary: v.optional(RunnerDeployCredsSummary),
   })
     .index("by_project", ["projectId"])
     .index("by_project_runner", ["projectId", "runnerName"]),

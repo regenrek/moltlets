@@ -3,13 +3,77 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { loadFullConfig, type ClawletsConfig } from "@clawlets/core/lib/config/clawlets-config";
 import { getRepoLayout, getHostSecretsDir } from "@clawlets/core/repo-layout";
+import { loadDeployCreds, resolveActiveDeployCredsProjectToken } from "@clawlets/core/lib/infra/deploy-creds";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
 import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
-import type { RunnerMetadataSyncPayload } from "./client.js";
+import type { RunnerDeployCredsSummary, RunnerMetadataSyncPayload } from "./client.js";
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
+}
+
+function parseKeyringItemCount(raw: unknown): number {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  if (!text) return 0;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return 0;
+    const items = Array.isArray((parsed as Record<string, unknown>).items)
+      ? (parsed as Record<string, unknown>).items as unknown[]
+      : [];
+    return Math.max(0, Math.min(10_000, items.length));
+  } catch {
+    return 0;
+  }
+}
+
+function toDeployCredsSummary(params: { repoRoot: string; now: number }): RunnerDeployCredsSummary {
+  try {
+    const creds = loadDeployCreds({ cwd: params.repoRoot });
+    const envFileOrigin = creds.envFile?.origin ?? "default";
+    const envFileStatus = creds.envFile?.status ?? "missing";
+    const envFileError = creds.envFile?.error ? sanitizeMetadataErrorMessage(creds.envFile.error, "env read failed") : undefined;
+    const hcloudHasActive = Boolean(resolveActiveDeployCredsProjectToken({
+      keyringRaw: creds.values.HCLOUD_TOKEN_KEYRING,
+      activeIdRaw: creds.values.HCLOUD_TOKEN_KEYRING_ACTIVE,
+    }));
+    const tailscaleHasActive = Boolean(resolveActiveDeployCredsProjectToken({
+      keyringRaw: creds.values.TAILSCALE_AUTH_KEY_KEYRING,
+      activeIdRaw: creds.values.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE,
+    }));
+    return {
+      updatedAtMs: params.now,
+      envFileOrigin,
+      envFileStatus,
+      ...(envFileError ? { envFileError } : {}),
+      hasGithubToken: Boolean(String(creds.values.GITHUB_TOKEN || "").trim()),
+      sopsAgeKeyFileSet: Boolean(String(creds.values.SOPS_AGE_KEY_FILE || "").trim()),
+      projectTokenKeyrings: {
+        hcloud: {
+          hasActive: hcloudHasActive,
+          itemCount: parseKeyringItemCount(creds.values.HCLOUD_TOKEN_KEYRING),
+        },
+        tailscale: {
+          hasActive: tailscaleHasActive,
+          itemCount: parseKeyringItemCount(creds.values.TAILSCALE_AUTH_KEY_KEYRING),
+        },
+      },
+    };
+  } catch (err) {
+    return {
+      updatedAtMs: params.now,
+      envFileOrigin: "default",
+      envFileStatus: "invalid",
+      envFileError: sanitizeMetadataErrorMessage(err, "deploy creds read failed"),
+      hasGithubToken: false,
+      sopsAgeKeyFileSet: false,
+      projectTokenKeyrings: {
+        hcloud: { hasActive: false, itemCount: 0 },
+        tailscale: { hasActive: false, itemCount: 0 },
+      },
+    };
+  }
 }
 
 function listGatewayIds(hostCfg: any): string[] {
@@ -118,6 +182,7 @@ export async function buildMetadataSnapshot(params: {
     gateways: [],
     secretWiring: [],
   };
+  payload.deployCredsSummary = toDeployCredsSummary({ repoRoot: params.repoRoot, now: Date.now() });
 
   const configFiles: Array<{ type: "fleet" | "raw"; path: string }> = [
     { type: "fleet", path: layout.clawletsConfigPath },

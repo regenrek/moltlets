@@ -18,6 +18,7 @@ import {
   ProviderConfigSummary,
   ProviderType,
   RunnerCapabilities,
+  RunnerDeployCredsSummary,
   RunnerStatus,
   Role,
   SetupDraftNonSecret,
@@ -165,6 +166,7 @@ export const RunnerDoc = v.object({
   lastStatus: RunnerStatus,
   version: v.optional(v.string()),
   capabilities: v.optional(RunnerCapabilities),
+  deployCredsSummary: v.optional(RunnerDeployCredsSummary),
 });
 
 export const RunnerTokenDoc = v.object({

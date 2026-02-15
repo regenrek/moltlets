@@ -470,4 +470,111 @@ describe("env commands", () => {
     expect(envText).toContain("HCLOUD_TOKEN=token-1");
     expect(envText).toContain("GITHUB_TOKEN=token-2");
   });
+
+  it("env token-keyring-mutate adds a key and sets active id", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-add-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING: "",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "unset",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "unset",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "add",
+        label: "Laptop",
+        value: "hcloud-secret-1",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any);
+    const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+    expect(payload.ok).toBe(true);
+    expect(payload.kind).toBe("hcloud");
+    expect(payload.action).toBe("add");
+    expect(payload.itemCount).toBe(1);
+    expect(payload.hasActive).toBe(true);
+    expect(typeof payload.keyId).toBe("string");
+
+    const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING=");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING_ACTIVE=");
+  });
+
+  it("env token-keyring-mutate remove updates active id fallback", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-remove-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING:
+          '{"items":[{"id":"a","label":"A","value":"tok-a"},{"id":"b","label":"B","value":"tok-b"}]}',
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "a",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "file",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "file",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate-remove.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "remove",
+        keyId: "a",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any);
+    const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+    expect(payload.ok).toBe(true);
+    expect(payload.itemCount).toBe(1);
+    expect(payload.hasActive).toBe(true);
+    expect(payload.updatedKeys).toEqual(["HCLOUD_TOKEN_KEYRING", "HCLOUD_TOKEN_KEYRING_ACTIVE"]);
+
+    const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING_ACTIVE=b");
+  });
+
+  it("env token-keyring-mutate rejects unknown select id", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-select-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING: '{"items":[{"id":"a","label":"A","value":"tok-a"}]}',
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "a",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "file",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "file",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate-select.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "select",
+        keyId: "missing",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await expect(
+      envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any),
+    ).rejects.toThrow(/key not found/i);
+  });
 });

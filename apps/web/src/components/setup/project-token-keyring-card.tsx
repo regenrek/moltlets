@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
-import { PROJECT_TOKEN_VALUE_MAX_CHARS } from "~/lib/project-token-keyring"
+import { generateProjectTokenKeyId, maskProjectToken, PROJECT_TOKEN_VALUE_MAX_CHARS } from "~/lib/project-token-keyring"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
@@ -16,7 +16,12 @@ import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { getProjectTokenKeyringStatus, mutateProjectTokenKeyring } from "~/sdk/infra"
+import {
+  getDeployCredsStatus,
+  mutateProjectTokenKeyring,
+  type DeployCredsStatus,
+  type ProjectTokenKeyringStatus,
+} from "~/sdk/infra"
 
 type ProjectTokenKeyringKind = "hcloud" | "tailscale"
 type KeyringMutationAction = "add" | "remove" | "select"
@@ -36,6 +41,19 @@ const KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, KeyringKindConfig> = 
     valuePlaceholder: "tskey-auth-...",
   },
 }
+
+const KEYRING_ENV_KEYS = {
+  hcloud: {
+    keyringKey: "HCLOUD_TOKEN_KEYRING",
+    activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE",
+  },
+  tailscale: {
+    keyringKey: "TAILSCALE_AUTH_KEY_KEYRING",
+    activeKey: "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE",
+  },
+} as const
+
+const DEPLOY_CREDS_RECONCILE_DELAYS_MS = [800, 2_000, 5_000] as const
 
 export function ProjectTokenKeyringCard(props: {
   projectId: Id<"projects">
@@ -87,20 +105,30 @@ export function ProjectTokenKeyringCard(props: {
     }
   }, [sealedRunners, selectedRunnerId])
 
-  const keyring = useQuery({
-    queryKey: ["projectTokenKeyring", props.projectId, props.kind],
-    queryFn: async () => await getProjectTokenKeyringStatus({
+  const selectedRunner = useMemo(
+    () => {
+      if (sealedRunners.length === 1) return sealedRunners[0]
+      return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
+    },
+    [sealedRunners, selectedRunnerId],
+  )
+  const readTargetRunnerId = selectedRunner ? String(selectedRunner._id) : ""
+
+  const deployCreds = useQuery({
+    queryKey: ["deployCreds", props.projectId, readTargetRunnerId],
+    queryFn: async () => await getDeployCredsStatus({
       data: {
         projectId: props.projectId,
-        kind: props.kind,
+        ...(readTargetRunnerId ? { targetRunnerId: readTargetRunnerId } : {}),
       },
     }),
-    enabled: runnerOnline,
+    enabled: runnerOnline && (sealedRunners.length === 1 || Boolean(readTargetRunnerId)),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
 
-  const entries = keyring.data?.items ?? []
+  const keyring = deployCreds.data?.projectTokenKeyringStatuses?.[props.kind] ?? null
+  const entries = keyring?.items ?? []
   const activeEntry = useMemo(
     () => entries.find((entry) => entry.isActive) ?? null,
     [entries],
@@ -110,17 +138,12 @@ export function ProjectTokenKeyringCard(props: {
   const [newLabel, setNewLabel] = useState("")
   const [newValue, setNewValue] = useState("")
 
-  const pickTargetRunner = () => {
-    if (sealedRunners.length === 1) return sealedRunners[0]
-    return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
-  }
-
   const writeKeyring = useMutation({
     mutationFn: async (input: { action: KeyringMutationAction; keyId?: string; label?: string; value?: string }) => {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (sealedRunners.length === 0) throw new Error("No sealed-capable runner online. Upgrade runner.")
 
-      const runner = pickTargetRunner()
+      const runner = selectedRunner
       if (!runner) throw new Error("Select a sealed-capable runner")
 
       return await mutateProjectTokenKeyring({
@@ -135,15 +158,87 @@ export function ProjectTokenKeyringCard(props: {
         },
       })
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: (_data, variables) => {
       if (variables.action === "add") {
         setAddOpen(false)
         setNewLabel("")
         setNewValue("")
       }
-      toast.success(`${cfg.label} settings updated`)
-      await queryClient.invalidateQueries({ queryKey: ["projectTokenKeyring", props.projectId, props.kind] })
-      await queryClient.invalidateQueries({ queryKey: ["deployCreds", props.projectId] })
+      queryClient.setQueryData<DeployCredsStatus | undefined>(
+        ["deployCreds", props.projectId, readTargetRunnerId],
+        (current) => {
+          if (!current) return current
+          const cfg = KEYRING_ENV_KEYS[props.kind]
+          const currentKeyring = current.projectTokenKeyringStatuses?.[props.kind]
+          const currentItems = currentKeyring?.items ?? []
+          const currentActiveId = String(currentKeyring?.activeId || "").trim()
+          const currentActive = currentItems.find((row) => row.isActive) ?? null
+
+          const action = variables.action
+          const keyId = String(variables.keyId || "").trim()
+          const label = String(variables.label || "").trim()
+          const value = String(variables.value || "")
+
+          let nextItems = currentItems
+          let nextActiveId = currentActiveId
+
+          if (action === "add") {
+            const id = keyId || generateProjectTokenKeyId(label)
+            const maskedValue = maskProjectToken(value)
+            const nextLabel = label || "Key"
+            if (currentItems.some((row) => row.id === id)) return current
+            nextItems = [
+              ...currentItems,
+              { id, label: nextLabel, maskedValue, isActive: false },
+            ]
+            if (!currentActive) nextActiveId = id
+          } else if (action === "remove") {
+            if (!keyId) return current
+            const removed = currentItems.find((row) => row.id === keyId) ?? null
+            nextItems = currentItems.filter((row) => row.id !== keyId)
+            if (!removed) return current
+            if (removed.isActive) nextActiveId = nextItems[0]?.id || ""
+          } else if (action === "select") {
+            if (!keyId) return current
+            if (!currentItems.some((row) => row.id === keyId)) return current
+            nextActiveId = keyId
+          }
+
+          nextItems = nextItems.map((row) => ({ ...row, isActive: row.id === nextActiveId }))
+          const hasActive = nextItems.some((row) => row.isActive)
+          const nextKeyring: ProjectTokenKeyringStatus = {
+            kind: props.kind,
+            keyringKey: cfg.keyringKey,
+            activeKey: cfg.activeKey,
+            activeId: nextActiveId,
+            hasActive,
+            items: nextItems,
+          }
+          return {
+            ...current,
+            projectTokenKeyrings: {
+              ...current.projectTokenKeyrings,
+              [props.kind]: {
+                activeId: nextKeyring.activeId,
+                itemCount: nextKeyring.items.length,
+                hasActive: nextKeyring.hasActive,
+              },
+            },
+            projectTokenKeyringStatuses: {
+              ...current.projectTokenKeyringStatuses,
+              [props.kind]: nextKeyring,
+            },
+          }
+        },
+      )
+
+      for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+        setTimeout(() => {
+          void queryClient.invalidateQueries({ queryKey: ["deployCreds", props.projectId] })
+        }, delayMs)
+      }
+
+      toast.success(`${cfg.label} update queued`)
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -169,8 +264,10 @@ export function ProjectTokenKeyringCard(props: {
       toast.error(`Token too long (max ${PROJECT_TOKEN_VALUE_MAX_CHARS} characters)`)
       return
     }
+    const keyId = generateProjectTokenKeyId(newLabel.trim())
     void writeKeyring.mutate({
       action: "add",
+      keyId,
       label: newLabel.trim(),
       value,
     })
@@ -195,10 +292,10 @@ export function ProjectTokenKeyringCard(props: {
         <div className="text-sm text-destructive">No online runner advertises sealed input. Upgrade runner and retry.</div>
       ) : null}
 
-      {!runnerOnline ? null : keyring.isPending ? (
+      {!runnerOnline ? null : deployCreds.isPending ? (
         <div className="text-muted-foreground text-sm">Loading...</div>
-      ) : keyring.error ? (
-        <div className="text-sm text-destructive">{String(keyring.error)}</div>
+      ) : deployCreds.error ? (
+        <div className="text-sm text-destructive">{String(deployCreds.error)}</div>
       ) : (
         <div className="space-y-4">
           {sealedRunners.length > 1 ? (

@@ -21,7 +21,15 @@ export function SetupStepDeploy(props: {
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets
   hasProjectGithubToken: boolean
   hasActiveTailscaleAuthKey: boolean
+  isVisible: boolean
 }) {
+  if (!props.isVisible) {
+    return (
+      <div className="text-xs text-muted-foreground">
+        Deploy checks load when this step is visible.
+      </div>
+    )
+  }
   return (
     <DeployInitialInstall
       projectSlug={props.projectSlug}

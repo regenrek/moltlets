@@ -72,6 +72,7 @@ async function loadSdk(params: {
     return null as any
   })
   const query = vi.fn(async () => params.runners || [])
+  const enqueueRunnerCommandMock = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
@@ -83,7 +84,7 @@ async function loadSdk(params: {
     const actual = await importOriginal<typeof import("~/sdk/runtime")>()
     return {
       ...actual,
-      enqueueRunnerCommand: async () => ({ runId: "run_1", jobId: "job_1" }),
+      enqueueRunnerCommand: enqueueRunnerCommandMock,
       waitForRunTerminal: async () => ({ status: "succeeded" }),
       listRunMessages: async () => [JSON.stringify(params.runnerJson)],
       parseLastJsonMessage: (messages: string[]) => {
@@ -95,7 +96,7 @@ async function loadSdk(params: {
   })
 
   const mod = await import("~/sdk/infra/deploy-creds")
-  return { mod, mutation, query }
+  return { mod, mutation, query, enqueueRunnerCommandMock }
 }
 
 describe("deploy creds runner queue", () => {
@@ -122,6 +123,28 @@ describe("deploy creds runner queue", () => {
     )
     expect(res.defaultEnvPath).toBe("/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env")
     expect(res.keys).toEqual([{ key: "HCLOUD_TOKEN", source: "file", status: "set" }])
+  })
+
+  it("targets selected runner when fetching deploy creds status", async () => {
+    const { mod, enqueueRunnerCommandMock } = await loadSdk({
+      runnerJson: {
+        keys: [{ key: "HCLOUD_TOKEN", source: "file", status: "set" }],
+      },
+    })
+    const ctx = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    await runWithStartContext(ctx, async () =>
+      mod.getDeployCredsStatus({
+        data: { projectId: "p1" as any, targetRunnerId: "runner_target" },
+      }),
+    )
+    const enqueuePayload = (enqueueRunnerCommandMock.mock.calls as any[])
+      .map((call) => call?.[0])
+      .find((payload) => Array.isArray(payload?.args))
+    expect(enqueuePayload?.targetRunnerId).toBe("runner_target")
   })
 
   it("prefers ephemeral command result for deploy creds status", async () => {
@@ -216,15 +239,16 @@ describe("deploy creds runner queue", () => {
       executedRequestMiddlewares: new Set(),
     }
     const res = await runWithStartContext(ctx, async () =>
-      mod.getProjectTokenKeyringStatus({
-        data: { projectId: "p1" as any, kind: "hcloud" },
+      mod.getDeployCredsStatus({
+        data: { projectId: "p1" as any },
       }),
     )
-    expect(res.kind).toBe("hcloud")
-    expect(res.hasActive).toBe(true)
-    expect(res.items[0]?.id).toBe("default")
-    expect(res.items[0]?.maskedValue).not.toContain("secret-token")
-    expect("value" in (res.items[0] || {})).toBe(false)
+    const keyring = res.projectTokenKeyringStatuses.hcloud
+    expect(keyring.kind).toBe("hcloud")
+    expect(keyring.hasActive).toBe(true)
+    expect(keyring.items[0]?.id).toBe("default")
+    expect(keyring.items[0]?.maskedValue).not.toContain("secret-token")
+    expect("value" in (keyring.items[0] || {})).toBe(false)
   })
 
   it("reads detected age key candidates from runner JSON", async () => {

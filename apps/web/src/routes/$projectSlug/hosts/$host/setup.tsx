@@ -16,6 +16,8 @@ import { SetupStepDeploy } from "~/components/setup/steps/step-deploy";
 import { SetupStepInfrastructure } from "~/components/setup/steps/step-infrastructure";
 import { SetupStepTailscaleLockdown } from "~/components/setup/steps/step-tailscale-lockdown";
 import { SetupStepVerify } from "~/components/setup/steps/step-verify";
+import { LabelWithHelp } from "~/components/ui/label-help";
+import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import {
   Stepper,
   StepperContent,
@@ -333,6 +335,31 @@ function HostSetupPage() {
         isChecking={setup.runnersQuery.isPending}
       />
 
+      {setup.sealedRunners.length > 1 ? (
+        <div className="rounded-lg border bg-muted/20 px-4 py-3">
+          <div className="space-y-2">
+            <LabelWithHelp
+              htmlFor="setupTargetRunner"
+              help="Project credentials are runner-local. When multiple runners are online, choose the runner that owns your credentials."
+            >
+              Target runner
+            </LabelWithHelp>
+            <NativeSelect
+              id="setupTargetRunner"
+              value={setup.selectedRunnerId}
+              onChange={(event) => setup.setSelectedRunnerId(event.target.value)}
+            >
+              <NativeSelectOption value="">Select runner...</NativeSelectOption>
+              {setup.sealedRunners.map((runner) => (
+                <NativeSelectOption key={runner._id} value={String(runner._id)}>
+                  {runner.runnerName}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+      ) : null}
+
       <SetupHeader
         title="Setup your first host"
         description="Runner setup is complete. Configure this first host so deploy and runtime operations can proceed for this project."
@@ -413,6 +440,7 @@ function HostSetupPage() {
               >
                 <StepContent
                   stepId={step.id as SetupStepId}
+                  isVisible={visibleStepId === step.id}
                   step={step}
                   projectId={projectId as Id<"projects">}
                   projectSlug={projectSlug}
@@ -450,6 +478,7 @@ function HostSetupPage() {
 
 function StepContent(props: {
   stepId: SetupStepId;
+  isVisible: boolean;
   step: { id: string; status: SetupStepStatus };
   projectId: Id<"projects">;
   projectSlug: string;
@@ -470,6 +499,7 @@ function StepContent(props: {
 }) {
   const {
     stepId,
+    isVisible,
     step,
     projectId,
     projectSlug,
@@ -507,11 +537,15 @@ function StepContent(props: {
       <SetupStepInfrastructure
         key={`${host}:${setup.config ? "ready" : "loading"}`}
         projectId={projectId}
+        projectSlug={projectSlug}
         config={setup.config}
         setupDraft={setup.setupDraft}
         host={host}
         hasActiveHcloudToken={hasActiveHcloudToken}
+        hasProjectGithubToken={hasProjectGithubToken}
+        targetRunner={setup.targetRunner}
         stepStatus={step.status}
+        isVisible={isVisible}
         onDraftChange={props.onPendingInfrastructureDraftChange}
       />
     );
@@ -538,10 +572,13 @@ function StepContent(props: {
     return (
       <SetupStepTailscaleLockdown
         projectId={projectId}
+        projectSlug={projectSlug}
         stepStatus={step.status}
         hasTailscaleAuthKey={hasActiveTailscaleAuthKey}
         allowTailscaleUdpIngress={desired.infrastructure.allowTailscaleUdpIngress}
         useTailscaleLockdown={pendingBootstrapSecrets.useTailscaleLockdown}
+        targetRunner={setup.targetRunner}
+        isVisible={isVisible}
         onAllowTailscaleUdpIngressChange={(value) =>
           props.onPendingInfrastructureDraftChange({
             allowTailscaleUdpIngress: value,
@@ -573,6 +610,7 @@ function StepContent(props: {
         pendingBootstrapSecrets={pendingBootstrapSecrets}
         hasProjectGithubToken={hasProjectGithubToken}
         hasActiveTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        isVisible={isVisible}
       />
     );
   }

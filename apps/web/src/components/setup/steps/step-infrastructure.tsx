@@ -1,14 +1,9 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { useEffect, useMemo, useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
-import { api } from "../../../../convex/_generated/api"
-import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
-import {
-  deriveDeployReadiness,
-  deriveFirstPushGuidance,
-} from "~/components/deploy/deploy-setup-model"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
+import { AsyncButton } from "~/components/ui/async-button"
 import {
   HETZNER_LOCATION_OPTIONS,
   HETZNER_SERVER_TYPE_OPTIONS,
@@ -21,16 +16,18 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/
 import { Input } from "~/components/ui/input"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
+import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import { PROJECT_TOKEN_KEY_LABEL_MAX_CHARS, PROJECT_TOKEN_VALUE_MAX_CHARS } from "~/lib/project-token-keyring"
+import { sealForRunner } from "~/lib/security/sealed-input"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
-import { gitRepoStatus } from "~/sdk/vcs"
+import { finalizeDeployCreds, mutateProjectTokenKeyring, updateDeployCreds } from "~/sdk/infra"
 import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -84,13 +81,27 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
   }
 }
 
+type SealedRunnerTarget = {
+  _id: Id<"runners">
+  runnerName: string
+  capabilities?: {
+    sealedInputPubSpkiB64?: string
+    sealedInputKeyId?: string
+    sealedInputAlg?: string
+  } | null
+} | null
+
 export function SetupStepInfrastructure(props: {
   projectId: Id<"projects">
+  projectSlug: string
   config: SetupConfig | null
   setupDraft: SetupDraftView | null
   host: string
   hasActiveHcloudToken: boolean
+  hasProjectGithubToken: boolean
+  targetRunner: SealedRunnerTarget
   stepStatus: SetupStepStatus
+  isVisible: boolean
   onDraftChange: (next: SetupDraftInfrastructure) => void
 }) {
   const defaults = resolveHostDefaults(props.config, props.host, props.setupDraft)
@@ -112,30 +123,106 @@ export function SetupStepInfrastructure(props: {
     ...(resolvedLocation.length > 0 ? [] : ["hetzner.location"]),
     ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
   ]
-  const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
+  const missingCreds = [
+    ...(props.targetRunner ? [] : ["target runner"]),
+    ...(props.hasActiveHcloudToken ? [] : ["active Hetzner API key"]),
+    ...(props.hasProjectGithubToken ? [] : ["GitHub token"]),
+  ]
+
+  const [hcloudLabel, setHcloudLabel] = useState("")
+  const [hcloudToken, setHcloudToken] = useState("")
+  const [githubToken, setGithubToken] = useState("")
+
+  const addHcloudKey = useMutation({
+    mutationFn: async () => {
+      if (!props.targetRunner) throw new Error("Select a sealed-capable runner above.")
+      const label = hcloudLabel.trim()
+      const value = hcloudToken.trim()
+      if (!value) throw new Error("Hetzner API key is required")
+      if (value.length > PROJECT_TOKEN_VALUE_MAX_CHARS) {
+        throw new Error(`Token too long (max ${PROJECT_TOKEN_VALUE_MAX_CHARS} characters)`)
+      }
+      if (label.length > PROJECT_TOKEN_KEY_LABEL_MAX_CHARS) {
+        throw new Error(`Label too long (max ${PROJECT_TOKEN_KEY_LABEL_MAX_CHARS} characters)`)
+      }
+      return await mutateProjectTokenKeyring({
+        data: {
+          projectId: props.projectId,
+          kind: "hcloud",
+          action: "add",
+          targetRunnerId: String(props.targetRunner._id) as Id<"runners">,
+          label,
+          value,
+        },
+      })
+    },
+    onSuccess: () => {
+      toast.success("Hetzner key queued")
+      setHcloudLabel("")
+      setHcloudToken("")
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : String(err))
+    },
   })
-  const runnerOnline = useMemo(
-    () => isProjectRunnerOnline(runnersQuery.data ?? []),
-    [runnersQuery.data],
-  )
-  const repoStatus = useQuery({
-    queryKey: ["gitRepoStatus", props.projectId],
-    queryFn: async () => await gitRepoStatus({ data: { projectId: props.projectId } }),
-    enabled: runnerOnline,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+
+  const saveGithub = useMutation({
+    mutationFn: async () => {
+      if (!props.targetRunner) throw new Error("Select a sealed-capable runner above.")
+      const value = githubToken.trim()
+      if (!value) throw new Error("GitHub token is required")
+
+      const targetRunnerId = String(props.targetRunner._id) as Id<"runners">
+      const runnerPub = String(props.targetRunner.capabilities?.sealedInputPubSpkiB64 || "").trim()
+      const keyId = String(props.targetRunner.capabilities?.sealedInputKeyId || "").trim()
+      const alg = String(props.targetRunner.capabilities?.sealedInputAlg || "").trim()
+      if (!runnerPub || !keyId || !alg) throw new Error("Runner sealed-input capabilities incomplete")
+
+      const reserve = await updateDeployCreds({
+        data: {
+          projectId: props.projectId,
+          targetRunnerId,
+          updatedKeys: ["GITHUB_TOKEN"],
+        },
+      }) as any
+
+      const jobId = String(reserve?.jobId || "").trim()
+      const kind = String(reserve?.kind || "").trim()
+      if (!jobId || !kind) throw new Error("reserve response missing job metadata")
+
+      const reserveRunnerPub = String(reserve?.sealedInputPubSpkiB64 || runnerPub).trim()
+      const reserveKeyId = String(reserve?.sealedInputKeyId || keyId).trim()
+      const reserveAlg = String(reserve?.sealedInputAlg || alg).trim()
+      const aad = `${props.projectId}:${jobId}:${kind}:${targetRunnerId}`
+      const sealedInputB64 = await sealForRunner({
+        runnerPubSpkiB64: reserveRunnerPub,
+        keyId: reserveKeyId,
+        alg: reserveAlg,
+        aad,
+        plaintextJson: JSON.stringify({ GITHUB_TOKEN: value }),
+      })
+
+      await finalizeDeployCreds({
+        data: {
+          projectId: props.projectId,
+          jobId,
+          kind,
+          sealedInputB64,
+          sealedInputAlg: reserveAlg,
+          sealedInputKeyId: reserveKeyId,
+          targetRunnerId,
+          updatedKeys: ["GITHUB_TOKEN"],
+        },
+      })
+    },
+    onSuccess: () => {
+      toast.success("GitHub token queued")
+      setGithubToken("")
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : String(err))
+    },
   })
-  const githubReadiness = deriveDeployReadiness({
-    runnerOnline,
-    repoPending: repoStatus.isPending,
-    repoError: repoStatus.error,
-    missingRev: !repoStatus.data?.originHead,
-    needsPush: Boolean(repoStatus.data?.needsPush),
-    localSelected: false,
-    allowLocalDeploy: false,
-  })
-  const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
 
   useEffect(() => {
     props.onDraftChange({
@@ -156,19 +243,117 @@ export function SetupStepInfrastructure(props: {
 
   return (
     <div className="space-y-4">
-      <ProjectTokenKeyringCard
-        projectId={props.projectId}
-        kind="hcloud"
-        title="Hetzner API keys"
-        description={(
-          <>
-            Project-wide Hetzner tokens. Add multiple keys, then select the active key used for provisioning.
-          </>
-        )}
+      <SettingsSection
+        title="Project credentials"
+        description="Project-wide credentials stored on your runner. Setup reads only runner metadata here (fast)."
         headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
-        showRunnerStatusBanner={false}
-        showRunnerStatusDetails={false}
-      />
+        statusText={missingCreds.length > 0 ? `Missing: ${missingCreds.join(", ")}.` : "Credentials ready."}
+      >
+        <div className="space-y-4">
+          {!props.targetRunner ? (
+            <div className="text-xs text-muted-foreground">
+              Select a target runner above to manage credentials.
+            </div>
+          ) : null}
+
+          <div className="space-y-2 rounded-md border bg-muted/10 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Hetzner API key</div>
+                <div className="text-xs text-muted-foreground">
+                  Required for provisioning.
+                </div>
+              </div>
+              <div className={cn("text-xs font-medium", props.hasActiveHcloudToken ? "text-emerald-700" : "text-destructive")}>
+                {props.hasActiveHcloudToken ? "Set" : "Missing"}
+              </div>
+            </div>
+
+            {!props.hasActiveHcloudToken ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <LabelWithHelp htmlFor="setup-hcloud-key-label" help="Optional label for your token.">
+                    Label (optional)
+                  </LabelWithHelp>
+                  <Input
+                    id="setup-hcloud-key-label"
+                    value={hcloudLabel}
+                    placeholder="e.g. laptop"
+                    onChange={(event) => setHcloudLabel(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <LabelWithHelp htmlFor="setup-hcloud-key-value" help="Hetzner API token used for provisioning (hcloud).">
+                    Token
+                  </LabelWithHelp>
+                  <SecretInput
+                    id="setup-hcloud-key-value"
+                    value={hcloudToken}
+                    onValueChange={setHcloudToken}
+                    placeholder="hcloud token"
+                  />
+                </div>
+
+                <AsyncButton
+                  type="button"
+                  pending={addHcloudKey.isPending}
+                  pendingText="Queuing..."
+                  disabled={!props.targetRunner || !hcloudToken.trim()}
+                  onClick={() => addHcloudKey.mutate()}
+                >
+                  Save key
+                </AsyncButton>
+              </div>
+            ) : null}
+
+            <div className="text-xs text-muted-foreground">
+              Need multiple keys or change active?{" "}
+              <Link
+                to="/$projectSlug/security/api-keys"
+                params={{ projectSlug: props.projectSlug }}
+                className="underline underline-offset-2"
+              >
+                Manage API keys
+              </Link>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-md border bg-muted/10 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">GitHub token</div>
+                <div className="text-xs text-muted-foreground">
+                  Required for repository access during setup apply.
+                </div>
+              </div>
+              <div className={cn("text-xs font-medium", props.hasProjectGithubToken ? "text-emerald-700" : "text-destructive")}>
+                {props.hasProjectGithubToken ? "Set" : "Missing"}
+              </div>
+            </div>
+
+            {!props.hasProjectGithubToken ? (
+              <div className="space-y-2">
+                <SecretInput
+                  id="setup-github-token"
+                  value={githubToken}
+                  onValueChange={setGithubToken}
+                  placeholder="ghp_..."
+                />
+                <AsyncButton
+                  type="button"
+                  pending={saveGithub.isPending}
+                  pendingText="Queuing..."
+                  disabled={!props.targetRunner || !githubToken.trim()}
+                  onClick={() => saveGithub.mutate()}
+                >
+                  Save token
+                </AsyncButton>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </SettingsSection>
 
       <SettingsSection
         title="Hetzner host configuration"
@@ -301,42 +486,6 @@ export function SetupStepInfrastructure(props: {
           </Accordion>
         </div>
       </SettingsSection>
-
-      <DeployCredsCard
-        projectId={props.projectId}
-        visibleKeys={["GITHUB_TOKEN"]}
-        title="GitHub access"
-        description="GitHub token used for repository access during setup apply."
-        githubReadiness={{
-          runnerOnline,
-          pending: repoStatus.isPending,
-          refreshing: repoStatus.isFetching,
-          originHead: repoStatus.data?.originHead,
-          branch: repoStatus.data?.branch,
-          upstream: repoStatus.data?.upstream,
-          ahead: repoStatus.data?.ahead,
-          behind: repoStatus.data?.behind,
-          onRefresh: () => {
-            if (!runnerOnline) return
-            void repoStatus.refetch()
-          },
-          alert: githubReadiness.reason !== "ready" && githubReadiness.reason !== "repo_pending"
-            ? {
-                severity: githubReadiness.severity,
-                message: githubReadiness.message,
-                title: githubReadiness.title,
-                detail: githubReadiness.detail,
-              }
-            : null,
-        }}
-        githubFirstPushGuidance={githubReadiness.showFirstPushGuidance
-          ? {
-              commands: firstPushGuidance.commands,
-              hasUpstream: firstPushGuidance.hasUpstream,
-              upstream: repoStatus.data?.upstream,
-            }
-          : null}
-      />
     </div>
   )
 }

@@ -25,10 +25,22 @@ import { AppShell } from "~/components/layout/app-shell"
 import { Toaster } from "~/components/ui/sonner"
 import { api } from "../../convex/_generated/api"
 import { useConvexAuth } from "convex/react"
-import { getAuthBootstrap } from "~/sdk/auth"
+import { currentUserQueryOptions } from "~/lib/query-options"
+import { ensureCurrentAuthUserBootstrap, getAuthBootstrap } from "~/sdk/auth"
 import { authClient } from "~/lib/auth-client"
 import { parseProjectSlug } from "~/lib/project-routing"
-import { isAuthError } from "~/lib/auth-utils"
+import { isAuthError, isEnsureCurrentRequiredError } from "~/lib/auth-utils"
+
+let lastClientBootstrapToken: string | null = null
+
+function shouldForceFreshCurrentUserFetch(token: string): boolean {
+  if (typeof window === "undefined") return true
+  if (lastClientBootstrapToken !== token) {
+    lastClientBootstrapToken = token
+    return true
+  }
+  return false
+}
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -43,8 +55,31 @@ export const Route = createRootRouteWithContext<{
 
     const pathname = location.pathname
     const isAuthRoute = pathname === "/sign-in" || pathname.startsWith("/api/auth/")
+    if (!token && typeof window !== "undefined") {
+      lastClientBootstrapToken = null
+    }
     if (!isAuthRoute && !token) {
       throw redirect({ to: "/sign-in" })
+    }
+    if (token && !isAuthRoute) {
+      try {
+        const currentUserOptions = currentUserQueryOptions()
+        const currentUser = shouldForceFreshCurrentUserFetch(token)
+          ? await context.queryClient.fetchQuery({ ...currentUserOptions, staleTime: 0 })
+          : await context.queryClient.ensureQueryData(currentUserOptions)
+        if (!currentUser) {
+          const bootstrap = await ensureCurrentAuthUserBootstrap()
+          if (!bootstrap.ensured) throw redirect({ to: "/sign-in" })
+          await context.queryClient.invalidateQueries({ queryKey: currentUserOptions.queryKey })
+          const refreshedCurrentUser = await context.queryClient.fetchQuery({ ...currentUserOptions, staleTime: 0 })
+          if (!refreshedCurrentUser) throw redirect({ to: "/sign-in" })
+        }
+      } catch (error) {
+        if (isAuthError(error)) {
+          throw redirect({ to: "/sign-in" })
+        }
+        throw error
+      }
     }
 
     return { token }
@@ -207,6 +242,7 @@ function AuthErrorWatcher() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const queryClient = router.options.context.queryClient
   const redirectingRef = React.useRef(false)
+  const bootstrappingRef = React.useRef(false)
 
   React.useEffect(() => {
     return queryClient.getQueryCache().subscribe((event) => {
@@ -214,6 +250,28 @@ function AuthErrorWatcher() {
       const error = event.query?.state?.error
       if (!isAuthError(error)) return
       if (pathname === "/sign-in" || pathname.startsWith("/api/auth/")) return
+      if (isEnsureCurrentRequiredError(error)) {
+        if (bootstrappingRef.current) return
+        bootstrappingRef.current = true
+        void (async () => {
+          try {
+            const bootstrap = await ensureCurrentAuthUserBootstrap()
+            if (!bootstrap.ensured) {
+              await authClient.signOut()
+              await router.invalidate()
+              await router.navigate({ to: "/sign-in" })
+              return
+            }
+            await queryClient.invalidateQueries({ queryKey: currentUserQueryOptions().queryKey })
+            await router.invalidate()
+          } catch {
+            // let regular auth handling paths deal with persistent failures
+          } finally {
+            bootstrappingRef.current = false
+          }
+        })()
+        return
+      }
       if (redirectingRef.current) return
       redirectingRef.current = true
       void (async () => {

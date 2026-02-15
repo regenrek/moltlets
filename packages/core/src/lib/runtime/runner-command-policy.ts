@@ -12,6 +12,7 @@ export type RunnerCommandPayloadMeta = {
   scope?: SecretScope;
   secretNames?: string[];
   updatedKeys?: string[];
+  sealedInputKeys?: string[];
   configPaths?: string[];
   args?: string[];
   note?: string;
@@ -195,6 +196,12 @@ function normalizePayloadMeta(raw: unknown): RunnerCommandPayloadMeta {
       value: row.updatedKeys,
       field: "payloadMeta.updatedKeys",
       maxItems: 512,
+      maxItemLen: META_MAX.secretName,
+    }),
+    sealedInputKeys: ensureOptionalStringArray({
+      value: row.sealedInputKeys,
+      field: "payloadMeta.sealedInputKeys",
+      maxItems: 64,
       maxItemLen: META_MAX.secretName,
     }),
     configPaths: ensureOptionalStringArray({

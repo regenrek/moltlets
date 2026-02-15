@@ -13,10 +13,13 @@ describe("setup runner offline dedup", () => {
     const infra = readSource("components/setup/steps/step-infrastructure.tsx")
     const tailscale = readSource("components/setup/steps/step-tailscale-lockdown.tsx")
 
-    expect(infra).toContain("showRunnerStatusBanner={false}")
-    expect(infra).toContain("showRunnerStatusDetails={false}")
-    expect(tailscale).toContain("showRunnerStatusBanner={false}")
-    expect(tailscale).toContain("showRunnerStatusDetails={false}")
+    expect(infra).not.toContain("RunnerStatusBanner")
+    expect(infra).not.toContain("showRunnerStatusBanner")
+    expect(infra).not.toContain("showRunnerStatusDetails")
+
+    expect(tailscale).not.toContain("RunnerStatusBanner")
+    expect(tailscale).not.toContain("showRunnerStatusBanner")
+    expect(tailscale).not.toContain("showRunnerStatusDetails")
   })
 
   it("suppresses setup deploy section banner when top-level setup banner exists", () => {
