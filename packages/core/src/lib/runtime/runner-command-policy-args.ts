@@ -451,6 +451,21 @@ const specEnvApplyJson: CommandSpec = {
   resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
+const specEnvTokenKeyringMutate: CommandSpec = {
+  id: "env_token_keyring_mutate",
+  prefix: ["env", "token-keyring-mutate"],
+  flags: {
+    "--from-json": {
+      kind: "value",
+      validate: validateEnum(new Set(["__RUNNER_INPUT_JSON__"]), "--from-json"),
+    },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--from-json", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
 const specSetupApply: CommandSpec = {
   id: "setup_apply",
   prefix: ["setup", "apply"],
@@ -525,6 +540,7 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
     specServerSshCheck,
     specEnvShow,
     specEnvApplyJson,
+    specEnvTokenKeyringMutate,
     specEnvDetectAgeKey,
     specEnvGenerateAgeKey,
     specOpenclawSchemaFetch,

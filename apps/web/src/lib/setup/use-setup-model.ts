@@ -38,6 +38,18 @@ type PendingBootstrapSecrets = {
 
 const DEPLOY_CREDS_SUMMARY_STALE_MS = 60_000
 
+export function __test_isDeployCredsSummaryStale(params: {
+  updatedAtMs: unknown
+  nowMs: number
+  staleMs?: number
+}): boolean {
+  const updatedAtMs = Number(params.updatedAtMs || 0)
+  if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return true
+  const staleMs = Number(params.staleMs ?? DEPLOY_CREDS_SUMMARY_STALE_MS)
+  if (!Number.isFinite(staleMs) || staleMs <= 0) return true
+  return params.nowMs - updatedAtMs >= staleMs
+}
+
 export function useSetupModel(params: {
   projectSlug: string
   host: string
@@ -160,11 +172,26 @@ export function useSetupModel(params: {
 
   const deployCredsSummary = targetRunner?.deployCredsSummary ?? null
   const targetRunnerId = targetRunner ? String(targetRunner._id) : ""
-  const deployCredsSummaryStale = React.useMemo(() => {
+  const [deployCredsSummaryStaleTick, setDeployCredsSummaryStaleTick] = React.useState(0)
+  React.useEffect(() => {
     const updatedAtMs = Number(deployCredsSummary?.updatedAtMs || 0)
-    if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return true
-    return Date.now() - updatedAtMs > DEPLOY_CREDS_SUMMARY_STALE_MS
+    if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) return
+    const staleAtMs = updatedAtMs + DEPLOY_CREDS_SUMMARY_STALE_MS
+    const delayMs = staleAtMs - Date.now()
+    if (!Number.isFinite(delayMs) || delayMs <= 0) return
+    const timeout = setTimeout(() => {
+      setDeployCredsSummaryStaleTick((value) => value + 1)
+    }, Math.max(1, Math.trunc(delayMs)))
+    return () => {
+      clearTimeout(timeout)
+    }
   }, [deployCredsSummary?.updatedAtMs])
+  const deployCredsSummaryStale = React.useMemo(() => {
+    return __test_isDeployCredsSummaryStale({
+      updatedAtMs: deployCredsSummary?.updatedAtMs,
+      nowMs: Date.now(),
+    })
+  }, [deployCredsSummary?.updatedAtMs, deployCredsSummaryStaleTick])
 
   const deployCredsFallbackQuery = useQuery({
     queryKey: ["deployCredsFallback", projectId, targetRunnerId],

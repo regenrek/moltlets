@@ -467,6 +467,14 @@ describe("deploy creds runner queue", () => {
       .map((call) => call?.[1])
       .find((payload) => Array.isArray(payload?.payloadMeta?.updatedKeys))
     expect(reservePayload?.payloadMeta?.updatedKeys).toEqual(["HCLOUD_TOKEN_KEYRING_ACTIVE"])
+    expect(reservePayload?.payloadMeta?.args).toEqual([
+      "env",
+      "token-keyring-mutate",
+      "--from-json",
+      "__RUNNER_INPUT_JSON__",
+      "--json",
+    ])
+    expect(reservePayload?.payloadMeta?.sealedInputKeys).toEqual(["action", "kind", "keyId", "label", "value"])
   })
 
   it("rejects oversized key values before enqueue", async () => {
