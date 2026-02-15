@@ -3,11 +3,12 @@ title: Setup
 description: Guided first deploy checklist.
 ---
 
-Setup is a command center for getting a new project to its first successful deploy.
-Setup is derived from desired state for this host (pending edits + setup draft + config fallback),
-so you can stop halfway and resume later without split-brain gating.
-Step saves persist as setup drafts. Runner execution happens once at deploy time via a single
-sealed `setup_apply` job.
+Setup is the host onboarding flow for first install. It keeps non-secret edits as draft state,
+then executes one sealed `setup_apply` job before bootstrap.
+
+Setup gating is host-scoped and GitHub-token based. `SOPS_AGE_KEY_FILE` is not shown in setup UI.
+The runner prepares a host-scoped operator key path internally when setup opens, and re-checks it
+again right before deploy.
 
 <Callout type="info" title="Runner setup happens before host setup">
   Project creation and runner setup are completed first. This setup flow starts at host onboarding.
@@ -29,14 +30,15 @@ Open:
   <Step>
     <strong>Hetzner setup</strong>
     <br />
-    Set <code>HCLOUD_TOKEN</code> and confirm Hetzner host defaults:
+    Set an active <code>HCLOUD_TOKEN</code> and confirm Hetzner host defaults:
     <code>serverType</code>, <code>location</code>, optional <code>image</code>.
   </Step>
   <Step>
     <strong>Server Access</strong>
     <br />
-    Fill <code>provisioning.adminCidr</code> and add at least one SSH key to{" "}
+    Add at least one SSH public key to{" "}
     <code>fleet.sshAuthorizedKeys</code>. You can add keys inline in Setup or from [SSH keys](/dashboard/ssh-keys).
+    Admin CIDR is auto-detected and can be overridden in <strong>Advanced options</strong>.
   </Step>
   <Step>
     <strong>Tailscale lockdown</strong>
@@ -46,23 +48,10 @@ Open:
     manual override for relay-only mode.
   </Step>
   <Step>
-    <strong>Provider Tokens</strong>
-    <br />
-    Save provider credentials as sealed setup draft data.
-    Setup requires <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and{" "}
-    <code>SOPS_AGE_KEY_FILE</code> in the draft before final install.
-  </Step>
-  <Step>
-    <strong>Server Passwords</strong>
-    <br />
-    Enter bootstrap secrets and save them as write-only sealed draft values.
-    Values are not shown again after save; status returns as <code>set</code>/<code>missing</code>.
-  </Step>
-  <Step>
     <strong>Install Server</strong>
     <br />
-    Deploy first runs one sealed <code>setup_apply</code> job (config + deploy creds + bootstrap secrets),
-    then runs bootstrap.
+    Setup requires <code>GITHUB_TOKEN</code> to proceed. Deploy runs one sealed <code>setup_apply</code>
+    job (config + host-scoped deploy creds pointer + bootstrap secrets), then runs bootstrap.
   </Step>
   <Step>
     <strong>Secure and Verify</strong>
@@ -97,8 +86,8 @@ Read-side status projection:
 - `sealedSecretDrafts.deployCreds.status`
 - `sealedSecretDrafts.bootstrapSecrets.status`
 
-Setup readiness checks read these draft status fields (`set`/`missing`).
-If no draft secret section exists yet, setup shows missing until you save that section.
+Setup readiness checks do not require manual SOPS key path input. The deploy step writes
+`deployCreds` with a host-scoped `SOPS_AGE_KEY_FILE` automatically.
 
 Convex does not store plaintext values for deploy credentials or bootstrap secrets.
 
@@ -136,12 +125,11 @@ Save the token in setup once to mark the draft section as set.
 
 ### Deploy says credentials missing
 
-Open Setup → Pre-Deploy (and Hetzner setup for <code>HCLOUD_TOKEN</code>) and save provider tokens.
-In setup mode, readiness is draft-first and apply happens only during <code>setup_apply</code>.
+Open Setup → Hetzner setup and make sure <code>GITHUB_TOKEN</code> is set.
+Setup deploy readiness is GitHub-token based.
 
 Recommended path:
 
 - Save `HCLOUD_TOKEN` (Hetzner): [Hetzner token setup](/dashboard/hetzner-token)
 - Save `GITHUB_TOKEN`: [GitHub token setup](/dashboard/github-token)
-- Save `SOPS_AGE_KEY_FILE`: [SOPS age key setup](/dashboard/sops-age-key)
 - See provider docs: [Hetzner](/providers/hetzner)

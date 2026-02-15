@@ -155,6 +155,12 @@ export function getLocalOperatorAgeKeyPath(layout: RepoLayout, operatorId: strin
   return path.join(layout.localOperatorKeysDir, `${operatorId}.agekey`);
 }
 
+export function getHostScopedOperatorAgeKeyPath(layout: RepoLayout, host: string, operatorId: string): string {
+  assertSafeHostName(host);
+  assertSafeOperatorId(operatorId);
+  return path.join(layout.localOperatorKeysDir, "hosts", host, `${operatorId}.agekey`);
+}
+
 export function getHostEncryptedAgeKeyFile(layout: RepoLayout, host: string): string {
   assertSafeHostName(host);
   return path.join(layout.secretsHostKeysDir, `${host}.agekey.yaml`);

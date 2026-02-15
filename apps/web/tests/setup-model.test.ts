@@ -62,7 +62,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       useTailscaleLockdown: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
@@ -78,7 +78,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       useTailscaleLockdown: true,
       hasActiveTailscaleAuthKey: true,
       latestBootstrapRun: null,
@@ -112,7 +112,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -126,7 +126,6 @@ describe("deriveSetupModel", () => {
       config: baseConfig,
       hostFromRoute: "h1",
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -143,7 +142,6 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       hasActiveHcloudToken: true,
       hasProjectGithubToken: true,
-      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -167,7 +165,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       pendingNonSecretDraft: {
         infrastructure: {
           serverType: "cpx22",
@@ -218,7 +216,7 @@ describe("deriveSetupModel", () => {
         },
       },
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -254,7 +252,7 @@ describe("deriveSetupModel", () => {
         },
       },
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -272,7 +270,7 @@ describe("deriveHostSetupStepper", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })

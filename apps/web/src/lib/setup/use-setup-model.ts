@@ -151,14 +151,6 @@ export function useSetupModel(params: {
     () => deployCredsByKey["GITHUB_TOKEN"]?.status === "set",
     [deployCredsByKey],
   )
-  const projectSopsAgeKeyPath = React.useMemo(
-    () => String(deployCredsByKey["SOPS_AGE_KEY_FILE"]?.value || "").trim(),
-    [deployCredsByKey],
-  )
-  const hasProjectSopsAgeKeyPath = React.useMemo(
-    () => projectSopsAgeKeyPath.length > 0,
-    [projectSopsAgeKeyPath],
-  )
 
   const projectInitRunsPageQuery = useQuery({
     ...convexQuery(
@@ -182,7 +174,6 @@ export function useSetupModel(params: {
         pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
         hasActiveHcloudToken,
         hasProjectGithubToken,
-        hasProjectSopsAgeKeyPath,
         hasActiveTailscaleAuthKey,
         pendingTailscaleAuthKey: params.pendingBootstrapSecrets?.tailscaleAuthKey,
         useTailscaleLockdown: params.pendingBootstrapSecrets?.useTailscaleLockdown,
@@ -195,7 +186,6 @@ export function useSetupModel(params: {
       params.pendingNonSecretDraft,
       hasActiveHcloudToken,
       hasProjectGithubToken,
-      hasProjectSopsAgeKeyPath,
       hasActiveTailscaleAuthKey,
       params.pendingBootstrapSecrets?.tailscaleAuthKey,
       params.pendingBootstrapSecrets?.useTailscaleLockdown,
@@ -253,8 +243,6 @@ export function useSetupModel(params: {
     selectedHost: model.selectedHost,
     hasActiveHcloudToken,
     hasProjectGithubToken,
-    hasProjectSopsAgeKeyPath,
-    projectSopsAgeKeyPath,
     hasActiveTailscaleAuthKey,
     setStep,
     advance,

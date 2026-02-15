@@ -27,6 +27,7 @@ import {
   StepperTitle,
   StepperTrigger,
 } from "~/components/ui/stepper";
+import { singleHostCidrFromIp } from "~/lib/ip-utils";
 import { projectsListQueryOptions } from "~/lib/query-options";
 import { buildHostPath, slugifyProjectName } from "~/lib/project-routing";
 import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state";
@@ -132,6 +133,7 @@ function HostSetupPage() {
       tailscaleAuthKey: "",
       useTailscaleLockdown: true,
     });
+  const autoPrefillHostRef = React.useRef<string | null>(null);
 
   const pendingNonSecretDraft = React.useMemo(
     () => ({
@@ -161,6 +163,7 @@ function HostSetupPage() {
       tailscaleAuthKey: "",
       useTailscaleLockdown: true,
     });
+    autoPrefillHostRef.current = null;
   }, [host]);
 
   if (setup.projectQuery.isPending) {
@@ -179,6 +182,9 @@ function HostSetupPage() {
 
   const selectedHost = setup.model.selectedHost;
   const activeHost = selectedHost ?? host;
+  const activeHostConfig = setup.config?.hosts?.[activeHost] as
+    | { provisioning?: { adminCidr?: string } }
+    | undefined;
   const hostCfg =
     (setup.config?.hosts?.[activeHost] as { theme?: HostTheme } | undefined) ??
     null;
@@ -205,6 +211,64 @@ function HostSetupPage() {
   React.useEffect(() => {
     setVisibleStepId(stepperActiveStepId);
   }, [stepperActiveStepId]);
+
+  React.useEffect(() => {
+    if (!activeHost.trim()) return;
+    if (autoPrefillHostRef.current === activeHost) return;
+
+    const pendingAdminCidr = String(pendingConnectionDraft?.adminCidr || "").trim();
+    const draftAdminCidr = String(
+      setup.setupDraft?.nonSecretDraft?.connection?.adminCidr || "",
+    ).trim();
+    const configAdminCidr = String(
+      activeHostConfig?.provisioning?.adminCidr || "",
+    ).trim();
+    if (pendingAdminCidr || draftAdminCidr || configAdminCidr) return;
+
+    autoPrefillHostRef.current = activeHost;
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 6000);
+    void (async () => {
+      try {
+        const res = await fetch("https://api.ipify.org?format=json", {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as { ip?: unknown };
+        const ip = typeof json.ip === "string" ? json.ip : "";
+        const cidr = singleHostCidrFromIp(ip);
+        if (!cidr) return;
+        setPendingConnectionDraft((prev) => {
+          const prevAdminCidr = String(prev?.adminCidr || "").trim();
+          if (prevAdminCidr) return prev;
+          const latestDraftAdminCidr = String(
+            setup.setupDraft?.nonSecretDraft?.connection?.adminCidr || "",
+          ).trim();
+          const latestConfigAdminCidr = String(
+            activeHostConfig?.provisioning?.adminCidr || "",
+          ).trim();
+          if (latestDraftAdminCidr || latestConfigAdminCidr) return prev;
+          return {
+            ...(prev ?? {}),
+            adminCidr: cidr,
+          };
+        });
+      } catch {
+        // best-effort prefill only
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+    return () => {
+      clearTimeout(timeout);
+      ctrl.abort();
+    };
+  }, [
+    activeHost,
+    activeHostConfig?.provisioning?.adminCidr,
+    pendingConnectionDraft?.adminCidr,
+    setup.setupDraft?.nonSecretDraft?.connection?.adminCidr,
+  ]);
 
   const scrollToStep = React.useCallback((stepId: SetupStepId) => {
     const section = sectionRefs.current[stepId];
@@ -360,8 +424,6 @@ function HostSetupPage() {
                   hasActiveHcloudToken={setup.hasActiveHcloudToken}
                   hasProjectGithubToken={setup.hasProjectGithubToken}
                   hasActiveTailscaleAuthKey={setup.hasActiveTailscaleAuthKey}
-                  hasProjectSopsAgeKeyPath={setup.hasProjectSopsAgeKeyPath}
-                  projectSopsAgeKeyPath={setup.projectSopsAgeKeyPath}
                   onPendingInfrastructureDraftChange={(next) => {
                     setPendingInfrastructureDraft((prev) => ({
                       ...(prev ?? {}),
@@ -399,8 +461,6 @@ function StepContent(props: {
   hasActiveHcloudToken: boolean;
   hasProjectGithubToken: boolean;
   hasActiveTailscaleAuthKey: boolean;
-  hasProjectSopsAgeKeyPath: boolean;
-  projectSopsAgeKeyPath: string;
   onPendingInfrastructureDraftChange: (next: SetupDraftInfrastructure) => void;
   onPendingConnectionDraftChange: (next: SetupDraftConnection) => void;
   onPendingBootstrapSecretsChange: (
@@ -421,8 +481,6 @@ function StepContent(props: {
     hasActiveHcloudToken,
     hasProjectGithubToken,
     hasActiveTailscaleAuthKey,
-    hasProjectSopsAgeKeyPath,
-    projectSopsAgeKeyPath,
   } = props;
   const desired = React.useMemo(
     () =>
@@ -467,7 +525,6 @@ function StepContent(props: {
         setupDraft={setup.setupDraft}
         host={host}
         stepStatus={step.status}
-        sopsAgeKeyPathReady={hasProjectSopsAgeKeyPath}
         onDraftChange={props.onPendingConnectionDraftChange}
         adminPassword={pendingBootstrapSecrets.adminPassword}
         onAdminPasswordChange={(value) =>
@@ -515,7 +572,6 @@ function StepContent(props: {
         pendingConnectionDraft={pendingConnectionDraft}
         pendingBootstrapSecrets={pendingBootstrapSecrets}
         hasProjectGithubToken={hasProjectGithubToken}
-        projectSopsAgeKeyPath={projectSopsAgeKeyPath}
         hasActiveTailscaleAuthKey={hasActiveTailscaleAuthKey}
       />
     );

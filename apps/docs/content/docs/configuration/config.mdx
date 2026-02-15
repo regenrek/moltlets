@@ -21,7 +21,7 @@ state; the local runtime dir holds generated artifacts and operator keys.
 - `fleet/openclaw.json`: OpenClaw config (optional; gateways + OpenClaw enable)
 - `secrets/`: canonical encrypted secrets (sops + age; intended to be committed)
 - `<runtimeDir>/`: local runtime dir (gitignored)
-  - operator age keys (`<runtimeDir>/keys/operators/`)
+  - operator age keys (`<runtimeDir>/keys/operators/hosts/<host>/`)
   - `nixos-anywhere --extra-files` payload (`<runtimeDir>/extra-files/<host>/...`)
   - image builds (`<runtimeDir>/images/<host>/...`)
   - provisioning state (gitignored): `<runtimeDir>/infra/opentofu/<host>/providers/<provider>/...`

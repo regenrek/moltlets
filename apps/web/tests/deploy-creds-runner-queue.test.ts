@@ -250,7 +250,7 @@ describe("deploy creds runner queue", () => {
     expect(res.candidates[0]?.valid).toBe(true)
   })
 
-  it("records audit metadata after runner age-key generation", async () => {
+  it("skips audit metadata when runner reuses existing age key", async () => {
     const { mod, mutation } = await loadSdk({
       runnerJson: {
         ok: true,
@@ -272,12 +272,64 @@ describe("deploy creds runner queue", () => {
     expect(res.ok).toBe(true)
     expect(res.created).toBe(false)
     const payload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
+    expect(payload).toBeUndefined()
+  })
+
+  it("records host-scoped audit target for setup host key generation", async () => {
+    const { mod, mutation } = await loadSdk({
+      runnerJson: {
+        ok: true,
+        keyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/hosts/openclaw-fleet-host/alice.agekey",
+        publicKey: "age1test",
+        created: true,
+      },
+    })
+    const ctx = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    const res = await runWithStartContext(ctx, async () =>
+      mod.generateSopsAgeKey({
+        data: { projectId: "p1" as any, host: "openclaw-fleet-host" },
+      }),
+    )
+    expect(res.ok).toBe(true)
+    const payload = (mutation.mock.calls as any[])
+      .find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
     expect(payload).toEqual({
       projectId: "p1",
       action: "sops.operatorKey.generate",
-      target: { doc: "<runtimeDir>/keys/operators" },
+      target: { doc: "<runtimeDir>/keys/operators/hosts/openclaw-fleet-host" },
       data: { runId: "run_1" },
     })
+  })
+
+  it("rejects non host-scoped key path for host generation", async () => {
+    const { mod, mutation } = await loadSdk({
+      runnerJson: {
+        ok: true,
+        keyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/alice.agekey",
+        publicKey: "age1test",
+        created: true,
+      },
+    })
+    const ctx = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    const res = await runWithStartContext(ctx, async () =>
+      mod.generateSopsAgeKey({
+        data: { projectId: "p1" as any, host: "openclaw-fleet-host" },
+      }),
+    )
+    expect(res).toEqual({
+      ok: false,
+      message: "Runner returned non host-scoped SOPS key path.",
+    })
+    const payload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
+    expect(payload).toBeUndefined()
   })
 
   it("reserves and finalizes deploy-creds sealed update", async () => {

@@ -20,7 +20,6 @@ export function SetupStepDeploy(props: {
   pendingConnectionDraft: SetupDraftConnection | null
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets
   hasProjectGithubToken: boolean
-  projectSopsAgeKeyPath: string
   hasActiveTailscaleAuthKey: boolean
 }) {
   return (
@@ -36,7 +35,6 @@ export function SetupStepDeploy(props: {
       pendingConnectionDraft={props.pendingConnectionDraft}
       pendingBootstrapSecrets={props.pendingBootstrapSecrets}
       hasProjectGithubToken={props.hasProjectGithubToken}
-      projectSopsAgeKeyPath={props.projectSopsAgeKeyPath}
       hasActiveTailscaleAuthKey={props.hasActiveTailscaleAuthKey}
       showRunnerStatusBanner={false}
     />

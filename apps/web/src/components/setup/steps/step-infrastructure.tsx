@@ -305,10 +305,6 @@ export function SetupStepInfrastructure(props: {
       <DeployCredsCard
         projectId={props.projectId}
         visibleKeys={["GITHUB_TOKEN"]}
-        setupDraftFlow={{
-          host: props.host,
-          setupDraft: props.setupDraft,
-        }}
         title="GitHub access"
         description="GitHub token used for repository access during setup apply."
         githubReadiness={{

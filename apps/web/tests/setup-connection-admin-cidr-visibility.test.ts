@@ -9,7 +9,7 @@ function readFile(relPath: string): string {
 }
 
 describe("setup connection admin cidr visibility", () => {
-  it("keeps Admin CIDR visible outside advanced accordion", () => {
+  it("moves Admin CIDR editing into advanced options", () => {
     const source = readFile("components/setup/steps/step-connection.tsx")
 
     const adminFieldIndex = source.indexOf("<AdminCidrField")
@@ -17,8 +17,7 @@ describe("setup connection admin cidr visibility", () => {
 
     expect(adminFieldIndex).toBeGreaterThan(-1)
     expect(accordionIndex).toBeGreaterThan(-1)
-    expect(adminFieldIndex).toBeLessThan(accordionIndex)
-
-    expect(source).not.toContain("<AccordionContent className=\"pb-4\">\n                <div className=\"space-y-4\">\n                  <AdminCidrField")
+    expect(adminFieldIndex).toBeGreaterThan(accordionIndex)
+    expect(source).toContain("Admin CIDR is auto-detected during setup entry.")
   })
 })

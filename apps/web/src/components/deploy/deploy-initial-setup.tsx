@@ -15,7 +15,7 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { configDotSet } from "~/sdk/config"
 import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
-import { bootstrapExecute, bootstrapStart, lockdownExecute, lockdownStart, runDoctor } from "~/sdk/infra"
+import { bootstrapExecute, bootstrapStart, generateSopsAgeKey, lockdownExecute, lockdownStart, runDoctor } from "~/sdk/infra"
 import { useProjectBySlug } from "~/lib/project-data"
 import { deriveProjectRunnerNixReadiness, isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state"
@@ -62,7 +62,6 @@ export function DeployInitialInstallSetup(props: {
   pendingConnectionDraft: SetupDraftConnection | null
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets
   hasProjectGithubToken: boolean
-  projectSopsAgeKeyPath: string
   hasActiveTailscaleAuthKey: boolean
   showRunnerStatusBanner?: boolean
 }) {
@@ -141,10 +140,8 @@ export function DeployInitialInstallSetup(props: {
     ],
   )
 
-  const deployCredsDraftSet = props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
   const projectGithubTokenSet = props.hasProjectGithubToken
-  const projectSopsAgeKeyPath = props.projectSopsAgeKeyPath.trim()
-  const effectiveDeployCredsReady = (deployCredsDraftSet || projectGithubTokenSet) && projectSopsAgeKeyPath.length > 0
+  const effectiveDeployCredsReady = projectGithubTokenSet
 
   const selectedRev = repoStatus.data?.originHead
   const missingRev = !selectedRev
@@ -181,8 +178,8 @@ export function DeployInitialInstallSetup(props: {
   const credsGateMessage = !runnerOnline
     ? null
     : !effectiveDeployCredsReady
-      ? "Missing credentials. Add GitHub token in Hetzner setup and SOPS path in Server access."
-    : null
+      ? "Missing credentials. Add GitHub token in Hetzner setup."
+      : null
 
   const deployGateBlocked = repoGateBlocked || nixGateBlocked || sshKeyGateBlocked || credsGateBlocked
   const deployStatusReason = repoGateBlocked
@@ -400,7 +397,7 @@ export function DeployInitialInstallSetup(props: {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (!selectedRev) throw new Error("No pushed revision found.")
       if (!effectiveDeployCredsReady) {
-        throw new Error("Missing credentials. Set GitHub token in Hetzner setup and SOPS path in Server access.")
+        throw new Error("Missing credentials. Set GitHub token in Hetzner setup.")
       }
 
       const infrastructurePatch: SetupDraftInfrastructure = {
@@ -455,46 +452,51 @@ export function DeployInitialInstallSetup(props: {
       const keyId = String(targetRunner.capabilities?.sealedInputKeyId || "").trim()
       const alg = String(targetRunner.capabilities?.sealedInputAlg || "").trim()
       if (!runnerPub || !keyId || !alg) throw new Error("Runner sealed-input capabilities incomplete")
+      const ensuredHostSopsKey = await generateSopsAgeKey({
+        data: {
+          projectId: projectId as Id<"projects">,
+          host: props.host,
+        },
+      })
+      if (!ensuredHostSopsKey.ok) {
+        throw new Error(ensuredHostSopsKey.message || "Could not prepare host-scoped SOPS key for setup.")
+      }
+      const hostScopedSopsAgeKeyPath = String(ensuredHostSopsKey.keyPath || "").trim()
+      if (!hostScopedSopsAgeKeyPath) {
+        throw new Error("Could not prepare host-scoped SOPS key for setup.")
+      }
 
-      const deployCredsDraftAlreadySet = savedNonSecretDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
-        || props.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
       let currentDraftVersion = savedNonSecretDraft?.version
-      if (!deployCredsDraftAlreadySet) {
-        const deployCredsPayload: Record<string, string> = {}
-        if (projectSopsAgeKeyPath) deployCredsPayload.SOPS_AGE_KEY_FILE = projectSopsAgeKeyPath
-
-        if (Object.keys(deployCredsPayload).length === 0) {
-          throw new Error("Could not auto-seal deploy credentials for setup. Open Hetzner setup and save credentials.")
-        }
-
-        const deployCredsAad = buildSetupDraftSectionAad({
+      const deployCredsPayload: Record<string, string> = {
+        SOPS_AGE_KEY_FILE: hostScopedSopsAgeKeyPath,
+      }
+      const deployCredsAad = buildSetupDraftSectionAad({
+        projectId: projectId as Id<"projects">,
+        host: props.host,
+        section: "deployCreds",
+        targetRunnerId,
+      })
+      const deployCredsSealedInputB64 = await sealForRunner({
+        runnerPubSpkiB64: runnerPub,
+        keyId,
+        alg,
+        aad: deployCredsAad,
+        plaintextJson: JSON.stringify(deployCredsPayload),
+      })
+      const savedDeployCredsDraft = await setupDraftSaveSealedSection({
+        data: {
           projectId: projectId as Id<"projects">,
           host: props.host,
           section: "deployCreds",
           targetRunnerId,
-        })
-        const deployCredsSealedInputB64 = await sealForRunner({
-          runnerPubSpkiB64: runnerPub,
-          keyId,
-          alg,
+          sealedInputB64: deployCredsSealedInputB64,
+          sealedInputAlg: alg,
+          sealedInputKeyId: keyId,
           aad: deployCredsAad,
-          plaintextJson: JSON.stringify(deployCredsPayload),
-        })
-        const savedDeployCredsDraft = await setupDraftSaveSealedSection({
-          data: {
-            projectId: projectId as Id<"projects">,
-            host: props.host,
-            section: "deployCreds",
-            targetRunnerId,
-            sealedInputB64: deployCredsSealedInputB64,
-            sealedInputAlg: alg,
-            sealedInputKeyId: keyId,
-            aad: deployCredsAad,
-            expectedVersion: currentDraftVersion,
-          },
-        })
-        currentDraftVersion = savedDeployCredsDraft.version
-      }
+          expectedVersion: currentDraftVersion,
+        },
+      })
+      currentDraftVersion = savedDeployCredsDraft.version
 
       const bootstrapSecretsPayload: Record<string, string> = {}
       const adminPassword = props.pendingBootstrapSecrets.adminPassword.trim()

@@ -1,68 +1,67 @@
 ---
 title: SOPS age key
-description: Create and configure SOPS_AGE_KEY_FILE for setup.
+description: Host-scoped SOPS operator key behavior and recovery.
 ---
 
-Clawlets uses <code>SOPS_AGE_KEY_FILE</code> to encrypt and decrypt operator-managed secrets.
-Setup requires this before you can complete the Provider Tokens step.
+Setup does not ask you to enter <code>SOPS_AGE_KEY_FILE</code>. The runner manages this
+internally with a host-scoped operator key path:
 
-If this key is missing, secrets workflows cannot safely continue.
+`<runtimeDir>/keys/operators/hosts/<host>/<operator>.agekey`
+
+The key is ensured on setup entry, then checked again immediately before setup deploy/apply.
+This avoids project-wide shared key path reuse across hosts.
 
 ## Prereqs
 
-- Project setup route open: <code>/$projectSlug/hosts/$host/setup?step=creds</code>.
+- Setup route open for target host: <code>/$projectSlug/hosts/$host/setup</code>.
 - Runner online for the project.
 
-## Generate key (recommended)
+## How setup uses it
 
 <Steps>
   <Step>
-    Open setup Provider Tokens and locate <strong>SOPS age key file</strong>.
+    Enter setup for host <code>&lt;host&gt;</code>.
   </Step>
   <Step>
-    Click <strong>Find</strong> to detect an existing operator key.
+    Runner ensures host-scoped operator key exists.
   </Step>
   <Step>
-    Click <strong>Generate</strong>. If the canonical project key already exists, Clawlets reuses it.
-  </Step>
-  <Step>
-    Save credentials so <code>SOPS_AGE_KEY_FILE</code> is stored for this project.
+    During install, setup injects <code>SOPS_AGE_KEY_FILE</code> with that host-scoped path for the action.
   </Step>
 </Steps>
 
-Detection and generation only scan project-local runtime paths under
-`<runtimeDir>/keys/operators/`.
-
-## Manual key generation (CLI)
+## Manual recovery (CLI)
 
 ```bash
-mkdir -p <runtimeDir>/keys/operators && age-keygen -o <runtimeDir>/keys/operators/<operator>.agekey
+clawlets env generate-age-key --host <host> --json
 ```
 
-Then set <code>SOPS_AGE_KEY_FILE</code> to that path in dashboard credentials.
+This generates/reuses the host-scoped key. In host-scoped mode, it does not rewrite a
+project-wide <code>SOPS_AGE_KEY_FILE</code> pointer.
 
 ## Verify
 
-- Provider Tokens step no longer blocks on <code>SOPS_AGE_KEY_FILE</code>.
+- Setup UI does not show a SOPS field.
+- Deploy step proceeds without manual SOPS path input.
 - Optional runner check:
 
 ```bash
-clawlets env show --json
+clawlets env detect-age-key --host <host> --json
 ```
 
 ## Troubleshooting
 
 ### “No valid age key found”
 
-- Generate a new key in the dashboard or via `age-keygen`.
-- Confirm file path is readable on the runner host.
+- Run `clawlets env generate-age-key --host <host> --json`.
+- Confirm runner has write access to `<runtimeDir>/keys/operators/hosts/<host>/`.
 
 ### “existing key file invalid”
 
-- The canonical key file exists but is not a valid age private key.
-- Fix or remove that file, then run <strong>Generate</strong> again.
+- Existing host-scoped key file exists but is invalid.
+- Fix or remove the file, then rerun host-scoped generate command.
 
-### Setup still reports missing SOPS key
+### Setup deploy still fails on SOPS preparation
 
-- Reopen Provider Tokens and verify <code>SOPS_AGE_KEY_FILE</code> is set.
-- Save again, then refresh setup.
+- Keep runner online and retry deploy.
+- If failures continue, run host-scoped generate command manually and inspect run logs.

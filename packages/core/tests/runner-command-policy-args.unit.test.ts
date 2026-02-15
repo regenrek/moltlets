@@ -73,6 +73,20 @@ describe("runner command policy args parser", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("accepts host-scoped env age-key commands", () => {
+    const detect = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["env", "detect-age-key", "--host", "openclaw-fleet-host", "--json"],
+    });
+    expect(detect).toEqual({ ok: true });
+
+    const generate = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["env", "generate-age-key", "--host", "openclaw-fleet-host", "--json"],
+    });
+    expect(generate).toEqual({ ok: true });
+  });
+
   it("resolves json_small mode for setup_apply", () => {
     const resolved = resolveCommandSpecForKind("setup_apply", [
       "setup",

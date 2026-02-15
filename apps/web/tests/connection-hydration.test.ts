@@ -34,6 +34,22 @@ describe("setup connection late hydration", () => {
     })
   })
 
+  it("hydrates draft admin CIDR when form is empty", () => {
+    const result = deriveConnectionLateHydration({
+      configLoaded: true,
+      draftAdminCidr: "9.9.9.9/32",
+      draftSshAuthorizedKeys: [],
+      hostAdminCidr: "1.2.3.4/32",
+      fleetSshKeys: [],
+      currentAdminCidr: "",
+      currentKnownKeys: [],
+      currentSelectedKeys: [],
+    })
+    expect(result).toEqual({
+      adminCidr: "9.9.9.9/32",
+    })
+  })
+
   it("does not override user edits or draft values", () => {
     const result = deriveConnectionLateHydration({
       configLoaded: true,
@@ -48,4 +64,3 @@ describe("setup connection late hydration", () => {
     expect(result).toBeNull()
   })
 })
-

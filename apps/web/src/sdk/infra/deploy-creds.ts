@@ -1,4 +1,5 @@
 import { constants, createCipheriv, createPublicKey, publicEncrypt, randomBytes } from "node:crypto"
+import path from "node:path"
 import { createServerFn } from "@tanstack/react-start"
 import {
   DEPLOY_CREDS_KEYS,
@@ -6,6 +7,7 @@ import {
 } from "@clawlets/core/lib/infra/deploy-creds"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
 import { SEALED_INPUT_B64_MAX_CHARS } from "@clawlets/core/lib/runtime/control-plane-constants"
+import { assertSafeHostName } from "@clawlets/shared/lib/identifiers"
 
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
@@ -132,6 +134,29 @@ function parseProjectTokenKeyringKind(raw: unknown): ProjectTokenKeyringKind {
   const value = coerceTrimmedString(raw).toLowerCase()
   if (value === "hcloud" || value === "tailscale") return value
   throw new Error("kind must be hcloud or tailscale")
+}
+
+function parseProjectIdWithOptionalHostInput(raw: unknown): {
+  projectId: Id<"projects">
+  host?: string
+} {
+  const base = parseProjectIdInput(raw)
+  const data = raw as Record<string, unknown>
+  const hostRaw = coerceTrimmedString(data.host)
+  if (!hostRaw) return base
+  assertSafeHostName(hostRaw)
+  return { ...base, host: hostRaw }
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function isHostScopedOperatorKeyPath(params: { keyPath: string; host: string }): boolean {
+  const normalized = path.posix.normalize(params.keyPath.replaceAll("\\", "/"))
+  const hostPattern = escapeRegExp(params.host)
+  const expected = new RegExp(`(?:^|/)keys/operators/hosts/${hostPattern}/[^/]+\\.agekey$`)
+  return expected.test(normalized)
 }
 
 function parseUpdatedKeys(raw: unknown): string[] {
@@ -672,13 +697,14 @@ export const finalizeDeployCreds = createServerFn({ method: "POST" })
   })
 
 export const detectSopsAgeKey = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
+  .inputValidator((data: unknown) => parseProjectIdWithOptionalHostInput(data))
   .handler(async ({ data }) => {
     try {
+      const hostFlag = data.host ? ["--host", data.host] : []
       const result = await runRunnerJsonCommand({
         projectId: data.projectId,
         title: "Detect SOPS age key",
-        args: ["env", "detect-age-key", "--json"],
+        args: ["env", "detect-age-key", ...hostFlag, "--json"],
         timeoutMs: 20_000,
       })
       const row = result.json
@@ -705,14 +731,15 @@ export const detectSopsAgeKey = createServerFn({ method: "POST" })
   })
 
 export const generateSopsAgeKey = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
+  .inputValidator((data: unknown) => parseProjectIdWithOptionalHostInput(data))
   .handler(async ({ data }) => {
     const client = createConvexClient()
     try {
+      const hostFlag = data.host ? ["--host", data.host] : []
       const result = await runRunnerJsonCommand({
         projectId: data.projectId,
         title: "Generate SOPS age key",
-        args: ["env", "generate-age-key", "--json"],
+        args: ["env", "generate-age-key", ...hostFlag, "--json"],
         timeoutMs: 40_000,
       })
       const row = result.json
@@ -720,11 +747,21 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       const keyPath = typeof row.keyPath === "string" ? row.keyPath : ""
       const publicKey = typeof row.publicKey === "string" ? row.publicKey : ""
       const created = row.created === false ? false : true
-      if (ok && keyPath) {
+      if (ok && data.host && !isHostScopedOperatorKeyPath({ keyPath, host: data.host })) {
+        return {
+          ok: false as const,
+          message: "Runner returned non host-scoped SOPS key path.",
+        }
+      }
+      if (ok && keyPath && created) {
         await client.mutation(api.security.auditLogs.append, {
           projectId: data.projectId,
           action: "sops.operatorKey.generate",
-          target: { doc: "<runtimeDir>/keys/operators" },
+          target: {
+            doc: data.host
+              ? `<runtimeDir>/keys/operators/hosts/${data.host}`
+              : "<runtimeDir>/keys/operators",
+          },
           data: { runId: result.runId },
         })
       }

@@ -470,6 +470,7 @@ const specEnvDetectAgeKey: CommandSpec = {
   id: "env_detect_age_key",
   prefix: ["env", "detect-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
@@ -481,6 +482,7 @@ const specEnvGenerateAgeKey: CommandSpec = {
   id: "env_generate_age_key",
   prefix: ["env", "generate-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],

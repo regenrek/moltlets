@@ -36,8 +36,7 @@ Store it as `HCLOUD_TOKEN` in `<runtimeDir>/env` (local-only, gitignored).
     Set host fields: <code>hosts.&lt;host&gt;.hetzner.serverType</code> and <code>hosts.&lt;host&gt;.hetzner.location</code>
   </Step>
   <Step>
-    Set deploy credentials in Setup: <code>HCLOUD_TOKEN</code>, <code>GITHUB_TOKEN</code>, and{" "}
-    <code>SOPS_AGE_KEY_FILE</code>.
+    Set deploy credentials in Setup: <code>HCLOUD_TOKEN</code> and <code>GITHUB_TOKEN</code>.
   </Step>
   <Step>
     Run setup/deploy flow from dashboard or CLI bootstrap flow.
@@ -46,7 +45,7 @@ Store it as `HCLOUD_TOKEN` in `<runtimeDir>/env` (local-only, gitignored).
 
 ## Verify
 
-- Setup `Provider Tokens` step completes with `HCLOUD_TOKEN`, `GITHUB_TOKEN`, and `SOPS_AGE_KEY_FILE` set.
+- Setup `Hetzner setup` step has an active Hetzner API key and `GitHub access` is set.
 - Bootstrap run succeeds for the host.
 - Follow-up apply updates succeed without provider credential errors.
 

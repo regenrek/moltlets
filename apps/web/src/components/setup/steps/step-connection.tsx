@@ -19,11 +19,22 @@ import { setupConfigProbeQueryKey } from "~/lib/setup/repo-probe"
 import { addProjectSshKeys } from "~/sdk/config/hosts"
 import type { SetupDraftConnection, SetupDraftView } from "~/sdk/setup"
 import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
-import { SetupSopsAgeKeyField } from "~/components/setup/setup-sops-age-key-field"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 
 function isSshPublicKey(text: string): boolean {
   return /^ssh-(ed25519|rsa|ecdsa)\s+/i.test(text.trim())
+}
+
+function validateSshPublicKeyInput(text: string): string | null {
+  const normalized = text.trim()
+  if (!normalized) return "SSH public key is required."
+  if (/private key/i.test(normalized) || /BEGIN [A-Z ]*PRIVATE KEY/.test(normalized)) {
+    return "Private key detected. Paste only the public key line."
+  }
+  if (!isSshPublicKey(normalized)) {
+    return "Invalid public key format. Expected prefixes: ssh-ed25519, ssh-rsa, ssh-ecdsa."
+  }
+  return null
 }
 
 function toUniqueKeys(values: string[]): string[] {
@@ -43,7 +54,6 @@ export function SetupStepConnection(props: {
   setupDraft: SetupDraftView | null
   host: string
   stepStatus: SetupStepStatus
-  sopsAgeKeyPathReady: boolean
   onDraftChange: (next: SetupDraftConnection) => void
   adminPassword: string
   onAdminPasswordChange: (value: string) => void
@@ -69,7 +79,6 @@ export function SetupStepConnection(props: {
         fleetSshKeys={fleetSshKeys}
         setupDraft={props.setupDraft}
         stepStatus={props.stepStatus}
-        sopsAgeKeyPathReady={props.sopsAgeKeyPathReady}
         onDraftChange={props.onDraftChange}
         adminPassword={props.adminPassword}
         onAdminPasswordChange={props.onAdminPasswordChange}
@@ -86,7 +95,6 @@ function SetupStepConnectionForm(props: {
   fleetSshKeys: string[]
   setupDraft: SetupDraftView | null
   stepStatus: SetupStepStatus
-  sopsAgeKeyPathReady: boolean
   onDraftChange: (next: SetupDraftConnection) => void
   adminPassword: string
   onAdminPasswordChange: (value: string) => void
@@ -114,6 +122,7 @@ function SetupStepConnectionForm(props: {
 
   const [addKeyOpen, setAddKeyOpen] = useState(false)
   const [newKeyText, setNewKeyText] = useState("")
+  const [newKeyTouched, setNewKeyTouched] = useState(false)
   const [newKeyLabel, setNewKeyLabel] = useState("")
   const [manualLabels, setManualLabels] = useState<Record<string, string>>({})
   const addProjectSshKey = useMutation({
@@ -173,9 +182,9 @@ function SetupStepConnectionForm(props: {
     if (!props.host.trim()) missing.push("host")
     if (!adminCidr.trim()) missing.push("admin IP (CIDR)")
     if (selectedKeys.length === 0) missing.push("SSH public key")
-    if (!props.sopsAgeKeyPathReady) missing.push("SOPS age key path")
     return missing
-  }, [adminCidr, props.host, props.sopsAgeKeyPathReady, selectedKeys.length])
+  }, [adminCidr, props.host, selectedKeys.length])
+  const keyInputError = validateSshPublicKeyInput(newKeyText)
 
   const toggleSelectedKey = (key: string, checked: boolean) => {
     setSelectedKeys((prev) => {
@@ -187,13 +196,19 @@ function SetupStepConnectionForm(props: {
   const addKeyFromDialog = async () => {
     const key = newKeyText.trim()
     const label = newKeyLabel.trim()
-    if (!isSshPublicKey(key)) return
+    const validationError = validateSshPublicKeyInput(key)
+    if (validationError) {
+      setNewKeyTouched(true)
+      toast.error(validationError)
+      return
+    }
     setKnownKeys((prev) => toUniqueKeys([...prev, key]))
     setSelectedKeys((prev) => toUniqueKeys([...prev, key]))
     if (label) {
       setManualLabels((prev) => ({ ...prev, [key]: label }))
     }
     setNewKeyText("")
+    setNewKeyTouched(false)
     setNewKeyLabel("")
     setAddKeyOpen(false)
 
@@ -263,17 +278,9 @@ function SetupStepConnectionForm(props: {
               ) : null}
             </div>
           </div>
-          <AdminCidrField
-            id="setup-admin-cidr"
-            label="Allowed admin IP (CIDR)"
-            help={setupFieldHelp.hosts.adminCidr}
-            value={adminCidr}
-            onValueChange={setAdminCidr}
-            autoDetectIfEmpty
-            description="Who can SSH during bootstrap/provisioning (usually your current IP with /32)."
-          />
-
-          <SetupSopsAgeKeyField projectId={props.projectId} />
+          <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Admin CIDR is auto-detected during setup entry. Override it in <strong>Advanced options</strong> if needed.
+          </div>
 
           <Accordion className="rounded-lg border bg-muted/20">
             <AccordionItem value="advanced" className="px-4">
@@ -282,6 +289,15 @@ function SetupStepConnectionForm(props: {
               </AccordionTrigger>
               <AccordionContent className="pb-4">
                 <div className="space-y-4">
+                  <AdminCidrField
+                    id="setup-admin-cidr"
+                    label="Allowed admin IP (CIDR)"
+                    help={setupFieldHelp.hosts.adminCidr}
+                    value={adminCidr}
+                    onValueChange={setAdminCidr}
+                    description="Who can SSH during bootstrap/provisioning (usually your current IP with /32)."
+                  />
+
                   <div className="space-y-2">
                     <LabelWithHelp htmlFor="setup-admin-password" help={setupFieldHelp.secrets.adminPassword}>
                       Admin password
@@ -318,7 +334,13 @@ function SetupStepConnectionForm(props: {
         </div>
       </SettingsSection>
 
-      <Dialog open={addKeyOpen} onOpenChange={setAddKeyOpen}>
+      <Dialog
+        open={addKeyOpen}
+        onOpenChange={(open) => {
+          setAddKeyOpen(open)
+          if (!open) setNewKeyTouched(false)
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add SSH key</DialogTitle>
@@ -332,13 +354,28 @@ function SetupStepConnectionForm(props: {
               <LabelWithHelp htmlFor="setup-new-ssh-key" help={setupFieldHelp.hosts.sshKeyPaste}>
                 SSH public key
               </LabelWithHelp>
+              <div className="rounded-md border border-amber-300/50 bg-amber-50/50 px-3 py-2 text-xs text-amber-900">
+                Never paste a private key here. Use only a single public key line.
+              </div>
               <Textarea
                 id="setup-new-ssh-key"
                 value={newKeyText}
-                onChange={(event) => setNewKeyText(event.target.value)}
+                onChange={(event) => {
+                  setNewKeyText(event.target.value)
+                  setNewKeyTouched(true)
+                }}
+                onBlur={() => setNewKeyTouched(true)}
                 className="field-sizing-fixed max-w-full min-h-[110px] break-all [overflow-wrap:anywhere] font-mono"
                 placeholder="ssh-ed25519 AAAA... user@host"
               />
+              <div className="text-xs text-muted-foreground">
+                Valid format starts with <code>ssh-ed25519</code>, <code>ssh-rsa</code>, or <code>ssh-ecdsa</code>.
+              </div>
+              {newKeyTouched && keyInputError ? (
+                <div className="text-xs text-destructive">
+                  {keyInputError}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -365,7 +402,7 @@ function SetupStepConnectionForm(props: {
             <InputGroupButton
               type="button"
               variant="default"
-              disabled={!newKeyText.trim() || addProjectSshKey.isPending}
+              disabled={Boolean(keyInputError) || addProjectSshKey.isPending}
               onClick={() => void addKeyFromDialog()}
             >
               {addProjectSshKey.isPending ? "Adding..." : "Add key"}

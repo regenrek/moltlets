@@ -15,10 +15,15 @@ import {
   updateDeployCredsEnvFile,
   type DeployCredsEnvFileKeys,
 } from "@clawlets/core/lib/infra/deploy-creds";
-import { ensurePrivateRuntimeDir, getLocalOperatorAgeKeyPath, getRepoLayout } from "@clawlets/core/repo-layout";
+import {
+  ensurePrivateRuntimeDir,
+  getHostScopedOperatorAgeKeyPath,
+  getLocalOperatorAgeKeyPath,
+  getRepoLayout,
+} from "@clawlets/core/repo-layout";
 import { parseAgeKeyFile } from "@clawlets/core/lib/security/age";
 import { ageKeygen } from "@clawlets/core/lib/security/age-keygen";
-import { sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
+import { assertSafeHostName, sanitizeOperatorId } from "@clawlets/shared/lib/identifiers";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
 function resolveEnvFilePath(params: { cwd: string; runtimeDir?: string; envFileArg?: unknown }): { path: string; origin: "default" | "explicit" } {
@@ -41,6 +46,13 @@ function readEnvFileOrEmpty(filePath: string): { text: string; parsed: Record<st
   const text = fs.readFileSync(filePath, "utf8");
   const parsed = parseDotenv(text);
   return { text, parsed };
+}
+
+function resolveHostArg(hostArg: unknown): string | null {
+  const host = coerceTrimmedString(hostArg);
+  if (!host) return null;
+  assertSafeHostName(host);
+  return host;
 }
 
 type DeployCredsStatusKey = {
@@ -210,6 +222,7 @@ export const envDetectAgeKey = defineCommand({
     description: "Detect candidate SOPS age key files and print recommendation.",
   },
   args: {
+    host: { type: "string", description: "Host for host-scoped operator key resolution (recommended for setup)." },
     runtimeDir: { type: "string", description: "Runtime directory (default: ~/.clawlets/workspaces/<repo>-<hash>; or $CLAWLETS_HOME/workspaces/<repo>-<hash>)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     json: { type: "boolean", description: "Output JSON.", default: false },
@@ -221,17 +234,23 @@ export const envDetectAgeKey = defineCommand({
     const repoRoot = findRepoRoot(cwd);
     const layout = getRepoLayout(repoRoot, runtimeDir);
     const loaded = loadDeployCreds({ cwd, runtimeDir, envFile });
+    const host = resolveHostArg((args as any).host);
 
     const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"));
-    const defaultOperatorPath = getLocalOperatorAgeKeyPath(layout, operatorId);
+    const defaultOperatorPath = host
+      ? getHostScopedOperatorAgeKeyPath(layout, host, operatorId)
+      : getLocalOperatorAgeKeyPath(layout, operatorId);
+    const operatorScanDir = host
+      ? path.join(layout.localOperatorKeysDir, "hosts", host)
+      : layout.localOperatorKeysDir;
 
     const candidates: string[] = [];
-    if (loaded.values.SOPS_AGE_KEY_FILE) candidates.push(String(loaded.values.SOPS_AGE_KEY_FILE));
+    if (!host && loaded.values.SOPS_AGE_KEY_FILE) candidates.push(String(loaded.values.SOPS_AGE_KEY_FILE));
     candidates.push(defaultOperatorPath);
-    if (fs.existsSync(layout.localOperatorKeysDir)) {
-      for (const entry of fs.readdirSync(layout.localOperatorKeysDir)) {
+    if (fs.existsSync(operatorScanDir)) {
+      for (const entry of fs.readdirSync(operatorScanDir)) {
         if (!entry.endsWith(".agekey")) continue;
-        candidates.push(path.join(layout.localOperatorKeysDir, entry));
+        candidates.push(path.join(operatorScanDir, entry));
       }
     }
 
@@ -262,13 +281,15 @@ export const envDetectAgeKey = defineCommand({
       results.push({ path: resolved, exists: true, valid: true });
     }
 
-    const preferred =
-      results.find((r) => r.valid && r.path === String(loaded.values.SOPS_AGE_KEY_FILE || "")) ||
-      results.find((r) => r.valid && r.path === defaultOperatorPath) ||
-      results.find((r) => r.valid) ||
-      null;
+    const preferred = host
+      ? results.find((r) => r.valid && r.path === defaultOperatorPath) || results.find((r) => r.valid) || null
+      : results.find((r) => r.valid && r.path === String(loaded.values.SOPS_AGE_KEY_FILE || ""))
+        || results.find((r) => r.valid && r.path === defaultOperatorPath)
+        || results.find((r) => r.valid)
+        || null;
 
     const out = {
+      host,
       operatorId,
       defaultOperatorPath,
       candidates: results,
@@ -278,6 +299,7 @@ export const envDetectAgeKey = defineCommand({
       console.log(JSON.stringify(out, null, 2));
       return;
     }
+    if (host) console.log(`host: ${host}`);
     console.log(`operator: ${operatorId}`);
     console.log(`default: ${defaultOperatorPath}`);
     if (out.recommendedPath) console.log(`recommended: ${out.recommendedPath}`);
@@ -288,9 +310,10 @@ export const envDetectAgeKey = defineCommand({
 export const envGenerateAgeKey = defineCommand({
   meta: {
     name: "generate-age-key",
-    description: "Generate local operator age key and set SOPS_AGE_KEY_FILE.",
+    description: "Generate local operator age key (optionally host-scoped) and set SOPS_AGE_KEY_FILE.",
   },
   args: {
+    host: { type: "string", description: "Host for host-scoped operator key generation (recommended for setup)." },
     runtimeDir: { type: "string", description: "Runtime directory (default: ~/.clawlets/workspaces/<repo>-<hash>; or $CLAWLETS_HOME/workspaces/<repo>-<hash>)." },
     envFile: { type: "string", description: "Env file for deploy creds (default: <runtimeDir>/env)." },
     json: { type: "boolean", description: "Output JSON.", default: false },
@@ -301,10 +324,14 @@ export const envGenerateAgeKey = defineCommand({
     const envFile = (args as any).envFile as string | undefined;
     const repoRoot = findRepoRoot(cwd);
     const layout = getRepoLayout(repoRoot, runtimeDir);
+    const host = resolveHostArg((args as any).host);
     const operatorId = sanitizeOperatorId(String(process.env.USER || "operator"));
-    const keyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
+    const keyPath = host
+      ? getHostScopedOperatorAgeKeyPath(layout, host, operatorId)
+      : getLocalOperatorAgeKeyPath(layout, operatorId);
     const pubPath = `${keyPath}.pub`;
     const loaded = loadDeployCreds({ cwd, runtimeDir, envFile });
+    const shouldUpdateEnv = !host;
 
     if (fs.existsSync(keyPath)) {
       const parsed = parseAgeKeyFile(fs.readFileSync(keyPath, "utf8"));
@@ -320,16 +347,19 @@ export const envGenerateAgeKey = defineCommand({
         }
         return;
       }
-      await updateDeployCredsEnvFile({
-        repoRoot,
-        runtimeDir,
-        envFile,
-        updates: {
-          SOPS_AGE_KEY_FILE: keyPath,
-        },
-      });
+      if (shouldUpdateEnv) {
+        await updateDeployCredsEnvFile({
+          repoRoot,
+          runtimeDir,
+          envFile,
+          updates: {
+            SOPS_AGE_KEY_FILE: keyPath,
+          },
+        });
+      }
       const existing = {
         ok: true as const,
+        host,
         keyPath,
         publicKey: parsed.publicKey,
         created: false as const,
@@ -342,9 +372,10 @@ export const envGenerateAgeKey = defineCommand({
       return;
     }
 
-    await ensureDir(layout.localOperatorKeysDir);
+    const keyDir = path.dirname(keyPath);
+    await ensureDir(keyDir);
     try {
-      fs.chmodSync(layout.localOperatorKeysDir, 0o700);
+      fs.chmodSync(keyDir, 0o700);
     } catch {
       // best-effort
     }
@@ -354,16 +385,24 @@ export const envGenerateAgeKey = defineCommand({
 
     await writeFileAtomic(keyPath, keypair.fileText, { mode: 0o600 });
     await writeFileAtomic(pubPath, `${keypair.publicKey}\n`, { mode: 0o600 });
-    await updateDeployCredsEnvFile({
-      repoRoot,
-      runtimeDir,
-      envFile,
-      updates: {
-        SOPS_AGE_KEY_FILE: keyPath,
-      },
-    });
+    if (shouldUpdateEnv) {
+      await updateDeployCredsEnvFile({
+        repoRoot,
+        runtimeDir,
+        envFile,
+        updates: {
+          SOPS_AGE_KEY_FILE: keyPath,
+        },
+      });
+    }
 
-    const out = { ok: true as const, keyPath, publicKey: keypair.publicKey, created: true as const };
+    const out = {
+      ok: true as const,
+      host,
+      keyPath,
+      publicKey: keypair.publicKey,
+      created: true as const,
+    };
     if ((args as any).json) {
       console.log(JSON.stringify(out, null, 2));
       return;

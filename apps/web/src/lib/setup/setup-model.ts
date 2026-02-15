@@ -90,7 +90,6 @@ export type DeriveSetupModelInput = {
   hasActiveTailscaleAuthKey?: boolean
   hasActiveHcloudToken?: boolean
   hasProjectGithubToken?: boolean
-  hasProjectSopsAgeKeyPath?: boolean
 }
 
 function asTrimmedString(value: unknown): string {
@@ -116,8 +115,6 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     pendingNonSecretDraft: input.pendingNonSecretDraft ?? null,
   })
 
-  const draftDeployCredsSet = input.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
-
   const infrastructureHostOk = Boolean(
     asTrimmedString(desired.infrastructure.serverType).length > 0
       && asTrimmedString(desired.infrastructure.location).length > 0,
@@ -129,12 +126,11 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
 
   const hcloudOk = Boolean(input.hasActiveHcloudToken)
-  const githubCredsOk = draftDeployCredsSet || Boolean(input.hasProjectGithubToken)
-  const sopsCredsOk = Boolean(input.hasProjectSopsAgeKeyPath)
-  const providerCredsOk = githubCredsOk && sopsCredsOk
+  const githubCredsOk = Boolean(input.hasProjectGithubToken)
+  const providerCredsOk = githubCredsOk
   const infrastructureProvisioningOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
   const infrastructureStepDone = infrastructureProvisioningOk && githubCredsOk
-  const connectionStepDone = connectionOk && sopsCredsOk
+  const connectionStepDone = connectionOk
   const useTailscaleLockdown = input.useTailscaleLockdown === true
   const hasTailscaleAuthKey = Boolean(input.hasActiveTailscaleAuthKey)
   const hasPendingTailscaleAuthKey = asTrimmedString(input.pendingTailscaleAuthKey).length > 0
