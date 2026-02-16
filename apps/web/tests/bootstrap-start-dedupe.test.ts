@@ -18,8 +18,18 @@ function startContext() {
 describe("bootstrapStart dedupe", () => {
   it("reuses active bootstrap run for host", async () => {
     vi.resetModules()
-    const query = vi.fn(async () => ({ _id: "run_existing", status: "running" }))
-    const mutation = vi.fn(async () => ({ runId: "run_new" }))
+    const query = vi.fn(
+      async (_query: unknown, _args: { projectId: string; host: string; kind: string }): Promise<{
+        _id: string
+        status: string
+      }> => ({ _id: "run_existing", status: "running" }),
+    )
+    const mutation = vi.fn(
+      async (
+        _mutation: unknown,
+        _args: { runId: string } | { projectId: string; kind: string; title: string; host: string },
+      ): Promise<{ runId: string } | null> => ({ runId: "run_new" }),
+    )
     vi.doMock("~/server/convex", () => ({
       createConvexClient: () => ({ query, mutation }) as any,
     }))
@@ -48,9 +58,14 @@ describe("bootstrapStart dedupe", () => {
 
   it("creates bootstrap run when latest run is terminal", async () => {
     vi.resetModules()
-    const query = vi.fn(async () => ({ _id: "run_old", status: "failed" }))
+    const query = vi.fn(async (_query: unknown, _args: { projectId: string; host: string; kind: string }): Promise<{
+      _id: string
+      status: string
+    }> => ({ _id: "run_old", status: "failed" }))
     const mutation = vi
-      .fn(async () => ({ runId: "run_new" }))
+      .fn(async (_mutation: unknown, _args: { runId: string } | { projectId: string; action: string; target: { host: string; mode: string }; data: { runId: string } }): Promise<
+        { runId: string } | null
+      >(() => ({ runId: "run_new" }))
       .mockResolvedValueOnce({ runId: "run_new" })
       .mockResolvedValueOnce(null)
     vi.doMock("~/server/convex", () => ({

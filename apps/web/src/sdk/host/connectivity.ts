@@ -124,15 +124,21 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
   let scannedPages = 0
   let sawBootstrap = false
 
+  type RunsByProjectHostPage = {
+    page?: Array<{ _id: Id<"runs"> }>
+    continueCursor: string | null
+    isDone: boolean
+  }
+
   while (scannedPages < 4) {
-    const page = await client.query(api.controlPlane.runs.listByProjectHostPage, {
+    const runsPage = (await client.query(api.controlPlane.runs.listByProjectHostPage, {
       projectId: params.projectId,
       host: params.host,
       paginationOpts: { numItems: 50, cursor },
-    })
+    })) as RunsByProjectHostPage
     scannedPages += 1
 
-    const candidates = orderBootstrapRunsForIpv4(page.page || [])
+    const candidates = orderBootstrapRunsForIpv4(runsPage.page || [])
     if (candidates.length > 0) sawBootstrap = true
 
     for (const run of candidates as Array<{ _id: Id<"runs"> }>) {
@@ -145,8 +151,8 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
       if (ipv4) return { ok: true, ipv4, source: "bootstrap_logs" }
     }
 
-    if (page.isDone || !page.continueCursor) break
-    cursor = page.continueCursor
+    if (runsPage.isDone || !runsPage.continueCursor) break
+    cursor = runsPage.continueCursor
   }
 
   if (!sawBootstrap) return { ok: false, error: "bootstrap run not found", source: "bootstrap_logs" }
