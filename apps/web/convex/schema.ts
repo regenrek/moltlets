@@ -153,6 +153,12 @@ export const DesiredHostSummary = v.object({
   selfUpdatePublicKeyCount: v.optional(v.number()),
   selfUpdateAllowUnsigned: v.optional(v.boolean()),
 });
+
+export const ObservedHostSummary = v.object({
+  publicIpv4: v.optional(v.string()),
+  publicIpv4UpdatedAt: v.optional(v.number()),
+  publicIpv4SourceRunId: v.optional(v.id("runs")),
+});
 export const DesiredGatewaySummary = v.object({
   enabled: v.optional(v.boolean()),
   channelCount: v.optional(v.number()),
@@ -339,13 +345,14 @@ const schema = defineSchema({
     provider: v.optional(v.string()),
     region: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
-    lastStatus: v.optional(HostStatus),
-    lastRunId: v.optional(v.id("runs")),
-    lastRunStatus: v.optional(RunStatus),
-    desired: v.optional(DesiredHostSummary),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_host", ["projectId", "hostName"]),
+	  lastStatus: v.optional(HostStatus),
+	  lastRunId: v.optional(v.id("runs")),
+	  lastRunStatus: v.optional(RunStatus),
+	  desired: v.optional(DesiredHostSummary),
+	  observed: v.optional(ObservedHostSummary),
+	})
+	  .index("by_project", ["projectId"])
+	  .index("by_project_host", ["projectId", "hostName"]),
 
   gateways: defineTable({
     projectId: v.id("projects"),

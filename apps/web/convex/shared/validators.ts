@@ -1,16 +1,17 @@
 import { v } from "convex/values";
 
 import {
-  AuditAction,
-  AuditData,
-  AuditTarget,
-  DesiredGatewaySummary,
-  DesiredHostSummary,
-  ExecutionMode,
-  GitWritePolicy,
-  HostStatus,
-  JobPayloadMeta,
-  JobStatus,
+	  AuditAction,
+	  AuditData,
+	  AuditTarget,
+	  DesiredGatewaySummary,
+	  DesiredHostSummary,
+	  ObservedHostSummary,
+	  ExecutionMode,
+	  GitWritePolicy,
+	  HostStatus,
+	  JobPayloadMeta,
+	  JobStatus,
   ProjectConfigType,
   ProjectDeletionStage,
   ProjectDeletionStatus,
@@ -135,6 +136,7 @@ export const HostDoc = v.object({
   lastRunId: v.optional(v.id("runs")),
   lastRunStatus: v.optional(RunStatus),
   desired: v.optional(DesiredHostSummary),
+  observed: v.optional(ObservedHostSummary),
 });
 
 export const GatewayDoc = v.object({

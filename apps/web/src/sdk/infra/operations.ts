@@ -109,6 +109,7 @@ export const bootstrapExecute = createServerFn({ method: "POST" })
       ...(data.lockdownAfter ? ["--lockdown-after"] : []),
       ...(data.force ? ["--force"] : []),
       ...(data.dryRun ? ["--dry-run"] : []),
+      "--json",
     ]
     const queued = await enqueueRunnerJobForRun({
       client,

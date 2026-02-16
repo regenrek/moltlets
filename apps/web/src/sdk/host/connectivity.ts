@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { validateTargetHost } from "@clawlets/core/lib/security/ssh-remote"
 import {
+  isValidIpv4,
   parseBootstrapIpv4FromLogs,
 } from "@clawlets/core/lib/host/host-connectivity"
 import { api } from "../../../convex/_generated/api"
@@ -15,8 +16,8 @@ import {
 import { orderBootstrapRunsForIpv4 } from "~/lib/host/bootstrap-ipv4-selection"
 
 export type PublicIpv4Result =
-  | { ok: true; ipv4: string; source: "bootstrap_logs" }
-  | { ok: false; error: string; source: "bootstrap_logs" | "none" }
+  | { ok: true; ipv4: string; source: "host_observed" | "bootstrap_logs" }
+  | { ok: false; error: string; source: "host_observed" | "bootstrap_logs" | "none" }
 
 export type TailscaleIpv4Result =
   | { ok: true; ipv4: string }
@@ -35,12 +36,14 @@ function sleep(ms: number): Promise<void> {
 async function assertKnownHost(params: {
   projectId: Id<"projects">
   host: string
-}): Promise<void> {
+}): Promise<any> {
   const client = createConvexClient()
   const hosts = await client.query(api.controlPlane.hosts.listByProject, { projectId: params.projectId })
-  if (!hosts.some((row) => row.hostName === params.host)) {
+  const host = hosts.find((row) => row.hostName === params.host)
+  if (!host) {
     throw new Error(`unknown host: ${params.host}`)
   }
+  return host
 }
 
 async function enqueueCustomProbe(params: {
@@ -162,10 +165,14 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
 export const getHostPublicIpv4 = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostRequiredInput)
   .handler(async ({ data }) => {
-    await assertKnownHost({ projectId: data.projectId, host: data.host })
+    const host = await assertKnownHost({ projectId: data.projectId, host: data.host })
+    const observed = typeof host?.observed?.publicIpv4 === "string" ? host.observed.publicIpv4.trim() : ""
+    if (observed && isValidIpv4(observed)) {
+      return { ok: true as const, ipv4: observed, source: "host_observed" as const }
+    }
     const fallback = await resolveBootstrapIpv4({ projectId: data.projectId, host: data.host })
     if (fallback.ok) return fallback
-    return { ok: false as const, error: fallback.error, source: "none" }
+    return { ok: false as const, error: fallback.error, source: fallback.source ?? "none" }
   })
 
 export const probeHostTailscaleIpv4 = createServerFn({ method: "POST" })

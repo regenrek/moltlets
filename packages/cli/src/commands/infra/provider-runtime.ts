@@ -44,6 +44,7 @@ export function buildProvisionerRuntime(params: {
   opentofuDir: string;
   dryRun: boolean;
   deployCreds: DeployCredsResult;
+  stdio?: ProvisionerRuntime["stdio"];
 }): ProvisionerRuntime {
   const aws = resolveAwsCliCredentials(params.deployCreds);
 
@@ -58,6 +59,7 @@ export function buildProvisionerRuntime(params: {
       aws.secretAccessKey,
       aws.sessionToken,
     ].filter(Boolean) as string[],
+    ...(params.stdio ? { stdio: params.stdio } : {}),
     credentials: {
       hcloudToken: params.deployCreds.values.HCLOUD_TOKEN,
       githubToken: params.deployCreds.values.GITHUB_TOKEN,

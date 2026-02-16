@@ -62,6 +62,10 @@ export type ProvisionerRuntime = {
   nixBin: string;
   dryRun: boolean;
   redact: string[];
+  stdio?: {
+    stdout?: "inherit" | "ignore";
+    stderr?: "inherit" | "ignore";
+  };
   credentials: {
     hcloudToken?: string;
     githubToken?: string;

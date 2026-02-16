@@ -73,6 +73,28 @@ describe("runner command policy args parser", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("requires --json for bootstrap jobs", () => {
+    const missingJson = __test_validateArgsForKind({
+      kind: "bootstrap",
+      args: ["bootstrap", "--host", "alpha", "--mode=nixos-anywhere"],
+    });
+    expect(missingJson.ok).toBe(false);
+    if (!missingJson.ok) expect(missingJson.error).toMatch(/missing required --json/i);
+
+    const missingHost = __test_validateArgsForKind({
+      kind: "bootstrap",
+      args: ["bootstrap", "--mode=nixos-anywhere", "--json"],
+    });
+    expect(missingHost.ok).toBe(false);
+    if (!missingHost.ok) expect(missingHost.error).toMatch(/missing required --host/i);
+
+    const ok = __test_validateArgsForKind({
+      kind: "bootstrap",
+      args: ["bootstrap", "--host", "alpha", "--mode=nixos-anywhere", "--json"],
+    });
+    expect(ok).toEqual({ ok: true });
+  });
+
   it("accepts host-scoped env age-key commands", () => {
     const detect = __test_validateArgsForKind({
       kind: "custom",
@@ -121,6 +143,15 @@ describe("runner command policy args parser", () => {
     expect(resolved.ok).toBe(true);
     if (!resolved.ok) return;
     expect(resolved.spec.id).toBe("env_token_keyring_mutate");
+    expect(resolved.spec.resultMode).toBe("json_small");
+    expect(resolved.spec.resultMaxBytes).toBe(512 * 1024);
+  });
+
+  it("resolves json_small mode for bootstrap", () => {
+    const resolved = resolveCommandSpecForKind("bootstrap", ["bootstrap", "--host", "alpha", "--mode=nixos-anywhere", "--json"]);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.spec.id).toBe("bootstrap");
     expect(resolved.spec.resultMode).toBe("json_small");
     expect(resolved.spec.resultMaxBytes).toBe(512 * 1024);
   });

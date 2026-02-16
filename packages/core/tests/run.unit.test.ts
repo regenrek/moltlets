@@ -14,6 +14,12 @@ describe("run helpers", () => {
     expect(spy).toHaveBeenCalledWith("echo <redacted>");
   });
 
+  it("suppresses dry-run output when stdout is ignored", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await run("echo", ["hi"], { dryRun: true, stdout: "ignore" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("captures stdout output", async () => {
     const out = await capture(process.execPath, ["-e", "process.stdout.write('ok')"]);
     expect(out).toBe("ok");

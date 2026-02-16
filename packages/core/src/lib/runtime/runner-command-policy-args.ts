@@ -198,10 +198,14 @@ const specBootstrap: CommandSpec = {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--mode": { kind: "value", validate: validateEnum(MODE_SCOPES, "--mode") },
     "--rev": { kind: "value", validate: validateSafeValue("--rev", 128) },
+    "--json": { kind: "boolean" },
     "--lockdown-after": { kind: "boolean" },
     "--force": { kind: "boolean" },
     "--dry-run": { kind: "boolean" },
   },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specLockdown: CommandSpec = {

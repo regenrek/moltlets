@@ -269,7 +269,7 @@ export function buildDefaultArgsForJobKind(params: {
     case "doctor":
       return ["doctor", ...host];
     case "bootstrap":
-      return ["bootstrap", ...host];
+      return ["bootstrap", ...host, "--json"];
     case "lockdown":
       return ["lockdown", ...host];
     case "secrets_verify":
