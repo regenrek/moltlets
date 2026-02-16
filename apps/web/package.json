@@ -70,13 +70,13 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "4.0.18",
     "concurrently": "^9.2.1",
-    "shadcn": "^3.8.4",
+    "shadcn": "^3.8.5",
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5.9.3",
     "unplugin-icons": "^23.0.1",
     "vite": "^7.1.7",
-    "vite-tsconfig-paths": "^6.1.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "4.0.18"
   }
 }
