@@ -125,7 +125,7 @@ async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: s
   let sawBootstrap = false
 
   type RunsByProjectHostPage = {
-    page?: Array<{ _id: Id<"runs"> }>
+    page?: Array<{ _id: Id<"runs">; kind?: string | null; status?: string | null }>
     continueCursor: string | null
     isDone: boolean
   }

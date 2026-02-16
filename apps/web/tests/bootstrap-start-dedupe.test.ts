@@ -63,9 +63,10 @@ describe("bootstrapStart dedupe", () => {
       status: string
     }> => ({ _id: "run_old", status: "failed" }))
     const mutation = vi
-      .fn(async (_mutation: unknown, _args: { runId: string } | { projectId: string; action: string; target: { host: string; mode: string }; data: { runId: string } }): Promise<
-        { runId: string } | null
-      >(() => ({ runId: "run_new" }))
+      .fn(async (
+        _mutation: unknown,
+        _args: { runId: string } | { projectId: string; action: string; target: { host: string; mode: string }; data: { runId: string } },
+      ): Promise<{ runId: string } | null> => ({ runId: "run_new" }))
       .mockResolvedValueOnce({ runId: "run_new" })
       .mockResolvedValueOnce(null)
     vi.doMock("~/server/convex", () => ({
