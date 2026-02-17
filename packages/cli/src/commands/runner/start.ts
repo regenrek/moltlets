@@ -901,11 +901,12 @@ function pickRunnerErrorDetail(raw: string): string | null {
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (lines.length === 0) return null;
+  const firstLine = lines[0];
+  if (!firstLine) return null;
 
   const interestingRe = /timed out|timeout|permission denied|host key|connection refused|no route|could not|missing|invalid|error:/i;
   const candidates = lines.filter((line) => interestingRe.test(line));
-  const picked = candidates.find((line) => /^error:/i.test(line)) ?? candidates[0] ?? lines[0];
+  const picked = candidates.find((line) => /^error:/i.test(line)) ?? candidates[0] ?? firstLine;
   const bounded = picked.length > 500 ? `${picked.slice(0, 500)}...(truncated)` : picked;
   return bounded.trim() ? bounded : null;
 }
@@ -1311,23 +1312,22 @@ async function executeLeasedJobWithRunEvents(params: {
       projectId: params.projectId,
       runId: params.job.runId,
       context: "command_end_error",
-      events: [
-        {
-          ts: Date.now(),
-          level: "error",
-          message: errorMessage,
-          meta: { kind: "phase", phase: "command_end" },
-        },
-        ...(errorDetail ? [
+        events: [
           {
             ts: Date.now(),
             level: "error",
-            message: errorDetail,
-            meta: { kind: "detail" },
+            message: errorMessage,
+            meta: { kind: "phase", phase: "command_end" },
           },
-        ] : []),
-      ],
-    });
+          ...(errorDetail ? [
+            {
+              ts: Date.now(),
+              level: "error" as const,
+              message: errorDetail,
+            },
+          ] : []),
+        ],
+      });
     return { terminal: "failed", errorMessage };
   }
 }

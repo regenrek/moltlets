@@ -1,5 +1,6 @@
 import {
   createRootRoute,
+  type ErrorComponentProps,
   HeadContent,
   Outlet,
   Scripts,
@@ -27,7 +28,7 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/logo.png" },
     ],
   }),
-  errorComponent: (props) => (
+  errorComponent: (props: ErrorComponentProps) => (
     <RootDocument>
       <DefaultCatchBoundary {...props} />
     </RootDocument>
