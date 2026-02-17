@@ -506,7 +506,9 @@ export function DeployInitialInstallSetup(props: {
                 if (!result.ok) throw new Error(extractIssueMessage(result, "Could not set tailnet targetHost"))
                 return targetHost
               }
-              lastError = probe.error || lastError
+              if (!probe.ok) {
+                lastError = probe.error || lastError
+              }
               await sleep(pollMs)
             }
 
