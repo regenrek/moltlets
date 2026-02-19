@@ -9,6 +9,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --workspace-concurrency=2 --if-present test",
+    "coverage:all": "pnpm -r --if-present coverage && pnpm -C apps/web test -- --run",
     "test:unit": "pnpm -r --if-present test:unit",
     "test:contract": "pnpm -r --if-present test:contract",
     "test:integration": "pnpm -r --if-present test:integration",

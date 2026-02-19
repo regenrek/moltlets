@@ -10,6 +10,7 @@ describe("deriveDeployReadiness", () => {
       runnerOnline: true,
       repoPending: false,
       repoError: null,
+      dirty: false,
       missingRev: true,
       needsPush: false,
       localSelected: false,
@@ -25,6 +26,7 @@ describe("deriveDeployReadiness", () => {
       runnerOnline: true,
       repoPending: false,
       repoError: null,
+      dirty: false,
       missingRev: false,
       needsPush: true,
       localSelected: true,
@@ -40,6 +42,7 @@ describe("deriveDeployReadiness", () => {
       runnerOnline: true,
       repoPending: false,
       repoError: null,
+      dirty: false,
       missingRev: false,
       needsPush: false,
       localSelected: false,
@@ -48,22 +51,52 @@ describe("deriveDeployReadiness", () => {
     expect(result.blocksDeploy).toBe(false)
     expect(result.showFirstPushGuidance).toBe(false)
   })
+
+  it("blocks deploy when repo is dirty", () => {
+    const result = deriveDeployReadiness({
+      runnerOnline: true,
+      repoPending: false,
+      repoError: null,
+      dirty: true,
+      missingRev: false,
+      needsPush: false,
+      localSelected: false,
+    })
+    expect(result.reason).toBe("dirty_repo")
+    expect(result.blocksDeploy).toBe(true)
+  })
 })
 
 describe("deriveFirstPushGuidance", () => {
   it("returns remote-setup commands when upstream is missing", () => {
-    const result = deriveFirstPushGuidance({ upstream: null })
+    const result = deriveFirstPushGuidance({
+      upstream: null,
+      runnerRepoPath: "~/.clawlets/projects/openclaw-fleet",
+      repoUrlHint: "git@github.com:org/openclaw-fleet.git",
+    })
     expect(result.hasUpstream).toBe(false)
     expect(result.remoteName).toBe("origin")
-    expect(result.commands).toContain("git remote add origin <repo-url>")
-    expect(result.commands).toContain("git remote set-url origin <repo-url>")
+    expect(result.repoPath).toBe("~/.clawlets/projects/openclaw-fleet")
+    expect(result.repoUrlHint).toBe("git@github.com:org/openclaw-fleet.git")
+    expect(result.commands).toContain("cd \"$HOME\"'/.clawlets/projects/openclaw-fleet'")
+    expect(result.commands).toContain("git remote add origin 'git@github.com:org/openclaw-fleet.git'")
+    expect(result.commands).toContain("git remote set-url origin 'git@github.com:org/openclaw-fleet.git'")
     expect(result.commands).toContain("git push -u origin HEAD")
   })
 
   it("returns simple push when upstream exists", () => {
-    const result = deriveFirstPushGuidance({ upstream: "origin/main" })
+    const result = deriveFirstPushGuidance({
+      upstream: "origin/main",
+      runnerRepoPath: "/srv/openclaw",
+    })
     expect(result.hasUpstream).toBe(true)
     expect(result.remoteName).toBe("origin")
-    expect(result.commands).toBe("git push")
+    expect(result.commands).toBe("cd '/srv/openclaw'\ngit push")
+  })
+
+  it("keeps placeholders when repo hints are missing", () => {
+    const result = deriveFirstPushGuidance({ upstream: null })
+    expect(result.commands).toContain("cd <runner-repo-path>")
+    expect(result.commands).toContain("git remote add origin <repo-url>")
   })
 })

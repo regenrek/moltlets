@@ -420,23 +420,22 @@ describe("runner sealed input execution", () => {
       const jobId = "job-setup-apply";
       const kind = "setup_apply";
 
-      const deployCredsDraft = buildEnvelope({
+      const hostBootstrapCredsDraft = buildEnvelope({
         publicKeySpkiB64: keypair.publicKeySpkiB64,
         keyId: keypair.keyId,
-        aad: `${projectId}:${hostName}:setupDraft:deployCreds:${targetRunnerId}`,
+        aad: `${projectId}:${hostName}:setupDraft:hostBootstrapCreds:${targetRunnerId}`,
         plaintext: JSON.stringify({
           HCLOUD_TOKEN: "token-123",
           GITHUB_TOKEN: "gh-123",
           SOPS_AGE_KEY_FILE: "/tmp/operator.agekey",
         }),
       });
-      const bootstrapSecretsDraft = buildEnvelope({
+      const hostBootstrapSecretsDraft = buildEnvelope({
         publicKeySpkiB64: keypair.publicKeySpkiB64,
         keyId: keypair.keyId,
-        aad: `${projectId}:${hostName}:setupDraft:bootstrapSecrets:${targetRunnerId}`,
+        aad: `${projectId}:${hostName}:setupDraft:hostBootstrapSecrets:${targetRunnerId}`,
         plaintext: JSON.stringify({
           adminPasswordHash: "$6$hash",
-          tailscaleAuthKey: "tskey-auth",
           discord_token: "token-xyz",
         }),
       });
@@ -449,21 +448,21 @@ describe("runner sealed input execution", () => {
             del: false,
           },
         ],
-        deployCredsDraft: {
+        hostBootstrapCredsDraft: {
           alg: RUNNER_SEALED_INPUT_ALG,
           keyId: keypair.keyId,
           targetRunnerId,
-          sealedInputB64: deployCredsDraft,
-          aad: `${projectId}:${hostName}:setupDraft:deployCreds:${targetRunnerId}`,
+          sealedInputB64: hostBootstrapCredsDraft,
+          aad: `${projectId}:${hostName}:setupDraft:hostBootstrapCreds:${targetRunnerId}`,
           updatedAt: 1,
           expiresAt: Date.now() + 60_000,
         },
-        bootstrapSecretsDraft: {
+        hostBootstrapSecretsDraft: {
           alg: RUNNER_SEALED_INPUT_ALG,
           keyId: keypair.keyId,
           targetRunnerId,
-          sealedInputB64: bootstrapSecretsDraft,
-          aad: `${projectId}:${hostName}:setupDraft:bootstrapSecrets:${targetRunnerId}`,
+          sealedInputB64: hostBootstrapSecretsDraft,
+          aad: `${projectId}:${hostName}:setupDraft:hostBootstrapSecrets:${targetRunnerId}`,
           updatedAt: 1,
           expiresAt: Date.now() + 60_000,
         },
@@ -497,7 +496,7 @@ describe("runner sealed input execution", () => {
             sealedInputKeyId: keypair.keyId,
             payloadMeta: {
               args: ["setup", "apply", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
-              updatedKeys: ["hostName", "configOps", "deployCredsDraft", "bootstrapSecretsDraft"],
+              updatedKeys: ["hostName", "configOps", "hostBootstrapCredsDraft", "hostBootstrapSecretsDraft"],
             },
           },
           repoRoot: "/tmp/repo",
@@ -519,7 +518,6 @@ describe("runner sealed input execution", () => {
         },
         bootstrapSecrets: {
           adminPasswordHash: "$6$hash",
-          tailscaleAuthKey: "tskey-auth",
           discord_token: "token-xyz",
         },
       });

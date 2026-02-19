@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
@@ -18,11 +18,7 @@ import { WEB_DEPLOY_CREDS_EDITABLE_KEYS } from "~/lib/deploy-creds-ui"
 import { sealForRunner } from "~/lib/security/sealed-input"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import {
-  detectSopsAgeKey,
-  finalizeDeployCreds,
-  generateSopsAgeKey,
-  getDeployCredsStatus,
-  updateDeployCreds,
+  queueDeployCredsUpdate,
 } from "~/sdk/infra"
 import {
   buildSetupDraftSectionAad,
@@ -30,9 +26,17 @@ import {
   type SetupDraftView,
 } from "~/sdk/setup"
 
+type EditableDeployCredKey = (typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]
+
+type DeployCredKeyStatusSummary = Partial<Record<EditableDeployCredKey, {
+  status: "set" | "unset"
+  value?: string
+}>>
+
 type DeployCredsCardProps = {
   projectId: Id<"projects">
   setupHref?: string | null
+  runnerStatusMode?: "full" | "none"
   setupDraftFlow?: {
     host: string
     setupDraft: SetupDraftView | null
@@ -46,6 +50,7 @@ type DeployCredsCardProps = {
     commands: string
     hasUpstream: boolean
     upstream?: string | null
+    note?: string
   } | null
   githubReadiness?: {
     runnerOnline: boolean
@@ -64,9 +69,9 @@ type DeployCredsCardProps = {
       detail?: string
     } | null
   } | null
+  statusSummary?: DeployCredKeyStatusSummary | null
+  onQueued?: () => void
 }
-
-type EditableDeployCredKey = (typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]
 
 type SaveFieldInput = {
   key: EditableDeployCredKey
@@ -74,9 +79,15 @@ type SaveFieldInput = {
   value: string
 }
 
+const DEPLOY_CREDS_RECONCILE_DELAYS_MS = [800, 2_000, 5_000] as const
+const DEPLOY_CREDS_OPTIMISTIC_STATUS_TTL_MS = 15_000
+
+type OptimisticDeployCredStatus = "set" | "unset"
+
 export function DeployCredsCard({
   projectId,
   setupHref = null,
+  runnerStatusMode = "full",
   setupDraftFlow,
   title = "Deploy credentials",
   description = "Local-only operator tokens used by bootstrap, infra, and doctor.",
@@ -85,6 +96,8 @@ export function DeployCredsCard({
   githubRepoHint = null,
   githubFirstPushGuidance = null,
   githubReadiness = null,
+  statusSummary = null,
+  onQueued,
 }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const keysToShow = visibleKeys?.length ? visibleKeys : WEB_DEPLOY_CREDS_EDITABLE_KEYS
@@ -93,9 +106,47 @@ export function DeployCredsCard({
   const showSopsAgeKeyFile = visibleKeySet.has("SOPS_AGE_KEY_FILE")
   const setupMode = Boolean(setupDraftFlow)
   const [setupDraftValues, setSetupDraftValues] = useState<Partial<Record<EditableDeployCredKey, string>>>({})
+  const [optimisticKeyStatus, setOptimisticKeyStatus] = useState<Partial<Record<EditableDeployCredKey, OptimisticDeployCredStatus>>>({})
+  const optimisticStatusTimeoutsRef = useRef<Partial<Record<EditableDeployCredKey, ReturnType<typeof setTimeout>>>>({})
+
+  const clearOptimisticStatusTimers = () => {
+    const timeouts = optimisticStatusTimeoutsRef.current
+    for (const timeout of Object.values(timeouts)) {
+      if (!timeout) continue
+      clearTimeout(timeout)
+    }
+    optimisticStatusTimeoutsRef.current = {}
+  }
+
+  const setOptimisticStatus = (key: EditableDeployCredKey, status: OptimisticDeployCredStatus) => {
+    setOptimisticKeyStatus((prev) => ({ ...prev, [key]: status }))
+
+    const existing = optimisticStatusTimeoutsRef.current[key]
+    if (existing) clearTimeout(existing)
+
+    optimisticStatusTimeoutsRef.current[key] = setTimeout(() => {
+      setOptimisticKeyStatus((prev) => {
+        if (!Object.prototype.hasOwnProperty.call(prev, key)) return prev
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+      const active = optimisticStatusTimeoutsRef.current[key]
+      if (active) clearTimeout(active)
+      delete optimisticStatusTimeoutsRef.current[key]
+    }, DEPLOY_CREDS_OPTIMISTIC_STATUS_TTL_MS)
+  }
+
   useEffect(() => {
     setSetupDraftValues({})
+    setOptimisticKeyStatus({})
+    clearOptimisticStatusTimers()
   }, [projectId, setupDraftFlow?.host])
+  useEffect(() => {
+    return () => {
+      clearOptimisticStatusTimers()
+    }
+  }, [])
 
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId }),
@@ -121,30 +172,46 @@ export function DeployCredsCard({
 
   const [selectedRunnerId, setSelectedRunnerId] = useState<string>("")
   useEffect(() => {
-    if (sealedRunners.length === 1) setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
-  }, [sealedRunners])
-
-  const creds = useQuery({
-    queryKey: ["deployCreds", projectId],
-    queryFn: async () => await getDeployCredsStatus({ data: { projectId } }),
-    enabled: runnerOnline && !setupDraftFlow,
-  })
-
-  const credsByKey = useMemo(() => {
-    const out: Record<string, { status?: "set" | "unset"; value?: string }> = {}
-    for (const k of creds.data?.keys || []) out[k.key] = k
-    return out
-  }, [creds.data?.keys])
+    if (sealedRunners.length === 1) {
+      setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+      return
+    }
+    if (!sealedRunners.some((runner) => String(runner._id) === selectedRunnerId)) {
+      setSelectedRunnerId("")
+    }
+  }, [sealedRunners, selectedRunnerId])
+  const selectedRunner = useMemo(
+    () => {
+      if (sealedRunners.length === 1) return sealedRunners[0] ?? null
+      return sealedRunners.find((row) => String(row._id) === selectedRunnerId) ?? null
+    },
+    [sealedRunners, selectedRunnerId],
+  )
 
   const [githubToken, setGithubToken] = useState("")
-  const [sopsAgeKeyFileOverride, setSopsAgeKeyFileOverride] = useState<string | undefined>(undefined)
-  const [sopsStatus, setSopsStatus] = useState<{ kind: "ok" | "warn" | "error"; message: string } | null>(null)
-
-  const defaultSopsAgeKeyFile = String(credsByKey["SOPS_AGE_KEY_FILE"]?.value || creds.data?.defaultSopsAgeKeyPath || "")
-  const sopsAgeKeyFile = sopsAgeKeyFileOverride ?? defaultSopsAgeKeyFile
-  const projectKeyIsSet = (key: EditableDeployCredKey): boolean => credsByKey[key]?.status === "set"
+  const effectiveStatusSummary = useMemo<DeployCredKeyStatusSummary>(
+    () => {
+      if (statusSummary) return statusSummary
+      const runnerSummary = selectedRunner?.deployCredsSummary
+      if (!runnerSummary) return {}
+      return {
+        GITHUB_TOKEN: { status: runnerSummary.hasGithubToken ? "set" : "unset" },
+        SOPS_AGE_KEY_FILE: { status: runnerSummary.sopsAgeKeyFileSet ? "set" : "unset" },
+      }
+    },
+    [selectedRunner?.deployCredsSummary, statusSummary],
+  )
+  const projectKeyIsSet = (key: EditableDeployCredKey): boolean => {
+    const optimistic = optimisticKeyStatus[key]
+    if (optimistic === "set") return true
+    if (optimistic === "unset") return false
+    const summaryStatus = effectiveStatusSummary[key]?.status
+    if (summaryStatus === "set") return true
+    if (summaryStatus === "unset") return false
+    return false
+  }
   const projectVisibleKeysReady = keysToShow.every((key) => projectKeyIsSet(key))
-  const setupDraftDeployCredsSet = setupDraftFlow?.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
+  const setupDraftDeployCredsSet = setupDraftFlow?.setupDraft?.sealedSecretDrafts?.hostBootstrapCreds?.status === "set"
   const githubTokenRequired = Boolean(
     setupDraftFlow
     && showGithubToken
@@ -194,7 +261,7 @@ export function DeployCredsCard({
         const setupAad = buildSetupDraftSectionAad({
           projectId,
           host: setupDraftFlow.host,
-          section: "deployCreds",
+          section: "hostBootstrapCreds",
           targetRunnerId,
         })
         const setupDraftSealedInputB64 = await sealForRunner({
@@ -209,7 +276,7 @@ export function DeployCredsCard({
           data: {
             projectId,
             host: setupDraftFlow.host,
-            section: "deployCreds",
+            section: "hostBootstrapCreds",
             targetRunnerId,
             sealedInputB64: setupDraftSealedInputB64,
             sealedInputAlg: alg,
@@ -225,41 +292,11 @@ export function DeployCredsCard({
       const updates: Record<string, string> = {
         [input.key]: normalized,
       }
-
-      const reserve = await updateDeployCreds({
+      await queueDeployCredsUpdate({
         data: {
           projectId,
           targetRunnerId,
-          updatedKeys: [input.key],
-        },
-      }) as any
-
-      const jobId = String(reserve?.jobId || "").trim()
-      const kind = String(reserve?.kind || "").trim()
-      if (!jobId || !kind) throw new Error("reserve response missing job metadata")
-
-      const reserveRunnerPub = String(reserve?.sealedInputPubSpkiB64 || runnerPub).trim()
-      const reserveKeyId = String(reserve?.sealedInputKeyId || keyId).trim()
-      const reserveAlg = String(reserve?.sealedInputAlg || alg).trim()
-      const aad = `${projectId}:${jobId}:${kind}:${targetRunnerId}`
-      const sealedInputB64 = await sealForRunner({
-        runnerPubSpkiB64: reserveRunnerPub,
-        keyId: reserveKeyId,
-        alg: reserveAlg,
-        aad,
-        plaintextJson: JSON.stringify(updates),
-      })
-
-      await finalizeDeployCreds({
-        data: {
-          projectId,
-          jobId,
-          kind,
-          sealedInputB64,
-          sealedInputAlg: reserveAlg,
-          sealedInputKeyId: reserveKeyId,
-          targetRunnerId,
-          updatedKeys: [input.key],
+          updates,
         },
       })
 
@@ -267,63 +304,30 @@ export function DeployCredsCard({
     },
     onSuccess: async (input) => {
       toast.success(input.kind === "remove" ? `${input.key} removed` : `${input.key} saved`)
+      onQueued?.()
+      setOptimisticStatus(input.key, input.kind === "remove" ? "unset" : "set")
       if (input.key === "GITHUB_TOKEN") setGithubToken("")
-      if (input.key === "SOPS_AGE_KEY_FILE") setSopsAgeKeyFileOverride(input.kind === "remove" ? "" : undefined)
-      if (setupDraftFlow) await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
-      else await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
+      if (setupDraftFlow) {
+        await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
+        return
+      }
+      for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+        setTimeout(() => {
+          void runnersQuery.refetch()
+        }, delayMs)
+      }
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
     },
   })
 
-  const detectSops = useMutation({
-    mutationFn: async () => {
-      if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
-      return await detectSopsAgeKey({ data: { projectId } })
-    },
-    onSuccess: (res) => {
-      if (res.recommendedPath) {
-        setSopsAgeKeyFileOverride(res.recommendedPath)
-        setSopsStatus({ kind: "ok", message: `Found key: ${res.recommendedPath}` })
-      } else {
-        setSopsStatus({ kind: "warn", message: "No valid age key found. Generate one below." })
-      }
-    },
-    onError: (err) => {
-      setSopsStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) })
-    },
-  })
-
-  const generateSops = useMutation({
-    mutationFn: async () => {
-      if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
-      return await generateSopsAgeKey({ data: { projectId } })
-    },
-    onSuccess: async (res) => {
-      if (res.ok) {
-        setSopsAgeKeyFileOverride(res.keyPath)
-        setSopsStatus({
-          kind: "ok",
-          message: res.created === false ? `Using existing key: ${res.keyPath}` : `Generated key: ${res.keyPath}`,
-        })
-        await queryClient.invalidateQueries({ queryKey: ["deployCreds", projectId] })
-        toast.success(res.created === false ? "Using existing SOPS key" : "SOPS key generated")
-      } else {
-        setSopsStatus({ kind: "warn", message: res.message || "Key already exists." })
-      }
-    },
-    onError: (err) => {
-      setSopsStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) })
-    },
-  })
-
   const keyIsSet = (key: EditableDeployCredKey): boolean => {
-    if (setupDraftFlow) return Boolean(setupDraftValues[key]?.trim())
-    const status = credsByKey[key]?.status
-    if (status === "set") return true
-    if (status === "unset") return false
-    return false
+    if (setupDraftFlow) {
+      if (setupDraftValues[key]?.trim()) return true
+      return setupDraftDeployCredsSet
+    }
+    return projectKeyIsSet(key)
   }
 
   const runSaveKey = (key: EditableDeployCredKey, value: string) => {
@@ -344,30 +348,28 @@ export function DeployCredsCard({
 
   return (
     <SettingsSection title={title} description={description} headerBadge={headerBadge}>
-      <RunnerStatusBanner
-        projectId={projectId}
-        setupHref={setupHref}
-        runnerOnline={runnerOnline}
-        isChecking={runnersQuery.isPending}
-      />
+      {runnerStatusMode !== "none" ? (
+        <RunnerStatusBanner
+          projectId={projectId}
+          setupHref={setupHref}
+          runnerOnline={runnerOnline}
+          isChecking={runnersQuery.isPending}
+        />
+      ) : null}
 
-      {!runnerOnline && !runnersQuery.isPending ? (
+      {runnerStatusMode !== "none" && !runnerOnline && !runnersQuery.isPending ? (
         <div className="text-sm text-muted-foreground">
           Connect your runner to load and update deploy credentials.
         </div>
       ) : null}
 
-      {runnerOnline && sealedRunners.length === 0 ? (
+      {runnerStatusMode !== "none" && runnerOnline && sealedRunners.length === 0 ? (
         <div className="text-sm text-destructive">
           No online runner advertises sealed input. Upgrade runner and retry.
         </div>
       ) : null}
 
-      {!runnerOnline ? null : creds.isPending ? (
-        <div className="text-muted-foreground text-sm">Loading…</div>
-      ) : creds.error ? (
-        <div className="text-sm text-destructive">{String(creds.error)}</div>
-      ) : (
+      {!runnerOnline ? null : (
         <div className="space-y-4">
           {setupMode && projectVisibleKeysReady ? (
             <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
@@ -477,11 +479,14 @@ export function DeployCredsCard({
                   <div className="text-muted-foreground">
                     {githubFirstPushGuidance.hasUpstream
                       ? `Upstream detected (${githubFirstPushGuidance.upstream || "configured"}). Push once, then refresh.`
-                      : "No upstream detected. Set or update origin, push once, then refresh."}
+                      : "No upstream detected. Use the path below, set/update origin, push once, then refresh."}
                   </div>
                   <pre className="rounded-md border bg-muted/30 p-2 whitespace-pre-wrap break-words">
                     {githubFirstPushGuidance.commands}
                   </pre>
+                  {githubFirstPushGuidance.note ? (
+                    <div className="text-muted-foreground">{githubFirstPushGuidance.note}</div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -543,77 +548,11 @@ export function DeployCredsCard({
             <StackedField
               id="sopsAgeKeyFile"
               label="SOPS age key file"
-              help="Path to your operator age key file (SOPS_AGE_KEY_FILE)."
+              help="Host-scoped SOPS key path is configured during host setup deploy."
             >
-              {keyIsSet("SOPS_AGE_KEY_FILE") ? (
-                <InputGroup>
-                  <InputGroupInput
-                    id="sopsAgeKeyFile"
-                    readOnly
-                    value={sopsAgeKeyFile || "Saved path"}
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      disabled={!canMutateKeys}
-                      pending={keyActionPending("SOPS_AGE_KEY_FILE", "remove")}
-                      pendingText="Removing..."
-                      onClick={() => runRemoveKey("SOPS_AGE_KEY_FILE")}
-                    >
-                      Remove
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-              ) : (
-                <InputGroup>
-                  <InputGroupInput
-                    id="sopsAgeKeyFile"
-                    value={sopsAgeKeyFile}
-                    onChange={(e) => setSopsAgeKeyFileOverride(e.target.value)}
-                    placeholder="<runtimeDir>/keys/operators/<user>.agekey"
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      disabled={!canMutateKeys || !sopsAgeKeyFile.trim()}
-                      pending={keyActionPending("SOPS_AGE_KEY_FILE", "save")}
-                      pendingText="Saving..."
-                      onClick={() => runSaveKey("SOPS_AGE_KEY_FILE", sopsAgeKeyFile)}
-                    >
-                      Save
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-              )}
-
-              {!keyIsSet("SOPS_AGE_KEY_FILE") ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <InputGroupButton
-                    variant="outline"
-                    size="sm"
-                    disabled={!runnerOnline || detectSops.isPending}
-                    pending={detectSops.isPending}
-                    pendingText="Finding..."
-                    onClick={() => detectSops.mutate()}
-                  >
-                    Find
-                  </InputGroupButton>
-                  <InputGroupButton
-                    variant="outline"
-                    size="sm"
-                    disabled={!runnerOnline || generateSops.isPending}
-                    pending={generateSops.isPending}
-                    pendingText="Generating..."
-                    onClick={() => generateSops.mutate()}
-                  >
-                    Generate
-                  </InputGroupButton>
-                </div>
-              ) : null}
-
-              {sopsStatus ? (
-                <div className={`text-xs ${sopsStatus.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-                  {sopsStatus.message}
-                </div>
-              ) : null}
+              <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                Project-wide SOPS path editing was removed. This value is host-scoped and is written during setup apply.
+              </div>
             </StackedField>
           ) : null}
         </div>

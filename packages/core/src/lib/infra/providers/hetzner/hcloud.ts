@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { normalizeSshPublicKey } from "../../../security/ssh.js";
+import { normalizeHcloudSshPublicKey } from "../../../security/ssh.js";
 
 type HcloudSshKey = {
   id: number;
@@ -117,7 +117,7 @@ export async function ensureHcloudSshKeyId(params: {
   name: string;
   publicKey: string;
 }): Promise<string> {
-  const desiredKey = normalizeSshPublicKey(params.publicKey);
+  const desiredKey = normalizeHcloudSshPublicKey(params.publicKey);
   if (!desiredKey) throw new Error("invalid ssh public key");
   const nameBase = params.name.trim();
   const nameHash = createHash("sha256").update(desiredKey).digest("hex").slice(0, 10);
@@ -137,7 +137,7 @@ export async function ensureHcloudSshKeyId(params: {
       }
 
       for (const k of res.json.ssh_keys || []) {
-        const candidate = normalizeSshPublicKey(k.public_key);
+        const candidate = normalizeHcloudSshPublicKey(k.public_key);
         if (candidate && candidate === desiredKey) return k;
       }
 

@@ -91,6 +91,16 @@ describe("secrets-init JSON + non-interactive validation", () => {
     expect(out.adminPasswordHash).toBe("");
   });
 
+  it("parseSecretsInitJson allows missing adminPasswordHash when explicitly allowed", async () => {
+    const { parseSecretsInitJson } = await import("../src/lib/secrets/secrets-init");
+    const raw = JSON.stringify({ secrets: { discord_token_maren: "token" } });
+    const out = parseSecretsInitJson(raw, {
+      requireAdminPassword: true,
+      allowMissingAdminPasswordHash: true,
+    });
+    expect(out.adminPasswordHash).toBe("");
+  });
+
   it("parseSecretsInitJson trims fields and ignores empty tokens", async () => {
     const { parseSecretsInitJson } = await import("../src/lib/secrets/secrets-init");
     const out = parseSecretsInitJson(

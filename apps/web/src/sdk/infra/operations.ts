@@ -56,19 +56,31 @@ export const bootstrapStart = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const client = createConvexClient()
+    const host = data.host.trim()
+    if (!host) throw new Error("Host is required")
+
+    const latest = await client.query(api.controlPlane.runs.latestByProjectHostKind, {
+      projectId: data.projectId,
+      host,
+      kind: "bootstrap",
+    })
+    if (latest && (latest.status === "queued" || latest.status === "running")) {
+      return { runId: latest._id as Id<"runs">, reused: true as const }
+    }
+
     const { runId } = await client.mutation(api.controlPlane.runs.create, {
       projectId: data.projectId,
       kind: "bootstrap",
-      title: `Bootstrap (${data.host})`,
-      host: data.host,
+      title: `Bootstrap (${host})`,
+      host,
     })
     await client.mutation(api.security.auditLogs.append, {
       projectId: data.projectId,
       action: "bootstrap",
-      target: { host: data.host, mode: data.mode },
+      target: { host, mode: data.mode },
       data: { runId },
     })
-    return { runId }
+    return { runId, reused: false as const }
   })
 
 export const bootstrapExecute = createServerFn({ method: "POST" })
@@ -97,6 +109,7 @@ export const bootstrapExecute = createServerFn({ method: "POST" })
       ...(data.lockdownAfter ? ["--lockdown-after"] : []),
       ...(data.force ? ["--force"] : []),
       ...(data.dryRun ? ["--dry-run"] : []),
+      "--json",
     ]
     const queued = await enqueueRunnerJobForRun({
       client,

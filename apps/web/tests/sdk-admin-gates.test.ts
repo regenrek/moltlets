@@ -27,7 +27,7 @@ async function loadGitModuleWithDeniedAdmin() {
       throw new Error("admin required");
     },
   }));
-  const mod = await import("~/sdk/vcs/git");
+  const mod = await import("~/domains/vcs/git");
   return { mod, mutation };
 }
 

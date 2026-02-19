@@ -229,7 +229,7 @@ async function loadRunnerStartLoopHarness(params?: {
         expect.objectContaining({
           projectId: "p1",
           waitMs: 0,
-          waitPollMs: 8_000,
+          waitPollMs: 100,
         }),
       );
     });
@@ -328,9 +328,9 @@ async function loadRunnerStartLoopHarness(params?: {
 	    expect.objectContaining({
 	      projectId: "p1",
 	      waitMs: 0,
-	      waitPollMs: 8_000,
-	    }),
-	  );
+	      waitPollMs: 100,
+        }),
+      );
 	  expect(harness.logger.error).toHaveBeenCalledWith(
 	    expect.objectContaining({
 	      kind: "auth",

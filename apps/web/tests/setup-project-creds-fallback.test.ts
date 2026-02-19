@@ -9,17 +9,22 @@ function readFile(relPath: string): string {
 }
 
 describe("setup project creds fallback", () => {
-  it("tracks GitHub and SOPS readiness separately and auto-seals host draft credentials on deploy", () => {
+  it("gates setup on GitHub and auto-seals host-scoped SOPS path at deploy time", () => {
     const model = readFile("lib/setup/setup-model.ts")
     const setupModelHook = readFile("lib/setup/use-setup-model.ts")
     const deploySetup = readFile("components/deploy/deploy-initial-setup.tsx")
 
     expect(model).toContain("hasProjectGithubToken")
-    expect(model).toContain("hasProjectSopsAgeKeyPath")
+    expect(model).not.toContain("hasProjectSopsAgeKeyPath")
     expect(setupModelHook).toContain("hasProjectGithubToken")
-    expect(setupModelHook).toContain("hasProjectSopsAgeKeyPath")
+    expect(setupModelHook).toContain("deployCredsSummary?.hasGithubToken")
+    expect(setupModelHook).not.toContain("setupDraftDeployCredsSet")
+    expect(setupModelHook).not.toContain("getDeployCredsStatus")
+    expect(setupModelHook).not.toContain("generateSopsAgeKey")
     expect(deploySetup).toContain("effectiveDeployCredsReady")
-    expect(deploySetup).toContain("section: \"deployCreds\"")
-    expect(deploySetup).toContain("projectSopsAgeKeyPath")
+    expect(deploySetup).toContain("generateSopsAgeKey")
+    expect(deploySetup).toContain("section: \"hostBootstrapCreds\"")
+    expect(deploySetup).toContain("SOPS_AGE_KEY_FILE")
+    expect(deploySetup).toContain("host: props.host")
   })
 })

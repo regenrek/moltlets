@@ -51,7 +51,8 @@ async function deleteBatchByProject(params: {
     | "runnerCommandResultBlobs"
     | "runnerCommandResults"
     | "runnerTokens"
-    | "runners";
+    | "runners"
+    | "projectCredentials";
   projectId: Id<"projects">;
 }): Promise<{ deleted: number; complete: boolean }> {
   const docs = await params.ctx.db
@@ -165,6 +166,8 @@ async function deleteStageBatch(params: {
       return await deleteBatchByProject({ ctx: params.ctx, table: "runnerTokens", projectId: params.projectId });
     case "runners":
       return await deleteBatchByProject({ ctx: params.ctx, table: "runners", projectId: params.projectId });
+    case "projectCredentials":
+      return await deleteBatchByProject({ ctx: params.ctx, table: "projectCredentials", projectId: params.projectId });
     case "projectMembers":
       return await deleteBatchProjectMembers(params);
     case "auditLogs":

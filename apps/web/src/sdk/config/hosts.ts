@@ -5,6 +5,7 @@ import {
 import { generateHostName as generateRandomHostName } from "@clawlets/core/lib/host/host-name-generator"
 import { parseSshPublicKeysFromText } from "@clawlets/core/lib/security/ssh"
 import { parseKnownHostsFromText } from "@clawlets/core/lib/security/ssh-files"
+import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { createConvexClient } from "~/server/convex"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
@@ -19,13 +20,76 @@ import {
   parseProjectSshKeysInput,
   waitForRunTerminal,
 } from "~/sdk/runtime"
-import { configDotBatch, configDotGet, configDotSet } from "./dot"
 
 const HOST_ADD_SYNC_WAIT_MS = 8_000
+const FLEET_SSH_AUTHORIZED_KEYS_PATH = "fleet.sshAuthorizedKeys"
+const FLEET_SSH_KNOWN_HOSTS_PATH = "fleet.sshKnownHosts"
+type ProjectId = Id<"projects">
+type ConvexClient = ReturnType<typeof createConvexClient>
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.map((entry) => coerceTrimmedString(entry)).filter(Boolean)
+  return Array.from(new Set(value.map((entry) => coerceTrimmedString(entry)).filter(Boolean)))
+}
+
+async function readProjectSshLists(params: { client: ConvexClient; projectId: ProjectId }): Promise<{
+  authorized: string[]
+  knownHosts: string[]
+}> {
+  const rows = await params.client.query(api.controlPlane.projectCredentials.listByProject, {
+    projectId: params.projectId,
+  })
+  const bySection = new Map(rows.map((row) => [row.section, row]))
+  return {
+    authorized: asStringArray(bySection.get("sshAuthorizedKeys")?.metadata?.stringItems),
+    knownHosts: asStringArray(bySection.get("sshKnownHosts")?.metadata?.stringItems),
+  }
+}
+
+async function queueSshConfigWrite(params: {
+  client: ConvexClient
+  projectId: ProjectId
+  ops: Array<{ path: string; value: string[] }>
+  note: string
+}): Promise<{ runId: Id<"runs">; jobId: Id<"jobs"> }> {
+  const normalizedOps = params.ops.map((op) => ({
+    path: op.path,
+    valueJson: JSON.stringify(op.value),
+    del: false,
+  }))
+  const queued = await params.client.mutation(api.controlPlane.jobs.enqueue, {
+    projectId: params.projectId,
+    kind: "config_write",
+    title:
+      normalizedOps.length === 1
+        ? `config set ${normalizedOps[0]?.path || "unknown"}`
+        : `config set ${normalizedOps[0]?.path || "unknown"} (+${normalizedOps.length - 1} more)`,
+    payloadMeta: {
+      args: ["config", "batch-set", "--ops-json", JSON.stringify(normalizedOps)],
+      configPaths: normalizedOps.map((op) => op.path),
+      updatedKeys: normalizedOps.map((op) => op.path),
+      note: params.note,
+    },
+  })
+  for (const op of params.ops) {
+    const section = op.path === FLEET_SSH_AUTHORIZED_KEYS_PATH
+      ? "sshAuthorizedKeys"
+      : op.path === FLEET_SSH_KNOWN_HOSTS_PATH
+        ? "sshKnownHosts"
+        : null
+    if (!section) continue
+    await params.client.mutation(api.controlPlane.projectCredentials.upsertPending, {
+      projectId: params.projectId,
+      section,
+      metadata: {
+        status: op.value.length > 0 ? "set" : "unset",
+        itemCount: op.value.length,
+        stringItems: op.value,
+      },
+      syncStatus: "pending",
+    })
+  }
+  return queued
 }
 
 export const addHost = createServerFn({ method: "POST" })
@@ -96,6 +160,9 @@ export const generateHostName = createServerFn({ method: "POST" })
 export const addProjectSshKeys = createServerFn({ method: "POST" })
   .inputValidator(parseProjectSshKeysInput)
   .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
     const keyText = data.keyText.trim()
     const knownHostsText = data.knownHostsText.trim()
     if (!keyText && !knownHostsText) {
@@ -109,24 +176,28 @@ export const addProjectSshKeys = createServerFn({ method: "POST" })
     if (knownHostsText && knownHostsFromText.length === 0) {
       throw new Error("no valid known_hosts entries parsed from input")
     }
-    const [existingKeysNode, existingKnownHostsNode] = await Promise.all([
-      configDotGet({ data: { projectId: data.projectId, path: "fleet.sshAuthorizedKeys" } }),
-      configDotGet({ data: { projectId: data.projectId, path: "fleet.sshKnownHosts" } }),
-    ])
-    const existingKeys = asStringArray(existingKeysNode.value)
-    const existingKnownHosts = asStringArray(existingKnownHostsNode.value)
+    const { authorized: existingKeys, knownHosts: existingKnownHosts } = await readProjectSshLists({
+      client,
+      projectId: data.projectId,
+    })
     const mergedKeys = Array.from(new Set([...existingKeys, ...keysFromText]))
     const mergedKnownHosts = Array.from(new Set([...existingKnownHosts, ...knownHostsFromText]))
+    const ops: Array<{ path: string; value: string[] }> = []
+    if (JSON.stringify(existingKeys) !== JSON.stringify(mergedKeys)) {
+      ops.push({ path: FLEET_SSH_AUTHORIZED_KEYS_PATH, value: mergedKeys })
+    }
+    if (JSON.stringify(existingKnownHosts) !== JSON.stringify(mergedKnownHosts)) {
+      ops.push({ path: FLEET_SSH_KNOWN_HOSTS_PATH, value: mergedKnownHosts })
+    }
+    if (ops.length === 0) return { ok: true as const, queued: false as const }
 
-    return await configDotBatch({
-      data: {
-        projectId: data.projectId,
-        ops: [
-          { path: "fleet.sshAuthorizedKeys", valueJson: JSON.stringify(mergedKeys), del: false },
-          { path: "fleet.sshKnownHosts", valueJson: JSON.stringify(mergedKnownHosts), del: false },
-        ],
-      },
+    const queued = await queueSshConfigWrite({
+      client,
+      projectId: data.projectId,
+      ops,
+      note: "dashboard ssh settings write",
     })
+    return { ok: true as const, queued: true as const, runId: queued.runId, jobId: queued.jobId }
   })
 
 export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
@@ -136,20 +207,24 @@ export const removeProjectSshAuthorizedKey = createServerFn({ method: "POST" })
     return { ...base, key: coerceString(d["key"]) }
   })
   .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
     const key = data.key.trim()
     if (!key) throw new Error("missing key")
-    const node = await configDotGet({
-      data: { projectId: data.projectId, path: "fleet.sshAuthorizedKeys" },
+    const { authorized: existingKeys } = await readProjectSshLists({
+      client,
+      projectId: data.projectId,
     })
-    const existingKeys = asStringArray(node.value)
     if (!existingKeys.includes(key)) throw new Error("key not found")
-    return await configDotSet({
-      data: {
-        projectId: data.projectId,
-        path: "fleet.sshAuthorizedKeys",
-        valueJson: JSON.stringify(existingKeys.filter((entry) => entry !== key)),
-      },
+    const nextKeys = existingKeys.filter((entry) => entry !== key)
+    const queued = await queueSshConfigWrite({
+      client,
+      projectId: data.projectId,
+      ops: [{ path: FLEET_SSH_AUTHORIZED_KEYS_PATH, value: nextKeys }],
+      note: "dashboard ssh authorized_keys remove",
     })
+    return { ok: true as const, queued: true as const, runId: queued.runId, jobId: queued.jobId }
   })
 
 export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
@@ -159,18 +234,22 @@ export const removeProjectSshKnownHost = createServerFn({ method: "POST" })
     return { ...base, entry: coerceString(d["entry"]) }
   })
   .handler(async ({ data }) => {
+    const client = createConvexClient()
+    await requireAdminProjectAccess(client, data.projectId)
+
     const entry = data.entry.trim()
     if (!entry) throw new Error("missing known_hosts entry")
-    const node = await configDotGet({
-      data: { projectId: data.projectId, path: "fleet.sshKnownHosts" },
+    const { knownHosts: existing } = await readProjectSshLists({
+      client,
+      projectId: data.projectId,
     })
-    const existing = asStringArray(node.value)
     if (!existing.includes(entry)) throw new Error("known_hosts entry not found")
-    return await configDotSet({
-      data: {
-        projectId: data.projectId,
-        path: "fleet.sshKnownHosts",
-        valueJson: JSON.stringify(existing.filter((value) => value !== entry)),
-      },
+    const nextKnownHosts = existing.filter((value) => value !== entry)
+    const queued = await queueSshConfigWrite({
+      client,
+      projectId: data.projectId,
+      ops: [{ path: FLEET_SSH_KNOWN_HOSTS_PATH, value: nextKnownHosts }],
+      note: "dashboard ssh known_hosts remove",
     })
+    return { ok: true as const, queued: true as const, runId: queued.runId, jobId: queued.jobId }
   })

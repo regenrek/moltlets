@@ -12,6 +12,8 @@ async function loadSdk() {
   vi.resetModules()
   const enqueueRunnerCommand = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
   const runnerJson = {
+    ok: true,
+    host: "alpha",
     branch: "main",
     upstream: "origin/main",
     localHead: "abc123",
@@ -23,6 +25,10 @@ async function loadSdk() {
     detached: false,
     needsPush: true,
     canPush: true,
+    sha: "new-sha",
+    committed: true,
+    pushed: true,
+    changedPaths: ["fleet/clawlets.json"],
   }
 
   vi.doMock("~/server/convex", () => ({
@@ -57,7 +63,7 @@ async function loadSdk() {
     }
   })
 
-  const mod = await import("~/sdk/vcs/git")
+  const mod = await import("~/domains/vcs/git")
   return { mod, enqueueRunnerCommand }
 }
 
@@ -106,6 +112,27 @@ describe("git status runner queue", () => {
       projectId: "p1",
       runKind: "git_push",
       args: ["git", "push"],
+    }))
+  })
+
+  it("queues git setup-save and returns pinned sha", async () => {
+    const { mod, enqueueRunnerCommand } = await loadSdk()
+    const context = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+
+    const res = await runWithStartContext(context, async () =>
+      await mod.gitSetupSaveExecute({ data: { projectId: "p1" as any, host: "alpha" } }),
+    )
+
+    expect(res.ok).toBe(true)
+    expect(res.result.sha).toBe("new-sha")
+    expect(enqueueRunnerCommand).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "p1",
+      runKind: "custom",
+      args: ["git", "setup-save", "--host", "alpha", "--json"],
     }))
   })
 })

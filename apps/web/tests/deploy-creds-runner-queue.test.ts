@@ -72,6 +72,7 @@ async function loadSdk(params: {
     return null as any
   })
   const query = vi.fn(async () => params.runners || [])
+  const enqueueRunnerCommandMock = vi.fn(async () => ({ runId: "run_1", jobId: "job_1" }))
   vi.doMock("~/server/convex", () => ({
     createConvexClient: () => ({ mutation, query }) as any,
   }))
@@ -83,7 +84,7 @@ async function loadSdk(params: {
     const actual = await importOriginal<typeof import("~/sdk/runtime")>()
     return {
       ...actual,
-      enqueueRunnerCommand: async () => ({ runId: "run_1", jobId: "job_1" }),
+      enqueueRunnerCommand: enqueueRunnerCommandMock,
       waitForRunTerminal: async () => ({ status: "succeeded" }),
       listRunMessages: async () => [JSON.stringify(params.runnerJson)],
       parseLastJsonMessage: (messages: string[]) => {
@@ -95,138 +96,10 @@ async function loadSdk(params: {
   })
 
   const mod = await import("~/sdk/infra/deploy-creds")
-  return { mod, mutation, query }
+  return { mod, mutation, query, enqueueRunnerCommandMock }
 }
 
 describe("deploy creds runner queue", () => {
-  it("reads deploy creds status from runner JSON", async () => {
-    const { mod } = await loadSdk({
-      runnerJson: {
-        repoRoot: "/tmp/repo",
-        envFile: { origin: "default", status: "ok", path: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env" },
-        defaultEnvPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env",
-        defaultSopsAgeKeyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/alice.agekey",
-        keys: [{ key: "HCLOUD_TOKEN", source: "file", status: "set" }],
-        template: "template",
-      },
-    })
-    const ctx = {
-      request: new Request("http://localhost"),
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-    }
-    const res = await runWithStartContext(ctx, async () =>
-      mod.getDeployCredsStatus({
-        data: { projectId: "p1" as any },
-      }),
-    )
-    expect(res.defaultEnvPath).toBe("/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env")
-    expect(res.keys).toEqual([{ key: "HCLOUD_TOKEN", source: "file", status: "set" }])
-  })
-
-  it("prefers ephemeral command result for deploy creds status", async () => {
-    const { mod } = await loadSdk({
-      runnerJson: { ignored: true },
-      commandResultJson: {
-        repoRoot: "/tmp/repo",
-        envFile: { origin: "default", status: "ok", path: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env" },
-        defaultEnvPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env",
-        defaultSopsAgeKeyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/alice.agekey",
-        keys: [{ key: "HCLOUD_TOKEN", source: "file", status: "set", value: "never-return" }],
-        template: "template",
-      },
-    })
-    const ctx = {
-      request: new Request("http://localhost"),
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-    }
-    const res = await runWithStartContext(ctx, async () =>
-      mod.getDeployCredsStatus({
-        data: { projectId: "p1" as any },
-      }),
-    )
-    expect(res.defaultEnvPath).toBe("/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env")
-    expect(res.keys).toEqual([{ key: "HCLOUD_TOKEN", source: "file", status: "set" }])
-  })
-
-  it("does not return raw keyring secret values to browser clients", async () => {
-    const { mod } = await loadSdk({
-      runnerJson: {
-        repoRoot: "/tmp/repo",
-        envFile: { origin: "default", status: "ok", path: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env" },
-        defaultEnvPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/env",
-        defaultSopsAgeKeyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/alice.agekey",
-        keys: [
-          {
-            key: "HCLOUD_TOKEN_KEYRING",
-            source: "file",
-            status: "set",
-            value: '{"items":[{"id":"default","label":"Team","value":"secret-token"}]}',
-          },
-          {
-            key: "HCLOUD_TOKEN_KEYRING_ACTIVE",
-            source: "file",
-            status: "set",
-            value: "default",
-          },
-        ],
-        template: "template",
-      },
-    })
-    const ctx = {
-      request: new Request("http://localhost"),
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-    }
-    const res = await runWithStartContext(ctx, async () =>
-      mod.getDeployCredsStatus({
-        data: { projectId: "p1" as any },
-      }),
-    )
-    const keyringRow = res.keys.find((row: any) => row.key === "HCLOUD_TOKEN_KEYRING")
-    expect(keyringRow?.status).toBe("set")
-    expect("value" in (keyringRow || {})).toBe(false)
-    expect(res.projectTokenKeyrings.hcloud.hasActive).toBe(true)
-    expect(res.projectTokenKeyrings.hcloud.itemCount).toBe(1)
-  })
-
-  it("returns masked project token keyring rows", async () => {
-    const { mod } = await loadSdk({
-      runnerJson: {
-        keys: [
-          {
-            key: "HCLOUD_TOKEN_KEYRING",
-            source: "file",
-            status: "set",
-            value: '{"items":[{"id":"default","label":"Team","value":"secret-token"}]}',
-          },
-          {
-            key: "HCLOUD_TOKEN_KEYRING_ACTIVE",
-            source: "file",
-            status: "set",
-            value: "default",
-          },
-        ],
-      },
-    })
-    const ctx = {
-      request: new Request("http://localhost"),
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-    }
-    const res = await runWithStartContext(ctx, async () =>
-      mod.getProjectTokenKeyringStatus({
-        data: { projectId: "p1" as any, kind: "hcloud" },
-      }),
-    )
-    expect(res.kind).toBe("hcloud")
-    expect(res.hasActive).toBe(true)
-    expect(res.items[0]?.id).toBe("default")
-    expect(res.items[0]?.maskedValue).not.toContain("secret-token")
-    expect("value" in (res.items[0] || {})).toBe(false)
-  })
-
   it("reads detected age key candidates from runner JSON", async () => {
     const { mod } = await loadSdk({
       runnerJson: {
@@ -250,7 +123,7 @@ describe("deploy creds runner queue", () => {
     expect(res.candidates[0]?.valid).toBe(true)
   })
 
-  it("records audit metadata after runner age-key generation", async () => {
+  it("skips audit metadata when runner reuses existing age key", async () => {
     const { mod, mutation } = await loadSdk({
       runnerJson: {
         ok: true,
@@ -272,15 +145,67 @@ describe("deploy creds runner queue", () => {
     expect(res.ok).toBe(true)
     expect(res.created).toBe(false)
     const payload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
+    expect(payload).toBeUndefined()
+  })
+
+  it("records host-scoped audit target for setup host key generation", async () => {
+    const { mod, mutation } = await loadSdk({
+      runnerJson: {
+        ok: true,
+        keyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/hosts/openclaw-fleet-host/alice.agekey",
+        publicKey: "age1test",
+        created: true,
+      },
+    })
+    const ctx = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    const res = await runWithStartContext(ctx, async () =>
+      mod.generateSopsAgeKey({
+        data: { projectId: "p1" as any, host: "openclaw-fleet-host" },
+      }),
+    )
+    expect(res.ok).toBe(true)
+    const payload = (mutation.mock.calls as any[])
+      .find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
     expect(payload).toEqual({
       projectId: "p1",
       action: "sops.operatorKey.generate",
-      target: { doc: "<runtimeDir>/keys/operators" },
+      target: { doc: "<runtimeDir>/keys/operators/hosts/openclaw-fleet-host" },
       data: { runId: "run_1" },
     })
   })
 
-  it("reserves and finalizes deploy-creds sealed update", async () => {
+  it("rejects non host-scoped key path for host generation", async () => {
+    const { mod, mutation } = await loadSdk({
+      runnerJson: {
+        ok: true,
+        keyPath: "/tmp/clawlets-home/workspaces/repo-1234567890abcdef/keys/operators/alice.agekey",
+        publicKey: "age1test",
+        created: true,
+      },
+    })
+    const ctx = {
+      request: new Request("http://localhost"),
+      contextAfterGlobalMiddlewares: {},
+      executedRequestMiddlewares: new Set(),
+    }
+    const res = await runWithStartContext(ctx, async () =>
+      mod.generateSopsAgeKey({
+        data: { projectId: "p1" as any, host: "openclaw-fleet-host" },
+      }),
+    )
+    expect(res).toEqual({
+      ok: false,
+      message: "Runner returned non host-scoped SOPS key path.",
+    })
+    const payload = (mutation.mock.calls as any[]).find((call) => String(call?.[1]?.action || "") === "sops.operatorKey.generate")?.[1]
+    expect(payload).toBeUndefined()
+  })
+
+  it("queues deploy-creds sealed update", async () => {
     const { mod, mutation } = await loadSdk({
       runnerJson: {},
       runners: [
@@ -298,44 +223,19 @@ describe("deploy creds runner queue", () => {
         },
       ],
     })
-    mutation
-      .mockResolvedValueOnce({
-        runId: "run_1",
-        jobId: "job_1",
-        kind: "custom",
-        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
-        sealedInputKeyId: "kid123",
-        sealedInputPubSpkiB64: "abc123",
-      })
-      .mockResolvedValueOnce({ runId: "run_1", jobId: "job_1" })
-      .mockResolvedValueOnce(null)
     const ctx = {
       request: new Request("http://localhost"),
       contextAfterGlobalMiddlewares: {},
       executedRequestMiddlewares: new Set(),
     }
-    const reserve = await runWithStartContext(ctx, async () =>
-      mod.updateDeployCreds({
-        data: {
-          projectId: "p1" as any,
-          targetRunnerId: "r1",
-          updatedKeys: ["HCLOUD_TOKEN"],
-        },
-      }),
-    )
-    expect(reserve.ok).toBe(true)
-    expect(reserve.reserved).toBe(true)
     const queued = await runWithStartContext(ctx, async () =>
-      mod.finalizeDeployCreds({
+      mod.queueDeployCredsUpdate({
         data: {
           projectId: "p1" as any,
-          jobId: "job_1",
-          kind: "custom",
-          sealedInputB64: "ciphertext",
-          sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
-          sealedInputKeyId: "kid123",
           targetRunnerId: "r1",
-          updatedKeys: ["HCLOUD_TOKEN"],
+          updates: {
+            HCLOUD_TOKEN: "token-123",
+          },
         },
       }),
     )
@@ -375,7 +275,7 @@ describe("deploy creds runner queue", () => {
       executedRequestMiddlewares: new Set(),
     }
     const res = await runWithStartContext(ctx, async () =>
-      mod.mutateProjectTokenKeyring({
+      mod.queueProjectTokenKeyringUpdate({
         data: {
           projectId: "p1" as any,
           kind: "hcloud",
@@ -391,6 +291,27 @@ describe("deploy creds runner queue", () => {
       .map((call) => call?.[1])
       .find((payload) => Array.isArray(payload?.payloadMeta?.updatedKeys))
     expect(reservePayload?.payloadMeta?.updatedKeys).toEqual(["HCLOUD_TOKEN_KEYRING_ACTIVE"])
+    expect(reservePayload?.payloadMeta?.args).toEqual([
+      "env",
+      "token-keyring-mutate",
+      "--from-json",
+      "__RUNNER_INPUT_JSON__",
+      "--json",
+    ])
+    expect(reservePayload?.payloadMeta?.sealedInputKeys).toEqual(["action", "kind", "keyId", "label", "value"])
+    const credentialPayload = (mutation.mock.calls as any[])
+      .map((call) => call?.[1])
+      .find((payload) => payload?.section === "hcloudKeyring")
+    expect(credentialPayload).toMatchObject({
+      projectId: "p1",
+      section: "hcloudKeyring",
+      syncStatus: "pending",
+      sealedForRunnerId: "r1",
+      sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+    })
+    expect(typeof credentialPayload?.sealedInputKeyId).toBe("string")
+    expect(String(credentialPayload?.sealedInputKeyId || "").length).toBeGreaterThan(0)
+    expect(typeof credentialPayload?.sealedValueB64).toBe("string")
   })
 
   it("rejects oversized key values before enqueue", async () => {
@@ -405,7 +326,7 @@ describe("deploy creds runner queue", () => {
       executedRequestMiddlewares: new Set(),
     }
     await expect(runWithStartContext(ctx, async () =>
-      mod.mutateProjectTokenKeyring({
+      mod.queueProjectTokenKeyringUpdate({
         data: {
           projectId: "p1" as any,
           kind: "hcloud",

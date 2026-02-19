@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { convexQuery } from "@convex-dev/react-query"
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import { RunLogTail } from "~/components/run-log-tail"
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { AsyncButton } from "~/components/ui/async-button"
@@ -14,7 +16,7 @@ import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyrin
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { configDotSet } from "~/sdk/config"
 import { getHostPublicIpv4, probeHostTailscaleIpv4 } from "~/sdk/host"
-import { getDeployCredsStatus, lockdownExecute, lockdownStart } from "~/sdk/infra"
+import { lockdownExecute, lockdownStart } from "~/sdk/infra"
 import { serverUpdateApplyExecute, serverUpdateApplyStart } from "~/sdk/server"
 
 type SshExposureMode = "tailnet" | "bootstrap" | "public"
@@ -69,15 +71,21 @@ export function HostSettingsVpnPanel(props: {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
-  const deployCredsQuery = useQuery({
-    queryKey: ["deployCreds", props.projectId],
-    queryFn: async () => await getDeployCredsStatus({ data: { projectId: props.projectId } }),
-    enabled: Boolean(props.projectId),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  const credentialsQuery = useQuery({
+    ...convexQuery(api.controlPlane.projectCredentials.listByProject, {
+      projectId: props.projectId,
+    }),
   })
-
-  const hasTailscaleProjectKey = deployCredsQuery.data?.projectTokenKeyrings?.tailscale?.hasActive === true
+  const tailscaleKeyringSummary = useMemo(() => {
+    const bySection = new Map((credentialsQuery.data ?? []).map((row) => [row.section, row]))
+    const metadata = bySection.get("tailscaleKeyring")?.metadata
+    return {
+      hasActive: metadata?.hasActive === true,
+      itemCount: Number(metadata?.itemCount || 0),
+      items: metadata?.items ?? [],
+    }
+  }, [credentialsQuery.data])
+  const hasTailscaleProjectKey = tailscaleKeyringSummary.hasActive
 
   async function requireConfigSet(params: { path: string; value?: string; valueJson?: string }): Promise<void> {
     const result = await configDotSet({
@@ -340,6 +348,10 @@ export function HostSettingsVpnPanel(props: {
           kind="tailscale"
           title="Tailnet auth"
           description="Project-wide Tailscale keyring used during setup and activation."
+          statusSummary={tailscaleKeyringSummary}
+          onQueued={() => {
+            void credentialsQuery.refetch()
+          }}
         />
       ) : null}
 

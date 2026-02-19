@@ -20,4 +20,13 @@ describe("project ssh keys validation hardening", () => {
     expect(source).toContain("onError: (error)")
     expect(source).toContain("toast.error(error instanceof Error ? error.message : String(error))")
   })
+
+  it("queues SSH writes via control-plane jobs and sources list state from project credentials", () => {
+    const source = readFile("sdk/config/hosts.ts")
+    expect(source).toContain("api.controlPlane.projectCredentials.listByProject")
+    expect(source).toContain("api.controlPlane.jobs.enqueue")
+    expect(source).not.toContain("configDotGet(")
+    expect(source).not.toContain("configDotSet(")
+    expect(source).not.toContain("configDotBatch(")
+  })
 })

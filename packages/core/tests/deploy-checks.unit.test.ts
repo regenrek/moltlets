@@ -7,6 +7,7 @@ import { addDeployChecks } from "../src/doctor/deploy-checks.js";
 import { getRepoLayout } from "../src/repo-layout.js";
 import * as sopsRules from "../src/lib/security/sops-rules.js";
 import type { DoctorCheck } from "../src/doctor/types.js";
+import { makeEd25519PublicKey } from "./helpers/ssh-keys";
 
 const captureMock = vi.fn();
 const loadClawletsConfigMock = vi.fn();
@@ -486,6 +487,59 @@ describe("deploy checks", () => {
     });
   });
 
+  it("fails hetzner deploy checks when fleet.sshAuthorizedKeys contains invalid key material", async () => {
+    await withTempRepo(async (repoRoot) => {
+      const layout = getRepoLayout(repoRoot);
+      const hostName = "alpha";
+
+      loadClawletsConfigMock.mockReturnValue({
+        config: {
+          defaultHost: hostName,
+          fleet: {
+            backups: { restic: { enable: false } },
+            secretEnv: {},
+            sshAuthorizedKeys: ["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7dummy"],
+          },
+          hosts: {
+            [hostName]: {
+              enable: true,
+              openclaw: { enable: true },
+              provisioning: {
+                provider: "hetzner",
+                adminCidr: "10.0.0.0/24",
+                sshPubkeyFile: "",
+              },
+              hetzner: {
+                serverType: "cpx22",
+              },
+              diskDevice: "/dev/sda",
+              tailnet: { mode: "tailscale" },
+              gatewaysOrder: ["gw1"],
+              gateways: { gw1: {} },
+            },
+          },
+        },
+      });
+
+      const checks: DoctorCheck[] = [];
+      await addDeployChecks({
+        cwd: repoRoot,
+        repoRoot,
+        layout,
+        host: hostName,
+        nixBin: "nix",
+        skipGithubTokenCheck: true,
+        push: (row) => checks.push(row),
+        fleetGateways: null,
+        scope: "bootstrap",
+      });
+
+      const sshCheck = byLabel(checks, "fleet.sshAuthorizedKeys");
+      expect(sshCheck?.status).toBe("missing");
+      expect(String(sshCheck?.detail || "")).toContain("invalid key at index 0");
+    });
+  });
+
   it("marks github token checks as warn when visibility probe is inconclusive", async () => {
     await withTempRepo(async (repoRoot) => {
       const layout = getRepoLayout(repoRoot);
@@ -853,7 +907,7 @@ describe("deploy checks", () => {
           fleet: {
             backups: { restic: { enable: false } },
             secretEnv: {},
-            sshAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example"],
+            sshAuthorizedKeys: [makeEd25519PublicKey({ seedByte: 44, comment: "test@example" })],
           },
           hosts: {
             [hostName]: {

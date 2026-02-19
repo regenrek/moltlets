@@ -384,7 +384,7 @@ describe("repo checks", () => {
     expect(result.fleetGateways).toEqual(["gw1"]);
   });
 
-  it("covers legacy template-monolith handling and openclaw-disabled policy branches", async () => {
+  it("covers invalid template config and openclaw-disabled policy branches", async () => {
     const repoRoot = "/repo4";
     const templateRoot = "/template4";
     const layout = getRepoLayout(repoRoot);
@@ -446,13 +446,13 @@ describe("repo checks", () => {
       store,
     });
 
-    expect(byLabel(checks, "template clawlets config")?.status).toBe("warn");
-    expect(String(byLabel(checks, "template clawlets config")?.detail || "")).toContain("legacy monolith shape");
+    expect(byLabel(checks, "template clawlets config")?.status).toBe("missing");
+    expect(String(byLabel(checks, "template clawlets config")?.detail || "")).toContain("legacy shape");
     expect(byLabel(checks, "fleet config eval (alpha)")?.status).toBe("ok");
     expect(String(byLabel(checks, "host gateways list (alpha)")?.detail || "")).toContain("openclaw disabled");
     expect(byLabel(checks, "fleet policy (alpha)")?.status).toBe("ok");
-    expect(byLabel(checks, "template fleet config eval (beta)")?.status).toBe("ok");
-    expect(byLabel(checks, "template fleet policy (beta)")?.status).toBe("ok");
+    expect(byLabel(checks, "template fleet config eval (beta)")).toBeUndefined();
+    expect(byLabel(checks, "template fleet policy (beta)")).toBeUndefined();
     expect(byLabel(checks, "admin wheel access")?.status).toBe("ok");
     expect(byLabel(checks, "breakglass wheel access")?.status).toBe("ok");
   });

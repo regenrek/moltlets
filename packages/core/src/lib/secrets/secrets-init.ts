@@ -109,8 +109,12 @@ export function buildSecretsInitTemplate(params: {
   };
 }
 
-export function parseSecretsInitJson(raw: string, opts?: { requireAdminPassword?: boolean }): SecretsInitJson {
+export function parseSecretsInitJson(raw: string, opts?: {
+  requireAdminPassword?: boolean;
+  allowMissingAdminPasswordHash?: boolean;
+}): SecretsInitJson {
   const requireAdminPassword = opts?.requireAdminPassword !== false;
+  const allowMissingAdminPasswordHash = opts?.allowMissingAdminPasswordHash === true;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -123,7 +127,9 @@ export function parseSecretsInitJson(raw: string, opts?: { requireAdminPassword?
   const obj = parsed as any;
 
   const adminPasswordHash = typeof obj.adminPasswordHash === "string" ? obj.adminPasswordHash.trim() : "";
-  if (requireAdminPassword && !adminPasswordHash) throw new Error("invalid --from-json (missing adminPasswordHash)");
+  if (requireAdminPassword && !adminPasswordHash && !allowMissingAdminPasswordHash) {
+    throw new Error("invalid --from-json (missing adminPasswordHash)");
+  }
 
   const tailscaleAuthKey = typeof obj.tailscaleAuthKey === "string" ? obj.tailscaleAuthKey.trim() : undefined;
 

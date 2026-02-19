@@ -16,7 +16,7 @@ import {
 
 const SEALED_INPUT_ALGORITHM = "rsa-oaep-3072/aes-256-gcm"
 
-export const SETUP_DRAFT_SECRET_SECTIONS = ["deployCreds", "bootstrapSecrets"] as const
+export const SETUP_DRAFT_SECRET_SECTIONS = ["hostBootstrapCreds", "hostBootstrapSecrets"] as const
 export type SetupDraftSecretSection = (typeof SETUP_DRAFT_SECRET_SECTIONS)[number]
 
 export type SetupDraftInfrastructure = {
@@ -54,8 +54,8 @@ export type SetupDraftView = {
   version: number
   nonSecretDraft: SetupDraftNonSecretPatch
   sealedSecretDrafts: {
-    deployCreds: SetupDraftSectionView
-    bootstrapSecrets: SetupDraftSectionView
+    hostBootstrapCreds: SetupDraftSectionView
+    hostBootstrapSecrets: SetupDraftSectionView
   }
   updatedAt: number
   expiresAt: number
@@ -303,7 +303,7 @@ type SetupDraftCommitPayload = {
   targetRunnerId: Id<"runners">
   nonSecretDraft: SetupDraftNonSecretPatch
   sealedSecretDrafts: {
-    deployCreds: {
+    hostBootstrapCreds: {
       alg: string
       keyId: string
       targetRunnerId: Id<"runners">
@@ -312,7 +312,7 @@ type SetupDraftCommitPayload = {
       updatedAt: number
       expiresAt: number
     }
-    bootstrapSecrets: {
+    hostBootstrapSecrets: {
       alg: string
       keyId: string
       targetRunnerId: Id<"runners">
@@ -330,8 +330,8 @@ function buildSetupApplyInput(params: {
 }): {
   hostName: string
   configOps: Array<{ path: string; value?: string; valueJson?: string; del: boolean }>
-  deployCredsDraft: SetupDraftCommitPayload["sealedSecretDrafts"]["deployCreds"]
-  bootstrapSecretsDraft: SetupDraftCommitPayload["sealedSecretDrafts"]["bootstrapSecrets"]
+  hostBootstrapCredsDraft: SetupDraftCommitPayload["sealedSecretDrafts"]["hostBootstrapCreds"]
+  hostBootstrapSecretsDraft: SetupDraftCommitPayload["sealedSecretDrafts"]["hostBootstrapSecrets"]
 } {
   const host = params.host
   const infrastructure = params.draft.nonSecretDraft.infrastructure || {}
@@ -397,8 +397,8 @@ function buildSetupApplyInput(params: {
   return {
     hostName: host,
     configOps,
-    deployCredsDraft: params.draft.sealedSecretDrafts.deployCreds,
-    bootstrapSecretsDraft: params.draft.sealedSecretDrafts.bootstrapSecrets,
+    hostBootstrapCredsDraft: params.draft.sealedSecretDrafts.hostBootstrapCreds,
+    hostBootstrapSecretsDraft: params.draft.sealedSecretDrafts.hostBootstrapSecrets,
   }
 }
 
@@ -518,7 +518,7 @@ export const setupDraftCommit = createServerFn({ method: "POST" })
         payloadMeta: {
           hostName: data.host,
           args: ["setup", "apply", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
-          updatedKeys: ["hostName", "configOps", "deployCredsDraft", "bootstrapSecretsDraft"],
+          updatedKeys: ["hostName", "configOps", "hostBootstrapCredsDraft", "hostBootstrapSecretsDraft"],
           configPaths: applyInput.configOps.map((op) => op.path),
           note: "setup draft single final apply",
         },
@@ -576,7 +576,7 @@ export const setupDraftCommit = createServerFn({ method: "POST" })
           runId: queued.runId,
           jobId: queued.jobId,
           targetRunnerId,
-          updatedKeys: ["configOps", "deployCreds", "bootstrapSecrets"],
+          updatedKeys: ["configOps", "hostBootstrapCreds", "hostBootstrapSecrets"],
         },
       })
 

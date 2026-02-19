@@ -84,6 +84,11 @@ describe("server command", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
     const { server } = await import("../src/commands/openclaw/server/index.js");
     await server.subCommands?.["tailscale-ipv4"]?.run?.({ args: { host: "alpha", targetHost: "admin@host", json: true } } as any);
+    expect(sshCaptureMock).toHaveBeenCalledWith(
+      "admin@host",
+      expect.stringContaining("ip -4 addr show dev tailscale0"),
+      expect.objectContaining({ tty: false, timeoutMs: 15_000 }),
+    );
     expect(logs.join("\n")).toContain("\"ipv4\": \"100.64.0.22\"");
     logSpy.mockRestore();
   });

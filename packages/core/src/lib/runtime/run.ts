@@ -46,7 +46,9 @@ export async function run(
 ): Promise<void> {
   if (opts.dryRun) {
     const line = [cmd, ...args].join(" ");
-    console.log(redactLine(line, opts.redact));
+    if ((opts.stdout ?? "inherit") !== "ignore") {
+      console.log(redactLine(line, opts.redact));
+    }
     return;
   }
 

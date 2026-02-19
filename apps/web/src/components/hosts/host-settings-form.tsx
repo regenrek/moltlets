@@ -1,7 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { convexQuery } from "@convex-dev/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
+import { api } from "../../../convex/_generated/api"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -139,6 +141,20 @@ export function HostSettingsForm(props: {
   hostConfigQueryKey: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
+  const credentialsQuery = useQuery({
+    ...convexQuery(api.controlPlane.projectCredentials.listByProject, {
+      projectId: props.projectId,
+    }),
+  })
+  const tailscaleKeyringSummary = useMemo(() => {
+    const bySection = new Map((credentialsQuery.data ?? []).map((row) => [row.section, row]))
+    const metadata = bySection.get("tailscaleKeyring")?.metadata
+    return {
+      hasActive: metadata?.hasActive === true,
+      itemCount: Number(metadata?.itemCount || 0),
+      items: metadata?.items ?? [],
+    }
+  }, [credentialsQuery.data])
   const initial = toHostSettingsDraft(props.hostCfg)
   const [enable, setEnable] = useState(initial.enable)
   const [diskDevice, setDiskDevice] = useState(initial.diskDevice)
@@ -378,6 +394,10 @@ export function HostSettingsForm(props: {
               kind="tailscale"
               title="Tailscale API keys"
               description="Project-wide keyring used during setup and tailnet activation."
+              statusSummary={tailscaleKeyringSummary}
+              onQueued={() => {
+                void credentialsQuery.refetch()
+              }}
             />
           ) : null}
         </div>

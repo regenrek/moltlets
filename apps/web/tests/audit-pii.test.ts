@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { AsyncLocalStorage } from "node:async_hooks"
+import { createHash, generateKeyPairSync } from "node:crypto"
 
 const GLOBAL_STORAGE_KEY = Symbol.for("tanstack-start:start-storage-context")
 const globalObj = globalThis as { [GLOBAL_STORAGE_KEY]?: AsyncLocalStorage<unknown> }
@@ -7,10 +8,52 @@ if (!globalObj[GLOBAL_STORAGE_KEY]) globalObj[GLOBAL_STORAGE_KEY] = new AsyncLoc
 const startStorage = globalObj[GLOBAL_STORAGE_KEY]
 const runWithStartContext = <T>(context: unknown, fn: () => Promise<T>) => startStorage?.run(context, fn) as Promise<T>
 
+function toBase64Url(value: Uint8Array): string {
+  return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+}
+
+function makeRunnerKeyMaterial() {
+  const pair = generateKeyPairSync("rsa", { modulusLength: 3072, publicExponent: 0x10001 })
+  const spki = pair.publicKey.export({ type: "spki", format: "der" })
+  const spkiBuf = Buffer.isBuffer(spki) ? spki : Buffer.from(spki)
+  return {
+    keyId: toBase64Url(createHash("sha256").update(spkiBuf).digest()),
+    publicKeySpkiB64: toBase64Url(spkiBuf),
+  }
+}
+
 async function loadSdk() {
   vi.resetModules()
+  const runnerKeyMaterial = makeRunnerKeyMaterial()
 
   const mutation: any = vi.fn(async (_mutation: unknown, payload?: any) => {
+    if (
+      payload
+      && typeof payload === "object"
+      && typeof payload.projectId === "string"
+      && typeof payload.targetRunnerId === "string"
+      && typeof payload.kind === "string"
+      && payload.payloadMeta
+    ) {
+      return {
+        runId: "run_1",
+        jobId: "job_1",
+        kind: "custom",
+        sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
+        sealedInputKeyId: runnerKeyMaterial.keyId,
+        sealedInputPubSpkiB64: runnerKeyMaterial.publicKeySpkiB64,
+      }
+    }
+    if (
+      payload
+      && typeof payload === "object"
+      && typeof payload.projectId === "string"
+      && typeof payload.jobId === "string"
+      && typeof payload.kind === "string"
+      && typeof payload.sealedInputB64 === "string"
+    ) {
+      return { runId: "run_1", jobId: payload.jobId }
+    }
     const maybeTakeResult =
       payload
       && typeof payload === "object"
@@ -93,16 +136,6 @@ describe("audit pii minimization", () => {
     process.env.USER = "alice"
     try {
       const { mod, mutation } = await loadSdk()
-      mutation
-        .mockResolvedValueOnce({
-          runId: "run_1",
-          jobId: "job_1",
-          kind: "custom",
-          sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
-          sealedInputKeyId: "kid123",
-        })
-        .mockResolvedValueOnce({ runId: "run_1", jobId: "job_1" })
-        .mockResolvedValueOnce(null)
       const ctx = {
         request: new Request("http://localhost"),
         contextAfterGlobalMiddlewares: {},
@@ -110,19 +143,11 @@ describe("audit pii minimization", () => {
       }
 
       await runWithStartContext(ctx, async () => {
-        const reserved = await mod.updateDeployCreds({
-          data: { projectId: "p1" as any, targetRunnerId: "r1", updatedKeys: ["HCLOUD_TOKEN"] },
-        })
-        await mod.finalizeDeployCreds({
+        await mod.queueDeployCredsUpdate({
           data: {
             projectId: "p1" as any,
-            jobId: reserved.jobId,
-            kind: reserved.kind,
-            sealedInputB64: "ciphertext",
-            sealedInputAlg: reserved.sealedInputAlg,
-            sealedInputKeyId: reserved.sealedInputKeyId,
             targetRunnerId: "r1",
-            updatedKeys: ["HCLOUD_TOKEN"],
+            updates: { HCLOUD_TOKEN: "token-123" },
           },
         })
       })

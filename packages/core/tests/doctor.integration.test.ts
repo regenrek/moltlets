@@ -93,8 +93,9 @@ describe("doctor", () => {
     await writeFile(path.join(templateDocsRoot, "index.mdx"), "# index\n", "utf8");
     await writeFile(path.join(templateDocsRoot, "meta.json"), JSON.stringify({ pages: ["index"] }, null, 2), "utf8");
 
+    const sshPublicKey = makeEd25519PublicKey({ seedByte: 31, comment: "test" });
     const sshPub = path.join(repoRoot, "id_ed25519.pub");
-    await writeFile(sshPub, "ssh-ed25519 AAAATEST test\n", "utf8");
+    await writeFile(sshPub, `${sshPublicKey}\n`, "utf8");
 
     const operatorKey = path.join(layout.localOperatorKeysDir, "tester.agekey");
     await mkdir(path.dirname(operatorKey), { recursive: true });
@@ -107,7 +108,7 @@ describe("doctor", () => {
       fleet: {
         secretEnv: { ZAI_API_KEY: "z_ai_api_key" },
         secretFiles: {},
-        sshAuthorizedKeys: ["ssh-ed25519 AAAATEST test"],
+        sshAuthorizedKeys: [sshPublicKey],
         sshKnownHosts: [],
         codex: { enable: false, gateways: [] },
         backups: { restic: { enable: false, repository: "" } },

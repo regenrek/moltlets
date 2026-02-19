@@ -9,16 +9,20 @@ function readFile(relPath: string): string {
 }
 
 describe("setup sops placement", () => {
-  it("keeps SOPS key path in server access and GitHub token in infrastructure", () => {
+  it("keeps SOPS hidden from setup and GitHub token in dedicated creds step", () => {
     const connectionStep = readFile("components/setup/steps/step-connection.tsx")
     const infrastructureStep = readFile("components/setup/steps/step-infrastructure.tsx")
+    const credsStep = readFile("components/setup/steps/step-creds.tsx")
     const setupModel = readFile("lib/setup/setup-model.ts")
 
-    expect(connectionStep).toContain("SetupSopsAgeKeyField")
-    expect(connectionStep.indexOf("SetupSopsAgeKeyField")).toBeLessThan(connectionStep.indexOf("Advanced options"))
-    expect(infrastructureStep).toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
-    expect(infrastructureStep).not.toContain("visibleKeys={[\"GITHUB_TOKEN\", \"SOPS_AGE_KEY_FILE\"]}")
-    expect(infrastructureStep).toContain("title=\"GitHub access\"")
+    expect(connectionStep).not.toContain("SetupSopsAgeKeyField")
+    expect(connectionStep).not.toContain("SOPS age key path")
+    expect(infrastructureStep).not.toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
+    expect(infrastructureStep).not.toContain("title=\"GitHub token\"")
+    expect(credsStep).toContain("visibleKeys={[\"GITHUB_TOKEN\"]}")
+    expect(credsStep).toContain("title=\"GitHub token\"")
+    expect(setupModel).toContain('"creds"')
+    expect(infrastructureStep).not.toContain("SOPS_AGE_KEY_FILE")
     expect(setupModel).not.toContain('"predeploy"')
   })
 })

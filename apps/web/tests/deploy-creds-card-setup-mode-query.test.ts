@@ -9,20 +9,21 @@ function readFile(relPath: string): string {
 }
 
 describe("deploy creds card setup-mode query behavior", () => {
-  it("disables live deploy-creds status query in setup mode and uses component-scoped draft merge state", () => {
+  it("uses runner metadata for status reads and keeps setup-draft writes local to sealed draft state", () => {
     const source = readFile("components/fleet/deploy-creds-card.tsx")
-    expect(source).toContain("enabled: runnerOnline && !setupDraftFlow")
+    expect(source).not.toContain("getDeployCredsStatus")
+    expect(source).toContain("const effectiveStatusSummary = useMemo<DeployCredKeyStatusSummary>(")
+    expect(source).toContain("const runnerSummary = selectedRunner?.deployCredsSummary")
     expect(source).toContain("setupDraftSaveSealedSection")
     expect(source).toContain("const [setupDraftValues, setSetupDraftValues] = useState")
-    expect(source).not.toContain("setupDraftDeployCredsSession")
     expect(source).toContain("const sessionValues = { ...setupDraftValues }")
     expect(source).toContain("setSetupDraftValues(updates)")
 
     const setupBranchStart = source.indexOf("if (setupDraftFlow) {")
     const setupBranchReturn = source.indexOf("return input", setupBranchStart)
-    const reserveIdx = source.indexOf("const reserve = await updateDeployCreds")
+    const queueIdx = source.indexOf("await queueDeployCredsUpdate")
     expect(setupBranchStart).toBeGreaterThan(-1)
     expect(setupBranchReturn).toBeGreaterThan(setupBranchStart)
-    expect(setupBranchReturn).toBeLessThan(reserveIdx)
+    expect(setupBranchReturn).toBeLessThan(queueIdx)
   })
 })

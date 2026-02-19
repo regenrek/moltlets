@@ -12,6 +12,7 @@ export type RunnerCommandPayloadMeta = {
   scope?: SecretScope;
   secretNames?: string[];
   updatedKeys?: string[];
+  sealedInputKeys?: string[];
   configPaths?: string[];
   args?: string[];
   note?: string;
@@ -197,6 +198,12 @@ function normalizePayloadMeta(raw: unknown): RunnerCommandPayloadMeta {
       maxItems: 512,
       maxItemLen: META_MAX.secretName,
     }),
+    sealedInputKeys: ensureOptionalStringArray({
+      value: row.sealedInputKeys,
+      field: "payloadMeta.sealedInputKeys",
+      maxItems: 64,
+      maxItemLen: META_MAX.secretName,
+    }),
     configPaths: ensureOptionalStringArray({
       value: row.configPaths,
       field: "payloadMeta.configPaths",
@@ -262,7 +269,7 @@ export function buildDefaultArgsForJobKind(params: {
     case "doctor":
       return ["doctor", ...host];
     case "bootstrap":
-      return ["bootstrap", ...host];
+      return ["bootstrap", ...host, "--json"];
     case "lockdown":
       return ["lockdown", ...host];
     case "secrets_verify":

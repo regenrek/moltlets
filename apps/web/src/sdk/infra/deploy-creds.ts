@@ -1,23 +1,19 @@
 import { constants, createCipheriv, createPublicKey, publicEncrypt, randomBytes } from "node:crypto"
+import path from "node:path"
 import { createServerFn } from "@tanstack/react-start"
 import {
   DEPLOY_CREDS_KEYS,
-  DEPLOY_CREDS_SECRET_KEYS,
 } from "@clawlets/core/lib/infra/deploy-creds"
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error"
 import { SEALED_INPUT_B64_MAX_CHARS } from "@clawlets/core/lib/runtime/control-plane-constants"
+import { assertSafeHostName } from "@clawlets/shared/lib/identifiers"
 
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import {
-  generateProjectTokenKeyId,
-  maskProjectToken,
-  parseProjectTokenKeyring,
-  PROJECT_TOKEN_KEYRING_MAX_ITEMS,
+  PROJECT_TOKEN_KEY_ID_MAX_CHARS,
   PROJECT_TOKEN_KEY_LABEL_MAX_CHARS,
   PROJECT_TOKEN_VALUE_MAX_CHARS,
-  resolveActiveProjectTokenEntry,
-  serializeProjectTokenKeyring,
 } from "~/lib/project-token-keyring"
 import { createConvexClient } from "~/server/convex"
 import { requireAdminProjectAccess } from "~/sdk/project"
@@ -32,64 +28,8 @@ import {
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
-type DeployCredsSource = "env" | "file" | "default" | "unset"
-type DeployCredsEntryStatus = "set" | "unset"
-
-type RunnerDeployCredsStatusKey = {
-  key: string
-  source: DeployCredsSource
-  status: DeployCredsEntryStatus
-  value?: string
-}
-
-export type DeployCredsStatusKey = {
-  key: string
-  source: DeployCredsSource
-  status: DeployCredsEntryStatus
-  value?: string
-}
-
 export type ProjectTokenKeyringKind = "hcloud" | "tailscale"
-
-export type ProjectTokenKeyringSummary = {
-  activeId: string
-  itemCount: number
-  hasActive: boolean
-}
-
-export type ProjectTokenKeyringStatus = {
-  kind: ProjectTokenKeyringKind
-  keyringKey: string
-  activeKey: string
-  activeId: string
-  hasActive: boolean
-  items: Array<{
-    id: string
-    label: string
-    maskedValue: string
-    isActive: boolean
-  }>
-}
-
-export type DeployCredsStatus = {
-  repoRoot: string
-  envFile:
-    | null
-    | {
-        origin: "default" | "explicit"
-        status: "ok" | "missing" | "invalid"
-        path: string
-        error?: string
-      }
-  defaultEnvPath: string
-  defaultSopsAgeKeyPath: string
-  keys: DeployCredsStatusKey[]
-  projectTokenKeyrings: {
-    hcloud: ProjectTokenKeyringSummary
-    tailscale: ProjectTokenKeyringSummary
-  }
-  template: string
-}
+type ProjectCredentialSection = "hcloudKeyring" | "tailscaleKeyring" | "githubToken"
 
 type KeyCandidate = {
   path: string
@@ -98,7 +38,7 @@ type KeyCandidate = {
   reason?: string
 }
 
-type ReserveDeployCredsWriteResult = {
+type SealedJobReservation = {
   runId: Id<"runs">
   jobId: Id<"jobs">
   kind: string
@@ -107,7 +47,6 @@ type ReserveDeployCredsWriteResult = {
   sealedInputPubSpkiB64: string
 }
 
-const DEPLOY_CREDS_SECRET_KEY_SET = new Set<string>(DEPLOY_CREDS_SECRET_KEYS)
 const DEPLOY_CREDS_KEY_SET = new Set<string>(DEPLOY_CREDS_KEYS)
 const SEALED_INPUT_ALGORITHM = "rsa-oaep-3072/aes-256-gcm"
 
@@ -115,17 +54,32 @@ const PROJECT_TOKEN_KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, {
   keyringKey: string
   activeKey: string
   title: string
+  section: ProjectCredentialSection
 }> = {
   hcloud: {
     keyringKey: "HCLOUD_TOKEN_KEYRING",
     activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE",
     title: "Hetzner API key",
+    section: "hcloudKeyring",
   },
   tailscale: {
     keyringKey: "TAILSCALE_AUTH_KEY_KEYRING",
     activeKey: "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE",
     title: "Tailscale auth key",
+    section: "tailscaleKeyring",
   },
+}
+
+function projectCredentialSectionsFromUpdatedKeys(updatedKeys: string[]): ProjectCredentialSection[] {
+  const out = new Set<ProjectCredentialSection>()
+  for (const row of updatedKeys) {
+    const key = row.trim()
+    if (!key) continue
+    if (key === "GITHUB_TOKEN") out.add("githubToken")
+    if (key === "HCLOUD_TOKEN_KEYRING" || key === "HCLOUD_TOKEN_KEYRING_ACTIVE") out.add("hcloudKeyring")
+    if (key === "TAILSCALE_AUTH_KEY_KEYRING" || key === "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE") out.add("tailscaleKeyring")
+  }
+  return Array.from(out)
 }
 
 function parseProjectTokenKeyringKind(raw: unknown): ProjectTokenKeyringKind {
@@ -134,87 +88,27 @@ function parseProjectTokenKeyringKind(raw: unknown): ProjectTokenKeyringKind {
   throw new Error("kind must be hcloud or tailscale")
 }
 
-function parseUpdatedKeys(raw: unknown): string[] {
-  const rows = Array.isArray(raw) ? raw : []
-  const out: string[] = []
-  for (const row of rows) {
-    if (typeof row !== "string") throw new Error("invalid updatedKeys")
-    const key = row.trim()
-    if (!key) continue
-    if (!DEPLOY_CREDS_KEY_SET.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`)
-    out.push(key)
-  }
-  const deduped = Array.from(new Set(out))
-  if (deduped.length === 0) throw new Error("updatedKeys required")
-  return deduped
+function parseProjectIdWithOptionalHostInput(raw: unknown): {
+  projectId: Id<"projects">
+  host?: string
+} {
+  const base = parseProjectIdInput(raw)
+  const data = raw as Record<string, unknown>
+  const hostRaw = coerceTrimmedString(data.host)
+  if (!hostRaw) return base
+  assertSafeHostName(hostRaw)
+  return { ...base, host: hostRaw }
 }
 
-function parseRunnerDeployCredsStatusKeys(raw: unknown): RunnerDeployCredsStatusKey[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object" && !Array.isArray(entry))
-    .map((entry) => ({
-      key: coerceTrimmedString(entry.key),
-      source: (coerceTrimmedString(entry.source) || "unset") as DeployCredsSource,
-      status: (coerceTrimmedString(entry.status) || "unset") as DeployCredsEntryStatus,
-      value: typeof entry.value === "string" ? entry.value : undefined,
-    }))
-    .filter((entry) => entry.key.length > 0)
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-function indexRunnerDeployCredsStatusKeys(rows: RunnerDeployCredsStatusKey[]): Record<string, RunnerDeployCredsStatusKey> {
-  const byKey: Record<string, RunnerDeployCredsStatusKey> = {}
-  for (const row of rows) byKey[row.key] = row
-  return byKey
-}
-
-function toPublicDeployCredsStatusKeys(rows: RunnerDeployCredsStatusKey[]): DeployCredsStatusKey[] {
-  return rows.map((row) => {
-    const value = !DEPLOY_CREDS_SECRET_KEY_SET.has(row.key) && typeof row.value === "string"
-      ? row.value
-      : undefined
-    return value ? { ...row, value } : { key: row.key, source: row.source, status: row.status }
-  })
-}
-
-function summarizeProjectTokenKeyring(params: { keyringRaw?: string; activeIdRaw?: string }): ProjectTokenKeyringSummary {
-  const keyring = parseProjectTokenKeyring(params.keyringRaw)
-  const activeEntry = resolveActiveProjectTokenEntry({
-    keyring,
-    activeId: coerceTrimmedString(params.activeIdRaw),
-  })
-  return {
-    activeId: activeEntry?.id || "",
-    itemCount: keyring.items.length,
-    hasActive: Boolean(activeEntry?.value?.trim()),
-  }
-}
-
-function deriveProjectTokenKeyringStatus(params: {
-  kind: ProjectTokenKeyringKind
-  keyringRaw?: string
-  activeIdRaw?: string
-}): ProjectTokenKeyringStatus {
-  const cfg = PROJECT_TOKEN_KEYRING_KIND_CONFIG[params.kind]
-  const keyring = parseProjectTokenKeyring(params.keyringRaw)
-  const activeEntry = resolveActiveProjectTokenEntry({
-    keyring,
-    activeId: coerceTrimmedString(params.activeIdRaw),
-  })
-  const activeId = activeEntry?.id || ""
-  return {
-    kind: params.kind,
-    keyringKey: cfg.keyringKey,
-    activeKey: cfg.activeKey,
-    activeId,
-    hasActive: Boolean(activeEntry?.value?.trim()),
-    items: keyring.items.map((entry) => ({
-      id: entry.id,
-      label: entry.label,
-      maskedValue: maskProjectToken(entry.value),
-      isActive: entry.id === activeId,
-    })),
-  }
+function isHostScopedOperatorKeyPath(params: { keyPath: string; host: string }): boolean {
+  const normalized = path.posix.normalize(params.keyPath.replaceAll("\\", "/"))
+  const hostPattern = escapeRegExp(params.host)
+  const expected = new RegExp(`(?:^|/)keys/operators/hosts/${hostPattern}/[^/]+\\.agekey$`)
+  return expected.test(normalized)
 }
 
 function toBase64Url(bytes: Buffer): string {
@@ -276,6 +170,7 @@ async function runRunnerJsonCommand(params: {
   title: string
   args: string[]
   timeoutMs: number
+  targetRunnerId?: Id<"runners">
 }): Promise<{ runId: Id<"runs">; jobId: Id<"jobs">; json: Record<string, unknown> }> {
   const client = createConvexClient()
   await requireAdminProjectAccess(client, params.projectId)
@@ -286,6 +181,7 @@ async function runRunnerJsonCommand(params: {
     title: params.title,
     args: params.args,
     note: "runner queued from deploy-creds endpoint",
+    targetRunnerId: params.targetRunnerId,
   })
   const terminal = await waitForRunTerminal({
     client,
@@ -308,22 +204,29 @@ async function runRunnerJsonCommand(params: {
   return { runId: queued.runId, jobId: queued.jobId, json: parsed }
 }
 
-async function reserveDeployCredsWrite(params: {
+async function reserveSealedRunnerJob(params: {
   projectId: Id<"projects">
   targetRunnerId: Id<"runners">
+  title: string
+  args: string[]
   updatedKeys: string[]
-}): Promise<ReserveDeployCredsWriteResult> {
+  sealedInputKeys?: string[]
+  note: string
+}): Promise<SealedJobReservation> {
   const client = createConvexClient()
   await requireAdminProjectAccess(client, params.projectId)
   const reserved = await client.mutation(api.controlPlane.jobs.reserveSealedInput, {
     projectId: params.projectId,
     kind: "custom",
-    title: "Deploy creds update",
+    title: params.title,
     targetRunnerId: params.targetRunnerId,
     payloadMeta: {
-      args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+      args: params.args,
       updatedKeys: params.updatedKeys,
-      note: "deploy creds sealed input attached at finalize",
+      ...(Array.isArray(params.sealedInputKeys) && params.sealedInputKeys.length > 0
+        ? { sealedInputKeys: params.sealedInputKeys }
+        : {}),
+      note: params.note,
     },
   })
   return {
@@ -336,7 +239,7 @@ async function reserveDeployCredsWrite(params: {
   }
 }
 
-async function finalizeDeployCredsWrite(params: {
+async function finalizeSealedRunnerJob(params: {
   projectId: Id<"projects">
   targetRunnerId: Id<"runners">
   jobId: Id<"jobs">
@@ -371,85 +274,42 @@ async function finalizeDeployCredsWrite(params: {
   return { runId: queued.runId, jobId: queued.jobId }
 }
 
-export const getDeployCredsStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
-  .handler(async ({ data }) => {
-    try {
-      const result = await runRunnerJsonCommand({
-        projectId: data.projectId,
-        title: "Deploy creds status",
-        args: ["env", "show", "--json"],
-        timeoutMs: 20_000,
-      })
-      const row = result.json
-      const rawKeys = parseRunnerDeployCredsStatusKeys(row.keys)
-      const publicKeys = toPublicDeployCredsStatusKeys(rawKeys)
-      const byKey = indexRunnerDeployCredsStatusKeys(rawKeys)
-
-      return {
-        repoRoot: typeof row.repoRoot === "string" ? row.repoRoot : "",
-        envFile:
-          row.envFile && typeof row.envFile === "object" && !Array.isArray(row.envFile)
-            ? {
-                origin: String((row.envFile as any).origin || "default") as "default" | "explicit",
-                status: String((row.envFile as any).status || "missing") as "ok" | "missing" | "invalid",
-                path: String((row.envFile as any).path || ""),
-                error: typeof (row.envFile as any).error === "string" ? (row.envFile as any).error : undefined,
-              }
-            : null,
-        defaultEnvPath: typeof row.defaultEnvPath === "string" ? row.defaultEnvPath : "",
-        defaultSopsAgeKeyPath: typeof row.defaultSopsAgeKeyPath === "string" ? row.defaultSopsAgeKeyPath : "",
-        keys: publicKeys,
-        projectTokenKeyrings: {
-          hcloud: summarizeProjectTokenKeyring({
-            keyringRaw: byKey.HCLOUD_TOKEN_KEYRING?.value,
-            activeIdRaw: byKey.HCLOUD_TOKEN_KEYRING_ACTIVE?.value,
-          }),
-          tailscale: summarizeProjectTokenKeyring({
-            keyringRaw: byKey.TAILSCALE_AUTH_KEY_KEYRING?.value,
-            activeIdRaw: byKey.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE?.value,
-          }),
-        },
-        template: typeof row.template === "string" ? row.template : "",
-      } satisfies DeployCredsStatus
-    } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to read deploy creds status. Check runner."), { cause: err })
-    }
+async function upsertProjectCredentialPending(params: {
+  projectId: Id<"projects">
+  section: ProjectCredentialSection
+  metadata?: {
+    status?: "set" | "unset"
+    hasActive?: boolean
+    itemCount?: number
+    items?: Array<{
+      id: string
+      label: string
+      maskedValue: string
+      isActive: boolean
+    }>
+  }
+  targetRunnerId: Id<"runners">
+  sealedInputB64: string
+  sealedInputAlg: string
+  sealedInputKeyId: string
+}): Promise<void> {
+  const client = createConvexClient()
+  await requireAdminProjectAccess(client, params.projectId)
+  await client.mutation(api.controlPlane.projectCredentials.upsertPending, {
+    projectId: params.projectId,
+    section: params.section,
+    ...(params.metadata ? { metadata: params.metadata } : {}),
+    sealedValueB64: params.sealedInputB64,
+    sealedForRunnerId: params.targetRunnerId,
+    sealedInputAlg: params.sealedInputAlg,
+    sealedInputKeyId: params.sealedInputKeyId,
+    syncStatus: "pending",
   })
-
-export const getProjectTokenKeyringStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    return {
-      ...base,
-      kind: parseProjectTokenKeyringKind(d.kind),
-    }
-  })
-  .handler(async ({ data }) => {
-    try {
-      const result = await runRunnerJsonCommand({
-        projectId: data.projectId,
-        title: "Project token keyring status",
-        args: ["env", "show", "--json"],
-        timeoutMs: 20_000,
-      })
-      const rawKeys = parseRunnerDeployCredsStatusKeys(result.json.keys)
-      const byKey = indexRunnerDeployCredsStatusKeys(rawKeys)
-      const cfg = PROJECT_TOKEN_KEYRING_KIND_CONFIG[data.kind]
-      return deriveProjectTokenKeyringStatus({
-        kind: data.kind,
-        keyringRaw: byKey[cfg.keyringKey]?.value,
-        activeIdRaw: byKey[cfg.activeKey]?.value,
-      })
-    } catch (err) {
-      throw new Error(sanitizeErrorMessage(err, "Unable to read project token keyring. Check runner."), { cause: err })
-    }
-  })
+}
 
 type MutateProjectTokenKeyringAction = "add" | "remove" | "select"
 
-export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
+export const queueProjectTokenKeyringUpdate = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => {
     const base = parseProjectIdInput(data)
     const d = data as Record<string, unknown>
@@ -464,6 +324,9 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
     const label = coerceString(d.label).trim()
     const value = coerceString(d.value).trim()
 
+    if (keyId && keyId.length > PROJECT_TOKEN_KEY_ID_MAX_CHARS) {
+      throw new Error(`keyId too long (max ${PROJECT_TOKEN_KEY_ID_MAX_CHARS} chars)`)
+    }
     if (action === "add" && !value) throw new Error("value required")
     if (action === "add" && value.length > PROJECT_TOKEN_VALUE_MAX_CHARS) {
       throw new Error(`value too long (max ${PROJECT_TOKEN_VALUE_MAX_CHARS} chars)`)
@@ -485,72 +348,27 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const cfg = PROJECT_TOKEN_KEYRING_KIND_CONFIG[data.kind]
-    const status = await runRunnerJsonCommand({
-      projectId: data.projectId,
-      title: `Project token keyring update (${cfg.title})`,
-      args: ["env", "show", "--json"],
-      timeoutMs: 20_000,
-    })
-    const rawKeys = parseRunnerDeployCredsStatusKeys(status.json.keys)
-    const byKey = indexRunnerDeployCredsStatusKeys(rawKeys)
-    const currentKeyring = parseProjectTokenKeyring(byKey[cfg.keyringKey]?.value)
-    const currentActive = resolveActiveProjectTokenEntry({
-      keyring: currentKeyring,
-      activeId: coerceTrimmedString(byKey[cfg.activeKey]?.value),
-    })
+    const updatedKeys = data.action === "select"
+      ? [cfg.activeKey]
+      : [cfg.keyringKey, cfg.activeKey]
 
-    let updates: Record<string, string>
-    let updatedKeys: string[]
-
-    if (data.action === "add") {
-      if (currentKeyring.items.length >= PROJECT_TOKEN_KEYRING_MAX_ITEMS) {
-        throw new Error(`keyring full (max ${PROJECT_TOKEN_KEYRING_MAX_ITEMS} items)`)
-      }
-      const existingIds = new Set(currentKeyring.items.map((entry) => entry.id))
-      let id = generateProjectTokenKeyId(data.label)
-      for (let attempt = 0; attempt < 10 && existingIds.has(id); attempt += 1) {
-        id = generateProjectTokenKeyId(`${data.label}-${attempt + 1}`)
-      }
-      if (existingIds.has(id)) throw new Error("could not allocate unique key id")
-
-      const nextItems = [
-        ...currentKeyring.items,
-        {
-          id,
-          label: data.label,
-          value: data.value,
-        },
-      ]
-      updates = {
-        [cfg.keyringKey]: serializeProjectTokenKeyring({ items: nextItems }),
-        [cfg.activeKey]: currentActive?.id || id,
-      }
-      updatedKeys = [cfg.keyringKey, cfg.activeKey]
-    } else if (data.action === "remove") {
-      const nextItems = currentKeyring.items.filter((entry) => entry.id !== data.keyId)
-      if (nextItems.length === currentKeyring.items.length) {
-        throw new Error("key not found")
-      }
-      const nextActiveId = currentActive?.id === data.keyId ? nextItems[0]?.id || "" : currentActive?.id || ""
-      updates = {
-        [cfg.keyringKey]: serializeProjectTokenKeyring({ items: nextItems }),
-        [cfg.activeKey]: nextActiveId,
-      }
-      updatedKeys = [cfg.keyringKey, cfg.activeKey]
-    } else {
-      const nextActive = currentKeyring.items.find((entry) => entry.id === data.keyId)
-      if (!nextActive) throw new Error("key not found")
-      updates = {
-        [cfg.activeKey]: nextActive.id,
-      }
-      updatedKeys = [cfg.activeKey]
-    }
-
-    const reserved = await reserveDeployCredsWrite({
+    const reserved = await reserveSealedRunnerJob({
       projectId: data.projectId,
       targetRunnerId: data.targetRunnerId,
+      title: `Project token keyring update (${cfg.title})`,
+      args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
       updatedKeys,
+      sealedInputKeys: ["action", "kind", "keyId", "label", "value"],
+      note: "project token keyring sealed input attached at finalize",
     })
+
+    const payload = {
+      action: data.action,
+      kind: data.kind,
+      ...(data.keyId ? { keyId: data.keyId } : {}),
+      ...(data.label ? { label: data.label } : {}),
+      ...(data.value ? { value: data.value } : {}),
+    }
 
     const aad = `${data.projectId}:${reserved.jobId}:${reserved.kind}:${data.targetRunnerId}`
     const sealedInputB64 = sealForRunnerNode({
@@ -558,13 +376,13 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
       keyId: reserved.sealedInputKeyId,
       alg: reserved.sealedInputAlg,
       aad,
-      plaintextJson: JSON.stringify(updates),
+      plaintextJson: JSON.stringify(payload),
     })
     if (sealedInputB64.length > SEALED_INPUT_B64_MAX_CHARS) {
       throw new Error("sealedInputB64 too large")
     }
 
-    const queued = await finalizeDeployCredsWrite({
+    const queued = await finalizeSealedRunnerJob({
       projectId: data.projectId,
       targetRunnerId: data.targetRunnerId,
       jobId: reserved.jobId,
@@ -574,93 +392,111 @@ export const mutateProjectTokenKeyring = createServerFn({ method: "POST" })
       sealedInputKeyId: reserved.sealedInputKeyId,
       updatedKeys,
     })
-
-    const nextStatus = deriveProjectTokenKeyringStatus({
-      kind: data.kind,
-      keyringRaw: updates[cfg.keyringKey] ?? byKey[cfg.keyringKey]?.value,
-      activeIdRaw: updates[cfg.activeKey] ?? byKey[cfg.activeKey]?.value,
+    await upsertProjectCredentialPending({
+      projectId: data.projectId,
+      section: cfg.section,
+      targetRunnerId: data.targetRunnerId,
+      sealedInputB64,
+      sealedInputAlg: reserved.sealedInputAlg,
+      sealedInputKeyId: reserved.sealedInputKeyId,
+      ...(data.action === "select"
+        ? {
+            metadata: {
+              status: "set" as const,
+              hasActive: true,
+            },
+          }
+        : {}),
     })
 
     return {
       ok: true as const,
+      queued: true as const,
       runId: queued.runId,
       jobId: queued.jobId,
       updatedKeys,
-      ...nextStatus,
+      targetRunnerId: data.targetRunnerId,
+      kind: data.kind,
+      action: data.action,
     }
   })
 
-export const updateDeployCreds = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    const targetRunnerIdRaw = coerceTrimmedString(d.targetRunnerId)
-    if (!targetRunnerIdRaw) throw new Error("targetRunnerId required")
-    return {
-      ...base,
-      targetRunnerId: targetRunnerIdRaw as Id<"runners">,
-      updatedKeys: parseUpdatedKeys(d.updatedKeys),
-    }
-  })
+function parseDeployCredUpdatesInput(data: unknown): {
+  projectId: Id<"projects">
+  targetRunnerId: Id<"runners">
+  updatedKeys: string[]
+  updates: Record<string, string>
+} {
+  const base = parseProjectIdInput(data)
+  const d = data as Record<string, unknown>
+  const targetRunnerIdRaw = coerceTrimmedString(d.targetRunnerId)
+  if (!targetRunnerIdRaw) throw new Error("targetRunnerId required")
+  const updatesRaw = d.updates
+  if (!updatesRaw || typeof updatesRaw !== "object" || Array.isArray(updatesRaw)) {
+    throw new Error("updates required")
+  }
+  const updatesObj = updatesRaw as Record<string, unknown>
+  const updates: Record<string, string> = {}
+  const updatedKeys: string[] = []
+  for (const [rawKey, rawValue] of Object.entries(updatesObj)) {
+    const key = coerceTrimmedString(rawKey)
+    if (!key) continue
+    if (!DEPLOY_CREDS_KEY_SET.has(key)) throw new Error(`invalid updates key: ${key}`)
+    if (typeof rawValue !== "string") throw new Error(`invalid updates value type for ${key}`)
+    updates[key] = rawValue
+    updatedKeys.push(key)
+  }
+  const dedupedUpdatedKeys = Array.from(new Set(updatedKeys))
+  if (dedupedUpdatedKeys.length === 0) throw new Error("updates required")
+  return {
+    ...base,
+    targetRunnerId: targetRunnerIdRaw as Id<"runners">,
+    updates,
+    updatedKeys: dedupedUpdatedKeys,
+  }
+}
+
+export const queueDeployCredsUpdate = createServerFn({ method: "POST" })
+  .inputValidator(parseDeployCredUpdatesInput)
   .handler(async ({ data }) => {
-    const reserved = await reserveDeployCredsWrite({
+    const reserved = await reserveSealedRunnerJob({
       projectId: data.projectId,
       targetRunnerId: data.targetRunnerId,
+      title: "Deploy creds update",
+      args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
       updatedKeys: data.updatedKeys,
+      note: "deploy creds sealed input attached at finalize",
     })
-    return {
-      ok: true as const,
-      reserved: true as const,
-      runId: reserved.runId,
+    const aad = `${data.projectId}:${reserved.jobId}:${reserved.kind}:${data.targetRunnerId}`
+    const sealedInputB64 = sealForRunnerNode({
+      runnerPubSpkiB64: reserved.sealedInputPubSpkiB64,
+      keyId: reserved.sealedInputKeyId,
+      alg: reserved.sealedInputAlg,
+      aad,
+      plaintextJson: JSON.stringify(data.updates),
+    })
+    if (sealedInputB64.length > SEALED_INPUT_B64_MAX_CHARS) throw new Error("sealedInputB64 too large")
+
+    const queued = await finalizeSealedRunnerJob({
+      projectId: data.projectId,
+      targetRunnerId: data.targetRunnerId,
       jobId: reserved.jobId,
       kind: reserved.kind,
+      sealedInputB64,
       sealedInputAlg: reserved.sealedInputAlg,
       sealedInputKeyId: reserved.sealedInputKeyId,
-      sealedInputPubSpkiB64: reserved.sealedInputPubSpkiB64,
-      updatedKeys: data.updatedKeys,
-      targetRunnerId: data.targetRunnerId,
-    }
-  })
-
-export const finalizeDeployCreds = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => {
-    const base = parseProjectIdInput(data)
-    const d = data as Record<string, unknown>
-    const targetRunnerIdRaw = coerceTrimmedString(d.targetRunnerId)
-    if (!targetRunnerIdRaw) throw new Error("targetRunnerId required")
-    const jobIdRaw = coerceTrimmedString(d.jobId)
-    if (!jobIdRaw) throw new Error("jobId required")
-    const kindRaw = coerceTrimmedString(d.kind)
-    if (!kindRaw) throw new Error("kind required")
-    const sealedInputB64Raw = coerceTrimmedString(d.sealedInputB64)
-    if (!sealedInputB64Raw) throw new Error("sealedInputB64 required")
-    if (sealedInputB64Raw.length > SEALED_INPUT_B64_MAX_CHARS) throw new Error("sealedInputB64 too large")
-    const sealedInputAlgRaw = coerceTrimmedString(d.sealedInputAlg)
-    if (!sealedInputAlgRaw) throw new Error("sealedInputAlg required")
-    const sealedInputKeyIdRaw = coerceTrimmedString(d.sealedInputKeyId)
-    if (!sealedInputKeyIdRaw) throw new Error("sealedInputKeyId required")
-    return {
-      ...base,
-      jobId: jobIdRaw as Id<"jobs">,
-      kind: kindRaw,
-      sealedInputB64: sealedInputB64Raw,
-      sealedInputAlg: sealedInputAlgRaw,
-      sealedInputKeyId: sealedInputKeyIdRaw,
-      targetRunnerId: targetRunnerIdRaw as Id<"runners">,
-      updatedKeys: parseUpdatedKeys(d.updatedKeys),
-    }
-  })
-  .handler(async ({ data }) => {
-    const queued = await finalizeDeployCredsWrite({
-      projectId: data.projectId,
-      targetRunnerId: data.targetRunnerId,
-      jobId: data.jobId,
-      kind: data.kind,
-      sealedInputB64: data.sealedInputB64,
-      sealedInputAlg: data.sealedInputAlg,
-      sealedInputKeyId: data.sealedInputKeyId,
       updatedKeys: data.updatedKeys,
     })
+    for (const section of projectCredentialSectionsFromUpdatedKeys(data.updatedKeys)) {
+      await upsertProjectCredentialPending({
+        projectId: data.projectId,
+        section,
+        targetRunnerId: data.targetRunnerId,
+        sealedInputB64,
+        sealedInputAlg: reserved.sealedInputAlg,
+        sealedInputKeyId: reserved.sealedInputKeyId,
+      })
+    }
     return {
       ok: true as const,
       queued: true as const,
@@ -672,13 +508,14 @@ export const finalizeDeployCreds = createServerFn({ method: "POST" })
   })
 
 export const detectSopsAgeKey = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
+  .inputValidator((data: unknown) => parseProjectIdWithOptionalHostInput(data))
   .handler(async ({ data }) => {
     try {
+      const hostFlag = data.host ? ["--host", data.host] : []
       const result = await runRunnerJsonCommand({
         projectId: data.projectId,
         title: "Detect SOPS age key",
-        args: ["env", "detect-age-key", "--json"],
+        args: ["env", "detect-age-key", ...hostFlag, "--json"],
         timeoutMs: 20_000,
       })
       const row = result.json
@@ -705,14 +542,15 @@ export const detectSopsAgeKey = createServerFn({ method: "POST" })
   })
 
 export const generateSopsAgeKey = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => parseProjectIdInput(data))
+  .inputValidator((data: unknown) => parseProjectIdWithOptionalHostInput(data))
   .handler(async ({ data }) => {
     const client = createConvexClient()
     try {
+      const hostFlag = data.host ? ["--host", data.host] : []
       const result = await runRunnerJsonCommand({
         projectId: data.projectId,
         title: "Generate SOPS age key",
-        args: ["env", "generate-age-key", "--json"],
+        args: ["env", "generate-age-key", ...hostFlag, "--json"],
         timeoutMs: 40_000,
       })
       const row = result.json
@@ -720,11 +558,21 @@ export const generateSopsAgeKey = createServerFn({ method: "POST" })
       const keyPath = typeof row.keyPath === "string" ? row.keyPath : ""
       const publicKey = typeof row.publicKey === "string" ? row.publicKey : ""
       const created = row.created === false ? false : true
-      if (ok && keyPath) {
+      if (ok && data.host && !isHostScopedOperatorKeyPath({ keyPath, host: data.host })) {
+        return {
+          ok: false as const,
+          message: "Runner returned non host-scoped SOPS key path.",
+        }
+      }
+      if (ok && keyPath && created) {
         await client.mutation(api.security.auditLogs.append, {
           projectId: data.projectId,
           action: "sops.operatorKey.generate",
-          target: { doc: "<runtimeDir>/keys/operators" },
+          target: {
+            doc: data.host
+              ? `<runtimeDir>/keys/operators/hosts/${data.host}`
+              : "<runtimeDir>/keys/operators",
+          },
           data: { runId: result.runId },
         })
       }

@@ -19,7 +19,7 @@ const SETUP_DRAFT_NON_SECRET_TTL_MS = 7 * 24 * 60 * 60_000;
 const SETUP_DRAFT_SECRET_TTL_MS = 24 * 60 * 60_000;
 const SEALED_INPUT_ALG = "rsa-oaep-3072/aes-256-gcm";
 
-const SetupDraftSection = v.union(v.literal("deployCreds"), v.literal("bootstrapSecrets"));
+const SetupDraftSection = v.union(v.literal("hostBootstrapCreds"), v.literal("hostBootstrapSecrets"));
 const SetupDraftSaveStatus = v.union(v.literal("set"), v.literal("missing"));
 
 const SetupDraftSecretSectionView = v.object({
@@ -36,8 +36,8 @@ const SetupDraftView = v.object({
   version: v.number(),
   nonSecretDraft: SetupDraftNonSecret,
   sealedSecretDrafts: v.object({
-    deployCreds: SetupDraftSecretSectionView,
-    bootstrapSecrets: SetupDraftSecretSectionView,
+    hostBootstrapCreds: SetupDraftSecretSectionView,
+    hostBootstrapSecrets: SetupDraftSecretSectionView,
   }),
   updatedAt: v.number(),
   expiresAt: v.number(),
@@ -53,8 +53,8 @@ const SetupDraftCommitPayload = v.object({
   targetRunnerId: v.id("runners"),
   nonSecretDraft: SetupDraftNonSecret,
   sealedSecretDrafts: v.object({
-    deployCreds: SetupDraftSealedSection,
-    bootstrapSecrets: SetupDraftSealedSection,
+    hostBootstrapCreds: SetupDraftSealedSection,
+    hostBootstrapSecrets: SetupDraftSealedSection,
   }),
 });
 
@@ -75,7 +75,7 @@ function normalizeErrorMessage(raw: unknown): string | undefined {
 function asSetupDraftSectionAad(params: {
   projectId: Id<"projects">;
   hostName: string;
-  section: "deployCreds" | "bootstrapSecrets";
+  section: "hostBootstrapCreds" | "hostBootstrapSecrets";
   targetRunnerId: Id<"runners">;
 }): string {
   return `${params.projectId}:${params.hostName}:setupDraft:${params.section}:${params.targetRunnerId}`;
@@ -174,7 +174,7 @@ function normalizeSectionPatch(params: {
 }
 
 function computeSectionView(
-  section: Doc<"setupDrafts">["sealedSecretDrafts"]["deployCreds"] | undefined,
+  section: Doc<"setupDrafts">["sealedSecretDrafts"]["hostBootstrapCreds"] | undefined,
   now: number,
 ): {
   status: "set" | "missing";
@@ -199,13 +199,13 @@ function sanitizeDraftView(draft: Doc<"setupDrafts">, now = Date.now()): {
   version: number;
   nonSecretDraft: Doc<"setupDrafts">["nonSecretDraft"];
   sealedSecretDrafts: {
-    deployCreds: {
+    hostBootstrapCreds: {
       status: "set" | "missing";
       updatedAt?: number;
       expiresAt?: number;
       targetRunnerId?: Id<"runners">;
     };
-    bootstrapSecrets: {
+    hostBootstrapSecrets: {
       status: "set" | "missing";
       updatedAt?: number;
       expiresAt?: number;
@@ -224,8 +224,8 @@ function sanitizeDraftView(draft: Doc<"setupDrafts">, now = Date.now()): {
     version: draft.version,
     nonSecretDraft: draft.nonSecretDraft,
     sealedSecretDrafts: {
-      deployCreds: computeSectionView(draft.sealedSecretDrafts.deployCreds, now),
-      bootstrapSecrets: computeSectionView(draft.sealedSecretDrafts.bootstrapSecrets, now),
+      hostBootstrapCreds: computeSectionView(draft.sealedSecretDrafts.hostBootstrapCreds, now),
+      hostBootstrapSecrets: computeSectionView(draft.sealedSecretDrafts.hostBootstrapSecrets, now),
     },
     updatedAt: draft.updatedAt,
     expiresAt: draft.expiresAt,
@@ -322,13 +322,15 @@ export const getCommitPayload = mutation({
     if ((connection.sshKeyCount || 0) <= 0) fail("conflict", "connection draft missing SSH key");
 
     const now = Date.now();
-    const deployCreds = draft.sealedSecretDrafts.deployCreds;
-    const bootstrapSecrets = draft.sealedSecretDrafts.bootstrapSecrets;
-    if (!deployCreds || deployCreds.expiresAt <= now) fail("conflict", "deployCreds draft missing or expired");
-    if (!bootstrapSecrets || bootstrapSecrets.expiresAt <= now) {
-      fail("conflict", "bootstrapSecrets draft missing or expired");
+    const hostBootstrapCreds = draft.sealedSecretDrafts.hostBootstrapCreds;
+    const hostBootstrapSecrets = draft.sealedSecretDrafts.hostBootstrapSecrets;
+    if (!hostBootstrapCreds || hostBootstrapCreds.expiresAt <= now) {
+      fail("conflict", "hostBootstrapCreds draft missing or expired");
     }
-    if (deployCreds.targetRunnerId !== bootstrapSecrets.targetRunnerId) {
+    if (!hostBootstrapSecrets || hostBootstrapSecrets.expiresAt <= now) {
+      fail("conflict", "hostBootstrapSecrets draft missing or expired");
+    }
+    if (hostBootstrapCreds.targetRunnerId !== hostBootstrapSecrets.targetRunnerId) {
       fail("conflict", "secret sections must target the same runner");
     }
 
@@ -347,11 +349,11 @@ export const getCommitPayload = mutation({
       hostName: draft.hostName,
       status: "committing" as const,
       version,
-      targetRunnerId: deployCreds.targetRunnerId,
+      targetRunnerId: hostBootstrapCreds.targetRunnerId,
       nonSecretDraft: draft.nonSecretDraft,
       sealedSecretDrafts: {
-        deployCreds,
-        bootstrapSecrets,
+        hostBootstrapCreds,
+        hostBootstrapSecrets,
       },
     };
   },

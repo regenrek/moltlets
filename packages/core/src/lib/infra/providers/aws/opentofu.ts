@@ -111,6 +111,8 @@ export async function applyAwsOpenTofu(params: {
     env,
     dryRun: params.runtime.dryRun,
     redact,
+    stdout: params.runtime.stdio?.stdout,
+    stderr: params.runtime.stdio?.stderr,
   });
 
   await run(
@@ -121,6 +123,8 @@ export async function applyAwsOpenTofu(params: {
       env,
       dryRun: params.runtime.dryRun,
       redact,
+      stdout: params.runtime.stdio?.stdout,
+      stderr: params.runtime.stdio?.stderr,
     },
   );
 }
@@ -138,6 +142,8 @@ export async function destroyAwsOpenTofu(params: {
     env,
     dryRun: params.runtime.dryRun,
     redact,
+    stdout: params.runtime.stdio?.stdout,
+    stderr: params.runtime.stdio?.stderr,
   });
 
   await run(
@@ -148,6 +154,8 @@ export async function destroyAwsOpenTofu(params: {
       env,
       dryRun: params.runtime.dryRun,
       redact,
+      stdout: params.runtime.stdio?.stdout,
+      stderr: params.runtime.stdio?.stderr,
     },
   );
 }

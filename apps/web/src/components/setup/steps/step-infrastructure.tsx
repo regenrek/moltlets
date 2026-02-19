@@ -1,14 +1,5 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
-import { api } from "../../../../convex/_generated/api"
-import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
-import {
-  deriveDeployReadiness,
-  deriveFirstPushGuidance,
-} from "~/components/deploy/deploy-setup-model"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import {
   HETZNER_LOCATION_OPTIONS,
   HETZNER_SERVER_TYPE_OPTIONS,
@@ -17,6 +8,7 @@ import {
   isKnownHetznerLocation,
   isKnownHetznerServerType,
 } from "~/components/hosts/hetzner-options"
+import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
 import { Input } from "~/components/ui/input"
 import { LabelWithHelp } from "~/components/ui/label-help"
@@ -24,13 +16,11 @@ import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { StackedField } from "~/components/ui/stacked-field"
 import { Switch } from "~/components/ui/switch"
-import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import { SetupSaveStateBadge } from "~/components/setup/steps/setup-save-state-badge"
 import { setupFieldHelp } from "~/lib/setup-field-help"
-import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import type { SetupConfig } from "~/lib/setup/repo-probe"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import { cn } from "~/lib/utils"
-import { gitRepoStatus } from "~/sdk/vcs"
 import type { SetupDraftInfrastructure, SetupDraftView } from "~/sdk/setup"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -86,12 +76,15 @@ function resolveHostDefaults(config: SetupConfig | null, host: string, setupDraf
 
 export function SetupStepInfrastructure(props: {
   projectId: Id<"projects">
+  projectSlug: string
   config: SetupConfig | null
   setupDraft: SetupDraftView | null
   host: string
   hasActiveHcloudToken: boolean
+  hcloudKeyringSummary?: { hasActive: boolean; itemCount: number; items?: Array<{ id: string; label: string; maskedValue: string; isActive: boolean }> } | null
   stepStatus: SetupStepStatus
   onDraftChange: (next: SetupDraftInfrastructure) => void
+  onProjectCredsQueued?: () => void
 }) {
   const defaults = resolveHostDefaults(props.config, props.host, props.setupDraft)
   const [serverType, setServerType] = useState(() => defaults.serverType)
@@ -112,30 +105,50 @@ export function SetupStepInfrastructure(props: {
     ...(resolvedLocation.length > 0 ? [] : ["hetzner.location"]),
     ...(!volumeSettingsReady ? ["hetzner.volumeSizeGb"] : []),
   ]
-  const runnersQuery = useQuery({
-    ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
-  })
-  const runnerOnline = useMemo(
-    () => isProjectRunnerOnline(runnersQuery.data ?? []),
-    [runnersQuery.data],
-  )
-  const repoStatus = useQuery({
-    queryKey: ["gitRepoStatus", props.projectId],
-    queryFn: async () => await gitRepoStatus({ data: { projectId: props.projectId } }),
-    enabled: runnerOnline,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
-  const githubReadiness = deriveDeployReadiness({
-    runnerOnline,
-    repoPending: repoStatus.isPending,
-    repoError: repoStatus.error,
-    missingRev: !repoStatus.data?.originHead,
-    needsPush: Boolean(repoStatus.data?.needsPush),
-    localSelected: false,
-    allowLocalDeploy: false,
-  })
-  const firstPushGuidance = deriveFirstPushGuidance({ upstream: repoStatus.data?.upstream })
+  const hcloudSaveState = hcloudTokenReady ? "saved" as const : "not_saved" as const
+  const persistedInfrastructure = props.setupDraft?.nonSecretDraft?.infrastructure ?? null
+  const configSaveState = useMemo(() => {
+    if (props.setupDraft?.status === "failed") return "error" as const
+    if (!persistedInfrastructure) {
+      const baselineVolumeSizeGb = defaults.volumeEnabled ? defaults.volumeSizeGb : 0
+      const nextVolumeSizeGb = volumeEnabled ? parsedVolumeSizeGb ?? 0 : 0
+      const unchangedFromDefaults =
+        defaults.serverType === resolvedServerType
+        && defaults.image.trim() === image.trim()
+        && defaults.location === resolvedLocation
+        && defaults.volumeEnabled === volumeEnabled
+        && Math.max(0, Math.trunc(baselineVolumeSizeGb)) === Math.max(0, Math.trunc(nextVolumeSizeGb))
+      return unchangedFromDefaults ? "saved" as const : "not_saved" as const
+    }
+    const persistedServerType = String(persistedInfrastructure.serverType || "").trim()
+    const persistedImage = String(persistedInfrastructure.image || "").trim()
+    const persistedLocation = String(persistedInfrastructure.location || "").trim()
+    const persistedVolumeEnabled =
+      typeof persistedInfrastructure.volumeEnabled === "boolean"
+        ? persistedInfrastructure.volumeEnabled
+        : false
+    const persistedVolumeSizeGb = Number(persistedInfrastructure.volumeSizeGb || 0)
+    const nextVolumeSizeGb = volumeEnabled ? parsedVolumeSizeGb ?? 0 : 0
+    if (persistedServerType !== resolvedServerType) return "not_saved" as const
+    if (persistedImage !== image.trim()) return "not_saved" as const
+    if (persistedLocation !== resolvedLocation) return "not_saved" as const
+    if (persistedVolumeEnabled !== volumeEnabled) return "not_saved" as const
+    if (Math.max(0, Math.trunc(persistedVolumeSizeGb)) !== Math.max(0, Math.trunc(nextVolumeSizeGb))) return "not_saved" as const
+    return "saved" as const
+  }, [
+    defaults.image,
+    defaults.location,
+    defaults.serverType,
+    defaults.volumeEnabled,
+    defaults.volumeSizeGb,
+    image,
+    parsedVolumeSizeGb,
+    persistedInfrastructure,
+    props.setupDraft?.status,
+    resolvedLocation,
+    resolvedServerType,
+    volumeEnabled,
+  ])
 
   useEffect(() => {
     props.onDraftChange({
@@ -159,20 +172,23 @@ export function SetupStepInfrastructure(props: {
       <ProjectTokenKeyringCard
         projectId={props.projectId}
         kind="hcloud"
+        setupHref={`/${props.projectSlug}/runner`}
         title="Hetzner API keys"
-        description={(
-          <>
-            Project-wide Hetzner tokens. Add multiple keys, then select the active key used for provisioning.
-          </>
-        )}
-        headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
-        showRunnerStatusBanner={false}
-        showRunnerStatusDetails={false}
+        description="Project-wide keyring. Add multiple tokens and select the active key used during setup."
+        headerBadge={<SetupSaveStateBadge state={hcloudSaveState} />}
+        runnerStatusMode="none"
+        statusSummary={{
+          hasActive: props.hcloudKeyringSummary?.hasActive === true,
+          itemCount: Number(props.hcloudKeyringSummary?.itemCount || 0),
+          items: props.hcloudKeyringSummary?.items ?? [],
+        }}
+        onQueued={props.onProjectCredsQueued}
       />
 
       <SettingsSection
         title="Hetzner host configuration"
         description="Set provisioning defaults. Values are committed during final deploy."
+        headerBadge={<SetupSaveStateBadge state={configSaveState} />}
         statusText={missingRequirements.length > 0 ? `Missing: ${missingRequirements.join(", ")}.` : "Ready for final deploy check."}
       >
         <div className="space-y-4">
@@ -301,46 +317,6 @@ export function SetupStepInfrastructure(props: {
           </Accordion>
         </div>
       </SettingsSection>
-
-      <DeployCredsCard
-        projectId={props.projectId}
-        visibleKeys={["GITHUB_TOKEN"]}
-        setupDraftFlow={{
-          host: props.host,
-          setupDraft: props.setupDraft,
-        }}
-        title="GitHub access"
-        description="GitHub token used for repository access during setup apply."
-        githubReadiness={{
-          runnerOnline,
-          pending: repoStatus.isPending,
-          refreshing: repoStatus.isFetching,
-          originHead: repoStatus.data?.originHead,
-          branch: repoStatus.data?.branch,
-          upstream: repoStatus.data?.upstream,
-          ahead: repoStatus.data?.ahead,
-          behind: repoStatus.data?.behind,
-          onRefresh: () => {
-            if (!runnerOnline) return
-            void repoStatus.refetch()
-          },
-          alert: githubReadiness.reason !== "ready" && githubReadiness.reason !== "repo_pending"
-            ? {
-                severity: githubReadiness.severity,
-                message: githubReadiness.message,
-                title: githubReadiness.title,
-                detail: githubReadiness.detail,
-              }
-            : null,
-        }}
-        githubFirstPushGuidance={githubReadiness.showFirstPushGuidance
-          ? {
-              commands: firstPushGuidance.commands,
-              hasUpstream: firstPushGuidance.hasUpstream,
-              upstream: repoStatus.data?.upstream,
-            }
-          : null}
-      />
     </div>
   )
 }

@@ -61,7 +61,6 @@ export {
   writeInfraConfig,
   writeOpenClawConfig,
 } from "./io.js";
-export { migrateClawletsConfigToLatest, type MigrateToLatestResult } from "./migrate.js";
 export { HostNameSchema as SafeHostNameSchema, assertSafeHostName } from "@clawlets/shared/lib/identifiers";
 export { TtlStringSchema, parseTtlToSeconds } from "./ttl.js";
 export {

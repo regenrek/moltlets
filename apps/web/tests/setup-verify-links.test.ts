@@ -8,12 +8,14 @@ function readFile(relPath: string): string {
   return fs.readFileSync(path.join(ROOT, relPath), "utf8")
 }
 
-describe("setup verify links", () => {
-  it("routes primary verify CTA to VPN settings instead of self-linking verify", () => {
-    const verifyStep = readFile("components/setup/steps/step-verify.tsx")
+describe("setup flow removes verify step", () => {
+  it("keeps setup step order focused on install + lockdown", () => {
+    const setupModel = readFile("lib/setup/setup-model.ts")
+    const setupRoute = readFile("routes/$projectSlug/hosts/$host/setup.tsx")
 
-    expect(verifyStep).toContain('to="/$projectSlug/hosts/$host/settings/vpn"')
-    expect(verifyStep).toContain("Open VPN settings")
-    expect(verifyStep).not.toContain('search={{ step: "verify" }}')
+    expect(setupModel).not.toContain('"verify"')
+    expect(setupRoute).not.toContain("SetupStepVerify")
+    expect(setupRoute).not.toContain('"Secure and Verify"')
+    expect(setupRoute).not.toContain("Continue to verify")
   })
 })

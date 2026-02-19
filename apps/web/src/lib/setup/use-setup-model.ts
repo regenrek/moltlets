@@ -1,20 +1,14 @@
 import { convexQuery } from "@convex-dev/react-query"
-import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 import { api } from "../../../convex/_generated/api"
 import { useProjectBySlug } from "~/lib/project-data"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { deriveSetupModel, type SetupModel, type SetupStepId } from "~/lib/setup/setup-model"
+import { deriveSetupModel, type SetupModel } from "~/lib/setup/setup-model"
 import { deriveRepoHealth } from "~/lib/setup/repo-health"
 import { setupConfigProbeQueryOptions, type SetupConfig } from "~/lib/setup/repo-probe"
-import { getDeployCredsStatus } from "~/sdk/infra"
 import { setupDraftGet } from "~/sdk/setup"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
-
-export type SetupSearch = {
-  step?: string
-}
 
 type PendingNonSecretDraft = {
   infrastructure?: {
@@ -32,18 +26,18 @@ type PendingNonSecretDraft = {
 }
 
 type PendingBootstrapSecrets = {
-  tailscaleAuthKey?: string
   useTailscaleLockdown?: boolean
 }
+
+const DEPLOY_CREDS_RECONCILE_DELAYS_MS = [0, 800, 2_000, 5_000] as const
 
 export function useSetupModel(params: {
   projectSlug: string
   host: string
-  search: SetupSearch
   pendingNonSecretDraft?: PendingNonSecretDraft | null
   pendingBootstrapSecrets?: PendingBootstrapSecrets | null
 }) {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const projectQuery = useProjectBySlug(params.projectSlug)
   const projectId = projectQuery.projectId
   const projectStatus = projectQuery.project?.status
@@ -62,6 +56,40 @@ export function useSetupModel(params: {
     () => isProjectRunnerOnline(runners),
     [runners],
   )
+
+  const sealedRunners = React.useMemo(
+    () =>
+      runners
+        .filter(
+          (runner) =>
+            runner.lastStatus === "online"
+            && runner.capabilities?.supportsSealedInput === true
+            && typeof runner.capabilities?.sealedInputPubSpkiB64 === "string"
+            && runner.capabilities.sealedInputPubSpkiB64.trim().length > 0
+            && typeof runner.capabilities?.sealedInputKeyId === "string"
+            && runner.capabilities.sealedInputKeyId.trim().length > 0
+            && typeof runner.capabilities?.sealedInputAlg === "string"
+            && runner.capabilities.sealedInputAlg.trim().length > 0,
+        )
+        .toSorted((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)),
+    [runners],
+  )
+
+  const [selectedRunnerId, setSelectedRunnerId] = React.useState<string>("")
+  React.useEffect(() => {
+    if (sealedRunners.length === 1) {
+      setSelectedRunnerId(String(sealedRunners[0]?._id || ""))
+      return
+    }
+    if (!sealedRunners.some((runner) => String(runner._id) === selectedRunnerId)) {
+      setSelectedRunnerId("")
+    }
+  }, [sealedRunners, selectedRunnerId])
+
+  const targetRunner = React.useMemo(() => {
+    if (sealedRunners.length === 1) return sealedRunners[0] ?? null
+    return sealedRunners.find((runner) => String(runner._id) === selectedRunnerId) ?? null
+  }, [sealedRunners, selectedRunnerId])
 
   const projectConfigsQuery = useQuery({
     ...convexQuery(
@@ -122,42 +150,46 @@ export function useSetupModel(params: {
     ),
   })
 
-  const deployCredsQuery = useQuery({
-    queryKey: ["deployCreds", projectId],
-    queryFn: async () => {
-      if (!projectId) throw new Error("missing project id")
-      return await getDeployCredsStatus({ data: { projectId } })
-    },
-    enabled: Boolean(projectId && isReady && runnerOnline),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
-
-  const deployCredsByKey = React.useMemo(() => {
-    const out: Record<string, { status?: "set" | "unset"; value?: string }> = {}
-    for (const row of deployCredsQuery.data?.keys || []) out[row.key] = row
-    return out
-  }, [deployCredsQuery.data?.keys])
+  const deployCredsSummary = targetRunner?.deployCredsSummary ?? null
+  const targetRunnerId = targetRunner ? String(targetRunner._id) : ""
+  const deployCredsRefreshTimeoutsRef = React.useRef<Array<ReturnType<typeof setTimeout>>>([])
+  const clearDeployCredsRefreshTimeouts = React.useCallback(() => {
+    for (const timeout of deployCredsRefreshTimeoutsRef.current) clearTimeout(timeout)
+    deployCredsRefreshTimeoutsRef.current = []
+  }, [])
+  const refreshDeployCredsStatus = React.useCallback(() => {
+    clearDeployCredsRefreshTimeouts()
+    for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+      const timeout = setTimeout(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["setupDraft", projectId, params.host],
+        })
+        void runnersQuery.refetch()
+      }, delayMs)
+      deployCredsRefreshTimeoutsRef.current.push(timeout)
+    }
+  }, [clearDeployCredsRefreshTimeouts, params.host, projectId, queryClient, runnersQuery])
+  React.useEffect(() => {
+    return () => {
+      clearDeployCredsRefreshTimeouts()
+    }
+  }, [clearDeployCredsRefreshTimeouts])
+  React.useEffect(() => {
+    clearDeployCredsRefreshTimeouts()
+  }, [clearDeployCredsRefreshTimeouts, targetRunnerId])
+  const effectiveProjectTokenKeyrings = deployCredsSummary?.projectTokenKeyrings
 
   const hasActiveHcloudToken = React.useMemo(
-    () => deployCredsQuery.data?.projectTokenKeyrings?.hcloud?.hasActive === true,
-    [deployCredsQuery.data?.projectTokenKeyrings?.hcloud?.hasActive],
+    () => effectiveProjectTokenKeyrings?.hcloud?.hasActive === true,
+    [effectiveProjectTokenKeyrings?.hcloud?.hasActive],
   )
   const hasActiveTailscaleAuthKey = React.useMemo(
-    () => deployCredsQuery.data?.projectTokenKeyrings?.tailscale?.hasActive === true,
-    [deployCredsQuery.data?.projectTokenKeyrings?.tailscale?.hasActive],
+    () => effectiveProjectTokenKeyrings?.tailscale?.hasActive === true,
+    [effectiveProjectTokenKeyrings?.tailscale?.hasActive],
   )
   const hasProjectGithubToken = React.useMemo(
-    () => deployCredsByKey["GITHUB_TOKEN"]?.status === "set",
-    [deployCredsByKey],
-  )
-  const projectSopsAgeKeyPath = React.useMemo(
-    () => String(deployCredsByKey["SOPS_AGE_KEY_FILE"]?.value || "").trim(),
-    [deployCredsByKey],
-  )
-  const hasProjectSopsAgeKeyPath = React.useMemo(
-    () => projectSopsAgeKeyPath.length > 0,
-    [projectSopsAgeKeyPath],
+    () => deployCredsSummary?.hasGithubToken === true,
+    [deployCredsSummary?.hasGithubToken],
   )
 
   const projectInitRunsPageQuery = useQuery({
@@ -177,14 +209,11 @@ export function useSetupModel(params: {
       deriveSetupModel({
         config,
         hostFromRoute: params.host,
-        stepFromSearch: params.search.step,
         setupDraft,
         pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
         hasActiveHcloudToken,
         hasProjectGithubToken,
-        hasProjectSopsAgeKeyPath,
         hasActiveTailscaleAuthKey,
-        pendingTailscaleAuthKey: params.pendingBootstrapSecrets?.tailscaleAuthKey,
         useTailscaleLockdown: params.pendingBootstrapSecrets?.useTailscaleLockdown,
         latestBootstrapRun: latestBootstrapRunQuery.data ?? null,
         latestBootstrapSecretsVerifyRun: latestBootstrapSecretsVerifyRunQuery.data ?? null,
@@ -195,42 +224,13 @@ export function useSetupModel(params: {
       params.pendingNonSecretDraft,
       hasActiveHcloudToken,
       hasProjectGithubToken,
-      hasProjectSopsAgeKeyPath,
       hasActiveTailscaleAuthKey,
-      params.pendingBootstrapSecrets?.tailscaleAuthKey,
       params.pendingBootstrapSecrets?.useTailscaleLockdown,
       latestBootstrapRunQuery.data,
       latestBootstrapSecretsVerifyRunQuery.data,
       params.host,
-      params.search.step,
     ],
   )
-
-  const setSearch = React.useCallback(
-    (next: Partial<SetupSearch>, opts?: { replace?: boolean }) => {
-      void router.navigate({
-        to: "/$projectSlug/hosts/$host/setup",
-        params: { projectSlug: params.projectSlug, host: params.host },
-        search: (prev: SetupSearch) => ({ ...prev, ...next }),
-        replace: opts?.replace,
-      })
-    },
-    [params.host, params.projectSlug, router],
-  )
-
-  const setStep = React.useCallback(
-    (stepId: SetupStepId) => {
-      setSearch({ step: stepId })
-    },
-    [setSearch],
-  )
-
-  const advance = React.useCallback(() => {
-    const visible = model.steps.filter((step) => step.status !== "locked")
-    const currentIndex = visible.findIndex((step) => step.id === model.activeStepId)
-    const next = visible.slice(currentIndex + 1).find((step) => step.status !== "locked")?.id
-    if (next) setStep(next)
-  }, [model.activeStepId, model.steps, setStep])
 
   return {
     projectQuery,
@@ -240,6 +240,11 @@ export function useSetupModel(params: {
     runnersQuery,
     runners,
     runnerOnline,
+    sealedRunners,
+    selectedRunnerId,
+    setSelectedRunnerId,
+    targetRunner,
+    deployCredsSummary,
     config,
     repoProbeOk,
     repoProbeState,
@@ -253,10 +258,7 @@ export function useSetupModel(params: {
     selectedHost: model.selectedHost,
     hasActiveHcloudToken,
     hasProjectGithubToken,
-    hasProjectSopsAgeKeyPath,
-    projectSopsAgeKeyPath,
     hasActiveTailscaleAuthKey,
-    setStep,
-    advance,
+    refreshDeployCredsStatus,
   }
 }

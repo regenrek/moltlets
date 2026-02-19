@@ -372,11 +372,12 @@ const serverTailscaleIpv4 = defineCommand({
     if (!ctx) return;
     const { hostName, hostCfg } = ctx;
     const targetHost = requireTargetHost(String(args.targetHost || hostCfg.targetHost || ""), hostName);
-    const sudo = needsSudo(targetHost);
 
-    const raw = await sshCapture(targetHost, "tailscale ip -4", {
-      tty: sudo && args.sshTty,
-      timeoutMs: 10_000,
+    // Avoid relying on `tailscale` CLI permissions; `ip addr` is readable by unprivileged users.
+    // Keep this non-interactive (no TTY) so it can run in runner jobs.
+    const raw = await sshCapture(targetHost, "ip -4 addr show dev tailscale0 2>/dev/null || true", {
+      tty: false,
+      timeoutMs: 15_000,
       maxOutputBytes: 8 * 1024,
     });
     const normalized = normalizeSingleLineOutput(raw || "");

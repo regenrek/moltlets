@@ -23,8 +23,13 @@ export function AdminCidrField(props: {
   placeholder?: string
   description?: React.ReactNode
   autoDetectIfEmpty?: boolean
+  detecting?: boolean
+  onDetect?: () => void
+  detectionError?: string | null
 }) {
   const [detecting, setDetecting] = useState(false)
+  const externalDetecting = typeof props.detecting === "boolean" ? props.detecting : null
+  const isDetecting = externalDetecting ?? detecting
 
   const attemptedAutoDetectRef = useRef(false)
   const latestValueRef = useRef(props.value)
@@ -65,12 +70,21 @@ export function AdminCidrField(props: {
   }
 
   useEffect(() => {
+    if (props.onDetect) return
     if (!props.autoDetectIfEmpty) return
     if (attemptedAutoDetectRef.current) return
     attemptedAutoDetectRef.current = true
     if (props.value.trim()) return
     void detect("auto")
-  }, [props.autoDetectIfEmpty]) // oxlint-disable-line react/exhaustive-deps -- run-once on mount
+  }, [props.autoDetectIfEmpty, props.onDetect]) // oxlint-disable-line react/exhaustive-deps -- run-once on mount
+
+  const runDetect = () => {
+    if (props.onDetect) {
+      props.onDetect()
+      return
+    }
+    void detect("manual")
+  }
 
   return (
     <div className="space-y-2">
@@ -91,10 +105,10 @@ export function AdminCidrField(props: {
                 <InputGroupButton
                   type="button"
                   variant="secondary"
-                  disabled={detecting}
-                  onClick={() => void detect("manual")}
+                  disabled={isDetecting}
+                  onClick={runDetect}
                 >
-                  <ArrowPathIcon className={detecting ? "animate-spin" : ""} />
+                  <ArrowPathIcon className={isDetecting ? "animate-spin" : ""} />
                   Detect
                 </InputGroupButton>
               }
@@ -108,7 +122,9 @@ export function AdminCidrField(props: {
       {props.description ? (
         <div className="text-xs text-muted-foreground">{props.description}</div>
       ) : null}
+      {props.detectionError ? (
+        <div className="text-xs text-destructive">{props.detectionError}</div>
+      ) : null}
     </div>
   )
 }
-

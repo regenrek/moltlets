@@ -76,16 +76,17 @@ async function waitForTailscaleIpv4ViaSsh(params: {
   throw new Error(`timed out waiting for tailscale ipv4 after ${waited}ms (last error: ${lastError || "unknown"})`);
 }
 
-async function purgeKnownHosts(ipv4: string, opts: { dryRun: boolean }) {
-  const rm = async (host: string) => {
-    if (opts.dryRun) {
-      console.log(`ssh-keygen -R ${host}`);
-      return;
-    }
-    await run("ssh-keygen", ["-R", host]);
-  };
-  await rm(ipv4);
-  await rm(`[${ipv4}]:22`);
+async function purgeKnownHosts(
+  ipv4: string,
+  opts: { dryRun: boolean; stdout?: "inherit" | "ignore"; stderr?: "inherit" | "ignore" },
+) {
+  const runOpts = {
+    dryRun: opts.dryRun,
+    stdout: opts.stdout,
+    stderr: opts.stderr,
+  } as const;
+  await run("ssh-keygen", ["-R", ipv4], runOpts);
+  await run("ssh-keygen", ["-R", `[${ipv4}]:22`], runOpts);
 }
 
 function resolveHostFromFlake(flakeBase: string): string | null {
@@ -113,14 +114,26 @@ export const bootstrap = defineCommand({
 	    lockdownPoll: { type: "string", description: "Tailnet poll interval (<n><s|m|h|d>, default 5s).", default: "5s" },
 	    force: { type: "boolean", description: "Skip doctor gate (not recommended).", default: false },
 	    dryRun: { type: "boolean", description: "Print commands without executing.", default: false },
+	    json: { type: "boolean", description: "Emit JSON output (stdout).", default: false },
 	  },
-	  async run({ args }) {
-	    const cwd = process.cwd();
-	    const repoRoot = findRepoRoot(cwd);
-	    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
-	    if (!hostName) return;
-    const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
-    let currentConfig = clawletsConfig;
+		  async run({ args }) {
+		    const cwd = process.cwd();
+		    const repoRoot = findRepoRoot(cwd);
+		    const hostName = resolveHostNameOrExit({ cwd, runtimeDir: (args as any).runtimeDir, hostArg: args.host });
+		    if (!hostName) return;
+	    const json = Boolean((args as any).json);
+	    const stdio: { stdout?: "inherit" | "ignore"; stderr?: "inherit" | "ignore" } | undefined = json
+	      ? { stdout: "ignore" }
+	      : undefined;
+	    const log = (...values: unknown[]) => {
+	      if (json) console.error(...values);
+	      else console.log(...values);
+	    };
+	    const emitJson = (value: unknown) => {
+	      process.stdout.write(`${JSON.stringify(value)}\n`);
+	    };
+	    const { layout, configPath, config: clawletsConfig } = loadClawletsConfig({ repoRoot, runtimeDir: (args as any).runtimeDir });
+	    let currentConfig = clawletsConfig;
     if (!currentConfig.hosts[hostName]) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
     const hostProvisioningConfig = resolveHostProvisioningConfig({
       repoRoot,
@@ -173,13 +186,14 @@ export const bootstrap = defineCommand({
     if (sshExposureMode === "tailnet") {
       throw new Error(`sshExposure.mode=tailnet; bootstrap requires public SSH. Set: clawlets host set --host ${hostName} --ssh-exposure bootstrap`);
     }
-    const driver = getProvisionerDriver(spec.provider);
-    const runtime = buildProvisionerRuntime({
-      repoRoot,
-      opentofuDir,
-      dryRun: args.dryRun,
-      deployCreds,
-    });
+	    const driver = getProvisionerDriver(spec.provider);
+	    const runtime = buildProvisionerRuntime({
+	      repoRoot,
+	      opentofuDir,
+	      dryRun: args.dryRun,
+	      deployCreds,
+	      ...(stdio ? { stdio } : {}),
+	    });
     const provisioned = await driver.provision({ spec, runtime });
     const ipv4 = provisioned.ipv4;
 
@@ -205,33 +219,34 @@ export const bootstrap = defineCommand({
           ...currentConfig,
           hosts: { ...currentConfig.hosts, [hostName]: nextHostCfg },
         });
-        await writeClawletsConfig({ configPath, config: nextConfig });
-        currentConfig = nextConfig;
-        const detail = nextLinuxDevice || "(cleared)";
-        console.log(`ok: updated fleet/clawlets.json (hosts.${hostName}.hetzner.volumeLinuxDevice=${detail})`);
-      }
-    }
+	        await writeClawletsConfig({ configPath, config: nextConfig });
+	        currentConfig = nextConfig;
+	        const detail = nextLinuxDevice || "(cleared)";
+	        log(`ok: updated fleet/clawlets.json (hosts.${hostName}.hetzner.volumeLinuxDevice=${detail})`);
+	      }
+	    }
 
-    console.log(`Target IPv4: ${ipv4}`);
-    await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
+	    log(`Target IPv4: ${ipv4}`);
+	    await purgeKnownHosts(ipv4, { dryRun: args.dryRun, stdout: stdio?.stdout, stderr: stdio?.stderr });
 
-    if (mode === "image") {
-      console.log("🎉 Bootstrap complete (image mode).");
-      console.log(`Host: ${hostName}`);
-      console.log(`IPv4: ${ipv4}`);
-      console.log(`SSH exposure: ${sshExposureMode}`);
-      console.log("");
-      console.log("Next:");
-      console.log(`1) Set targetHost for ops:`);
-      console.log(`   clawlets host set --host ${hostName} --target-host admin@${ipv4}`);
-      console.log("2) Trigger updater (fetch+apply):");
-      console.log(`   clawlets server update apply --host ${hostName} --target-host admin@${ipv4}`);
-      console.log("");
-      console.log("After tailnet is healthy, lock down SSH:");
-      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
-      console.log(`  clawlets lockdown --host ${hostName}`);
-      return;
-    }
+	    if (mode === "image") {
+	      log("🎉 Bootstrap complete (image mode).");
+	      log(`Host: ${hostName}`);
+	      log(`IPv4: ${ipv4}`);
+	      log(`SSH exposure: ${sshExposureMode}`);
+	      log("");
+	      log("Next:");
+	      log(`1) Set targetHost for ops:`);
+	      log(`   clawlets host set --host ${hostName} --target-host admin@${ipv4}`);
+	      log("2) Trigger updater (fetch+apply):");
+	      log(`   clawlets server update apply --host ${hostName} --target-host admin@${ipv4}`);
+	      log("");
+	      log("After tailnet is healthy, lock down SSH:");
+	      log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+	      log(`  clawlets lockdown --host ${hostName}`);
+	      if (json) emitJson({ ok: true, host: hostName, ipv4 });
+	      return;
+	    }
 
 	    const baseResolved = await resolveBaseFlake({ repoRoot, config: currentConfig });
 	    const flakeBase = String(args.flake || baseResolved.flake || "").trim();
@@ -361,35 +376,37 @@ export const bootstrap = defineCommand({
         .join("\n"),
     };
 
-    await run(nixBin, nixosAnywhereArgs, {
-      cwd: repoRoot,
-      env: nixosAnywhereEnv,
-      dryRun: args.dryRun,
-      redact: runtime.redact,
-    });
+	    await run(nixBin, nixosAnywhereArgs, {
+	      cwd: repoRoot,
+	      env: nixosAnywhereEnv,
+	      dryRun: args.dryRun,
+	      redact: runtime.redact,
+	      stdout: stdio?.stdout,
+	      stderr: stdio?.stderr,
+	    });
 
-    await purgeKnownHosts(ipv4, { dryRun: args.dryRun });
+	    await purgeKnownHosts(ipv4, { dryRun: args.dryRun, stdout: stdio?.stdout, stderr: stdio?.stderr });
 
 	    let publicSshStatus = "OPEN";
 
-	    if (lockdownAfter) {
-	      if (args.dryRun) {
-	        console.log("");
-	        console.log("dry-run: would wait for tailscale + apply lockdown:");
-        console.log(`  ssh admin@${ipv4} 'tailscale ip -4'  # wait for 100.x`);
-        console.log(`  set hosts.${hostName}.targetHost = admin@<tailscale-ip>`);
-        console.log(`  set hosts.${hostName}.sshExposure.mode = tailnet`);
-        console.log(`  clawlets lockdown --host ${hostName}`);
-      } else {
-        console.log("");
-        console.log(`Waiting for tailnet (timeout ${lockdownTimeoutRaw}, poll ${lockdownPollRaw})...`);
-        const tailscaleIpv4 = await waitForTailscaleIpv4ViaSsh({
-          ipv4,
-          timeoutMs: lockdownTimeoutMs,
-          pollMs: lockdownPollMs,
-          repoRoot,
-        });
-        console.log(`Tailnet IPv4: ${tailscaleIpv4}`);
+		    if (lockdownAfter) {
+		      if (args.dryRun) {
+		        log("");
+		        log("dry-run: would wait for tailscale + apply lockdown:");
+	        log(`  ssh admin@${ipv4} 'tailscale ip -4'  # wait for 100.x`);
+	        log(`  set hosts.${hostName}.targetHost = admin@<tailscale-ip>`);
+	        log(`  set hosts.${hostName}.sshExposure.mode = tailnet`);
+	        log(`  clawlets lockdown --host ${hostName}`);
+	      } else {
+	        log("");
+	        log(`Waiting for tailnet (timeout ${lockdownTimeoutRaw}, poll ${lockdownPollRaw})...`);
+	        const tailscaleIpv4 = await waitForTailscaleIpv4ViaSsh({
+	          ipv4,
+	          timeoutMs: lockdownTimeoutMs,
+	          pollMs: lockdownPollMs,
+	          repoRoot,
+	        });
+	        log(`Tailnet IPv4: ${tailscaleIpv4}`);
 
         const hostCfgForLockdown = currentConfig.hosts[hostName];
         if (!hostCfgForLockdown) throw new Error(`missing host in fleet/clawlets.json: ${hostName}`);
@@ -401,9 +418,9 @@ export const bootstrap = defineCommand({
           ...currentConfig,
           hosts: { ...currentConfig.hosts, [hostName]: nextHostCfg },
         });
-        await writeClawletsConfig({ configPath, config: nextConfig });
-        currentConfig = nextConfig;
-        console.log(`ok: updated fleet/clawlets.json (targetHost + sshExposure=tailnet)`);
+	        await writeClawletsConfig({ configPath, config: nextConfig });
+	        currentConfig = nextConfig;
+	        log(`ok: updated fleet/clawlets.json (targetHost + sshExposure=tailnet)`);
 
         const nextHostProvisioningConfig = resolveHostProvisioningConfig({
           repoRoot,
@@ -419,51 +436,52 @@ export const bootstrap = defineCommand({
       }
     }
 
-    const effectiveSshExposureMode = lockdownAfter && !args.dryRun ? "tailnet" : sshExposureMode;
+	    const effectiveSshExposureMode = lockdownAfter && !args.dryRun ? "tailnet" : sshExposureMode;
 
-    console.log("🎉 Bootstrap complete.");
-    console.log(`Host: ${hostName}`);
-    console.log(`IPv4: ${ipv4}`);
-    console.log(`SSH exposure: ${effectiveSshExposureMode}`);
-    console.log(`Public SSH (22): ${publicSshStatus}`);
+	    log("🎉 Bootstrap complete.");
+	    log(`Host: ${hostName}`);
+	    log(`IPv4: ${ipv4}`);
+	    log(`SSH exposure: ${effectiveSshExposureMode}`);
+	    log(`Public SSH (22): ${publicSshStatus}`);
 
-    if (!lockdownAfter) {
-      console.log("");
-      console.log("⚠ SSH WILL REMAIN OPEN until you switch to tailnet and run lockdown:");
-      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
-      console.log(`  clawlets lockdown --host ${hostName}`);
-    }
-
-    if (tailnetMode === "tailscale") {
-      console.log("");
-      console.log("Next (tailscale):");
-      if (lockdownAfter) {
-        console.log(`1) Verify access via tailnet (targetHost updated):`);
-        console.log(`   ssh admin@<tailscale-ip> 'hostname; uptime'`);
-        console.log("2) Apply updates so NixOS SSH exposure becomes tailnet-only:");
-        console.log(`   clawlets server update apply --host ${hostName}`);
-        console.log("3) Optional checks:");
-        console.log("   clawlets server audit --host " + hostName);
-      } else {
-        console.log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
-        console.log("   tailscale status  # look for the 100.x address");
-        console.log(`2) Set future SSH target to tailnet:`);
-        console.log(`   clawlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
-        console.log("3) Verify access:");
-        console.log("   ssh admin@<tailscale-ip> 'hostname; uptime'");
-        console.log("4) Switch SSH exposure to tailnet and lock down:");
-        console.log(`   clawlets host set --host ${hostName} --ssh-exposure tailnet`);
-        console.log(`   clawlets lockdown --host ${hostName}`);
-        console.log("5) Optional checks:");
-        console.log("   clawlets server audit --host " + hostName);
-      }
-	    } else {
-      console.log("");
-      console.log("Notes:");
-      console.log(`- SSH exposure is ${sshExposureMode}.`);
-      console.log("- If you want tailnet-only SSH, set tailnet.mode=tailscale, verify access, then:");
-      console.log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
-	      console.log(`  clawlets lockdown --host ${hostName}`);
+	    if (!lockdownAfter) {
+	      log("");
+	      log("⚠ SSH WILL REMAIN OPEN until you switch to tailnet and run lockdown:");
+	      log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+	      log(`  clawlets lockdown --host ${hostName}`);
 	    }
-	  },
-	});
+
+	    if (tailnetMode === "tailscale") {
+	      log("");
+	      log("Next (tailscale):");
+	      if (lockdownAfter) {
+	        log(`1) Verify access via tailnet (targetHost updated):`);
+	        log(`   ssh admin@<tailscale-ip> 'hostname; uptime'`);
+	        log("2) Apply updates so NixOS SSH exposure becomes tailnet-only:");
+	        log(`   clawlets server update apply --host ${hostName}`);
+	        log("3) Optional checks:");
+	        log("   clawlets server audit --host " + hostName);
+	      } else {
+	        log(`1) Wait for the host to appear in Tailscale, then copy its 100.x IP.`);
+	        log("   tailscale status  # look for the 100.x address");
+	        log(`2) Set future SSH target to tailnet:`);
+	        log(`   clawlets host set --host ${hostName} --target-host admin@<tailscale-ip>`);
+	        log("3) Verify access:");
+	        log("   ssh admin@<tailscale-ip> 'hostname; uptime'");
+	        log("4) Switch SSH exposure to tailnet and lock down:");
+	        log(`   clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+	        log(`   clawlets lockdown --host ${hostName}`);
+	        log("5) Optional checks:");
+	        log("   clawlets server audit --host " + hostName);
+	      }
+		    } else {
+	      log("");
+	      log("Notes:");
+	      log(`- SSH exposure is ${sshExposureMode}.`);
+	      log("- If you want tailnet-only SSH, set tailnet.mode=tailscale, verify access, then:");
+	      log(`  clawlets host set --host ${hostName} --ssh-exposure tailnet`);
+		      log(`  clawlets lockdown --host ${hostName}`);
+		    }
+	    if (json) emitJson({ ok: true, host: hostName, ipv4 });
+		  },
+		});

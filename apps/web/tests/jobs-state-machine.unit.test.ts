@@ -33,14 +33,14 @@ describe("job completion guard", () => {
     ).toEqual({ ok: false, status: "queued" });
   });
 
-  it("rejects expired leases and accepts valid running lease", () => {
+  it("accepts expired lease when lease id still matches", () => {
     expect(
       canCompleteJob({
         job: { status: "running", leaseId: "lease-a", leaseExpiresAt: 100 },
         leaseId: "lease-a",
         now: 100,
       }),
-    ).toEqual({ ok: false, status: "running" });
+    ).toEqual({ ok: true, status: "running" });
     expect(
       canCompleteJob({
         job: { status: "running", leaseId: "lease-a", leaseExpiresAt: 200 },

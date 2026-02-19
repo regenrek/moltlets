@@ -11,6 +11,7 @@ export const PROJECT_DELETION_STAGES = [
   "runnerCommandResults",
   "runnerTokens",
   "runners",
+  "projectCredentials",
   "projectMembers",
   "auditLogs",
   "projectPolicies",

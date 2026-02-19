@@ -52,7 +52,7 @@ Step order and gating:
 1. `Connect Runner` (`runner`): requires a fresh online runner heartbeat.
 2. `Add First Host` (`host`): choose an existing host or add one.
 3. `Server Access` (`connection`): requires `provisioning.adminCidr` and at least one `fleet.sshAuthorizedKeys` entry.
-4. `Provider Tokens` (`creds`): requires `HCLOUD_TOKEN`, `GITHUB_TOKEN`, and `SOPS_AGE_KEY_FILE`.
+4. `Provider Tokens` (`creds`): requires `HCLOUD_TOKEN` and `GITHUB_TOKEN`.
 5. `Server Passwords` (`secrets`): requires successful run `secrets_verify_bootstrap`.
 6. `Install Server` (`deploy`): requires successful bootstrap run (`bootstrap`).
 7. `Secure and Verify` (`verify`): optional post-bootstrap hardening checklist.

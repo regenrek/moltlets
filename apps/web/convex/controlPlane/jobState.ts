@@ -69,7 +69,10 @@ export function canCompleteJob(params: {
   const status = normalizeJobStatus(job.status);
   if (job.leaseId !== params.leaseId) return { ok: false, status };
   if (status !== "leased" && status !== "running") return { ok: false, status };
-  if (typeof job.leaseExpiresAt !== "number" || job.leaseExpiresAt <= params.now) {
+  // Lease expiry is enforced by lease-next stale sweeps. For heartbeat/complete,
+  // accept an expired lease when leaseId still matches to tolerate transient
+  // control-plane network blips without re-running already finished jobs.
+  if (typeof job.leaseExpiresAt !== "number") {
     return { ok: false, status };
   }
   return { ok: true, status };

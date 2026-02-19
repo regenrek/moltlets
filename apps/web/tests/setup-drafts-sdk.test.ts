@@ -62,12 +62,12 @@ describe("setup drafts sdk", () => {
         data: {
           projectId: "p1" as any,
           host: "alpha",
-          section: "deployCreds",
+          section: "hostBootstrapCreds",
           targetRunnerId: "r1" as any,
           sealedInputB64: "cipher",
           sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
           sealedInputKeyId: "kid",
-          aad: "p1:alpha:setupDraft:deployCreds:r1",
+          aad: "p1:alpha:setupDraft:hostBootstrapCreds:r1",
         },
       }),
     )).rejects.toThrow(/admin required/i)
@@ -154,8 +154,8 @@ describe("setup drafts sdk", () => {
           version: 2,
           nonSecretDraft: {},
           sealedSecretDrafts: {
-            deployCreds: { status: "set" },
-            bootstrapSecrets: { status: "missing" },
+            hostBootstrapCreds: { status: "set" },
+            hostBootstrapSecrets: { status: "missing" },
           },
           updatedAt: 1,
           expiresAt: 2,
@@ -168,8 +168,8 @@ describe("setup drafts sdk", () => {
         version: 1,
         nonSecretDraft: payload.patch || {},
         sealedSecretDrafts: {
-          deployCreds: { status: "missing" },
-          bootstrapSecrets: { status: "missing" },
+          hostBootstrapCreds: { status: "missing" },
+          hostBootstrapSecrets: { status: "missing" },
         },
         updatedAt: 1,
         expiresAt: 2,
@@ -198,12 +198,12 @@ describe("setup drafts sdk", () => {
         data: {
           projectId: "p1" as any,
           host: "alpha",
-          section: "deployCreds",
+          section: "hostBootstrapCreds",
           targetRunnerId: "r1" as any,
           sealedInputB64: "ciphertext",
           sealedInputAlg: "rsa-oaep-3072/aes-256-gcm",
           sealedInputKeyId: "kid-1",
-          aad: "p1:alpha:setupDraft:deployCreds:r1",
+          aad: "p1:alpha:setupDraft:hostBootstrapCreds:r1",
         },
       }),
     )
@@ -229,21 +229,21 @@ describe("setup drafts sdk", () => {
           connection: { adminCidr: "203.0.113.10/32", sshExposureMode: "bootstrap", sshAuthorizedKeys: ["ssh-ed25519 AAAA"], sshKeyCount: 1 },
         },
         sealedSecretDrafts: {
-          deployCreds: {
+          hostBootstrapCreds: {
             alg: "rsa-oaep-3072/aes-256-gcm",
             keyId,
             targetRunnerId: "r1",
             sealedInputB64: "deploy_cipher",
-            aad: "p1:alpha:setupDraft:deployCreds:r1",
+            aad: "p1:alpha:setupDraft:hostBootstrapCreds:r1",
             updatedAt: 1,
             expiresAt: Date.now() + 60_000,
           },
-          bootstrapSecrets: {
+          hostBootstrapSecrets: {
             alg: "rsa-oaep-3072/aes-256-gcm",
             keyId,
             targetRunnerId: "r1",
             sealedInputB64: "bootstrap_cipher",
-            aad: "p1:alpha:setupDraft:bootstrapSecrets:r1",
+            aad: "p1:alpha:setupDraft:hostBootstrapSecrets:r1",
             updatedAt: 1,
             expiresAt: Date.now() + 60_000,
           },
@@ -269,8 +269,8 @@ describe("setup drafts sdk", () => {
         version: 5,
         nonSecretDraft: {},
         sealedSecretDrafts: {
-          deployCreds: { status: "set" },
-          bootstrapSecrets: { status: "set" },
+          hostBootstrapCreds: { status: "set" },
+          hostBootstrapSecrets: { status: "set" },
         },
         updatedAt: 1,
         expiresAt: 2,

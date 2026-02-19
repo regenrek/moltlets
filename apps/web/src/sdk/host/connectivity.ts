@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { validateTargetHost } from "@clawlets/core/lib/security/ssh-remote"
 import {
+  isValidIpv4,
   parseBootstrapIpv4FromLogs,
 } from "@clawlets/core/lib/host/host-connectivity"
 import { api } from "../../../convex/_generated/api"
@@ -12,10 +13,11 @@ import {
   parseProjectHostTargetInput,
   takeRunnerCommandResultObject,
 } from "~/sdk/runtime"
+import { orderBootstrapRunsForIpv4 } from "~/lib/host/bootstrap-ipv4-selection"
 
 export type PublicIpv4Result =
-  | { ok: true; ipv4: string; source: "bootstrap_logs" }
-  | { ok: false; error: string; source: "bootstrap_logs" | "none" }
+  | { ok: true; ipv4: string; source: "host_observed" | "bootstrap_logs" }
+  | { ok: false; error: string; source: "host_observed" | "bootstrap_logs" | "none" }
 
 export type TailscaleIpv4Result =
   | { ok: true; ipv4: string }
@@ -34,12 +36,14 @@ function sleep(ms: number): Promise<void> {
 async function assertKnownHost(params: {
   projectId: Id<"projects">
   host: string
-}): Promise<void> {
+}): Promise<any> {
   const client = createConvexClient()
   const hosts = await client.query(api.controlPlane.hosts.listByProject, { projectId: params.projectId })
-  if (!hosts.some((row) => row.hostName === params.host)) {
+  const host = hosts.find((row) => row.hostName === params.host)
+  if (!host) {
     throw new Error(`unknown host: ${params.host}`)
   }
+  return host
 }
 
 async function enqueueCustomProbe(params: {
@@ -119,31 +123,56 @@ function lastErrorMessage(messages: string[]): string {
 
 async function resolveBootstrapIpv4(params: { projectId: Id<"projects">; host: string }): Promise<PublicIpv4Result> {
   const client = createConvexClient()
-  const page = await client.query(api.controlPlane.runs.listByProjectPage, {
-    projectId: params.projectId,
-    paginationOpts: { numItems: 50, cursor: null },
-  })
-  const runs = page.page || []
-  const match = runs.find((run: any) => run.kind === "bootstrap" && String(run.title || "").includes(params.host))
-  if (!match) return { ok: false, error: "bootstrap run not found", source: "bootstrap_logs" }
+  let cursor: string | null = null
+  let scannedPages = 0
+  let sawBootstrap = false
 
-  const eventsPage = await client.query(api.controlPlane.runEvents.pageByRun, {
-    runId: match._id,
-    paginationOpts: { numItems: 100, cursor: null },
-  })
-  const messages = (eventsPage.page || []).map((ev: any) => String(ev.message || ""))
-  const ipv4 = parseBootstrapIpv4FromLogs(messages)
-  if (!ipv4) return { ok: false, error: "bootstrap logs missing IPv4", source: "bootstrap_logs" }
-  return { ok: true, ipv4, source: "bootstrap_logs" }
+  type RunsByProjectHostPage = {
+    page?: Array<{ _id: Id<"runs">; kind?: string | null; status?: string | null }>
+    continueCursor: string | null
+    isDone: boolean
+  }
+
+  while (scannedPages < 4) {
+    const runsPage = (await client.query(api.controlPlane.runs.listByProjectHostPage, {
+      projectId: params.projectId,
+      host: params.host,
+      paginationOpts: { numItems: 50, cursor },
+    })) as RunsByProjectHostPage
+    scannedPages += 1
+
+    const candidates = orderBootstrapRunsForIpv4(runsPage.page || [])
+    if (candidates.length > 0) sawBootstrap = true
+
+    for (const run of candidates as Array<{ _id: Id<"runs"> }>) {
+      const eventsPage = await client.query(api.controlPlane.runEvents.pageByRun, {
+        runId: run._id,
+        paginationOpts: { numItems: 100, cursor: null },
+      })
+      const messages = (eventsPage.page || []).map((ev: any) => String(ev.message || ""))
+      const ipv4 = parseBootstrapIpv4FromLogs(messages)
+      if (ipv4) return { ok: true, ipv4, source: "bootstrap_logs" }
+    }
+
+    if (runsPage.isDone || !runsPage.continueCursor) break
+    cursor = runsPage.continueCursor
+  }
+
+  if (!sawBootstrap) return { ok: false, error: "bootstrap run not found", source: "bootstrap_logs" }
+  return { ok: false, error: "bootstrap logs missing IPv4", source: "bootstrap_logs" }
 }
 
 export const getHostPublicIpv4 = createServerFn({ method: "POST" })
   .inputValidator(parseProjectHostRequiredInput)
   .handler(async ({ data }) => {
-    await assertKnownHost({ projectId: data.projectId, host: data.host })
+    const host = await assertKnownHost({ projectId: data.projectId, host: data.host })
+    const observed = typeof host?.observed?.publicIpv4 === "string" ? host.observed.publicIpv4.trim() : ""
+    if (observed && isValidIpv4(observed)) {
+      return { ok: true as const, ipv4: observed, source: "host_observed" as const }
+    }
     const fallback = await resolveBootstrapIpv4({ projectId: data.projectId, host: data.host })
     if (fallback.ok) return fallback
-    return { ok: false as const, error: fallback.error, source: "none" }
+    return { ok: false as const, error: fallback.error, source: fallback.source ?? "none" }
   })
 
 export const probeHostTailscaleIpv4 = createServerFn({ method: "POST" })

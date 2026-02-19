@@ -98,6 +98,18 @@ const specGitStatusJson: CommandSpec = {
   resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
+const specGitSetupSaveJson: CommandSpec = {
+  id: "git_setup_save_json",
+  prefix: ["git", "setup-save"],
+  flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
 const specConfigShow: CommandSpec = {
   id: "config_show",
   prefix: ["config", "show"],
@@ -198,10 +210,14 @@ const specBootstrap: CommandSpec = {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--mode": { kind: "value", validate: validateEnum(MODE_SCOPES, "--mode") },
     "--rev": { kind: "value", validate: validateSafeValue("--rev", 128) },
+    "--json": { kind: "boolean" },
     "--lockdown-after": { kind: "boolean" },
     "--force": { kind: "boolean" },
     "--dry-run": { kind: "boolean" },
   },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specLockdown: CommandSpec = {
@@ -451,6 +467,21 @@ const specEnvApplyJson: CommandSpec = {
   resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
+const specEnvTokenKeyringMutate: CommandSpec = {
+  id: "env_token_keyring_mutate",
+  prefix: ["env", "token-keyring-mutate"],
+  flags: {
+    "--from-json": {
+      kind: "value",
+      validate: validateEnum(new Set(["__RUNNER_INPUT_JSON__"]), "--from-json"),
+    },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--from-json", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
 const specSetupApply: CommandSpec = {
   id: "setup_apply",
   prefix: ["setup", "apply"],
@@ -470,6 +501,7 @@ const specEnvDetectAgeKey: CommandSpec = {
   id: "env_detect_age_key",
   prefix: ["env", "detect-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
@@ -481,6 +513,7 @@ const specEnvGenerateAgeKey: CommandSpec = {
   id: "env_generate_age_key",
   prefix: ["env", "generate-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
@@ -516,6 +549,7 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
   project_init: [specProjectInit],
   custom: [
     specGitStatusJson,
+    specGitSetupSaveJson,
     specConfigShow,
     specConfigGet,
     specSecretsSyncPreview,
@@ -523,6 +557,7 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
     specServerSshCheck,
     specEnvShow,
     specEnvApplyJson,
+    specEnvTokenKeyringMutate,
     specEnvDetectAgeKey,
     specEnvGenerateAgeKey,
     specOpenclawSchemaFetch,

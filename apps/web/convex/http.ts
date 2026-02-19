@@ -14,6 +14,7 @@ import {
   isRunnerTokenUsable,
   METADATA_SYNC_LIMITS,
   parseRunnerHeartbeatCapabilities,
+  sanitizeDeployCredsSummary,
   sanitizeRunnerRunEventsForStorage,
   sanitizeGatewayPatch,
   sanitizeHostPatch,
@@ -329,6 +330,7 @@ http.route({
     const hosts = Array.isArray(payload.hosts) ? payload.hosts : [];
     const gateways = Array.isArray(payload.gateways) ? payload.gateways : [];
     const secretWiring = Array.isArray(payload.secretWiring) ? payload.secretWiring : [];
+    const deployCredsSummary = sanitizeDeployCredsSummary(payload.deployCredsSummary);
     const sizeError = validateMetadataSyncPayloadSizes({ projectConfigs, hosts, gateways, secretWiring });
     if (sizeError) return json(400, { error: sizeError });
     const erasure = await ctx.runQuery(internal.controlPlane.projectErasure.isDeletionInProgressInternal, {
@@ -422,7 +424,15 @@ http.route({
       }
     }
 
-    return json(200, { ok: true, synced: { projectConfigs: projectConfigs.length, hosts: hosts.length, gateways: gateways.length, secretWiring: secretWiring.length } });
+    if (deployCredsSummary) {
+      await ctx.runMutation(internal.controlPlane.runners.patchDeployCredsSummaryInternal, {
+        projectId: auth.projectId,
+        runnerId: auth.runnerId,
+        deployCredsSummary,
+      });
+    }
+
+    return json(200, { ok: true, synced: { projectConfigs: projectConfigs.length, hosts: hosts.length, gateways: gateways.length, secretWiring: secretWiring.length, deployCredsSummary: deployCredsSummary ? 1 : 0 } });
   }),
 });
 

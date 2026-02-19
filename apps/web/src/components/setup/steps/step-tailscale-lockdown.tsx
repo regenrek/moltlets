@@ -1,39 +1,54 @@
-import { useMemo } from "react"
 import type { Id } from "../../../../convex/_generated/dataModel"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
+import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
-import { SetupStepStatusBadge } from "~/components/setup/steps/step-status-badge"
+import { SetupSaveStateBadge } from "~/components/setup/steps/setup-save-state-badge"
 import { Switch } from "~/components/ui/switch"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
+import type { SetupDraftView } from "~/sdk/setup"
+
+type TailscaleKeyringSummary = {
+  hasActive: boolean
+  itemCount: number
+  items?: Array<{
+    id: string
+    label: string
+    maskedValue: string
+    isActive: boolean
+  }>
+}
 
 export function SetupStepTailscaleLockdown(props: {
   projectId: Id<"projects">
+  projectSlug: string
   stepStatus: SetupStepStatus
+  setupDraft: SetupDraftView | null
+  tailscaleKeyringSummary?: TailscaleKeyringSummary | null
   hasTailscaleAuthKey: boolean
   allowTailscaleUdpIngress: boolean
   useTailscaleLockdown: boolean
   onAllowTailscaleUdpIngressChange: (value: boolean) => void
   onUseTailscaleLockdownChange: (value: boolean) => void
+  onProjectCredsQueued?: () => void
 }) {
-  const hasTailscaleKey = useMemo(
-    () => props.hasTailscaleAuthKey,
-    [props.hasTailscaleAuthKey],
-  )
-
   const statusText = !props.useTailscaleLockdown
-    ? "Tailscale lockdown disabled."
-    : hasTailscaleKey
-      ? "Tailscale key ready for deploy."
-      : "Enable tailscale lockdown requires an active Tailscale key."
+    ? "Disabled. Deploy keeps bootstrap SSH access until you run lockdown manually."
+    : props.hasTailscaleAuthKey
+      ? "Ready. Deploy will switch SSH access to tailnet and queue lockdown automatically."
+      : "Missing active project Tailscale auth key."
+  const saveState = props.setupDraft?.status === "failed"
+    ? "error"
+    : !props.useTailscaleLockdown || props.hasTailscaleAuthKey
+      ? "saved"
+      : "not_saved"
 
   return (
     <SettingsSection
       title="Tailscale lockdown"
-      description="Enable safer SSH exposure with Tailnet before deploy."
-      headerBadge={<SetupStepStatusBadge status={props.stepStatus} />}
+      description="Prepare automatic post-bootstrap SSH lockdown via Tailscale."
+      headerBadge={<SetupSaveStateBadge state={saveState} />}
       statusText={statusText}
     >
       <div className="space-y-3">
@@ -41,7 +56,7 @@ export function SetupStepTailscaleLockdown(props: {
           <div className="min-w-0">
             <div className="text-sm font-medium">Use tailscale + lockdown (recommended)</div>
             <div className="text-xs text-muted-foreground">
-              Deploy enables safer SSH path when an active project Tailscale key is configured.
+              Deploy sets tailnet mode, then switches SSH exposure to tailnet and runs lockdown.
             </div>
           </div>
           <Switch
@@ -50,24 +65,23 @@ export function SetupStepTailscaleLockdown(props: {
           />
         </div>
         {props.useTailscaleLockdown ? (
-          <div className="space-y-2">
-            <LabelWithHelp htmlFor="setup-tailscale-keyring" help={setupFieldHelp.secrets.tailscaleAuthKey}>
-              Tailscale API keys
-            </LabelWithHelp>
-            <div className="text-xs text-muted-foreground">
-              Project-wide keys. Add multiple keys and select the one used for setup/deploy.
-            </div>
-            <div id="setup-tailscale-keyring">
-              <ProjectTokenKeyringCard
-                projectId={props.projectId}
-                kind="tailscale"
-                title="Tailscale API keys"
-                wrapInSection={false}
-                showRunnerStatusBanner={false}
-                showRunnerStatusDetails={false}
-              />
-            </div>
-          </div>
+        <ProjectTokenKeyringCard
+            projectId={props.projectId}
+            kind="tailscale"
+            setupHref={`/${props.projectSlug}/runner`}
+            title="Tailscale API keys"
+            description="Project-wide keyring. Add multiple keys and select the active one used during setup/deploy."
+            runnerStatusMode="none"
+            wrapInSection={false}
+            showRunnerStatusBanner={false}
+            showRunnerStatusDetails={false}
+            statusSummary={{
+              hasActive: props.tailscaleKeyringSummary?.hasActive === true,
+              itemCount: Number(props.tailscaleKeyringSummary?.itemCount || 0),
+              items: props.tailscaleKeyringSummary?.items ?? [],
+            }}
+            onQueued={props.onProjectCredsQueued}
+          />
         ) : null}
 
         <Accordion className="rounded-lg border bg-muted/20">

@@ -13,7 +13,7 @@ import { getHostAgeKeySopsCreationRulePathRegex, getHostAgeKeySopsCreationRulePa
 import { validateHostSecretsYamlFiles } from "../lib/secrets/secrets-policy.js";
 import { buildFleetSecretsPlan } from "../lib/secrets/plan.js";
 import { capture } from "../lib/runtime/run.js";
-import { looksLikeSshKeyContents } from "../lib/security/ssh.js";
+import { looksLikeSshKeyContents, normalizeHcloudSshPublicKey, normalizeSshPublicKey } from "../lib/security/ssh.js";
 import type { DoctorCheck } from "./types.js";
 import {
   getSshExposureMode,
@@ -373,13 +373,31 @@ export async function addDeployChecks(params: {
           });
         }
 
-        const authorized = ((clawletsCfg as any).fleet?.sshAuthorizedKeys || []) as string[];
+        const authorized = Array.isArray((clawletsCfg as any).fleet?.sshAuthorizedKeys)
+          ? (((clawletsCfg as any).fleet?.sshAuthorizedKeys || []) as unknown[])
+              .map((entry) => String(entry || "").trim())
+              .filter(Boolean)
+          : [];
+        const provider = String(clawletsHostCfg.provisioning?.provider || "hetzner").trim() || "hetzner";
+        const keyNormalizer = provider === "hetzner" ? normalizeHcloudSshPublicKey : normalizeSshPublicKey;
         if (authorized.length > 0) {
-          push({
-            status: "ok",
-            label: "fleet.sshAuthorizedKeys",
-            detail: `${authorized.length} key(s)`,
-          });
+          const invalidIndex = authorized.findIndex((entry) => !keyNormalizer(entry));
+          if (invalidIndex >= 0) {
+            push({
+              status: "missing",
+              label: "fleet.sshAuthorizedKeys",
+              detail:
+                provider === "hetzner"
+                  ? `(invalid key at index ${invalidIndex}; expected Hetzner-compatible SSH public key)`
+                  : `(invalid key at index ${invalidIndex})`,
+            });
+          } else {
+            push({
+              status: "ok",
+              label: "fleet.sshAuthorizedKeys",
+              detail: `${authorized.length} key(s)`,
+            });
+          }
         } else {
           if (!raw) {
             push({ status: "missing", label: "ssh key", detail: "(add fleet.sshAuthorizedKeys or set provisioning.sshPubkeyFile)" });
