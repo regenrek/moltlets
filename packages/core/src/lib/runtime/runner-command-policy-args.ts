@@ -4,6 +4,10 @@ type FlagSpec =
   | { kind: "boolean" }
   | { kind: "value"; validate?: FlagValueValidator };
 
+type PositionalSpec = {
+  validate?: FlagValueValidator;
+};
+
 type ParsedFlagValues = Map<string, string | true>;
 
 export type RunnerCommandResultMode = "log" | "json_small" | "json_large";
@@ -15,6 +19,7 @@ type CommandSpec = {
   id: string;
   prefix: readonly string[];
   flags: Record<string, FlagSpec>;
+  positional?: readonly PositionalSpec[];
   required?: readonly string[];
   postValidate?: (values: ParsedFlagValues) => string | undefined;
   resultMode?: RunnerCommandResultMode;
@@ -52,8 +57,34 @@ function validateIntRange(params: { min: number; max: number; label: string }): 
   };
 }
 
+function validateWaitTimeout(value: string): string | undefined {
+  const v = value.trim().toLowerCase();
+  const withUnit = v.match(/^(\d+)\s*([smhd])$/i);
+  const asMs = v.match(/^\d+$/);
+  if (!withUnit && !asMs) return "wait-timeout invalid";
+  const n = withUnit
+    ? Number.parseInt(withUnit[1] ?? "", 10)
+    : Number.parseInt(v, 10);
+  if (!Number.isFinite(n) || n <= 0) return "wait-timeout invalid";
+  let ms = n;
+  if (withUnit) {
+    const unit = withUnit[2];
+    if (unit === "s") ms = n * 1000;
+    else if (unit === "m") ms = n * 60_000;
+    else if (unit === "h") ms = n * 60 * 60_000;
+    else if (unit === "d") ms = n * 24 * 60 * 60_000;
+  }
+  if (!Number.isFinite(ms) || ms <= 0 || ms > 3_600_000) return "wait-timeout invalid";
+  return undefined;
+}
+
 function validateLiteral(expected: string, label: string): FlagValueValidator {
   return (value: string) => (value === expected ? undefined : `${label} must be ${expected}`);
+}
+
+function validateGitRemoteName(value: string): string | undefined {
+  if (value !== "origin") return "remote name must be origin";
+  return undefined;
 }
 
 function validateSafeValue(label: string, max: number = META_MAX.configPath): FlagValueValidator {
@@ -94,6 +125,51 @@ const specGitStatusJson: CommandSpec = {
   prefix: ["git", "status"],
   flags: { "--json": { kind: "boolean" } },
   required: ["--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
+const specGitSetupSaveJson: CommandSpec = {
+  id: "git_setup_save_json",
+  prefix: ["git", "setup-save"],
+  flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
+const specGitRemoteSetUrl: CommandSpec = {
+  id: "git_remote_set_url",
+  prefix: ["git", "remote", "set-url"],
+  flags: {},
+  positional: [{ validate: validateGitRemoteName }, { validate: validateSafeValue("remoteUrl") }],
+};
+
+const specGitRemoteAdd: CommandSpec = {
+  id: "git_remote_add",
+  prefix: ["git", "remote", "add"],
+  flags: {},
+  positional: [{ validate: validateGitRemoteName }, { validate: validateSafeValue("remoteUrl") }],
+};
+
+const specGitRemoteGetUrl: CommandSpec = {
+  id: "git_remote_get_url",
+  prefix: ["git", "remote", "get-url"],
+  flags: {},
+  positional: [{ validate: validateGitRemoteName }],
+};
+
+const specInfraStatus: CommandSpec = {
+  id: "infra_status",
+  prefix: ["infra", "status"],
+  flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--host", "--json"],
   resultMode: "json_small",
   resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
@@ -198,10 +274,14 @@ const specBootstrap: CommandSpec = {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--mode": { kind: "value", validate: validateEnum(MODE_SCOPES, "--mode") },
     "--rev": { kind: "value", validate: validateSafeValue("--rev", 128) },
+    "--json": { kind: "boolean" },
     "--lockdown-after": { kind: "boolean" },
     "--force": { kind: "boolean" },
     "--dry-run": { kind: "boolean" },
   },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specLockdown: CommandSpec = {
@@ -403,6 +483,9 @@ const specServerTailscaleIpv4: CommandSpec = {
   flags: {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--target-host": { kind: "value", validate: validateSafeValue("--target-host", META_MAX.hostName) },
+    "--wait": { kind: "boolean" },
+    "--wait-timeout": { kind: "value", validate: validateWaitTimeout },
+    "--wait-poll-ms": { kind: "value", validate: validateIntRange({ min: 1, max: 120_000, label: "--wait-poll-ms" }) },
     "--json": { kind: "boolean" },
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
@@ -417,6 +500,9 @@ const specServerSshCheck: CommandSpec = {
   flags: {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--target-host": { kind: "value", validate: validateSafeValue("--target-host", META_MAX.hostName) },
+    "--wait": { kind: "boolean" },
+    "--wait-timeout": { kind: "value", validate: validateWaitTimeout },
+    "--wait-poll-ms": { kind: "value", validate: validateIntRange({ min: 1, max: 120_000, label: "--wait-poll-ms" }) },
     "--json": { kind: "boolean" },
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
@@ -451,6 +537,21 @@ const specEnvApplyJson: CommandSpec = {
   resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
+const specEnvTokenKeyringMutate: CommandSpec = {
+  id: "env_token_keyring_mutate",
+  prefix: ["env", "token-keyring-mutate"],
+  flags: {
+    "--from-json": {
+      kind: "value",
+      validate: validateEnum(new Set(["__RUNNER_INPUT_JSON__"]), "--from-json"),
+    },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--from-json", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
+};
+
 const specSetupApply: CommandSpec = {
   id: "setup_apply",
   prefix: ["setup", "apply"],
@@ -470,6 +571,7 @@ const specEnvDetectAgeKey: CommandSpec = {
   id: "env_detect_age_key",
   prefix: ["env", "detect-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
@@ -481,6 +583,7 @@ const specEnvGenerateAgeKey: CommandSpec = {
   id: "env_generate_age_key",
   prefix: ["env", "generate-age-key"],
   flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--json": { kind: "boolean" },
   },
   required: ["--json"],
@@ -516,6 +619,11 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
   project_init: [specProjectInit],
   custom: [
     specGitStatusJson,
+    specGitSetupSaveJson,
+    specGitRemoteGetUrl,
+    specGitRemoteSetUrl,
+    specGitRemoteAdd,
+    specInfraStatus,
     specConfigShow,
     specConfigGet,
     specSecretsSyncPreview,
@@ -523,6 +631,7 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
     specServerSshCheck,
     specEnvShow,
     specEnvApplyJson,
+    specEnvTokenKeyringMutate,
     specEnvDetectAgeKey,
     specEnvGenerateAgeKey,
     specOpenclawSchemaFetch,
@@ -554,10 +663,18 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
 
 function parseFlags(args: string[], spec: CommandSpec): { ok: true } | { ok: false; error: string } {
   const values: ParsedFlagValues = new Map();
+  const positionalValues: string[] = [];
   let idx = spec.prefix.length;
   while (idx < args.length) {
     const token = args[idx]!;
-    if (!token.startsWith("--")) return { ok: false, error: `${spec.id}: unexpected positional arg "${token}"` };
+    if (!token.startsWith("--")) {
+      if (!spec.positional) {
+        return { ok: false, error: `${spec.id}: unexpected positional arg "${token}"` };
+      }
+      positionalValues.push(token);
+      idx += 1;
+      continue;
+    }
     if (token === "--") return { ok: false, error: `${spec.id}: "--" is forbidden` };
     let name = token;
     let inlineValue: string | undefined;
@@ -593,6 +710,28 @@ function parseFlags(args: string[], spec: CommandSpec): { ok: true } | { ok: fal
       if (validationError) return { ok: false, error: `${spec.id}: ${validationError}` };
     }
     values.set(name, value);
+  }
+
+  if (spec.positional) {
+    if (positionalValues.length < spec.positional.length) {
+      return { ok: false, error: `${spec.id}: too few positional args` };
+    }
+    if (positionalValues.length > spec.positional.length) {
+      return { ok: false, error: `${spec.id}: too many positional args` };
+    }
+  for (let i = 0; i < spec.positional.length; i += 1) {
+      const specValue = spec.positional[i];
+      if (!specValue) return { ok: false, error: `${spec.id}: missing positional spec ${i + 1}` };
+      const value = positionalValues[i] ?? "";
+      if (!value) return { ok: false, error: `${spec.id}: missing positional arg ${i + 1}` };
+      if (hasForbiddenText(value)) return { ok: false, error: `${spec.id}: invalid positional arg ${i + 1}` };
+      if (specValue.validate) {
+        const validationError = specValue.validate(value);
+        if (validationError) return { ok: false, error: `${spec.id}: ${validationError}` };
+      }
+    }
+  } else if (positionalValues.length > 0) {
+    return { ok: false, error: `${spec.id}: unexpected positional args` };
   }
 
   for (const requiredFlag of spec.required || []) {

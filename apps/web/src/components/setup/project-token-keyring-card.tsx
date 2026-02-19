@@ -1,9 +1,9 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
-import { PROJECT_TOKEN_VALUE_MAX_CHARS } from "~/lib/project-token-keyring"
+import { generateProjectTokenKeyId, maskProjectToken, PROJECT_TOKEN_VALUE_MAX_CHARS } from "~/lib/project-token-keyring"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
@@ -16,9 +16,11 @@ import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SecretInput } from "~/components/ui/secret-input"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
-import { getProjectTokenKeyringStatus, mutateProjectTokenKeyring } from "~/sdk/infra"
+import {
+  queueProjectTokenKeyringUpdate,
+} from "~/sdk/infra"
 
-type ProjectTokenKeyringKind = "hcloud" | "tailscale"
+type ProjectTokenKeyringKind = "hcloud"
 type KeyringMutationAction = "add" | "remove" | "select"
 
 type KeyringKindConfig = {
@@ -26,16 +28,27 @@ type KeyringKindConfig = {
   valuePlaceholder: string
 }
 
+type ProjectTokenKeyringItemSummary = {
+  id: string
+  label: string
+  maskedValue: string
+  isActive: boolean
+}
+
+type ProjectTokenKeyringSummary = {
+  hasActive: boolean
+  itemCount: number
+  items: ProjectTokenKeyringItemSummary[]
+}
+
 const KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, KeyringKindConfig> = {
   hcloud: {
     label: "Hetzner API key",
     valuePlaceholder: "hcloud token",
   },
-  tailscale: {
-    label: "Tailscale auth key",
-    valuePlaceholder: "tskey-auth-...",
-  },
 }
+
+const DEPLOY_CREDS_RECONCILE_DELAYS_MS = [800, 2_000, 5_000] as const
 
 export function ProjectTokenKeyringCard(props: {
   projectId: Id<"projects">
@@ -44,15 +57,22 @@ export function ProjectTokenKeyringCard(props: {
   title: string
   description?: ReactNode
   headerBadge?: ReactNode
+  runnerStatusMode?: "full" | "none"
   wrapInSection?: boolean
   showRunnerStatusBanner?: boolean
   showRunnerStatusDetails?: boolean
+  statusSummary: {
+    hasActive: boolean
+    itemCount: number
+    items?: ProjectTokenKeyringItemSummary[]
+  }
+  onQueued?: () => void
 }) {
   const cfg = KEYRING_KIND_CONFIG[props.kind]
   const wrapInSection = props.wrapInSection !== false
-  const showRunnerStatusBanner = props.showRunnerStatusBanner !== false
-  const showRunnerStatusDetails = props.showRunnerStatusDetails !== false
-  const queryClient = useQueryClient()
+  const runnerStatusMode = props.runnerStatusMode ?? "full"
+  const showRunnerStatusBanner = props.showRunnerStatusBanner ?? (runnerStatusMode === "full")
+  const showRunnerStatusDetails = props.showRunnerStatusDetails ?? (runnerStatusMode === "full")
 
   const runnersQuery = useQuery({
     ...convexQuery(api.controlPlane.runners.listByProject, { projectId: props.projectId }),
@@ -87,20 +107,34 @@ export function ProjectTokenKeyringCard(props: {
     }
   }, [sealedRunners, selectedRunnerId])
 
-  const keyring = useQuery({
-    queryKey: ["projectTokenKeyring", props.projectId, props.kind],
-    queryFn: async () => await getProjectTokenKeyringStatus({
-      data: {
-        projectId: props.projectId,
-        kind: props.kind,
-      },
-    }),
-    enabled: runnerOnline,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
-
-  const entries = keyring.data?.items ?? []
+  const selectedRunner = useMemo(
+    () => {
+      if (sealedRunners.length === 1) return sealedRunners[0]
+      return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
+    },
+    [sealedRunners, selectedRunnerId],
+  )
+  const readTargetRunnerId = selectedRunner ? String(selectedRunner._id) : ""
+  const sourceSummary = useMemo<ProjectTokenKeyringSummary>(
+    () => {
+      const fromProps = props.statusSummary
+      const items = Array.isArray(fromProps.items) ? fromProps.items : []
+      return {
+        hasActive: fromProps.hasActive === true,
+        itemCount: Math.max(0, Number(fromProps.itemCount || items.length || 0)),
+        items,
+      }
+    },
+    [props.statusSummary],
+  )
+  const [optimisticSummary, setOptimisticSummary] = useState<ProjectTokenKeyringSummary | null>(null)
+  useEffect(() => {
+    setOptimisticSummary(null)
+  }, [sourceSummary, readTargetRunnerId, props.kind])
+  const effectiveSummary = optimisticSummary ?? sourceSummary
+  const entries = effectiveSummary?.items ?? []
+  const summaryItemCount = Math.max(0, Number(effectiveSummary?.itemCount || entries.length || 0))
+  const summaryHasActive = effectiveSummary?.hasActive === true
   const activeEntry = useMemo(
     () => entries.find((entry) => entry.isActive) ?? null,
     [entries],
@@ -110,20 +144,15 @@ export function ProjectTokenKeyringCard(props: {
   const [newLabel, setNewLabel] = useState("")
   const [newValue, setNewValue] = useState("")
 
-  const pickTargetRunner = () => {
-    if (sealedRunners.length === 1) return sealedRunners[0]
-    return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
-  }
-
   const writeKeyring = useMutation({
     mutationFn: async (input: { action: KeyringMutationAction; keyId?: string; label?: string; value?: string }) => {
       if (!runnerOnline) throw new Error("Runner offline. Start runner first.")
       if (sealedRunners.length === 0) throw new Error("No sealed-capable runner online. Upgrade runner.")
 
-      const runner = pickTargetRunner()
+      const runner = selectedRunner
       if (!runner) throw new Error("Select a sealed-capable runner")
 
-      return await mutateProjectTokenKeyring({
+      return await queueProjectTokenKeyringUpdate({
         data: {
           projectId: props.projectId,
           kind: props.kind,
@@ -135,15 +164,61 @@ export function ProjectTokenKeyringCard(props: {
         },
       })
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: (_data, variables) => {
       if (variables.action === "add") {
         setAddOpen(false)
         setNewLabel("")
         setNewValue("")
       }
-      toast.success(`${cfg.label} settings updated`)
-      await queryClient.invalidateQueries({ queryKey: ["projectTokenKeyring", props.projectId, props.kind] })
-      await queryClient.invalidateQueries({ queryKey: ["deployCreds", props.projectId] })
+      setOptimisticSummary((current) => {
+        const base: ProjectTokenKeyringSummary = current ?? sourceSummary ?? {
+          hasActive: false,
+          itemCount: 0,
+          items: [],
+        }
+        const action = variables.action
+        const keyId = String(variables.keyId || "").trim()
+        const label = String(variables.label || "").trim()
+        const value = String(variables.value || "")
+        let nextItems = base.items.map((row) => ({ ...row }))
+        let activeId = nextItems.find((row) => row.isActive)?.id || ""
+
+        if (action === "add") {
+          const id = keyId || generateProjectTokenKeyId(label)
+          if (!nextItems.some((row) => row.id === id)) {
+            const nextLabel = label || "Key"
+            nextItems.push({
+              id,
+              label: nextLabel,
+              maskedValue: maskProjectToken(value),
+              isActive: false,
+            })
+            if (!activeId) activeId = id
+          }
+        } else if (action === "remove" && keyId) {
+          const removed = nextItems.find((row) => row.id === keyId) ?? null
+          nextItems = nextItems.filter((row) => row.id !== keyId)
+          if (removed?.isActive) activeId = nextItems[0]?.id || ""
+        } else if (action === "select" && keyId && nextItems.some((row) => row.id === keyId)) {
+          activeId = keyId
+        }
+
+        nextItems = nextItems.map((row) => ({ ...row, isActive: row.id === activeId }))
+        const hasActive = nextItems.some((row) => row.isActive)
+        return {
+          hasActive,
+          itemCount: nextItems.length,
+          items: nextItems,
+        }
+      })
+      for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+        setTimeout(() => {
+          void runnersQuery.refetch()
+        }, delayMs)
+      }
+
+      props.onQueued?.()
+      toast.success(`${cfg.label} update queued`)
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -169,8 +244,10 @@ export function ProjectTokenKeyringCard(props: {
       toast.error(`Token too long (max ${PROJECT_TOKEN_VALUE_MAX_CHARS} characters)`)
       return
     }
+    const keyId = generateProjectTokenKeyId(newLabel.trim())
     void writeKeyring.mutate({
       action: "add",
+      keyId,
       label: newLabel.trim(),
       value,
     })
@@ -195,11 +272,7 @@ export function ProjectTokenKeyringCard(props: {
         <div className="text-sm text-destructive">No online runner advertises sealed input. Upgrade runner and retry.</div>
       ) : null}
 
-      {!runnerOnline ? null : keyring.isPending ? (
-        <div className="text-muted-foreground text-sm">Loading...</div>
-      ) : keyring.error ? (
-        <div className="text-sm text-destructive">{String(keyring.error)}</div>
-      ) : (
+      {!runnerOnline ? null : (
         <div className="space-y-4">
           {sealedRunners.length > 1 ? (
             <div className="space-y-2">
@@ -222,8 +295,10 @@ export function ProjectTokenKeyringCard(props: {
           ) : null}
 
           {entries.length === 0 ? (
-            <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-              No saved keys yet. Add at least one project key.
+            <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+              {summaryItemCount === 0
+                ? "No saved keys yet. Add at least one project key."
+                : `${summaryItemCount} key${summaryItemCount === 1 ? "" : "s"} saved (${summaryHasActive ? "active selected" : "active missing"}).`}
             </div>
           ) : (
             <div className="space-y-2">
@@ -276,7 +351,11 @@ export function ProjectTokenKeyringCard(props: {
             >
               Add key
             </InputGroupButton>
-            {activeEntry ? (
+            {summaryItemCount > 0 ? (
+              <div className="text-xs text-muted-foreground">
+                Status: {summaryHasActive ? "Active key set" : "Active key missing"}
+              </div>
+            ) : activeEntry ? (
               <div className="text-xs text-muted-foreground">
                 Active: <span className="font-medium">{activeEntry.label || "Key"}</span>
               </div>

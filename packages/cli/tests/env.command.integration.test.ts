@@ -246,6 +246,61 @@ describe("env commands", () => {
     }
   });
 
+  it("env generate-age-key --host writes host-scoped key without changing SOPS_AGE_KEY_FILE", async () => {
+    const previousUser = process.env.USER;
+    process.env.USER = "alice";
+    try {
+      ageKeygenMock.mockResolvedValue({
+        fileText: "# public key: age1hostscoped\nAGE-SECRET-KEY-1HOSTSCOPED\n",
+        publicKey: "age1hostscoped",
+      });
+      const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-generate-host-"));
+      findRepoRootMock.mockReturnValue(repoRoot);
+      loadDeployCredsMock.mockReturnValue({
+        envFile: null,
+        values: {
+          HCLOUD_TOKEN: "",
+          GITHUB_TOKEN: "",
+          NIX_BIN: "nix",
+          SOPS_AGE_KEY_FILE: "",
+          AWS_ACCESS_KEY_ID: "",
+          AWS_SECRET_ACCESS_KEY: "",
+          AWS_SESSION_TOKEN: "",
+        },
+        sources: {
+          HCLOUD_TOKEN: "unset",
+          GITHUB_TOKEN: "unset",
+          NIX_BIN: "default",
+          SOPS_AGE_KEY_FILE: "unset",
+          AWS_ACCESS_KEY_ID: "unset",
+          AWS_SECRET_ACCESS_KEY: "unset",
+          AWS_SESSION_TOKEN: "unset",
+        },
+      });
+      const { envGenerateAgeKey } = await import("../src/commands/infra/env.js");
+      await envGenerateAgeKey.run({ args: { host: "openclaw-fleet-host", json: true } } as any);
+      const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+      const runtimeDir = getRepoLayout(repoRoot).runtimeDir;
+      const expectedKeyPath = path.join(
+        runtimeDir,
+        "keys",
+        "operators",
+        "hosts",
+        "openclaw-fleet-host",
+        "alice.agekey",
+      );
+      expect(payload.ok).toBe(true);
+      expect(payload.host).toBe("openclaw-fleet-host");
+      expect(payload.keyPath).toBe(expectedKeyPath);
+      expect(fs.existsSync(expectedKeyPath)).toBe(true);
+      expect(fs.existsSync(`${expectedKeyPath}.pub`)).toBe(true);
+      expect(fs.existsSync(getRepoLayout(repoRoot).envFilePath)).toBe(false);
+    } finally {
+      if (previousUser === undefined) delete process.env.USER;
+      else process.env.USER = previousUser;
+    }
+  });
+
   it("env generate-age-key --json reuses existing valid key and updates env", async () => {
     const previousUser = process.env.USER;
     process.env.USER = "alice";
@@ -285,6 +340,66 @@ describe("env commands", () => {
       expect(payload.publicKey).toBe("age1existing");
       const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
       expect(envText).toContain(`SOPS_AGE_KEY_FILE=${keyPath}`);
+    } finally {
+      if (previousUser === undefined) delete process.env.USER;
+      else process.env.USER = previousUser;
+    }
+  });
+
+  it("env detect-age-key --host only resolves host-scoped candidates", async () => {
+    const previousUser = process.env.USER;
+    process.env.USER = "alice";
+    try {
+      const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-detect-host-"));
+      const runtimeDir = getRepoLayout(repoRoot).runtimeDir;
+      const hostKeyPath = path.join(
+        runtimeDir,
+        "keys",
+        "operators",
+        "hosts",
+        "openclaw-fleet-host",
+        "alice.agekey",
+      );
+      const otherHostKeyPath = path.join(
+        runtimeDir,
+        "keys",
+        "operators",
+        "hosts",
+        "other-host",
+        "alice.agekey",
+      );
+      fs.mkdirSync(path.dirname(hostKeyPath), { recursive: true });
+      fs.mkdirSync(path.dirname(otherHostKeyPath), { recursive: true });
+      fs.writeFileSync(hostKeyPath, "AGE-SECRET-KEY-1HOSTKEY\n", "utf8");
+      fs.writeFileSync(otherHostKeyPath, "AGE-SECRET-KEY-1OTHERHOST\n", "utf8");
+      findRepoRootMock.mockReturnValue(repoRoot);
+      loadDeployCredsMock.mockReturnValue({
+        envFile: null,
+        values: {
+          HCLOUD_TOKEN: "",
+          GITHUB_TOKEN: "",
+          NIX_BIN: "nix",
+          SOPS_AGE_KEY_FILE: otherHostKeyPath,
+          AWS_ACCESS_KEY_ID: "",
+          AWS_SECRET_ACCESS_KEY: "",
+          AWS_SESSION_TOKEN: "",
+        },
+        sources: {
+          HCLOUD_TOKEN: "unset",
+          GITHUB_TOKEN: "unset",
+          NIX_BIN: "default",
+          SOPS_AGE_KEY_FILE: "file",
+          AWS_ACCESS_KEY_ID: "unset",
+          AWS_SECRET_ACCESS_KEY: "unset",
+          AWS_SESSION_TOKEN: "unset",
+        },
+      });
+      const { envDetectAgeKey } = await import("../src/commands/infra/env.js");
+      await envDetectAgeKey.run({ args: { host: "openclaw-fleet-host", json: true } } as any);
+      const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+      expect(payload.host).toBe("openclaw-fleet-host");
+      expect(payload.recommendedPath).toBe(hostKeyPath);
+      expect(payload.candidates.some((row: any) => row.path === otherHostKeyPath)).toBe(false);
     } finally {
       if (previousUser === undefined) delete process.env.USER;
       else process.env.USER = previousUser;
@@ -354,5 +469,112 @@ describe("env commands", () => {
     const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
     expect(envText).toContain("HCLOUD_TOKEN=token-1");
     expect(envText).toContain("GITHUB_TOKEN=token-2");
+  });
+
+  it("env token-keyring-mutate adds a key and sets active id", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-add-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING: "",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "unset",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "unset",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "add",
+        label: "Laptop",
+        value: "hcloud-secret-1",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any);
+    const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+    expect(payload.ok).toBe(true);
+    expect(payload.kind).toBe("hcloud");
+    expect(payload.action).toBe("add");
+    expect(payload.itemCount).toBe(1);
+    expect(payload.hasActive).toBe(true);
+    expect(typeof payload.keyId).toBe("string");
+
+    const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING=");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING_ACTIVE=");
+  });
+
+  it("env token-keyring-mutate remove updates active id fallback", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-remove-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING:
+          '{"items":[{"id":"a","label":"A","value":"tok-a"},{"id":"b","label":"B","value":"tok-b"}]}',
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "a",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "file",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "file",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate-remove.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "remove",
+        keyId: "a",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any);
+    const payload = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0] || "{}"));
+    expect(payload.ok).toBe(true);
+    expect(payload.itemCount).toBe(1);
+    expect(payload.hasActive).toBe(true);
+    expect(payload.updatedKeys).toEqual(["HCLOUD_TOKEN_KEYRING", "HCLOUD_TOKEN_KEYRING_ACTIVE"]);
+
+    const envText = fs.readFileSync(getRepoLayout(repoRoot).envFilePath, "utf8");
+    expect(envText).toContain("HCLOUD_TOKEN_KEYRING_ACTIVE=b");
+  });
+
+  it("env token-keyring-mutate rejects unknown select id", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-env-token-keyring-select-"));
+    findRepoRootMock.mockReturnValue(repoRoot);
+    loadDeployCredsMock.mockReturnValue({
+      envFile: null,
+      values: {
+        HCLOUD_TOKEN_KEYRING: '{"items":[{"id":"a","label":"A","value":"tok-a"}]}',
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "a",
+      },
+      sources: {
+        HCLOUD_TOKEN_KEYRING: "file",
+        HCLOUD_TOKEN_KEYRING_ACTIVE: "file",
+      },
+    });
+    const inputPath = path.join(repoRoot, "mutate-select.json");
+    fs.writeFileSync(
+      inputPath,
+      JSON.stringify({
+        kind: "hcloud",
+        action: "select",
+        keyId: "missing",
+      }),
+      "utf8",
+    );
+    const { envTokenKeyringMutate } = await import("../src/commands/infra/env-token-keyring-mutate.js");
+    await expect(
+      envTokenKeyringMutate.run({ args: { fromJson: inputPath, json: true } } as any),
+    ).rejects.toThrow(/key not found/i);
   });
 });

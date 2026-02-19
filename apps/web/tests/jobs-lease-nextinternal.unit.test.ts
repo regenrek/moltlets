@@ -149,7 +149,7 @@ describe("jobs leaseNextInternal", () => {
           targetRunnerId: "r1",
           leaseId: "expired-lease",
           leasedByRunnerId: "r1",
-          leaseExpiresAt: now - 1,
+          leaseExpiresAt: now - 20_001,
           attempt: 1,
           createdAt: now - 400,
         },
@@ -176,6 +176,40 @@ describe("jobs leaseNextInternal", () => {
       leasedByRunnerId: undefined,
       leaseExpiresAt: undefined,
     })
+    vi.useRealTimers()
+  })
+
+  it("does not requeue recently expired leased job within grace window", async () => {
+    vi.useFakeTimers()
+    const now = 3_100_000
+    vi.setSystemTime(now)
+    const { ctx, patches } = makeCtx({
+      runs: [{ _id: "run1", projectId: "p1", status: "running", kind: "custom", createdAt: now - 500 }],
+      jobs: [
+        {
+          _id: "job1",
+          projectId: "p1",
+          runId: "run1",
+          kind: "custom",
+          status: "leased",
+          targetRunnerId: "r1",
+          leaseId: "lease-a",
+          leasedByRunnerId: "r1",
+          leaseExpiresAt: now - 1,
+          attempt: 1,
+          createdAt: now - 400,
+        },
+      ],
+    })
+
+    const out = await __test_leaseNextInternalHandler(ctx as any, {
+      projectId: "p1" as any,
+      runnerId: "r1" as any,
+      leaseTtlMs: 30_000,
+    })
+
+    expect(out).toBeNull()
+    expect(patches).toHaveLength(0)
     vi.useRealTimers()
   })
 })

@@ -134,7 +134,14 @@ describe("repo-layout path safety", () => {
   });
 
   it("builds expected paths for valid inputs", async () => {
-    const { getRepoLayout, getGatewayWorkspaceDir, getHostSecretsDir, getHostSecretFile, getHostExtraFilesKeyPath } = await import("../src/repo-layout.js");
+    const {
+      getRepoLayout,
+      getGatewayWorkspaceDir,
+      getHostSecretsDir,
+      getHostSecretFile,
+      getHostExtraFilesKeyPath,
+      getHostScopedOperatorAgeKeyPath,
+    } = await import("../src/repo-layout.js");
     const layout = getRepoLayout("/repo", "/tmp/clawlets-runtime");
 
     expect(getHostSecretsDir(layout, "openclaw-fleet-host")).toBe(path.join("/repo", "secrets", "hosts", "openclaw-fleet-host"));
@@ -143,6 +150,9 @@ describe("repo-layout path safety", () => {
     );
     expect(getHostExtraFilesKeyPath(layout, "openclaw-fleet-host")).toBe(
       path.join("/tmp/clawlets-runtime", "extra-files", "openclaw-fleet-host", "var", "lib", "sops-nix", "key.txt"),
+    );
+    expect(getHostScopedOperatorAgeKeyPath(layout, "openclaw-fleet-host", "tester")).toBe(
+      path.join("/tmp/clawlets-runtime", "keys", "operators", "hosts", "openclaw-fleet-host", "tester.agekey"),
     );
     expect(getGatewayWorkspaceDir(layout, "maren")).toBe(path.join("/repo", "fleet", "workspaces", "gateways", "maren"));
   });

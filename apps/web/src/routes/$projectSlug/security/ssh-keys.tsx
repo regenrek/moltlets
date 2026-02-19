@@ -1,8 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { convexQuery } from "@convex-dev/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
 import { AsyncButton } from "~/components/ui/async-button"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { Input } from "~/components/ui/input"
@@ -11,7 +13,7 @@ import { SettingsSection } from "~/components/ui/settings-section"
 import { useProjectBySlug } from "~/lib/project-data"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { maskKnownHostEntry, maskSshPublicKey } from "~/lib/ssh-redaction"
-import { addProjectSshKeys, configDotMultiGet, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
+import { addProjectSshKeys, removeProjectSshAuthorizedKey, removeProjectSshKnownHost } from "~/sdk/config"
 
 export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
   component: SecuritySshKeys,
@@ -19,37 +21,37 @@ export const Route = createFileRoute("/$projectSlug/security/ssh-keys")({
 
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value
+  const normalized = value
     .filter((entry): entry is string => typeof entry === "string")
     .map((entry) => entry.trim())
     .filter(Boolean)
+  return Array.from(new Set(normalized))
 }
+
+const DEPLOY_CREDS_RECONCILE_DELAYS_MS = [800, 2_000, 5_000] as const
 
 function SecuritySshKeys() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
   const projectId = projectQuery.projectId
-  const queryClient = useQueryClient()
-  const sshKeysQueryKey = ["fleetSshKeysConfig", projectId] as const
-
-  const cfg = useQuery({
-    queryKey: sshKeysQueryKey,
-    queryFn: async () => {
-      const nodes = await configDotMultiGet({
-        data: {
-          projectId: projectId as Id<"projects">,
-          paths: ["fleet.sshAuthorizedKeys", "fleet.sshKnownHosts"],
-        },
-      })
+  const credentialsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectCredentials.listByProject,
+      projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    ),
+  })
+  const fleetSshKeys = useMemo(
+    () => {
+      const bySection = new Map((credentialsQuery.data ?? []).map((row) => [row.section, row]))
+      const authorized = bySection.get("sshAuthorizedKeys")?.metadata?.stringItems
+      const knownHosts = bySection.get("sshKnownHosts")?.metadata?.stringItems
       return {
-        authorized: normalizeStringArray(nodes.values["fleet.sshAuthorizedKeys"]),
-        knownHosts: normalizeStringArray(nodes.values["fleet.sshKnownHosts"]),
+        authorized: normalizeStringArray(authorized),
+        knownHosts: normalizeStringArray(knownHosts),
       }
     },
-    enabled: Boolean(projectId),
-  })
-
-  const fleetSshKeys = cfg.data ?? { authorized: [], knownHosts: [] }
+    [credentialsQuery.data],
+  )
 
   const [keyText, setKeyText] = useState("")
   const [knownHostsText, setKnownHostsText] = useState("")
@@ -75,7 +77,11 @@ function SecuritySshKeys() {
         toast.success("Updated SSH settings")
         setKeyText("")
         setKnownHostsText("")
-        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
+        for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+          setTimeout(() => {
+            void credentialsQuery.refetch()
+          }, delayMs)
+        }
       } else toast.error("Failed")
     },
     onError: (error) => {
@@ -93,7 +99,11 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed SSH key")
-        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
+        for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+          setTimeout(() => {
+            void credentialsQuery.refetch()
+          }, delayMs)
+        }
       } else toast.error("Failed")
     },
   })
@@ -108,12 +118,16 @@ function SecuritySshKeys() {
     onSuccess: (res) => {
       if (res.ok) {
         toast.success("Removed known_hosts entry")
-        void queryClient.invalidateQueries({ queryKey: sshKeysQueryKey })
+        for (const delayMs of DEPLOY_CREDS_RECONCILE_DELAYS_MS) {
+          setTimeout(() => {
+            void credentialsQuery.refetch()
+          }, delayMs)
+        }
       } else toast.error("Failed")
     },
   })
 
-  if (projectQuery.isPending || cfg.isPending) {
+  if (projectQuery.isPending || credentialsQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
   }
   if (projectQuery.error) {
@@ -122,8 +136,8 @@ function SecuritySshKeys() {
   if (!projectId) {
     return <div className="text-muted-foreground">Project not found.</div>
   }
-  if (cfg.error) {
-    return <div className="text-sm text-destructive">{String(cfg.error)}</div>
+  if (credentialsQuery.error) {
+    return <div className="text-sm text-destructive">{String(credentialsQuery.error)}</div>
   }
   return (
     <div className="space-y-6">

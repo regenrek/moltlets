@@ -4,8 +4,8 @@ export const SETUP_STEP_IDS = [
   "infrastructure",
   "connection",
   "tailscale-lockdown",
+  "creds",
   "deploy",
-  "verify",
 ] as const
 
 export type SetupStepId = (typeof SETUP_STEP_IDS)[number]
@@ -49,8 +49,8 @@ type MinimalSetupDraft = {
     }
   }
   sealedSecretDrafts?: {
-    deployCreds?: { status?: "set" | "missing" }
-    bootstrapSecrets?: { status?: "set" | "missing" }
+    hostBootstrapCreds?: { status?: "set" | "missing" }
+    hostBootstrapSecrets?: { status?: "set" | "missing" }
   }
 }
 
@@ -85,12 +85,13 @@ export type DeriveSetupModelInput = {
   pendingNonSecretDraft?: MinimalPendingNonSecretDraft | null
   latestBootstrapRun: MinimalRun | null
   latestBootstrapSecretsVerifyRun: MinimalRun | null
+  infraExists?: boolean
   useTailscaleLockdown?: boolean
-  pendingTailscaleAuthKey?: string
-  hasActiveTailscaleAuthKey?: boolean
+  hasHostTailscaleAuthKey?: boolean
   hasActiveHcloudToken?: boolean
   hasProjectGithubToken?: boolean
-  hasProjectSopsAgeKeyPath?: boolean
+  hasProjectGitRemoteOrigin?: boolean
+  hasProjectGithubTokenAccess?: boolean
 }
 
 function asTrimmedString(value: unknown): string {
@@ -116,8 +117,6 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     pendingNonSecretDraft: input.pendingNonSecretDraft ?? null,
   })
 
-  const draftDeployCredsSet = input.setupDraft?.sealedSecretDrafts?.deployCreds?.status === "set"
-
   const infrastructureHostOk = Boolean(
     asTrimmedString(desired.infrastructure.serverType).length > 0
       && asTrimmedString(desired.infrastructure.location).length > 0,
@@ -127,18 +126,19 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const connectionOk = Boolean(selectedHost && adminCidrOk && hasSshKey)
 
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
+  const infraMissing = input.infraExists === false
+  const bootstrappedOk = latestBootstrapOk && !infraMissing
 
   const hcloudOk = Boolean(input.hasActiveHcloudToken)
-  const githubCredsOk = draftDeployCredsSet || Boolean(input.hasProjectGithubToken)
-  const sopsCredsOk = Boolean(input.hasProjectSopsAgeKeyPath)
-  const providerCredsOk = githubCredsOk && sopsCredsOk
+  const githubCredsOk = Boolean(input.hasProjectGithubToken)
+  const gitRemoteOriginOk = Boolean(input.hasProjectGitRemoteOrigin)
   const infrastructureProvisioningOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
-  const infrastructureStepDone = infrastructureProvisioningOk && githubCredsOk
-  const connectionStepDone = connectionOk && sopsCredsOk
+  const infrastructureStepDone = infrastructureProvisioningOk
+  const credsStepDone = githubCredsOk && gitRemoteOriginOk
+  const connectionStepDone = connectionOk
   const useTailscaleLockdown = input.useTailscaleLockdown === true
-  const hasTailscaleAuthKey = Boolean(input.hasActiveTailscaleAuthKey)
-  const hasPendingTailscaleAuthKey = asTrimmedString(input.pendingTailscaleAuthKey).length > 0
-  const tailscaleLockdownOk = !useTailscaleLockdown || hasTailscaleAuthKey || hasPendingTailscaleAuthKey
+  const hasTailscaleAuthKey = Boolean(input.hasHostTailscaleAuthKey)
+  const tailscaleLockdownOk = !useTailscaleLockdown || hasTailscaleAuthKey
 
   const steps: SetupStep[] = [
     {
@@ -149,24 +149,23 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     {
       id: "connection",
       title: "Server Access",
-      status: !infrastructureProvisioningOk ? "locked" : connectionStepDone ? "done" : "active",
+      status: connectionStepDone ? "done" : "active",
     },
     {
       id: "tailscale-lockdown",
       title: "Tailscale lockdown",
       optional: true,
-      status: !connectionStepDone ? "locked" : tailscaleLockdownOk ? "done" : "active",
+      status: tailscaleLockdownOk ? "done" : "active",
+    },
+    {
+      id: "creds",
+      title: "Git Configuration",
+      status: credsStepDone ? "done" : "active",
     },
     {
       id: "deploy",
       title: "Install server",
-      status: !connectionStepDone || !providerCredsOk || !hcloudOk ? "locked" : latestBootstrapOk ? "done" : "active",
-    },
-    {
-      id: "verify",
-      title: "Secure and Verify",
-      optional: true,
-      status: !latestBootstrapOk ? "locked" : "pending",
+      status: bootstrappedOk ? "done" : "active",
     },
   ]
 
@@ -180,7 +179,7 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
 
   return {
     selectedHost,
-    hasBootstrapped: latestBootstrapOk,
+    hasBootstrapped: bootstrappedOk,
     activeStepId: requestedStep ?? firstIncomplete,
     steps,
     showCelebration,

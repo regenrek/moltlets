@@ -21,13 +21,13 @@ const baseConfig = {
 function withDeployCredsDraftSet() {
   return {
     sealedSecretDrafts: {
-      deployCreds: { status: "set" as const },
+      hostBootstrapCreds: { status: "set" as const },
     },
   }
 }
 
 describe("deriveSetupModel", () => {
-  it("starts at infrastructure and locks downstream steps when host config is missing", () => {
+  it("starts at infrastructure and keeps all setup steps visible when host config is missing", () => {
     const model = deriveSetupModel({
       config: null,
       hostFromRoute: "h1",
@@ -38,12 +38,13 @@ describe("deriveSetupModel", () => {
     expect(model.selectedHost).toBe("h1")
     expect(model.activeStepId).toBe("infrastructure")
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
-    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("locked")
-    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("locked")
-    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+    expect(model.steps.find((s) => s.id === "connection")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("active")
   })
 
-  it("keeps requested step selected even when locked", () => {
+  it("keeps requested step selected", () => {
     const model = deriveSetupModel({
       config: null,
       hostFromRoute: "h1",
@@ -53,7 +54,7 @@ describe("deriveSetupModel", () => {
     })
 
     expect(model.activeStepId).toBe("deploy")
-    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("active")
   })
 
   it("keeps tailscale lockdown incomplete when enabled and no key is configured", () => {
@@ -62,7 +63,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       useTailscaleLockdown: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
@@ -78,9 +79,9 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       useTailscaleLockdown: true,
-      hasActiveTailscaleAuthKey: true,
+      hasHostTailscaleAuthKey: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -89,13 +90,47 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("deploy")
   })
 
+  it("marks tailscale lockdown complete when host secret is configured", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      setupDraft: withDeployCredsDraftSet(),
+      hasActiveHcloudToken: true,
+      hasProjectGithubToken: true,
+      useTailscaleLockdown: true,
+      hasHostTailscaleAuthKey: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.activeStepId).toBe("deploy")
+  })
+
+  it("keeps tailscale lockdown incomplete when host secret is missing", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      setupDraft: withDeployCredsDraftSet(),
+      hasActiveHcloudToken: true,
+      hasProjectGithubToken: true,
+      useTailscaleLockdown: true,
+      hasHostTailscaleAuthKey: false,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("active")
+    expect(model.activeStepId).toBe("tailscale-lockdown")
+  })
+
   it("keeps infrastructure active when deploy credentials draft is missing", () => {
     const model = deriveSetupModel({
       config: baseConfig,
       hostFromRoute: "h1",
       setupDraft: {
         sealedSecretDrafts: {
-          deployCreds: { status: "missing" },
+          hostBootstrapCreds: { status: "missing" },
         },
       },
       latestBootstrapRun: null,
@@ -112,7 +147,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -121,20 +156,20 @@ describe("deriveSetupModel", () => {
     expect(model.activeStepId).toBe("deploy")
   })
 
-  it("keeps infrastructure active when GitHub token is missing even if Hetzner setup is complete", () => {
+  it("activates creds step when GitHub token is missing even if Hetzner setup is complete", () => {
     const model = deriveSetupModel({
       config: baseConfig,
       hostFromRoute: "h1",
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
 
-    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
-    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
-    expect(model.activeStepId).toBe("infrastructure")
+    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("active")
+    expect(model.steps.find((s) => s.id === "deploy")?.status).toBe("active")
+    expect(model.activeStepId).toBe("creds")
   })
 
   it("unlocks deploy when project deploy creds exist even without a host draft section", () => {
@@ -143,7 +178,6 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       hasActiveHcloudToken: true,
       hasProjectGithubToken: true,
-      hasProjectSopsAgeKeyPath: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -167,7 +201,7 @@ describe("deriveSetupModel", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       pendingNonSecretDraft: {
         infrastructure: {
           serverType: "cpx22",
@@ -186,6 +220,7 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 
@@ -214,11 +249,11 @@ describe("deriveSetupModel", () => {
           },
         },
         sealedSecretDrafts: {
-          deployCreds: { status: "set" },
+          hostBootstrapCreds: { status: "set" },
         },
       },
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -226,6 +261,7 @@ describe("deriveSetupModel", () => {
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 
@@ -250,17 +286,18 @@ describe("deriveSetupModel", () => {
           },
         },
         sealedSecretDrafts: {
-          deployCreds: { status: "set" },
+          hostBootstrapCreds: { status: "set" },
         },
       },
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
 
     expect(model.steps.find((s) => s.id === "connection")?.status).toBe("done")
     expect(model.steps.find((s) => s.id === "infrastructure")?.status).toBe("done")
+    expect(model.steps.find((s) => s.id === "creds")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
   })
 })
@@ -272,7 +309,7 @@ describe("deriveHostSetupStepper", () => {
       hostFromRoute: "h1",
       setupDraft: withDeployCredsDraftSet(),
       hasActiveHcloudToken: true,
-      hasProjectSopsAgeKeyPath: true,
+      hasProjectGithubToken: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
@@ -282,13 +319,13 @@ describe("deriveHostSetupStepper", () => {
       "infrastructure",
       "connection",
       "tailscale-lockdown",
+      "creds",
       "deploy",
-      "verify",
     ])
     expect(stepper.activeStepId).toBe("deploy")
   })
 
-  it("keeps selected step even if locked", () => {
+  it("keeps selected step when requested", () => {
     const model = deriveSetupModel({
       config: null,
       hostFromRoute: "h1",
@@ -299,6 +336,6 @@ describe("deriveHostSetupStepper", () => {
 
     const stepper = deriveHostSetupStepper({ steps: model.steps, activeStepId: model.activeStepId })
     expect(stepper.activeStepId).toBe("deploy")
-    expect(stepper.steps.find((s) => s.id === "deploy")?.status).toBe("locked")
+    expect(stepper.steps.find((s) => s.id === "deploy")?.status).toBe("active")
   })
 })

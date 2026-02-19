@@ -155,9 +155,9 @@ export function BootstrapDeploySourceSection(props: {
               </div>
             )}
 
-            {requiresFlake && localSelected && repo.dirty ? (
+            {requiresFlake && repo.dirty ? (
               <div className="text-xs text-muted-foreground">
-                Uncommitted changes are not included in deploy. Commit first if you want them deployed.
+                Uncommitted changes are not included in deploy. Commit and push first if you want them deployed.
               </div>
             ) : null}
 

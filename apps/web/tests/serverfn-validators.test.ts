@@ -442,6 +442,32 @@ describe("serverfn validators", () => {
       targetRunnerId: "rr1",
       secretNames: ["discord_token"],
     })
+
+    expect(
+      parseSecretsInitExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        scope: " all ",
+        targetRunnerId: "rr1",
+        secretNames: ["discord_token", "", "discord_token", "slack_token"],
+      }),
+    ).toMatchObject({
+      scope: "all",
+      secretNames: ["discord_token", "slack_token"],
+    })
+  })
+
+  it("rejects non-array secretNames for secrets init", () => {
+    expect(() =>
+      parseSecretsInitExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        targetRunnerId: "rr1",
+        secretNames: "discord_token" as any,
+      }),
+    ).toThrow(/invalid secretNames/i)
   })
 
   it("rejects invalid writeHostSecrets input", () => {
@@ -589,6 +615,15 @@ describe("serverfn validators", () => {
         since: "",
       }),
     ).toMatchObject({ lines: "200", since: "", follow: false })
+
+    expect(() =>
+      parseServerUpdateLogsExecuteInput({
+        projectId: "p1",
+        runId: "r1",
+        host: "alpha",
+        lines: "not-a-number",
+      }),
+    ).toThrow(/invalid lines/i)
 
     expect(parseServerUpdateApplyStartInput({ projectId: "p1", host: "alpha" })).toEqual({
       projectId: "p1",

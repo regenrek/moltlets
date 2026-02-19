@@ -1,11 +1,11 @@
 export const WEB_DEPLOY_CREDS_EDITABLE_KEYS = [
+  "GIT_REMOTE_ORIGIN",
   "GITHUB_TOKEN",
   "SOPS_AGE_KEY_FILE",
 ] as const
 
 export const WEB_SETUP_REQUIRED_KEYS = [
   "GITHUB_TOKEN",
-  "SOPS_AGE_KEY_FILE",
 ] as const
 
 export const WEB_DEPLOY_CREDS_VISIBLE_KEYS = [

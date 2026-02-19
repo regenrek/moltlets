@@ -106,7 +106,7 @@ export function buildRunnerStartCommand(params: RunnerStartCommandInput): string
   lines.push(`  --name ${shellQuote(runnerName)} \\`)
   lines.push(`  --token ${shellQuote(params.token || "<runner-token>")} \\`)
   lines.push(`  --repoRoot ${repoRootArg} \\`)
-  lines.push(`  --runtimeDir ${runtimeDirArg} \\`)
+  lines.push(`  --runtime-dir ${runtimeDirArg} \\`)
   if (logging === "no-logging") {
     lines.push("  --no-log-file \\")
     lines.push("  --log-level fatal \\")

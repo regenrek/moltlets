@@ -1,4 +1,5 @@
 import process from "node:process";
+import path from "node:path";
 import { defineCommand } from "citty";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
@@ -26,6 +27,16 @@ type GitStatusResult = {
   pushBlockedReason?: string;
 };
 
+type GitSetupSaveResult = {
+  ok: true;
+  host: string;
+  branch: string;
+  sha: string | null;
+  committed: boolean;
+  pushed: boolean;
+  changedPaths: string[];
+};
+
 async function readSymbolicBranch(cwd: string): Promise<string | null> {
   try {
     const value = (await capture("git", ["symbolic-ref", "--short", "-q", "HEAD"], { cwd, env: gitEnv() })).trim();
@@ -50,6 +61,62 @@ async function readDetachedHead(cwd: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function splitNullDelimitedList(raw: string): string[] {
+  return raw
+    .split("\0")
+    .map((row) => row.trim())
+    .filter(Boolean);
+}
+
+function isSetupOwnedPath(relPath: string): boolean {
+  const normalized = relPath.replace(/\\/g, "/").replace(/^\.?\//, "");
+  if (!normalized) return false;
+  if (path.posix.isAbsolute(normalized)) return false;
+  if (normalized.startsWith("../") || normalized === "..") return false;
+  // Setup owns fleet/* and secrets/* only.
+  return normalized === "fleet" || normalized.startsWith("fleet/")
+    || normalized === "secrets" || normalized.startsWith("secrets/");
+}
+
+function formatUnsafePathError(paths: string[]): string {
+  const maxShown = 20;
+  const shown = paths.slice(0, maxShown);
+  const extra = paths.length - shown.length;
+  const lines = [
+    "refusing to save setup changes: repo has non-setup modifications",
+    ...shown.map((p0) => `- ${p0}`),
+    ...(extra > 0 ? [`- (+${extra} more)`] : []),
+    "",
+    "Only fleet/ and secrets/ are allowed. Commit or discard other changes, then retry.",
+  ];
+  return lines.join("\n");
+}
+
+async function listChangedPaths(cwd: string): Promise<string[]> {
+  const [unstaged, staged, untracked] = await Promise.all([
+    capture("git", ["diff", "--name-only", "-z"], { cwd, env: gitEnv() }),
+    capture("git", ["diff", "--cached", "--name-only", "-z"], { cwd, env: gitEnv() }),
+    capture("git", ["ls-files", "--others", "--exclude-standard", "-z"], { cwd, env: gitEnv() }),
+  ]);
+  const all = new Set<string>();
+  for (const p0 of splitNullDelimitedList(unstaged)) all.add(p0);
+  for (const p0 of splitNullDelimitedList(staged)) all.add(p0);
+  for (const p0 of splitNullDelimitedList(untracked)) all.add(p0);
+  return Array.from(all).toSorted();
+}
+
+async function listStagedPaths(cwd: string): Promise<string[]> {
+  const raw = await capture("git", ["diff", "--cached", "--name-only", "-z"], { cwd, env: gitEnv() });
+  return splitNullDelimitedList(raw).toSorted();
+}
+
+function validateHostName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error("missing --host");
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(trimmed)) throw new Error("invalid --host");
+  return trimmed;
 }
 
 async function readBranchHead(cwd: string, branch: string): Promise<string | null> {
@@ -200,6 +267,13 @@ async function readGitStatusJson(cwd: string): Promise<GitStatusResult> {
   };
 }
 
+async function pushCurrentBranch(cwd: string, opts?: { quietStdout?: boolean }): Promise<void> {
+  const branch = await resolveCurrentBranch(cwd);
+  const upstream = await hasUpstream(cwd, branch);
+  const args = upstream ? ["push"] : ["push", "--set-upstream", "origin", branch];
+  await run("git", args, { cwd, env: gitEnv(), stdout: opts?.quietStdout ? "ignore" : "inherit" });
+}
+
 const gitPush = defineCommand({
   meta: {
     name: "push",
@@ -215,6 +289,75 @@ const gitPush = defineCommand({
     const args = upstream ? ["push"] : ["push", "--set-upstream", "origin", branch];
     await run("git", args, { cwd, env: gitEnv() });
     console.log(`ok: pushed ${branch}`);
+  },
+});
+
+const gitSetupSave = defineCommand({
+  meta: {
+    name: "setup-save",
+    description: "Stage, commit, and push setup-owned changes (fleet/ + secrets/) for a host.",
+  },
+  args: {
+    host: { type: "string", required: true, description: "Host name for commit message." },
+    json: { type: "boolean", description: "Emit JSON output.", default: false },
+  },
+  async run({ args }) {
+    const cwd = findRepoRoot(process.cwd());
+    const host = validateHostName(String((args as any).host || ""));
+    const structuredJson = Boolean((args as any).json);
+
+    const changedPaths = await listChangedPaths(cwd);
+    const unsafe = changedPaths.filter((p0) => !isSetupOwnedPath(p0));
+    if (unsafe.length > 0) {
+      throw new Error(formatUnsafePathError(unsafe));
+    }
+
+    const branch = await resolveCurrentBranch(cwd);
+    let committed = false;
+    let pushed = false;
+
+    if (changedPaths.length > 0) {
+      await run(
+        "git",
+        ["add", "-A", "--", "fleet", "secrets"],
+        { cwd, env: gitEnv(), stdout: structuredJson ? "ignore" : "inherit" },
+      );
+      const staged = await listStagedPaths(cwd);
+      if (staged.length > 0) {
+        const msg = `chore(setup): save ${host} [skip ci]`;
+        await run(
+          "git",
+          ["commit", "-m", msg],
+          { cwd, env: gitEnv(), stdout: structuredJson ? "ignore" : "inherit" },
+        );
+        committed = true;
+      }
+    }
+
+    const statusNow = await readGitStatusJson(cwd);
+    if (statusNow.needsPush && !statusNow.canPush) {
+      throw new Error(statusNow.pushBlockedReason || "push blocked");
+    }
+    if (statusNow.needsPush) {
+      await pushCurrentBranch(cwd, { quietStdout: structuredJson });
+      pushed = true;
+    }
+
+    const sha = await readDetachedHead(cwd);
+    const result: GitSetupSaveResult = {
+      ok: true,
+      host,
+      branch,
+      sha,
+      committed,
+      pushed,
+      changedPaths,
+    };
+    if ((args as any).json) {
+      console.log(JSON.stringify(result));
+      return;
+    }
+    console.log(`ok: ${committed ? "committed" : "no changes"}${pushed ? " + pushed" : ""} (${sha?.slice(0, 7) || "unknown"})`);
   },
 });
 
@@ -249,6 +392,7 @@ export const git = defineCommand({
   },
   subCommands: {
     push: gitPush,
+    "setup-save": gitSetupSave,
     status: gitStatus,
   },
 });

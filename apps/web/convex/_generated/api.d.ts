@@ -18,6 +18,7 @@ import type * as controlPlane_jobLeaseOrder from "../controlPlane/jobLeaseOrder.
 import type * as controlPlane_jobState from "../controlPlane/jobState.js";
 import type * as controlPlane_jobs from "../controlPlane/jobs.js";
 import type * as controlPlane_projectConfigs from "../controlPlane/projectConfigs.js";
+import type * as controlPlane_projectCredentials from "../controlPlane/projectCredentials.js";
 import type * as controlPlane_projectErasure from "../controlPlane/projectErasure.js";
 import type * as controlPlane_projectErasureHelpers from "../controlPlane/projectErasureHelpers.js";
 import type * as controlPlane_projectPolicies from "../controlPlane/projectPolicies.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "controlPlane/jobState": typeof controlPlane_jobState;
   "controlPlane/jobs": typeof controlPlane_jobs;
   "controlPlane/projectConfigs": typeof controlPlane_projectConfigs;
+  "controlPlane/projectCredentials": typeof controlPlane_projectCredentials;
   "controlPlane/projectErasure": typeof controlPlane_projectErasure;
   "controlPlane/projectErasureHelpers": typeof controlPlane_projectErasureHelpers;
   "controlPlane/projectPolicies": typeof controlPlane_projectPolicies;

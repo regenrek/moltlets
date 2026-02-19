@@ -10,7 +10,7 @@ describe("runner start command", () => {
       repoRoot: "~/repo",
       controlPlaneUrl: "https://cp.example.com",
     })
-    expect(command).toContain("--runtimeDir")
+    expect(command).toContain("--runtime-dir")
     expect(command).toContain(".clawlets/runtime/runner/p1/runner-a")
     expect(command).toContain("--log-level info")
     expect(command).not.toContain("--no-log-file")

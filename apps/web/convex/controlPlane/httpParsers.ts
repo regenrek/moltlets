@@ -99,8 +99,13 @@ export function sanitizeRunnerRunEventsForStorage(events: unknown[], now = Date.
   return safeEvents;
 }
 
-function asBoundedOptional(value: unknown, field: string, max = CONTROL_PLANE_LIMITS.hash): string | undefined {
+function asBoundedOptional(value: unknown, field: string, max: number = CONTROL_PLANE_LIMITS.hash): string | undefined {
   return ensureOptionalBoundedString(typeof value === "string" ? value : undefined, field, max);
+}
+
+function asNonNegativeInt(value: unknown, max: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(max, Math.trunc(value)));
 }
 
 function fromBase64Url(value: string): Uint8Array {
@@ -164,6 +169,143 @@ export function validateMetadataSyncPayloadSizes(params: {
   if (params.gateways.length > METADATA_SYNC_LIMITS.gateways) return "gateways too large";
   if (params.secretWiring.length > METADATA_SYNC_LIMITS.secretWiring) return "secretWiring too large";
   return null;
+}
+
+export function sanitizeDeployCredsSummary(value: unknown): {
+  updatedAtMs: number;
+  envFileOrigin: "default" | "explicit";
+  envFileStatus: "ok" | "missing" | "invalid";
+  envFileError?: string;
+  hasGithubToken: boolean;
+  hasGithubTokenAccess: boolean;
+  githubTokenAccessMessage?: string;
+  hasGitRemoteOrigin: boolean;
+  sopsAgeKeyFileSet: boolean;
+  gitRemoteOrigin?: string;
+  projectTokenKeyrings: {
+    hcloud: {
+      hasActive: boolean;
+      itemCount: number;
+      items: Array<{ id: string; label: string; maskedValue: string; isActive: boolean }>;
+    };
+    tailscale: {
+      hasActive: boolean;
+      itemCount: number;
+      items: Array<{ id: string; label: string; maskedValue: string; isActive: boolean }>;
+    };
+  };
+  fleetSshAuthorizedKeys: { count: number; items: string[] };
+  fleetSshKnownHosts: { count: number; items: string[] };
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const updatedAtMs = asNonNegativeInt(row.updatedAtMs, 1_000_000_000_000_000);
+  if (updatedAtMs === null) return null;
+
+  const envFileOrigin = row.envFileOrigin === "explicit" ? "explicit" : "default";
+  const envFileStatus = row.envFileStatus === "ok" || row.envFileStatus === "invalid" ? row.envFileStatus : "missing";
+  const envFileError = asBoundedOptional(row.envFileError, "deployCredsSummary.envFileError", CONTROL_PLANE_LIMITS.projectConfigPath);
+  const gitRemoteOrigin = asBoundedOptional(row.gitRemoteOrigin, "deployCredsSummary.gitRemoteOrigin", CONTROL_PLANE_LIMITS.projectConfigPath);
+  const hasGitRemoteOrigin = typeof row.hasGitRemoteOrigin === "boolean"
+    ? row.hasGitRemoteOrigin
+    : Boolean(gitRemoteOrigin);
+  const hasGithubTokenAccess = typeof row.hasGithubTokenAccess === "boolean" ? row.hasGithubTokenAccess : true;
+  const githubTokenAccessMessage = asBoundedOptional(
+    row.githubTokenAccessMessage,
+    "deployCredsSummary.githubTokenAccessMessage",
+    CONTROL_PLANE_LIMITS.errorMessage,
+  );
+
+  const keyrings =
+    row.projectTokenKeyrings && typeof row.projectTokenKeyrings === "object" && !Array.isArray(row.projectTokenKeyrings)
+      ? row.projectTokenKeyrings as Record<string, unknown>
+      : {};
+  const hcloud =
+    keyrings.hcloud && typeof keyrings.hcloud === "object" && !Array.isArray(keyrings.hcloud)
+      ? keyrings.hcloud as Record<string, unknown>
+      : {};
+  const tailscale =
+    keyrings.tailscale && typeof keyrings.tailscale === "object" && !Array.isArray(keyrings.tailscale)
+      ? keyrings.tailscale as Record<string, unknown>
+      : {};
+
+  const hcloudItemCount = asNonNegativeInt(hcloud.itemCount, 10_000) ?? 0;
+  const tailscaleItemCount = asNonNegativeInt(tailscale.itemCount, 10_000) ?? 0;
+  const toKeyringItems = (raw: unknown): Array<{ id: string; label: string; maskedValue: string; isActive: boolean }> => {
+    if (!Array.isArray(raw)) return [];
+    const items: Array<{ id: string; label: string; maskedValue: string; isActive: boolean }> = [];
+    const seen = new Set<string>();
+    for (const row of raw.slice(0, 128)) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+      const item = row as Record<string, unknown>;
+      const id = asBoundedOptional(item.id, "deployCredsSummary.projectTokenKeyrings.items.id", CONTROL_PLANE_LIMITS.hash);
+      const label = asBoundedOptional(
+        item.label,
+        "deployCredsSummary.projectTokenKeyrings.items.label",
+        CONTROL_PLANE_LIMITS.hostName,
+      );
+      const maskedValue = asBoundedOptional(
+        item.maskedValue,
+        "deployCredsSummary.projectTokenKeyrings.items.maskedValue",
+        CONTROL_PLANE_LIMITS.projectConfigPath,
+      );
+      if (!id || !label || !maskedValue || seen.has(id)) continue;
+      seen.add(id);
+      items.push({
+        id,
+        label,
+        maskedValue,
+        isActive: item.isActive === true,
+      });
+    }
+    return items;
+  };
+  const toSshListSummary = (raw: unknown, fieldPrefix: string): { count: number; items: string[] } => {
+    const row = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? raw as Record<string, unknown>
+      : {};
+    const count = asNonNegativeInt(row.count, 10_000) ?? 0;
+    const itemsRaw = Array.isArray(row.items) ? row.items : [];
+    const items: string[] = [];
+    for (const entry of itemsRaw.slice(0, 500)) {
+      const value = asBoundedOptional(entry, `${fieldPrefix}.items`, CONTROL_PLANE_LIMITS.projectConfigPath);
+      if (!value) continue;
+      items.push(value);
+    }
+    return {
+      count: Math.max(count, items.length),
+      items,
+    };
+  };
+  const hcloudItems = toKeyringItems(hcloud.items);
+  const tailscaleItems = toKeyringItems(tailscale.items);
+  const fleetSshAuthorizedKeys = toSshListSummary(
+    row.fleetSshAuthorizedKeys,
+    "deployCredsSummary.fleetSshAuthorizedKeys",
+  );
+  const fleetSshKnownHosts = toSshListSummary(
+    row.fleetSshKnownHosts,
+    "deployCredsSummary.fleetSshKnownHosts",
+  );
+
+  return {
+    updatedAtMs,
+      envFileOrigin,
+      envFileStatus,
+      ...(envFileError ? { envFileError } : {}),
+      hasGithubToken: Boolean(row.hasGithubToken),
+      hasGitRemoteOrigin,
+      hasGithubTokenAccess,
+      ...(githubTokenAccessMessage ? { githubTokenAccessMessage } : {}),
+      ...(gitRemoteOrigin ? { gitRemoteOrigin } : {}),
+      sopsAgeKeyFileSet: Boolean(row.sopsAgeKeyFileSet),
+      projectTokenKeyrings: {
+      hcloud: { hasActive: Boolean(hcloud.hasActive), itemCount: hcloudItemCount, items: hcloudItems },
+      tailscale: { hasActive: Boolean(tailscale.hasActive), itemCount: tailscaleItemCount, items: tailscaleItems },
+    },
+    fleetSshAuthorizedKeys,
+    fleetSshKnownHosts,
+  };
 }
 
 export type ParsedRunnerCapabilities = {

@@ -14,6 +14,7 @@ export async function enqueueRunnerCommand(params: {
   runKind: string
   title: string
   host?: string
+  targetRunnerId?: Id<"runners">
   args: string[]
   note?: string
 }): Promise<{ runId: Id<"runs">; jobId: Id<"jobs"> }> {
@@ -28,6 +29,7 @@ export async function enqueueRunnerCommand(params: {
       args: params.args,
       note: params.note,
     },
+    targetRunnerId: params.targetRunnerId,
   })
   return queued
 }

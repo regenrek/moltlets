@@ -1,8 +1,10 @@
 import { JOB_STATUSES, SEALED_INPUT_B64_MAX_CHARS } from "@clawlets/core/lib/runtime/control-plane-constants";
+import { isValidIpv4 } from "@clawlets/core/lib/host/host-connectivity";
 import { validateRunnerJobPayload } from "@clawlets/core/lib/runtime/runner-command-policy";
 import { sanitizeErrorMessage } from "@clawlets/core/lib/runtime/safe-error";
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -37,11 +39,25 @@ function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
 }
 
+function tryParseBootstrapPublicIpv4(commandResultJson: string): string | null {
+  try {
+    const parsed = JSON.parse(commandResultJson) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const row = parsed as Record<string, unknown>;
+    const ipv4 = typeof row.ipv4 === "string" ? row.ipv4.trim() : "";
+    if (!ipv4 || !isValidIpv4(ipv4)) return null;
+    return ipv4;
+  } catch {
+    return null;
+  }
+}
+
 const ListLimit = 200;
 const MAX_JOB_ATTEMPTS = 25;
 const SEALED_PENDING_TTL_MS = 5 * 60_000;
 const SEALED_INPUT_ALG = "rsa-oaep-3072/aes-256-gcm";
 const LEASE_WINDOW_SIZE = 100;
+const LEASE_EXPIRY_GRACE_MS = 20_000;
 const JOB_KIND_RE = /^[A-Za-z0-9._-]+$/;
 
 // Threat model: control-plane rows are for scheduling and audit only.
@@ -664,7 +680,10 @@ async function leaseNextInternalHandler(
     .withIndex("by_project_status", (q) => q.eq("projectId", projectId).eq("status", "leased"))
     .take(50);
   for (const row of staleLeased) {
-    if (typeof row.leaseExpiresAt === "number" && row.leaseExpiresAt <= now) {
+    if (
+      typeof row.leaseExpiresAt === "number"
+      && row.leaseExpiresAt + LEASE_EXPIRY_GRACE_MS <= now
+    ) {
       await ctx.db.patch(row._id, {
         status: "queued",
         leaseId: undefined,
@@ -679,7 +698,10 @@ async function leaseNextInternalHandler(
     .withIndex("by_project_status", (q) => q.eq("projectId", projectId).eq("status", "running"))
     .take(50);
   for (const row of staleRunning) {
-    if (typeof row.leaseExpiresAt === "number" && row.leaseExpiresAt <= now) {
+    if (
+      typeof row.leaseExpiresAt === "number"
+      && row.leaseExpiresAt + LEASE_EXPIRY_GRACE_MS <= now
+    ) {
       await ctx.db.patch(row._id, {
         status: "queued",
         leaseId: undefined,
@@ -923,6 +945,54 @@ export const completeInternal = internalMutation({
         updatedAt: now,
       });
     }
-    return { ok: true, status };
-  },
-});
+    const updatedKeys = Array.isArray(job.payload?.updatedKeys) ? job.payload.updatedKeys : [];
+	    if (updatedKeys.length > 0) {
+	      await ctx.runMutation(internal.controlPlane.projectCredentials.markSyncStatusForUpdatedKeysInternal, {
+	        projectId: job.projectId,
+	        updatedKeys,
+	        syncStatus: status === "succeeded" ? "synced" : "failed",
+        ...(status === "succeeded"
+          ? {}
+          : {
+              lastSyncError:
+                status === "failed"
+                  ? sanitizeErrorMessage(errorMessage ?? "job failed", "job failed")
+                  : "runner canceled job",
+            }),
+	      });
+	    }
+
+	    if (status === "succeeded" && job.kind === "bootstrap" && normalizedCommandResultJson) {
+	      const hostNameRaw = typeof job.payload?.hostName === "string" ? job.payload.hostName.trim() : "";
+	      const hostName =
+	        hostNameRaw && hostNameRaw.length <= CONTROL_PLANE_LIMITS.hostName && !hostNameRaw.includes("\n") && !hostNameRaw.includes("\r")
+	          ? hostNameRaw
+	          : "";
+	      const ipv4 = tryParseBootstrapPublicIpv4(normalizedCommandResultJson);
+	      if (hostName && ipv4) {
+	        try {
+	          const existingHost = await ctx.db
+	            .query("hosts")
+	            .withIndex("by_project_host", (q) => q.eq("projectId", job.projectId).eq("hostName", hostName))
+	            .unique();
+	          if (!existingHost) {
+	            console.error(`jobs.completeInternal bootstrap ipv4 ignored: host missing (${hostName})`);
+	          } else {
+	            const nextObserved = {
+	              ...(existingHost.observed ?? {}),
+	              publicIpv4: ipv4,
+	              publicIpv4UpdatedAt: now,
+	              publicIpv4SourceRunId: job.runId,
+	            };
+	            await ctx.db.patch(existingHost._id, { observed: nextObserved });
+	          }
+	        } catch (err) {
+	          console.error(
+	            `jobs.completeInternal bootstrap ipv4 ignored: ${String((err as Error)?.message || err)}`,
+	          );
+	        }
+	      }
+	    }
+	    return { ok: true, status };
+	  },
+	});

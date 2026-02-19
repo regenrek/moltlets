@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   __test_appendRunEventsBestEffort,
   __test_computeIdleLeasePollDelayMs,
+  __test_computePostJobIdlePollDelayMs,
   __test_defaultArgsForJob,
   __test_executeLeasedJobWithRunEvents,
   __test_metadataSnapshotFingerprint,
@@ -17,8 +18,8 @@ import {
 describe("runner job arg mapping", () => {
   it("exposes reduced default idle polling cap", () => {
     const args = (runnerStart as any).args as Record<string, { default?: string }>;
-    expect(args.pollMs?.default).toBe("4000");
-    expect(args.pollMaxMs?.default).toBe("8000");
+    expect(args.pollMs?.default).toBe("100");
+    expect(args.pollMaxMs?.default).toBe("100");
     expect(args.leaseWaitMs?.default).toBe("0");
   });
 
@@ -166,7 +167,7 @@ describe("runner job arg mapping", () => {
     ).toThrow(/not allowlisted/i);
   });
 
-  it("requires payloadMeta.updatedKeys for input placeholder jobs", () => {
+  it("requires payloadMeta.updatedKeys or payloadMeta.sealedInputKeys for input placeholder jobs", () => {
     const job = {
       jobId: "job_1",
       runId: "run_1",
@@ -183,7 +184,76 @@ describe("runner job arg mapping", () => {
         inputPlaceholder: true,
         secretsPlaceholder: false,
       }),
-    ).toThrow(/updatedKeys required/i);
+    ).toThrow(/updatedKeys or payloadMeta\.sealedInputKeys required/i);
+  });
+
+  it("accepts token-keyring sealedInputKeys for env token-keyring-mutate jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["action", "kind", "value"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { action: "add", kind: "hcloud", value: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects sealedInputKeys on non token-keyring input jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "apply-json", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["HCLOUD_TOKEN"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { HCLOUD_TOKEN: "secret" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/only supported for env token-keyring-mutate/i);
+  });
+
+  it("rejects unsupported sealedInputKeys for token-keyring jobs", () => {
+    const job = {
+      jobId: "job_1",
+      runId: "run_1",
+      leaseId: "lease_1",
+      leaseExpiresAt: Date.now() + 30_000,
+      kind: "custom",
+      attempt: 1,
+      payloadMeta: {
+        args: ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
+        sealedInputKeys: ["action", "badKey"],
+      },
+    };
+    expect(() =>
+      __test_validateSealedInputKeysForJob({
+        job: job as any,
+        values: { action: "add", badKey: "x" },
+        inputPlaceholder: true,
+        secretsPlaceholder: false,
+      }),
+    ).toThrow(/invalid entry/i);
   });
 
   it("enforces secretNames allowlist for secrets placeholder jobs", () => {
@@ -261,6 +331,23 @@ describe("runner job arg mapping", () => {
     expect(low).toBeLessThanOrEqual(30_000);
     expect(high).toBeGreaterThan(low);
     expect(high).toBeLessThanOrEqual(30_000);
+  });
+
+  it("uses 0ms post-job delay when backlog path is active and 100ms after idle long-poll wakeup", () => {
+    expect(
+      __test_computePostJobIdlePollDelayMs({
+        requestedWaitMs: 0,
+        waitApplied: false,
+        pollMs: 100,
+      }),
+    ).toBe(0);
+    expect(
+      __test_computePostJobIdlePollDelayMs({
+        requestedWaitMs: 5_000,
+        waitApplied: true,
+        pollMs: 100,
+      }),
+    ).toBe(100);
   });
 
   it("metadata fingerprint ignores ephemeral run/sync timestamps", () => {

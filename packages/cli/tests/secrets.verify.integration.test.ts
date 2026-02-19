@@ -44,6 +44,8 @@ const buildPlan = (overrides: Record<string, unknown>) => {
         .filter((name) => !hostSecretNamesRequired.includes(name))
         .map((name) => ({ name, kind: "env", scope: "gateway", source: "custom" })),
     ];
+  const hostRequired = required.filter((spec) => spec.scope === "host");
+  const gatewayRequired = required.filter((spec) => spec.scope === "gateway");
   return {
     gateways: [],
     hostSecretNamesRequired,
@@ -51,6 +53,11 @@ const buildPlan = (overrides: Record<string, unknown>) => {
     secretNamesRequired,
     required,
     optional: [],
+    scopes: {
+      bootstrapRequired: hostRequired,
+      updatesRequired: hostRequired,
+      openclawRequired: gatewayRequired,
+    },
     missing: [],
     warnings: [],
     missingSecretConfig: [],
@@ -144,6 +151,53 @@ describe("secrets verify", () => {
     await secretsVerify.run({ args: { host: "alpha", json: true } } as any);
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("sops recipients"));
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("requires tailscale_auth_key in bootstrap scope when host tailnet mode is tailscale", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(tmpdir(), "clawlets-secrets-verify-"));
+    const layout = getRepoLayout(repoRoot);
+    const config = makeConfig({
+      hostName: "alpha",
+      hostOverrides: { ...baseHost, tailnet: { mode: "tailscale" }, gatewaysOrder: ["maren"], gateways: { maren: {} } },
+    });
+    const hostCfg = config.hosts.alpha;
+    loadHostContextMock.mockReturnValue({ layout, config, hostName: "alpha", hostCfg });
+
+    const ageKeyPath = path.join(repoRoot, "keys", "op.agekey");
+    loadDeployCredsMock.mockReturnValue({
+      values: {
+        NIX_BIN: "nix",
+        SOPS_AGE_KEY_FILE: ageKeyPath,
+      },
+    });
+    buildFleetSecretsPlanMock.mockReturnValue(buildPlan({
+      hostSecretNamesRequired: ["admin_password_hash", "tailscale_auth_key"],
+      secretNamesAll: [],
+      secretNamesRequired: [],
+    }));
+
+    const secretsDir = path.join(layout.secretsHostsDir, "alpha");
+    fs.mkdirSync(secretsDir, { recursive: true });
+    fs.mkdirSync(path.dirname(ageKeyPath), { recursive: true });
+    fs.writeFileSync(ageKeyPath, "AGE-SECRET-KEY-1", "utf8");
+    fs.writeFileSync(path.join(secretsDir, "admin_password_hash.yaml"), "encrypted", "utf8");
+    sopsDecryptMock.mockImplementation(async ({ filePath }: { filePath: string }) => {
+      if (filePath.endsWith("admin_password_hash.yaml")) return "admin_password_hash: hash\n";
+      return "";
+    });
+
+    const { secretsVerify } = await import("../src/commands/secrets/verify.js");
+    await secretsVerify.run({ args: { host: "alpha", scope: "bootstrap", json: true } } as any);
+    const output = JSON.parse((logSpy.mock.calls.at(-1)?.[0] || "{}").toString()) as {
+      host: string;
+      localDir: string;
+      results: Array<{ secret: string; status: "ok" | "missing" | "warn" }>;
+    };
+    expect(output.host).toBe("alpha");
+    const tailscale = output.results.find((row) => row.secret === "tailscale_auth_key") ?? null;
+    expect(tailscale?.status).toBe("missing");
+    expect(output.results.some((row) => row.secret === "admin_password_hash")).toBe(true);
     expect(process.exitCode).toBe(1);
   });
 });

@@ -313,14 +313,14 @@ export async function addRepoChecks(params: {
 	        const raw = await store.readText(infraConfigPath);
 	        const parsed = JSON.parse(raw);
 	        const schemaVersion = Number((parsed as any)?.schemaVersion ?? 0);
-	        if (schemaVersion === 1) {
-	          params.push({
-	            scope: "repo",
-	            status: "warn",
-	            label: "clawlets config schema",
-	            detail: "legacy schemaVersion=1 detected (will auto-migrate to split config on load)",
-	          });
-	        }
+		        if (schemaVersion === 1) {
+		          params.push({
+		            scope: "repo",
+		            status: "warn",
+		            label: "clawlets config schema",
+		            detail: "legacy schemaVersion=1 detected (unsupported; migrate to split config manually)",
+		          });
+		        }
 
 	        const loadedInfra = await loadInfraConfigAsync({ repoRoot, store });
 	        const infraConfig = loadedInfra.config;
@@ -412,60 +412,40 @@ export async function addRepoChecks(params: {
         try {
           const raw = await store.readText(templateInfraPath);
           const parsed = JSON.parse(raw);
-          let parsedConfig: ReturnType<typeof InfraConfigSchema.parse> | null = null;
-          try {
-            parsedConfig = InfraConfigSchema.parse(parsed);
-          } catch {
-            parsedConfig = null;
-          }
+	          const parsedConfig = InfraConfigSchema.parse(parsed);
+	          templateHostNames = Object.keys(parsedConfig.hosts || {});
+	          params.push({
+	            scope: "repo",
+	            status: "ok",
+	            label: "template clawlets config",
+	            detail: path.relative(repoRoot, templateInfraPath),
+	          });
 
-          if (parsedConfig) {
-            templateHostNames = Object.keys(parsedConfig.hosts || {});
-            params.push({
-              scope: "repo",
-              status: "ok",
-              label: "template clawlets config",
-              detail: path.relative(repoRoot, templateInfraPath),
-            });
-
-            if (!(await store.exists(templateOpenclawPath))) {
-              templateOpenclawConfig = null;
-              params.push({
-                scope: "repo",
-                status: "warn",
-                label: "template openclaw config",
-                detail: "(optional) fleet/openclaw.json missing",
-              });
-            } else {
-              const parsedOpenclaw = OpenClawConfigSchema.parse(JSON.parse(await store.readText(templateOpenclawPath)));
-              templateOpenclawConfig = parsedOpenclaw;
-              const infraHosts = new Set(Object.keys(parsedConfig.hosts || {}));
-              const unknownHosts = Object.keys(parsedOpenclaw.hosts || {}).filter((host) => !infraHosts.has(host));
-              params.push({
-                scope: "repo",
-                status: unknownHosts.length === 0 ? "ok" : "missing",
-                label: "template config host consistency",
-                detail:
-                  unknownHosts.length === 0
-                    ? "(openclaw hosts subset of infra hosts)"
-                    : `openclaw hosts missing in infra: ${unknownHosts.join(", ")}`,
-              });
-            }
-          } else {
-            const hosts = (parsed as any)?.hosts;
-            if (!hosts || typeof hosts !== "object" || Array.isArray(hosts)) {
-              throw new Error("template clawlets config missing hosts object");
-            }
-            templateHostNames = Object.keys(hosts);
-            params.push({
-              scope: "repo",
-              status: "warn",
-              label: "template clawlets config",
-              detail: `${path.relative(repoRoot, templateInfraPath)} (legacy monolith shape)`,
-            });
-          }
-        } catch (e) {
-          params.push({
+	          if (!(await store.exists(templateOpenclawPath))) {
+	            templateOpenclawConfig = null;
+	            params.push({
+	              scope: "repo",
+	              status: "warn",
+	              label: "template openclaw config",
+	              detail: "(optional) fleet/openclaw.json missing",
+	            });
+	          } else {
+	            const parsedOpenclaw = OpenClawConfigSchema.parse(JSON.parse(await store.readText(templateOpenclawPath)));
+	            templateOpenclawConfig = parsedOpenclaw;
+	            const infraHosts = new Set(Object.keys(parsedConfig.hosts || {}));
+	            const unknownHosts = Object.keys(parsedOpenclaw.hosts || {}).filter((host) => !infraHosts.has(host));
+	            params.push({
+	              scope: "repo",
+	              status: unknownHosts.length === 0 ? "ok" : "missing",
+	              label: "template config host consistency",
+	              detail:
+	                unknownHosts.length === 0
+	                  ? "(openclaw hosts subset of infra hosts)"
+	                  : `openclaw hosts missing in infra: ${unknownHosts.join(", ")}`,
+	            });
+	          }
+	        } catch (e) {
+	          params.push({
             scope: "repo",
             status: "missing",
             label: "template clawlets config",

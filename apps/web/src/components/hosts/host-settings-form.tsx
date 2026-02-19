@@ -10,6 +10,7 @@ import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Switch } from "~/components/ui/switch"
 import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
+import { TailscaleAuthKeyCard } from "~/components/hosts/tailscale-auth-key-card"
 import {
   HostThemeBadge,
   HostThemeColorDropdown,
@@ -20,7 +21,6 @@ import {
 import { HostSshSection } from "~/components/hosts/host-ssh-section"
 import { HostUpdatesSection } from "~/components/hosts/host-updates-section"
 import { HostProviderSettingsSection } from "~/components/hosts/host-provider-settings-section"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import {
   HETZNER_SETUP_DEFAULT_LOCATION,
   HETZNER_SETUP_DEFAULT_SERVER_TYPE,
@@ -373,11 +373,10 @@ export function HostSettingsForm(props: {
             </NativeSelect>
           </div>
           {tailnetMode === "tailscale" ? (
-            <ProjectTokenKeyringCard
+            <TailscaleAuthKeyCard
               projectId={props.projectId}
-              kind="tailscale"
-              title="Tailscale API keys"
-              description="Project-wide keyring used during setup and tailnet activation."
+              projectSlug={props.projectSlug}
+              host={props.selectedHost}
             />
           ) : null}
         </div>

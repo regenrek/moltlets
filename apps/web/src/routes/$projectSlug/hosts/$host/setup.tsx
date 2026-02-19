@@ -1,21 +1,22 @@
 "use client";
 
 import { convexQuery } from "@convex-dev/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import * as React from "react";
 import { CheckIcon } from "@heroicons/react/24/solid";
-import { z } from "zod";
 import type { HostTheme } from "@clawlets/core/lib/host/host-theme";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { api } from "../../../../../convex/_generated/api";
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner";
-import { SetupCelebration } from "~/components/setup/setup-celebration";
 import { SetupHeader } from "~/components/setup/setup-header";
 import { SetupStepConnection } from "~/components/setup/steps/step-connection";
+import { SetupStepCreds } from "~/components/setup/steps/step-creds";
 import { SetupStepDeploy } from "~/components/setup/steps/step-deploy";
 import { SetupStepInfrastructure } from "~/components/setup/steps/step-infrastructure";
 import { SetupStepTailscaleLockdown } from "~/components/setup/steps/step-tailscale-lockdown";
-import { SetupStepVerify } from "~/components/setup/steps/step-verify";
+import { LabelWithHelp } from "~/components/ui/label-help";
+import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import {
   Stepper,
   StepperContent,
@@ -27,12 +28,12 @@ import {
   StepperTitle,
   StepperTrigger,
 } from "~/components/ui/stepper";
+import { singleHostCidrFromIp } from "~/lib/ip-utils";
 import { projectsListQueryOptions } from "~/lib/query-options";
-import { buildHostPath, slugifyProjectName } from "~/lib/project-routing";
+import { slugifyProjectName } from "~/lib/project-routing";
 import { deriveEffectiveSetupDesiredState } from "~/lib/setup/desired-state";
 import type { SetupStepId, SetupStepStatus } from "~/lib/setup/setup-model";
 import {
-  SETUP_STEP_IDS,
   coerceSetupStepId,
   deriveHostSetupStepper,
 } from "~/lib/setup/setup-model";
@@ -40,17 +41,11 @@ import { useSetupModel } from "~/lib/setup/use-setup-model";
 import type {
   SetupDraftConnection,
   SetupDraftInfrastructure,
+  SetupDraftNonSecretPatch,
 } from "~/sdk/setup";
-
-const SetupSearchSchema = z.object({
-  step: z.string().trim().optional(),
-});
+import { setupDraftSaveNonSecret } from "~/sdk/setup";
 
 export const Route = createFileRoute("/$projectSlug/hosts/$host/setup")({
-  validateSearch: (search) => {
-    const parsed = SetupSearchSchema.safeParse(search);
-    return parsed.success ? parsed.data : {};
-  },
   loader: async ({ context, params }) => {
     const projectsQuery = projectsListQueryOptions();
     const projects = (await context.queryClient.ensureQueryData(
@@ -98,11 +93,11 @@ const STEP_META: Record<string, { title: string; description: string }> = {
     title: "Tailscale lockdown",
     description: "Enable safer SSH access path",
   },
-  deploy: { title: "Install Server", description: "Final check and bootstrap" },
-  verify: {
-    title: "Secure and Verify",
-    description: "Lock down SSH and verify",
+  creds: {
+    title: "Git Configuration",
+    description: "Git remote and deploy token",
   },
+  deploy: { title: "Install Server", description: "Final check and bootstrap" },
 };
 
 function stepMeta(id: string) {
@@ -115,13 +110,138 @@ function isStepCompleted(status: SetupStepStatus) {
 
 type SetupPendingBootstrapSecrets = {
   adminPassword: string;
-  tailscaleAuthKey: string;
   useTailscaleLockdown: boolean;
 };
 
+type ProjectAdminCidrStatus = "idle" | "detecting" | "ready" | "error";
+
+const NON_SECRET_AUTOSAVE_DEBOUNCE_MS = 500;
+
+function readAdminCidr(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeSshAuthorizedKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((row) => (typeof row === "string" ? row.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function normalizeNonSecretPatch(
+  patch: SetupDraftNonSecretPatch | null | undefined,
+): SetupDraftNonSecretPatch | null {
+  const source = patch ?? {};
+  const infrastructure = source.infrastructure
+    ? {
+        serverType: typeof source.infrastructure.serverType === "string"
+          ? source.infrastructure.serverType.trim()
+          : undefined,
+        image: typeof source.infrastructure.image === "string"
+          ? source.infrastructure.image.trim()
+          : undefined,
+        location: typeof source.infrastructure.location === "string"
+          ? source.infrastructure.location.trim()
+          : undefined,
+        allowTailscaleUdpIngress:
+          typeof source.infrastructure.allowTailscaleUdpIngress === "boolean"
+            ? source.infrastructure.allowTailscaleUdpIngress
+            : undefined,
+        volumeEnabled:
+          typeof source.infrastructure.volumeEnabled === "boolean"
+            ? source.infrastructure.volumeEnabled
+            : undefined,
+        volumeSizeGb:
+          typeof source.infrastructure.volumeSizeGb === "number"
+            && Number.isFinite(source.infrastructure.volumeSizeGb)
+            ? Math.max(0, Math.trunc(source.infrastructure.volumeSizeGb))
+            : undefined,
+      }
+    : undefined;
+
+  const connection = source.connection
+    ? (() => {
+        const hasSshKeys = Array.isArray(source.connection?.sshAuthorizedKeys);
+        const normalizedSshKeys = normalizeSshAuthorizedKeys(
+          source.connection?.sshAuthorizedKeys,
+        );
+        return {
+          adminCidr: typeof source.connection.adminCidr === "string"
+            ? source.connection.adminCidr.trim()
+            : undefined,
+          sshExposureMode:
+            source.connection.sshExposureMode === "bootstrap"
+            || source.connection.sshExposureMode === "tailnet"
+            || source.connection.sshExposureMode === "public"
+              ? source.connection.sshExposureMode
+              : undefined,
+          sshAuthorizedKeys: hasSshKeys ? normalizedSshKeys : undefined,
+          sshKeyCount: hasSshKeys
+            ? normalizedSshKeys.length
+            : typeof source.connection.sshKeyCount === "number"
+              && Number.isFinite(source.connection.sshKeyCount)
+              ? Math.max(0, Math.trunc(source.connection.sshKeyCount))
+              : undefined,
+        };
+      })()
+    : undefined;
+
+  if (!infrastructure && !connection) return null;
+  return {
+    ...(infrastructure ? { infrastructure } : {}),
+    ...(connection ? { connection } : {}),
+  };
+}
+
+function nonSecretPatchFingerprint(
+  patch: SetupDraftNonSecretPatch | null | undefined,
+): string {
+  const normalized = normalizeNonSecretPatch(patch);
+  if (!normalized) return "";
+
+  const infrastructure = normalized.infrastructure
+    ? {
+        serverType: normalized.infrastructure.serverType || "",
+        image: normalized.infrastructure.image || "",
+        location: normalized.infrastructure.location || "",
+        allowTailscaleUdpIngress:
+          typeof normalized.infrastructure.allowTailscaleUdpIngress === "boolean"
+            ? normalized.infrastructure.allowTailscaleUdpIngress
+            : null,
+        volumeEnabled:
+          typeof normalized.infrastructure.volumeEnabled === "boolean"
+            ? normalized.infrastructure.volumeEnabled
+            : null,
+        volumeSizeGb:
+          typeof normalized.infrastructure.volumeSizeGb === "number"
+            ? Math.max(0, Math.trunc(normalized.infrastructure.volumeSizeGb))
+            : null,
+      }
+    : null;
+
+  const connection = normalized.connection
+    ? {
+        adminCidr: normalized.connection.adminCidr || "",
+        sshExposureMode: normalized.connection.sshExposureMode || "",
+        sshAuthorizedKeys: normalizeSshAuthorizedKeys(
+          normalized.connection.sshAuthorizedKeys,
+        ),
+        sshKeyCount:
+          typeof normalized.connection.sshKeyCount === "number"
+            ? Math.max(0, Math.trunc(normalized.connection.sshKeyCount))
+            : null,
+      }
+    : null;
+
+  return JSON.stringify({ infrastructure, connection });
+}
+
 function HostSetupPage() {
   const { projectSlug, host } = Route.useParams();
-  const search = Route.useSearch();
   const [pendingInfrastructureDraft, setPendingInfrastructureDraft] =
     React.useState<SetupDraftInfrastructure | null>(null);
   const [pendingConnectionDraft, setPendingConnectionDraft] =
@@ -129,9 +249,53 @@ function HostSetupPage() {
   const [pendingBootstrapSecrets, setPendingBootstrapSecrets] =
     React.useState<SetupPendingBootstrapSecrets>({
       adminPassword: "",
-      tailscaleAuthKey: "",
       useTailscaleLockdown: true,
     });
+  const [projectAdminCidr, setProjectAdminCidr] = React.useState("");
+  const [projectAdminCidrStatus, setProjectAdminCidrStatus] =
+    React.useState<ProjectAdminCidrStatus>("idle");
+  const [projectAdminCidrError, setProjectAdminCidrError] = React.useState<
+    string | null
+  >(null);
+  const projectAdminCidrAutoDetectAttemptedRef = React.useRef(false);
+  const updatePendingInfrastructureDraft = React.useCallback(
+    (next: SetupDraftInfrastructure) => {
+      setPendingInfrastructureDraft((prev) => {
+        const merged = {
+          ...(prev ?? {}),
+          ...next,
+        };
+        const prevFingerprint = nonSecretPatchFingerprint({
+          infrastructure: prev ?? undefined,
+        });
+        const mergedFingerprint = nonSecretPatchFingerprint({
+          infrastructure: merged,
+        });
+        return prevFingerprint === mergedFingerprint ? prev : merged;
+      });
+    },
+    [],
+  );
+  const updatePendingConnectionDraft = React.useCallback(
+    (next: SetupDraftConnection) => {
+      const normalizedNext =
+        normalizeNonSecretPatch({ connection: next })?.connection ?? next;
+      setPendingConnectionDraft((prev) => {
+        const merged = {
+          ...(prev ?? {}),
+          ...(normalizedNext ?? {}),
+        };
+        const prevFingerprint = nonSecretPatchFingerprint({
+          connection: prev ?? undefined,
+        });
+        const mergedFingerprint = nonSecretPatchFingerprint({
+          connection: merged,
+        });
+        return prevFingerprint === mergedFingerprint ? prev : merged;
+      });
+    },
+    [],
+  );
 
   const pendingNonSecretDraft = React.useMemo(
     () => ({
@@ -144,10 +308,8 @@ function HostSetupPage() {
   const setup = useSetupModel({
     projectSlug,
     host,
-    search,
     pendingNonSecretDraft,
     pendingBootstrapSecrets: {
-      tailscaleAuthKey: pendingBootstrapSecrets.tailscaleAuthKey,
       useTailscaleLockdown: pendingBootstrapSecrets.useTailscaleLockdown,
     },
   });
@@ -158,7 +320,6 @@ function HostSetupPage() {
     setPendingConnectionDraft(null);
     setPendingBootstrapSecrets({
       adminPassword: "",
-      tailscaleAuthKey: "",
       useTailscaleLockdown: true,
     });
   }, [host]);
@@ -179,10 +340,106 @@ function HostSetupPage() {
 
   const selectedHost = setup.model.selectedHost;
   const activeHost = selectedHost ?? host;
+  const queryClient = useQueryClient();
+  const activeHostConfig = setup.config?.hosts?.[activeHost] as
+    | { provisioning?: { adminCidr?: string } }
+    | undefined;
   const hostCfg =
     (setup.config?.hosts?.[activeHost] as { theme?: HostTheme } | undefined) ??
     null;
   const selectedHostTheme: HostTheme | null = hostCfg?.theme ?? null;
+  const pendingNonSecretPatch = React.useMemo(
+    () =>
+      normalizeNonSecretPatch({
+        infrastructure: pendingInfrastructureDraft ?? undefined,
+        connection: pendingConnectionDraft ?? undefined,
+      }),
+    [pendingConnectionDraft, pendingInfrastructureDraft],
+  );
+  const pendingNonSecretPatchFingerprint = React.useMemo(
+    () => nonSecretPatchFingerprint(pendingNonSecretPatch),
+    [pendingNonSecretPatch],
+  );
+  const persistedNonSecretPatchFingerprint = React.useMemo(
+    () => nonSecretPatchFingerprint(setup.setupDraft?.nonSecretDraft),
+    [setup.setupDraft?.nonSecretDraft],
+  );
+  const autosaveDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const lastQueuedFingerprintRef = React.useRef("");
+  const lastSavedFingerprintRef = React.useRef("");
+
+  const saveNonSecretDraftMutation = useMutation({
+    mutationFn: async (patch: SetupDraftNonSecretPatch) =>
+      await setupDraftSaveNonSecret({
+        data: {
+          projectId: projectId as Id<"projects">,
+          host: activeHost,
+          patch,
+        },
+      }),
+    onSuccess: (draft, patch) => {
+      const fingerprint = nonSecretPatchFingerprint(patch);
+      if (fingerprint) {
+        lastSavedFingerprintRef.current = fingerprint;
+      }
+      lastQueuedFingerprintRef.current = "";
+      queryClient.setQueryData(["setupDraft", projectId, host], draft);
+    },
+    onError: () => {
+      lastQueuedFingerprintRef.current = "";
+    },
+  });
+  const saveNonSecretDraftPending = saveNonSecretDraftMutation.isPending;
+  const saveNonSecretDraftMutate = saveNonSecretDraftMutation.mutate;
+
+  React.useEffect(() => {
+    if (persistedNonSecretPatchFingerprint) {
+      lastSavedFingerprintRef.current = persistedNonSecretPatchFingerprint;
+    }
+  }, [persistedNonSecretPatchFingerprint]);
+
+  React.useEffect(() => {
+    lastQueuedFingerprintRef.current = "";
+    lastSavedFingerprintRef.current = persistedNonSecretPatchFingerprint || "";
+    if (autosaveDebounceRef.current) {
+      clearTimeout(autosaveDebounceRef.current);
+      autosaveDebounceRef.current = null;
+    }
+  }, [activeHost, persistedNonSecretPatchFingerprint, projectId]);
+
+  React.useEffect(() => {
+    if (!pendingNonSecretPatch) return;
+    if (!pendingNonSecretPatchFingerprint) return;
+    if (saveNonSecretDraftPending) return;
+    if (pendingNonSecretPatchFingerprint === lastSavedFingerprintRef.current) {
+      return;
+    }
+    if (pendingNonSecretPatchFingerprint === lastQueuedFingerprintRef.current) {
+      return;
+    }
+
+    if (autosaveDebounceRef.current) {
+      clearTimeout(autosaveDebounceRef.current);
+    }
+    autosaveDebounceRef.current = setTimeout(() => {
+      lastQueuedFingerprintRef.current = pendingNonSecretPatchFingerprint;
+      saveNonSecretDraftMutate(pendingNonSecretPatch);
+    }, NON_SECRET_AUTOSAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (autosaveDebounceRef.current) {
+        clearTimeout(autosaveDebounceRef.current);
+        autosaveDebounceRef.current = null;
+      }
+    };
+  }, [
+    pendingNonSecretPatch,
+    pendingNonSecretPatchFingerprint,
+    saveNonSecretDraftMutate,
+    saveNonSecretDraftPending,
+  ]);
 
   const stepper = deriveHostSetupStepper({
     steps: setup.model.steps,
@@ -205,6 +462,70 @@ function HostSetupPage() {
   React.useEffect(() => {
     setVisibleStepId(stepperActiveStepId);
   }, [stepperActiveStepId]);
+
+  const detectProjectAdminCidr = React.useCallback(async () => {
+    if (projectAdminCidrStatus === "detecting") return;
+    setProjectAdminCidrStatus("detecting");
+    setProjectAdminCidrError(null);
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 6_000);
+    try {
+      const res = await fetch("https://api.ipify.org?format=json", {
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`ip lookup failed (${res.status})`);
+      const json = (await res.json()) as { ip?: unknown };
+      const ip = typeof json.ip === "string" ? json.ip : "";
+      const cidr = singleHostCidrFromIp(ip);
+      if (!cidr) throw new Error("invalid public IP response");
+      setProjectAdminCidr(cidr);
+      setProjectAdminCidrStatus("ready");
+      setProjectAdminCidrError(null);
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === "AbortError"
+          ? "CIDR detection timed out"
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      setProjectAdminCidrStatus("error");
+      setProjectAdminCidrError(message);
+    } finally {
+      clearTimeout(timeout);
+      ctrl.abort();
+    }
+  }, [projectAdminCidrStatus]);
+
+  React.useEffect(() => {
+    const pendingAdminCidr = readAdminCidr(pendingConnectionDraft?.adminCidr);
+    if (pendingAdminCidr) return;
+    const draftAdminCidr = readAdminCidr(
+      setup.setupDraft?.nonSecretDraft?.connection?.adminCidr,
+    );
+    if (draftAdminCidr) return;
+    const configAdminCidr = readAdminCidr(activeHostConfig?.provisioning?.adminCidr);
+    if (configAdminCidr) return;
+    const sessionAdminCidr = readAdminCidr(projectAdminCidr);
+    if (sessionAdminCidr) {
+      setPendingConnectionDraft((prev) => {
+        if (readAdminCidr(prev?.adminCidr)) return prev;
+        return {
+          ...(prev ?? {}),
+          adminCidr: sessionAdminCidr,
+        };
+      });
+      return;
+    }
+    if (projectAdminCidrAutoDetectAttemptedRef.current) return;
+    projectAdminCidrAutoDetectAttemptedRef.current = true;
+    void detectProjectAdminCidr();
+  }, [
+    activeHostConfig?.provisioning?.adminCidr,
+    detectProjectAdminCidr,
+    pendingConnectionDraft?.adminCidr,
+    projectAdminCidr,
+    setup.setupDraft?.nonSecretDraft?.connection?.adminCidr,
+  ]);
 
   const scrollToStep = React.useCallback((stepId: SetupStepId) => {
     const section = sectionRefs.current[stepId];
@@ -245,29 +566,39 @@ function HostSetupPage() {
     return () => observer.disconnect();
   }, [stepSignature, stepperSteps]);
 
-  const continueFromStep = React.useCallback(
-    (from: SetupStepId) => {
-      const currentIndex = SETUP_STEP_IDS.findIndex(
-        (stepId) => stepId === from,
-      );
-      const next =
-        currentIndex === -1 ? null : SETUP_STEP_IDS[currentIndex + 1];
-      if (!next) return;
-      setVisibleStepId(next);
-      setup.setStep(next);
-      scrollToStep(next);
-    },
-    [scrollToStep, setup],
-  );
-
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6 xl:max-w-6xl">
+    <div className="mx-auto w-full max-w-2xl space-y-6 pb-28 xl:max-w-6xl">
       <RunnerStatusBanner
         projectId={projectId as Id<"projects">}
         setupHref={`/${projectSlug}/runner`}
         runnerOnline={setup.runnerOnline}
         isChecking={setup.runnersQuery.isPending}
       />
+
+      {setup.sealedRunners.length > 1 ? (
+        <div className="rounded-lg border bg-muted/20 px-4 py-3">
+          <div className="space-y-2">
+            <LabelWithHelp
+              htmlFor="setupTargetRunner"
+              help="Project credentials are runner-local. When multiple runners are online, choose the runner that owns your credentials."
+            >
+              Target runner
+            </LabelWithHelp>
+            <NativeSelect
+              id="setupTargetRunner"
+              value={setup.selectedRunnerId}
+              onChange={(event) => setup.setSelectedRunnerId(event.target.value)}
+            >
+              <NativeSelectOption value="">Select runner...</NativeSelectOption>
+              {setup.sealedRunners.map((runner) => (
+                <NativeSelectOption key={runner._id} value={String(runner._id)}>
+                  {runner.runnerName}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+      ) : null}
 
       <SetupHeader
         title="Setup your first host"
@@ -278,17 +609,6 @@ function HostSetupPage() {
         requiredTotal={requiredSteps.length}
       />
 
-      {setup.model.showCelebration ? (
-        <SetupCelebration
-          title="Server installed"
-          description="Bootstrap succeeded and setup queued post-bootstrap hardening. Next: install OpenClaw."
-          primaryLabel="Install OpenClaw"
-          primaryTo={`${buildHostPath(projectSlug, activeHost)}/openclaw-setup`}
-          secondaryLabel="Go to host overview"
-          secondaryTo={buildHostPath(projectSlug, activeHost)}
-        />
-      ) : null}
-
       <Stepper
         value={visibleStepId}
         onValueChange={(value) => {
@@ -297,7 +617,6 @@ function HostSetupPage() {
           const step = stepperSteps.find((s) => s.id === stepId);
           if (!step || step.status === "locked") return;
           setVisibleStepId(stepId);
-          setup.setStep(stepId);
           scrollToStep(stepId);
         }}
         orientation="vertical"
@@ -349,6 +668,9 @@ function HostSetupPage() {
               >
                 <StepContent
                   stepId={step.id as SetupStepId}
+                  isVisible={
+                    visibleStepId === step.id || stepperActiveStepId === step.id
+                  }
                   step={step}
                   projectId={projectId as Id<"projects">}
                   projectSlug={projectSlug}
@@ -357,25 +679,27 @@ function HostSetupPage() {
                   pendingInfrastructureDraft={pendingInfrastructureDraft}
                   pendingConnectionDraft={pendingConnectionDraft}
                   pendingBootstrapSecrets={pendingBootstrapSecrets}
+                  projectAdminCidr={projectAdminCidr}
+                  projectAdminCidrStatus={projectAdminCidrStatus}
+                  projectAdminCidrError={projectAdminCidrError}
                   hasActiveHcloudToken={setup.hasActiveHcloudToken}
                   hasProjectGithubToken={setup.hasProjectGithubToken}
-                  hasActiveTailscaleAuthKey={setup.hasActiveTailscaleAuthKey}
-                  hasProjectSopsAgeKeyPath={setup.hasProjectSopsAgeKeyPath}
-                  projectSopsAgeKeyPath={setup.projectSopsAgeKeyPath}
-                  onPendingInfrastructureDraftChange={(next) => {
-                    setPendingInfrastructureDraft((prev) => ({
-                      ...(prev ?? {}),
-                      ...next,
-                    }));
-                  }}
-                  onPendingConnectionDraftChange={setPendingConnectionDraft}
+                hasProjectGithubTokenAccess={setup.hasProjectGithubTokenAccess}
+                githubTokenAccessMessage={setup.githubTokenAccessMessage}
+                hasProjectGitRemoteOrigin={setup.hasProjectGitRemoteOrigin}
+                projectGitRemoteOrigin={setup.projectGitRemoteOrigin}
+                hasHostTailscaleAuthKey={setup.hasHostTailscaleAuthKey}
+                onPendingInfrastructureDraftChange={
+                  updatePendingInfrastructureDraft
+                }
+                  onPendingConnectionDraftChange={updatePendingConnectionDraft}
                   onPendingBootstrapSecretsChange={(next) => {
                     setPendingBootstrapSecrets((prev) => ({
                       ...prev,
                       ...next,
                     }));
                   }}
-                  onContinueFromStep={continueFromStep}
+                  onDetectProjectAdminCidr={detectProjectAdminCidr}
                 />
               </section>
             </StepperContent>
@@ -388,6 +712,7 @@ function HostSetupPage() {
 
 function StepContent(props: {
   stepId: SetupStepId;
+  isVisible: boolean;
   step: { id: string; status: SetupStepStatus };
   projectId: Id<"projects">;
   projectSlug: string;
@@ -396,20 +721,26 @@ function StepContent(props: {
   pendingInfrastructureDraft: SetupDraftInfrastructure | null;
   pendingConnectionDraft: SetupDraftConnection | null;
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets;
+  projectAdminCidr: string;
+  projectAdminCidrStatus: ProjectAdminCidrStatus;
+  projectAdminCidrError: string | null;
   hasActiveHcloudToken: boolean;
   hasProjectGithubToken: boolean;
-  hasActiveTailscaleAuthKey: boolean;
-  hasProjectSopsAgeKeyPath: boolean;
-  projectSopsAgeKeyPath: string;
+  hasProjectGithubTokenAccess: boolean;
+  githubTokenAccessMessage: string;
+  hasProjectGitRemoteOrigin: boolean;
+  projectGitRemoteOrigin: string;
+  hasHostTailscaleAuthKey: boolean;
   onPendingInfrastructureDraftChange: (next: SetupDraftInfrastructure) => void;
   onPendingConnectionDraftChange: (next: SetupDraftConnection) => void;
   onPendingBootstrapSecretsChange: (
     next: Partial<SetupPendingBootstrapSecrets>,
   ) => void;
-  onContinueFromStep: (stepId: SetupStepId) => void;
+  onDetectProjectAdminCidr: () => Promise<void>;
 }) {
   const {
     stepId,
+    isVisible,
     step,
     projectId,
     projectSlug,
@@ -418,11 +749,16 @@ function StepContent(props: {
     pendingInfrastructureDraft,
     pendingConnectionDraft,
     pendingBootstrapSecrets,
+    projectAdminCidr,
+    projectAdminCidrStatus,
+    projectAdminCidrError,
     hasActiveHcloudToken,
     hasProjectGithubToken,
-    hasActiveTailscaleAuthKey,
-    hasProjectSopsAgeKeyPath,
-    projectSopsAgeKeyPath,
+    hasProjectGithubTokenAccess,
+    githubTokenAccessMessage,
+    hasProjectGitRemoteOrigin,
+    projectGitRemoteOrigin,
+    hasHostTailscaleAuthKey,
   } = props;
   const desired = React.useMemo(
     () =>
@@ -449,12 +785,17 @@ function StepContent(props: {
       <SetupStepInfrastructure
         key={`${host}:${setup.config ? "ready" : "loading"}`}
         projectId={projectId}
+        projectSlug={projectSlug}
         config={setup.config}
         setupDraft={setup.setupDraft}
         host={host}
         hasActiveHcloudToken={hasActiveHcloudToken}
+        hcloudKeyringSummary={
+          setup.deployCredsSummary?.projectTokenKeyrings?.hcloud ?? null
+        }
         stepStatus={step.status}
         onDraftChange={props.onPendingInfrastructureDraftChange}
+        onProjectCredsQueued={setup.refreshDeployCredsStatus}
       />
     );
   }
@@ -467,9 +808,14 @@ function StepContent(props: {
         setupDraft={setup.setupDraft}
         host={host}
         stepStatus={step.status}
-        sopsAgeKeyPathReady={hasProjectSopsAgeKeyPath}
         onDraftChange={props.onPendingConnectionDraftChange}
         adminPassword={pendingBootstrapSecrets.adminPassword}
+        projectAdminCidr={projectAdminCidr}
+        projectAdminCidrError={projectAdminCidrError}
+        adminCidrDetecting={projectAdminCidrStatus === "detecting"}
+        onDetectAdminCidr={() => {
+          void props.onDetectProjectAdminCidr();
+        }}
         onAdminPasswordChange={(value) =>
           props.onPendingBootstrapSecretsChange({ adminPassword: value })
         }
@@ -481,8 +827,11 @@ function StepContent(props: {
     return (
       <SetupStepTailscaleLockdown
         projectId={projectId}
+        projectSlug={projectSlug}
+        host={host}
         stepStatus={step.status}
-        hasTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        setupDraft={setup.setupDraft}
+        hasTailscaleAuthKey={hasHostTailscaleAuthKey}
         allowTailscaleUdpIngress={desired.infrastructure.allowTailscaleUdpIngress}
         useTailscaleLockdown={pendingBootstrapSecrets.useTailscaleLockdown}
         onAllowTailscaleUdpIngressChange={(value) =>
@@ -502,33 +851,36 @@ function StepContent(props: {
     );
   }
 
+  if (stepId === "creds") {
+    return (
+      <SetupStepCreds
+        projectId={projectId}
+        projectSlug={projectSlug}
+        hasProjectGithubToken={hasProjectGithubToken}
+        hasProjectGitRemoteOrigin={hasProjectGitRemoteOrigin}
+        projectGitRemoteOrigin={projectGitRemoteOrigin}
+        onProjectCredsQueued={setup.refreshDeployCredsStatus}
+      />
+    );
+  }
+
   if (stepId === "deploy") {
     return (
       <SetupStepDeploy
         projectSlug={projectSlug}
         host={host}
         hasBootstrapped={setup.model.hasBootstrapped}
-        onContinue={() => props.onContinueFromStep(stepId)}
         stepStatus={step.status}
         setupDraft={setup.setupDraft}
         pendingInfrastructureDraft={pendingInfrastructureDraft}
         pendingConnectionDraft={pendingConnectionDraft}
         pendingBootstrapSecrets={pendingBootstrapSecrets}
         hasProjectGithubToken={hasProjectGithubToken}
-        projectSopsAgeKeyPath={projectSopsAgeKeyPath}
-        hasActiveTailscaleAuthKey={hasActiveTailscaleAuthKey}
-      />
-    );
-  }
-
-  if (stepId === "verify") {
-    return (
-      <SetupStepVerify
-        projectSlug={projectSlug}
-        projectId={projectId}
-        host={host}
-        config={setup.config}
-        stepStatus={step.status}
+        hasProjectGithubTokenAccess={hasProjectGithubTokenAccess}
+        githubTokenAccessMessage={githubTokenAccessMessage}
+        hasProjectGitRemoteOrigin={hasProjectGitRemoteOrigin}
+        projectGitRemoteOrigin={projectGitRemoteOrigin}
+        hasHostTailscaleAuthKey={hasHostTailscaleAuthKey}
       />
     );
   }

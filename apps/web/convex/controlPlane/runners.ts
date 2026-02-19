@@ -1,6 +1,7 @@
 import { RUNNER_STATUSES } from "@clawlets/core/lib/runtime/control-plane-constants";
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
@@ -8,7 +9,7 @@ import { requireProjectAccessMutation, requireProjectAccessQuery, requireAdmin }
 import { ensureBoundedString, ensureOptionalBoundedString, CONTROL_PLANE_LIMITS } from "../shared/controlPlane";
 import { rateLimit } from "../shared/rateLimit";
 import { RunnerDoc } from "../shared/validators";
-import { RunnerCapabilities } from "../schema";
+import { RunnerCapabilities, RunnerDeployCredsSummary } from "../schema";
 
 function literals<const T extends readonly string[]>(values: T) {
   return values.map((value) => v.literal(value));
@@ -104,5 +105,24 @@ export const upsertHeartbeatInternal = internalMutation({
   handler: async (ctx, { projectId, runnerName, patch }) => {
     const runnerId = await upsertHeartbeatInternalDb({ ctx, projectId, runnerName, patch });
     return { runnerId };
+  },
+});
+
+export const patchDeployCredsSummaryInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    runnerId: v.id("runners"),
+    deployCredsSummary: RunnerDeployCredsSummary,
+  },
+  returns: v.null(),
+  handler: async (ctx, { projectId, runnerId, deployCredsSummary }) => {
+    const runner = await ctx.db.get(runnerId);
+    if (!runner || runner.projectId !== projectId) return null;
+    await ctx.db.patch(runnerId, { deployCredsSummary });
+    await ctx.runMutation(internal.controlPlane.projectCredentials.syncFromDeployCredsSummaryInternal, {
+      projectId,
+      summary: deployCredsSummary,
+    });
+    return null;
   },
 });

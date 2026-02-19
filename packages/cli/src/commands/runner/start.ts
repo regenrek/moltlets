@@ -167,11 +167,12 @@ const RUNNER_EMPTY_LEASE_MAX_STREAK = 8;
 const RUNNER_EMPTY_LEASE_JITTER_MIN = 0.85;
 const RUNNER_EMPTY_LEASE_JITTER_MAX = 1.15;
 const RUNNER_METADATA_SYNC_MAX_AGE_MS = 10 * 60_000;
-const RUNNER_POST_JOB_IDLE_POLL_MS = 500;
 const RUNNER_METADATA_SYNC_SHUTDOWN_FLUSH_TIMEOUT_MS = 2_000;
 const RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT = 0;
-const RUNNER_IDLE_POLL_MS_DEFAULT = 4_000;
-const RUNNER_IDLE_POLL_MAX_MS_DEFAULT = 8_000;
+const RUNNER_IDLE_POLL_MS_DEFAULT = 100;
+const RUNNER_IDLE_POLL_MAX_MS_DEFAULT = 100;
+const TOKEN_KEYRING_MUTATE_ARGS = ["env", "token-keyring-mutate", "--from-json", "__RUNNER_INPUT_JSON__", "--json"] as const;
+const TOKEN_KEYRING_MUTATE_ALLOWED_INPUT_KEYS = new Set(["action", "kind", "keyId", "label", "value"]);
 
 // Threat model: this path materializes runtime secrets on disk for execution only.
 // Temp files must be short-lived, owner-only readable, and scrubbed on all terminal paths.
@@ -205,8 +206,33 @@ function computeIdleLeasePollDelayMs(params: {
   return Math.min(pollMaxMs, Math.max(pollMs, jitter(baseDelayMs, params.random ?? Math.random)));
 }
 
+function computePostJobIdlePollDelayMs(params: {
+  requestedWaitMs: number;
+  waitApplied: boolean | undefined;
+  pollMs: number;
+}): number {
+  const wasIdleWakeup = params.requestedWaitMs > 0 && params.waitApplied === true;
+  if (!wasIdleWakeup) return 0;
+  return Math.max(0, Math.trunc(params.pollMs));
+}
+
 function metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
   const normalized = {
+    deployCredsSummary: payload.deployCredsSummary
+        ? {
+            envFileOrigin: payload.deployCredsSummary.envFileOrigin,
+            envFileStatus: payload.deployCredsSummary.envFileStatus,
+            hasGithubToken: payload.deployCredsSummary.hasGithubToken,
+            hasGithubTokenAccess: payload.deployCredsSummary.hasGithubTokenAccess,
+            githubTokenAccessMessage: payload.deployCredsSummary.githubTokenAccessMessage,
+            hasGitRemoteOrigin: payload.deployCredsSummary.hasGitRemoteOrigin,
+            gitRemoteOrigin: payload.deployCredsSummary.gitRemoteOrigin,
+            sopsAgeKeyFileSet: payload.deployCredsSummary.sopsAgeKeyFileSet,
+            projectTokenKeyrings: payload.deployCredsSummary.projectTokenKeyrings,
+            fleetSshAuthorizedKeys: payload.deployCredsSummary.fleetSshAuthorizedKeys,
+            fleetSshKnownHosts: payload.deployCredsSummary.fleetSshKnownHosts,
+          }
+      : null,
     projectConfigs: payload.projectConfigs
       .map((row) => ({
         type: row.type,
@@ -386,9 +412,10 @@ function placeholderIndex(args: string[], placeholder: "__RUNNER_SECRETS_JSON__"
 async function writeSecretsJsonTemp(jobId: string, values: Record<string, string>): Promise<string> {
   const adminPasswordHash = String(values["adminPasswordHash"] || "").trim();
   const tailscaleAuthKey = String(values["tailscaleAuthKey"] || "").trim();
-  const secrets: Record<string, string> = {};
+  const secrets: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const [key, value] of Object.entries(values)) {
-    if (key === "adminPasswordHash" || key === "tailscaleAuthKey") continue;
+    if (key === "adminPasswordHash") continue;
+    if (key === "tailscaleAuthKey") continue;
     const name = key.trim();
     if (!name) continue;
     secrets[name] = value;
@@ -465,6 +492,14 @@ export function __test_computeIdleLeasePollDelayMs(params: {
   return computeIdleLeasePollDelayMs(params);
 }
 
+export function __test_computePostJobIdlePollDelayMs(params: {
+  requestedWaitMs: number;
+  waitApplied: boolean | undefined;
+  pollMs: number;
+}): number {
+  return computePostJobIdlePollDelayMs(params);
+}
+
 export function __test_metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
   return metadataSnapshotFingerprint(payload);
 }
@@ -521,8 +556,8 @@ type SetupApplySealedDraftSection = {
 type SetupApplySealedPayload = {
   hostName: string;
   configOps: SetupApplyConfigOp[];
-  deployCredsDraft: SetupApplySealedDraftSection;
-  bootstrapSecretsDraft: SetupApplySealedDraftSection;
+  hostBootstrapCredsDraft: SetupApplySealedDraftSection;
+  hostBootstrapSecretsDraft: SetupApplySealedDraftSection;
 };
 
 function ensureObject(raw: unknown, field: string): Record<string, unknown> {
@@ -611,12 +646,12 @@ function parseSetupApplySealedPayload(rawJson: string): SetupApplySealedPayload 
     throw new Error("setup_apply payload is not valid JSON");
   }
   const root = ensureObject(parsed, "setup_apply");
-  ensureNoExtraKeys(root, "setup_apply", ["hostName", "configOps", "deployCredsDraft", "bootstrapSecretsDraft"]);
+  ensureNoExtraKeys(root, "setup_apply", ["hostName", "configOps", "hostBootstrapCredsDraft", "hostBootstrapSecretsDraft"]);
   return {
     hostName: ensureStringField(root, "hostName", "setup_apply"),
     configOps: parseSetupApplyConfigOps(root.configOps),
-    deployCredsDraft: parseSetupApplySealedSection(root.deployCredsDraft, "setup_apply.deployCredsDraft"),
-    bootstrapSecretsDraft: parseSetupApplySealedSection(root.bootstrapSecretsDraft, "setup_apply.bootstrapSecretsDraft"),
+    hostBootstrapCredsDraft: parseSetupApplySealedSection(root.hostBootstrapCredsDraft, "setup_apply.hostBootstrapCredsDraft"),
+    hostBootstrapSecretsDraft: parseSetupApplySealedSection(root.hostBootstrapSecretsDraft, "setup_apply.hostBootstrapSecretsDraft"),
   };
 }
 
@@ -639,7 +674,10 @@ function unsealSetupApplyInput(params: {
   bootstrapSecrets: Record<string, string>;
 } {
   const payload = parseSetupApplySealedPayload(params.outerPlaintextJson);
-  const parseSection = (section: SetupApplySealedDraftSection, sectionName: "deployCreds" | "bootstrapSecrets") => {
+  const parseSection = (
+    section: SetupApplySealedDraftSection,
+    sectionName: "hostBootstrapCreds" | "hostBootstrapSecrets",
+  ) => {
     if (section.targetRunnerId !== params.targetRunnerId) {
       throw new Error(`setup_apply ${sectionName} targetRunnerId mismatch`);
     }
@@ -656,15 +694,30 @@ function unsealSetupApplyInput(params: {
     });
     return parseSealedInputStringMap(sectionPlaintext);
   };
-  const deployCreds = parseSection(payload.deployCredsDraft, "deployCreds");
+  const deployCreds = parseSection(payload.hostBootstrapCredsDraft, "hostBootstrapCreds");
   validateDeployCredsValues(deployCreds);
-  const bootstrapSecrets = parseSection(payload.bootstrapSecretsDraft, "bootstrapSecrets");
+  const bootstrapSecrets = parseSection(payload.hostBootstrapSecretsDraft, "hostBootstrapSecrets");
   return {
     hostName: payload.hostName,
     configOps: payload.configOps,
     deployCreds,
     bootstrapSecrets,
   };
+}
+
+function payloadMetaArgs(job: RunnerLeaseJob): string[] {
+  return Array.isArray(job.payloadMeta?.args)
+    ? job.payloadMeta.args.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+    : [];
+}
+
+function isTokenKeyringMutateInputJob(job: RunnerLeaseJob): boolean {
+  const args = payloadMetaArgs(job);
+  if (args.length !== TOKEN_KEYRING_MUTATE_ARGS.length) return false;
+  for (let i = 0; i < TOKEN_KEYRING_MUTATE_ARGS.length; i += 1) {
+    if (args[i] !== TOKEN_KEYRING_MUTATE_ARGS[i]) return false;
+  }
+  return true;
 }
 
 function validateSealedInputKeysForJob(params: {
@@ -680,18 +733,38 @@ function validateSealedInputKeysForJob(params: {
 
   const seen = Object.keys(params.values);
   if (params.inputPlaceholder) {
-    const updatedKeys = Array.isArray(params.job.payloadMeta?.updatedKeys)
-      ? params.job.payloadMeta?.updatedKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
-      : [];
-    if (updatedKeys.length === 0) {
-      throw new Error("payloadMeta.updatedKeys required for __RUNNER_INPUT_JSON__ job");
-    }
-    const deployKeySet = new Set<string>(DEPLOY_CREDS_KEYS);
     const allowed = new Set<string>();
-    for (const key of updatedKeys) {
-      if (!deployKeySet.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`);
-      allowed.add(key);
+    const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
+
+    const sealedInputKeys = Array.isArray(params.job.payloadMeta?.sealedInputKeys)
+      ? params.job.payloadMeta?.sealedInputKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+      : [];
+
+    if (sealedInputKeys.length > 0) {
+      if (!isTokenKeyringMutateInputJob(params.job)) {
+        throw new Error("payloadMeta.sealedInputKeys only supported for env token-keyring-mutate jobs");
+      }
+      for (const key of sealedInputKeys) {
+        if (forbiddenKeys.has(key)) throw new Error(`payloadMeta.sealedInputKeys forbids: ${key}`);
+        if (!TOKEN_KEYRING_MUTATE_ALLOWED_INPUT_KEYS.has(key)) {
+          throw new Error(`payloadMeta.sealedInputKeys invalid entry: ${key}`);
+        }
+        allowed.add(key);
+      }
+    } else {
+      const updatedKeys = Array.isArray(params.job.payloadMeta?.updatedKeys)
+        ? params.job.payloadMeta?.updatedKeys?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
+        : [];
+      if (updatedKeys.length === 0) {
+        throw new Error("payloadMeta.updatedKeys or payloadMeta.sealedInputKeys required for __RUNNER_INPUT_JSON__ job");
+      }
+      const deployKeySet = new Set<string>(DEPLOY_CREDS_KEYS);
+      for (const key of updatedKeys) {
+        if (!deployKeySet.has(key)) throw new Error(`invalid updatedKeys entry: ${key}`);
+        allowed.add(key);
+      }
     }
+
     for (const key of seen) {
       if (!allowed.has(key)) throw new Error(`sealed input key not allowlisted: ${key}`);
     }
@@ -701,8 +774,10 @@ function validateSealedInputKeysForJob(params: {
   const secretNames = Array.isArray(params.job.payloadMeta?.secretNames)
     ? params.job.payloadMeta?.secretNames?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
     : [];
+  const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
   const allowed = new Set<string>(["adminPasswordHash", "tailscaleAuthKey", ...secretNames]);
   for (const key of seen) {
+    if (forbiddenKeys.has(key)) throw new Error(`sealed input secret forbids: ${key}`);
     if (!allowed.has(key)) throw new Error(`sealed input secret not allowlisted: ${key}`);
   }
 }
@@ -826,6 +901,23 @@ class RunnerJobExecutionError extends Error {
     this.stdoutTruncated = params.stdoutTruncated;
     this.stderrTruncated = params.stderrTruncated;
   }
+}
+
+function pickRunnerErrorDetail(raw: string): string | null {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+  const lines = text
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const firstLine = lines[0];
+  if (!firstLine) return null;
+
+  const interestingRe = /timed out|timeout|permission denied|host key|connection refused|no route|could not|missing|invalid|error:/i;
+  const candidates = lines.filter((line) => interestingRe.test(line));
+  const picked = candidates.find((line) => /^error:/i.test(line)) ?? candidates[0] ?? firstLine;
+  const bounded = picked.length > 500 ? `${picked.slice(0, 500)}...(truncated)` : picked;
+  return bounded.trim() ? bounded : null;
 }
 
 async function executeJob(params: {
@@ -1190,7 +1282,9 @@ async function executeLeasedJobWithRunEvents(params: {
   } catch (err) {
     const durationMs = Math.max(0, Date.now() - startedAt);
     const errorMessage = sanitizeErrorMessage(err, "runner job failed");
+    let errorDetail: string | null = null;
     if (err instanceof RunnerJobExecutionError) {
+      errorDetail = pickRunnerErrorDetail(err.stderrTail || err.stdoutTail || "");
       params.logger.error(
         {
           terminal: "failed",
@@ -1210,6 +1304,7 @@ async function executeLeasedJobWithRunEvents(params: {
       );
     } else {
       const detail = redactKnownSecrets(err instanceof Error ? err.message : String(err || "")).text.trim();
+      errorDetail = pickRunnerErrorDetail(detail);
       params.logger.error(
         {
           terminal: "failed",
@@ -1226,15 +1321,22 @@ async function executeLeasedJobWithRunEvents(params: {
       projectId: params.projectId,
       runId: params.job.runId,
       context: "command_end_error",
-      events: [
-        {
-          ts: Date.now(),
-          level: "error",
-          message: errorMessage,
-          meta: { kind: "phase", phase: "command_end" },
-        },
-      ],
-    });
+        events: [
+          {
+            ts: Date.now(),
+            level: "error",
+            message: errorMessage,
+            meta: { kind: "phase", phase: "command_end" },
+          },
+          ...(errorDetail ? [
+            {
+              ts: Date.now(),
+              level: "error" as const,
+              message: errorDetail,
+            },
+          ] : []),
+        ],
+      });
     return { terminal: "failed", errorMessage };
   }
 }
@@ -1306,8 +1408,8 @@ export const runnerStart = defineCommand({
 	    const controlPlaneUrl = resolveControlPlaneUrl((args as any).controlPlaneUrl);
 	    const runnerName = String((args as any).name || `${envName()}-${os.hostname()}`).trim() || `runner-${os.hostname()}`;
 	    const runOnce = Boolean((args as any).once);
-	    const pollMs = toInt((args as any).pollMs, RUNNER_IDLE_POLL_MS_DEFAULT, 250, 30_000);
-	    const pollMaxMs = Math.max(pollMs, toInt((args as any).pollMaxMs, RUNNER_IDLE_POLL_MAX_MS_DEFAULT, 1_000, 120_000));
+	    const pollMs = toInt((args as any).pollMs, RUNNER_IDLE_POLL_MS_DEFAULT, 50, 30_000);
+	    const pollMaxMs = Math.max(pollMs, toInt((args as any).pollMaxMs, RUNNER_IDLE_POLL_MAX_MS_DEFAULT, pollMs, 120_000));
 	    const leaseWaitMs = toInt((args as any).leaseWaitMs, RUNNER_IDLE_LEASE_WAIT_MS_DEFAULT, 0, 60_000);
 	    const leaseTtlMs = toInt((args as any).leaseTtlMs, 30_000, 5_000, 120_000);
 	    const heartbeatMs = toInt((args as any).heartbeatMs, 30_000, 2_000, 120_000);
@@ -1513,7 +1615,7 @@ export const runnerStart = defineCommand({
             projectId,
             leaseTtlMs,
             waitMs: requestedWaitMs,
-            waitPollMs: Math.max(1_000, pollMaxMs),
+            waitPollMs: Math.max(50, pollMs),
           });
           leaseErrorStreak = 0;
         } catch (err) {
@@ -1616,8 +1718,13 @@ export const runnerStart = defineCommand({
         });
         lastRunId = job.runId;
         lastRunStatus = terminal;
-        if (RUNNER_POST_JOB_IDLE_POLL_MS > 0) {
-          await sleep(RUNNER_POST_JOB_IDLE_POLL_MS);
+        const postJobIdlePollDelayMs = computePostJobIdlePollDelayMs({
+          requestedWaitMs,
+          waitApplied: lease.waitApplied,
+          pollMs,
+        });
+        if (postJobIdlePollDelayMs > 0) {
+          await sleep(postJobIdlePollDelayMs);
         }
 
         if (stopAfterCompletionError) {

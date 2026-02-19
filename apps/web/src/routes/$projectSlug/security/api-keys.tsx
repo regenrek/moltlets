@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { convexQuery } from "@convex-dev/react-query"
+import { useQuery } from "@tanstack/react-query"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
 import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import { useProjectBySlug } from "~/lib/project-data"
@@ -11,6 +14,17 @@ export const Route = createFileRoute("/$projectSlug/security/api-keys")({
 function SecurityApiKeys() {
   const { projectSlug } = Route.useParams()
   const projectQuery = useProjectBySlug(projectSlug)
+  const projectId = projectQuery.projectId
+  const credentialsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectCredentials.listByProject,
+      projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    ),
+  })
+  const credentials = credentialsQuery.data ?? []
+  const bySection = new Map(credentials.map((row) => [row.section, row]))
+  const hcloud = bySection.get("hcloudKeyring")?.metadata
+  const github = bySection.get("githubToken")?.metadata
 
   if (projectQuery.isPending) {
     return <div className="text-muted-foreground">Loading…</div>
@@ -37,20 +51,34 @@ function SecurityApiKeys() {
         setupHref={`/${projectSlug}/runner`}
         title="Hetzner API keys"
         description="Project-wide keyring. Add multiple tokens and select the active one."
+        statusSummary={{
+          hasActive: hcloud?.hasActive === true,
+          itemCount: Number(hcloud?.itemCount || 0),
+          items: hcloud?.items ?? [],
+        }}
+        onQueued={() => {
+          void credentialsQuery.refetch()
+        }}
       />
 
-      <ProjectTokenKeyringCard
-        projectId={projectQuery.projectId as Id<"projects">}
-        kind="tailscale"
-        setupHref={`/${projectSlug}/runner`}
-        title="Tailscale API keys"
-        description="Project-wide keyring used by setup and tailnet bootstrap."
-      />
+      <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+        Tailscale auth keys are host-scoped. Configure <code>tailscale_auth_key</code> per host under{" "}
+        <span className="text-foreground">Host Secrets</span> or the <span className="text-foreground">Setup</span>{" "}
+        flow.
+      </div>
 
       <DeployCredsCard
         projectId={projectQuery.projectId as Id<"projects">}
         setupHref={`/${projectSlug}/runner`}
-        visibleKeys={["GITHUB_TOKEN", "SOPS_AGE_KEY_FILE"]}
+        visibleKeys={["GITHUB_TOKEN"]}
+        statusSummary={{
+          GITHUB_TOKEN: {
+            status: github?.status === "set" ? "set" : "unset",
+          },
+        }}
+        onQueued={() => {
+          void credentialsQuery.refetch()
+        }}
       />
     </div>
   )

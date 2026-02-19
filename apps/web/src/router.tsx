@@ -5,11 +5,12 @@ import {
   notifyManager,
 } from '@tanstack/react-query'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import hotToast from 'react-hot-toast'
+import { toast } from 'sonner'
 import { ConvexQueryClient } from '@convex-dev/react-query'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
+import { shouldRetryQueryError } from './lib/auth-utils'
 
 export function getRouter() {
   if (typeof document !== 'undefined') {
@@ -29,6 +30,7 @@ export function getRouter() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
+        retry: shouldRetryQueryError,
         // Keep Convex query cache warm across route switches.
         gcTime: 5 * 60_000,
         staleTime: 15_000,
@@ -36,7 +38,7 @@ export function getRouter() {
     },
     mutationCache: new MutationCache({
       onError: (error) => {
-        hotToast(error.message, { className: 'bg-red-500 text-white' })
+        toast.error(error.message)
       },
     }),
   })

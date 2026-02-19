@@ -19,6 +19,7 @@ afterEach(() => {
 describe("hcloud timeout", () => {
   it("aborts fetch when timeout elapses", async () => {
     vi.useFakeTimers();
+    const key = makeEd25519PublicKey({ seedByte: 99 });
 
     const fetchMock = vi.fn((_url: string, opts?: { signal?: AbortSignal }) => {
       return new Promise<unknown>((_resolve, reject) => {
@@ -46,7 +47,7 @@ describe("hcloud timeout", () => {
     const pending = ensureHcloudSshKeyId({
       token: "token",
       name: "clawlets",
-      publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey",
+      publicKey: key,
     });
 
     const assertion = expect(pending).rejects.toThrow(/timed out/i);

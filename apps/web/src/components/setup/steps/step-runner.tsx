@@ -91,6 +91,7 @@ function resolveStatusHint(params: {
 export function SetupStepRunner(props: {
   projectId: Id<"projects">
   projectRunnerRepoPath?: string | null
+  isVisible?: boolean
   runnerOnline: boolean
   repoProbeOk: boolean
   repoProbeState: "idle" | "checking" | "ok" | "error"
@@ -112,10 +113,11 @@ export function SetupStepRunner(props: {
   const showRemediation = runnerState === "offline"
   const showRepoProbe = props.repoProbeState !== "idle"
   const readyToContinue = props.runnerOnline
+  const isVisible = props.isVisible !== false
 
   const tokenQuery = useQuery({
     queryKey: ["setup", "runner-token", props.projectId, runnerName, tokenNonce],
-    enabled: typeof window !== "undefined" && showRemediation && Boolean(runnerName.trim()),
+    enabled: typeof window !== "undefined" && isVisible && showRemediation && Boolean(runnerName.trim()),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 30 * 60 * 1000,
     refetchOnMount: false,

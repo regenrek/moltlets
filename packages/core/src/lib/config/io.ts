@@ -3,6 +3,7 @@ import type { RepoLayout } from "../../repo-layout.js";
 import { getRepoLayout } from "../../repo-layout.js";
 import type { ConfigStore, MaybePromise } from "../storage/config-store.js";
 import { FileSystemConfigStore } from "../storage/fs-config-store.js";
+import { requireSyncResult } from "../storage/require-sync-result.js";
 import { ClawletsConfigSchema, type ClawletsConfig } from "./schema.js";
 import { InfraConfigSchema, type InfraConfig } from "./schema-infra.js";
 import { OpenClawConfigSchema, type OpenClawConfig } from "./schema-openclaw.js";
@@ -10,23 +11,12 @@ import { mergeSplitConfigs, splitFullConfig } from "./split.js";
 
 const defaultStore = new FileSystemConfigStore();
 
-function isPromiseLike<T>(value: MaybePromise<T>): value is Promise<T> {
-  return Boolean(value && typeof (value as { then?: unknown }).then === "function");
-}
-
-function requireSyncResult<T>(value: MaybePromise<T>, field: string): T {
-  if (isPromiseLike(value)) {
-    throw new Error(`ConfigStore.${field} must be synchronous for load* APIs`);
-  }
-  return value;
-}
-
 async function toPromise<T>(value: MaybePromise<T>): Promise<T> {
   return await value;
 }
 
 function readJsonFile(store: ConfigStore, filePath: string): unknown {
-  const raw = requireSyncResult(store.readText(filePath), "readText");
+  const raw = requireSyncResult(store.readText(filePath), "readText", "load* APIs");
   try {
     return JSON.parse(raw);
   } catch {
@@ -45,7 +35,7 @@ async function readJsonFileAsync(store: ConfigStore, filePath: string): Promise<
 
 function readOpenClawConfigIfPresent(store: ConfigStore, layout: RepoLayout): OpenClawConfig | null {
   const openclawPath = layout.openclawConfigPath;
-  if (!requireSyncResult(store.exists(openclawPath), "exists")) return null;
+  if (!requireSyncResult(store.exists(openclawPath), "exists", "load* APIs")) return null;
   return OpenClawConfigSchema.parse(readJsonFile(store, openclawPath));
 }
 
@@ -57,7 +47,7 @@ async function readOpenClawConfigIfPresentAsync(store: ConfigStore, layout: Repo
 
 function readInfraConfig(store: ConfigStore, layout: RepoLayout): InfraConfig {
   const infraPath = layout.clawletsConfigPath;
-  if (!requireSyncResult(store.exists(infraPath), "exists")) {
+  if (!requireSyncResult(store.exists(infraPath), "exists", "load* APIs")) {
     throw new Error(`missing clawlets config: ${infraPath}`);
   }
   return InfraConfigSchema.parse(readJsonFile(store, infraPath));
@@ -247,18 +237,12 @@ export async function writeInfraConfig(params: {
   config: InfraConfig;
   store?: ConfigStore;
 }): Promise<void> {
-  const store = params.store ?? defaultStore;
-  const config = InfraConfigSchema.parse(params.config);
-  const nextText = `${JSON.stringify(config, null, 2)}\n`;
-  if (await toPromise(store.exists(params.configPath))) {
-    try {
-      const existingText = await toPromise(store.readText(params.configPath));
-      if (existingText === nextText) return;
-    } catch {
-      // ignore; fall through to write
-    }
-  }
-  await store.writeTextAtomic(params.configPath, nextText);
+  await writeConfigFile({
+    configPath: params.configPath,
+    config: params.config,
+    schema: InfraConfigSchema,
+    store: params.store,
+  });
 }
 
 export async function writeOpenClawConfig(params: {
@@ -266,8 +250,22 @@ export async function writeOpenClawConfig(params: {
   config: OpenClawConfig;
   store?: ConfigStore;
 }): Promise<void> {
+  await writeConfigFile({
+    configPath: params.configPath,
+    config: params.config,
+    schema: OpenClawConfigSchema,
+    store: params.store,
+  });
+}
+
+async function writeConfigFile<T>(params: {
+  configPath: string;
+  config: T;
+  schema: { parse: (value: unknown) => T };
+  store?: ConfigStore;
+}): Promise<void> {
   const store = params.store ?? defaultStore;
-  const config = OpenClawConfigSchema.parse(params.config);
+  const config = params.schema.parse(params.config);
   const nextText = `${JSON.stringify(config, null, 2)}\n`;
   if (await toPromise(store.exists(params.configPath))) {
     try {

@@ -17,12 +17,11 @@ const main = defineCommand({
 function resolveRuntimeDir(rawArgs: string[]): string | undefined {
   for (let i = 0; i < rawArgs.length; i += 1) {
     const arg = rawArgs[i] || "";
-    if (arg === "--runtime-dir" || arg === "--runtimeDir") {
+    if (arg === "--runtime-dir") {
       const next = rawArgs[i + 1];
       if (next) return String(next);
     }
     if (arg.startsWith("--runtime-dir=")) return arg.slice("--runtime-dir=".length);
-    if (arg.startsWith("--runtimeDir=")) return arg.slice("--runtimeDir=".length);
   }
   return undefined;
 }
@@ -32,11 +31,11 @@ function findCommandToken(rawArgs: string[]): { index: number; command: string }
     const arg = rawArgs[i];
     if (!arg) continue;
     if (arg === "--") continue;
-    if (arg === "--runtime-dir" || arg === "--runtimeDir") {
+    if (arg === "--runtime-dir") {
       i += 1;
       continue;
     }
-    if (arg.startsWith("--runtime-dir=") || arg.startsWith("--runtimeDir=")) {
+    if (arg.startsWith("--runtime-dir=")) {
       continue;
     }
     if (arg.startsWith("-")) continue;

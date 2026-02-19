@@ -235,9 +235,14 @@ in
       narinfo-cache-positive-ttl = cfg.cache.netrc.narinfoCachePositiveTtl;
     };
 
+    # Hetzner Cloud uses UEFI firmware (EDK II). Install GRUB to the EFI System
+    # Partition and use the removable path so boot works without NVRAM variables.
+    boot.loader.efi.canTouchEfiVariables = false;
     boot.loader.grub = {
       enable = true;
-      efiSupport = false;
+      efiSupport = true;
+      efiInstallAsRemovable = true;
+      device = "nodev";
       useOSProber = false;
     };
 

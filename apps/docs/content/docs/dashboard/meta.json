@@ -13,6 +13,7 @@
     "ssh-keys",
     "hetzner-token",
     "github-token",
+    "tailscale-auth-key",
     "sops-age-key",
     "how-clawlets-works",
     "local-dev",

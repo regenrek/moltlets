@@ -40,7 +40,18 @@ export function validateTargetHost(targetHost: string): string {
 
 export function buildSshArgs(targetHost: string, opts: { tty?: boolean } = {}): string[] {
   const safeHost = validateTargetHost(targetHost);
-  return [...(opts.tty ? ["-t"] : []), "--", safeHost];
+  // Default to non-interactive SSH. The runner (and most automation flows) has no TTY
+  // and must not block on host key or password prompts.
+  if (opts.tty) return ["-t", "--", safeHost];
+  return [
+    "-T",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "--",
+    safeHost,
+  ];
 }
 
 export async function sshRun(

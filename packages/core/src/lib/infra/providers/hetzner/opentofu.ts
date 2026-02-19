@@ -113,6 +113,8 @@ export async function applyHetznerOpenTofu(params: {
     env,
     dryRun: params.runtime.dryRun,
     redact,
+    stdout: params.runtime.stdio?.stdout,
+    stderr: params.runtime.stdio?.stderr,
   });
 
   const sshKeyId = await ensureHcloudSshKeyIdForSpec({
@@ -129,6 +131,8 @@ export async function applyHetznerOpenTofu(params: {
       env,
       dryRun: params.runtime.dryRun,
       redact,
+      stdout: params.runtime.stdio?.stdout,
+      stderr: params.runtime.stdio?.stderr,
     },
   );
 }
@@ -147,6 +151,8 @@ export async function destroyHetznerOpenTofu(params: {
     env,
     dryRun: params.runtime.dryRun,
     redact,
+    stdout: params.runtime.stdio?.stdout,
+    stderr: params.runtime.stdio?.stderr,
   });
 
   const sshKeyId = await ensureHcloudSshKeyIdForSpec({
@@ -163,6 +169,8 @@ export async function destroyHetznerOpenTofu(params: {
       env,
       dryRun: params.runtime.dryRun,
       redact,
+      stdout: params.runtime.stdio?.stdout,
+      stderr: params.runtime.stdio?.stderr,
     },
   );
 }

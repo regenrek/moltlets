@@ -67,6 +67,32 @@ function parseOptionalString(value: unknown, maxLen: number): string {
   return trimmed
 }
 
+function parseOptionalBoolean(value: unknown): boolean {
+  if (value === undefined || value === null) return false
+  if (typeof value === "boolean") return value
+  if (typeof value === "string") return value.trim().toLowerCase() === "true"
+  return false
+}
+
+function parseOptionalPositiveInt(value: unknown, name: string, maxValue: number): number | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || !Number.isInteger(value)) throw new Error(`invalid ${name}`)
+    if (value < 1 || value > maxValue) throw new Error(`invalid ${name}`)
+    return value
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed) return undefined
+    if (!/^[0-9]+$/.test(trimmed)) throw new Error(`invalid ${name}`)
+    const parsed = Number.parseInt(trimmed, 10)
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) throw new Error(`invalid ${name}`)
+    if (parsed < 1 || parsed > maxValue) throw new Error(`invalid ${name}`)
+    return parsed
+  }
+  throw new Error(`invalid ${name}`)
+}
+
 function parseLines(value: unknown): string {
   if (typeof value !== "string") return "200"
   const trimmed = value.trim()
@@ -296,12 +322,22 @@ export function parseProjectRunHostScopeInput(data: unknown): {
   }
 }
 
-export function parseProjectHostTargetInput(data: unknown): { projectId: Id<"projects">; host: string; targetHost: string } {
+export function parseProjectHostTargetInput(data: unknown): {
+  projectId: Id<"projects">
+  host: string
+  targetHost: string
+  wait: boolean
+  waitTimeoutMs?: number
+  waitPollMs?: number
+} {
   const base = parseProjectHostRequiredInput(data)
   const d = requireObject(data)
   return {
     ...base,
     targetHost: parseOptionalString(d["targetHost"], 512),
+    wait: parseOptionalBoolean(d["wait"]),
+    waitTimeoutMs: parseOptionalPositiveInt(d["waitTimeoutMs"], "waitTimeoutMs", 600_000),
+    waitPollMs: parseOptionalPositiveInt(d["waitPollMs"], "waitPollMs", 120_000),
   }
 }
 

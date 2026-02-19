@@ -9,7 +9,6 @@ import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { getRepoLayout } from "@clawlets/core/repo-layout";
 import {
   createDefaultClawletsConfig,
-  CLAWLETS_CONFIG_SCHEMA_VERSION,
   ClawletsConfigSchema,
   loadClawletsConfig,
   loadFullConfig,
@@ -438,53 +437,12 @@ const replace = defineCommand({
   },
 });
 
-const migrate = defineCommand({
-  meta: { name: "migrate", description: "Reserved for future schema migrations. No migrations are currently supported." },
-  args: {
-    to: {
-      type: "string",
-      description: `Target schema version (only v${CLAWLETS_CONFIG_SCHEMA_VERSION} supported).`,
-      default: `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`,
-    },
-    "dry-run": { type: "boolean", description: "No-op (kept for future compatibility).", default: false },
-  },
-  async run({ args }) {
-    const repoRoot = findRepoRoot(process.cwd());
-    const configPath = getRepoLayout(repoRoot).clawletsConfigPath;
-    if (!(await store.exists(configPath))) throw new Error(`missing config: ${configPath}`);
-
-    const rawText = await store.readText(configPath);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      throw new Error(`invalid JSON: ${configPath}`);
-    }
-
-    const target = `v${CLAWLETS_CONFIG_SCHEMA_VERSION}`;
-    const to = String((args as any).to || target).trim().toLowerCase();
-    if (to !== target && to !== String(CLAWLETS_CONFIG_SCHEMA_VERSION)) {
-      throw new Error(`unsupported --to: ${to} (expected ${target})`);
-    }
-
-    const schemaVersion = Number((parsed as any)?.schemaVersion ?? 0);
-    if (schemaVersion !== CLAWLETS_CONFIG_SCHEMA_VERSION) {
-      throw new Error(
-        `unsupported schemaVersion: ${schemaVersion} (expected ${CLAWLETS_CONFIG_SCHEMA_VERSION}); pre-release config migrations were removed`,
-      );
-    }
-
-    console.log(`ok: schemaVersion ${CLAWLETS_CONFIG_SCHEMA_VERSION} (no migrations available)`);
-  },
-});
-
 export const config = defineCommand({
   meta: { name: "config", description: "Canonical config (fleet/clawlets.json)." },
   subCommands: {
     init,
     show,
     validate,
-    migrate,
     get,
     set,
     "batch-set": batchSet,

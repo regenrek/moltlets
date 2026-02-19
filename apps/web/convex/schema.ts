@@ -57,7 +57,6 @@ export const ProjectDeletionStatus = v.union(
 export const ProjectDeletionStage = v.union(...literals(PROJECT_DELETION_STAGES));
 export const AuditAction = v.union(
   v.literal("bootstrap"),
-  v.literal("config.migrate"),
   v.literal("deployCreds.update"),
   v.literal("setup.apply.commit"),
   v.literal("setup.draft.discard"),
@@ -154,6 +153,12 @@ export const DesiredHostSummary = v.object({
   selfUpdatePublicKeyCount: v.optional(v.number()),
   selfUpdateAllowUnsigned: v.optional(v.boolean()),
 });
+
+export const ObservedHostSummary = v.object({
+  publicIpv4: v.optional(v.string()),
+  publicIpv4UpdatedAt: v.optional(v.number()),
+  publicIpv4SourceRunId: v.optional(v.id("runs")),
+});
 export const DesiredGatewaySummary = v.object({
   enabled: v.optional(v.boolean()),
   channelCount: v.optional(v.number()),
@@ -172,6 +177,7 @@ export const JobPayloadMeta = v.object({
   scope: v.optional(JobSecretScope),
   secretNames: v.optional(v.array(v.string())),
   updatedKeys: v.optional(v.array(v.string())),
+  sealedInputKeys: v.optional(v.array(v.string())),
   configPaths: v.optional(v.array(v.string())),
   args: v.optional(v.array(v.string())),
   note: v.optional(v.string()),
@@ -191,6 +197,62 @@ export const RunnerCapabilities = v.object({
   hasNix: v.optional(v.boolean()),
   nixBin: v.optional(v.string()),
   nixVersion: v.optional(v.string()),
+});
+
+export const DeployEnvFileOrigin = v.union(v.literal("default"), v.literal("explicit"));
+export const DeployEnvFileStatus = v.union(v.literal("ok"), v.literal("missing"), v.literal("invalid"));
+export const RunnerProjectTokenKeyringItemSummary = v.object({
+  id: v.string(),
+  label: v.string(),
+  maskedValue: v.string(),
+  isActive: v.boolean(),
+});
+export const RunnerProjectTokenKeyringSummary = v.object({
+  hasActive: v.boolean(),
+  itemCount: v.number(),
+  items: v.optional(v.array(RunnerProjectTokenKeyringItemSummary)),
+});
+export const RunnerSshListSummary = v.object({
+  count: v.number(),
+  items: v.array(v.string()),
+});
+export const RunnerDeployCredsSummary = v.object({
+  updatedAtMs: v.number(),
+  envFileOrigin: DeployEnvFileOrigin,
+  envFileStatus: DeployEnvFileStatus,
+  envFileError: v.optional(v.string()),
+  hasGithubToken: v.boolean(),
+  hasGithubTokenAccess: v.optional(v.boolean()),
+  githubTokenAccessMessage: v.optional(v.string()),
+  hasGitRemoteOrigin: v.optional(v.boolean()),
+  sopsAgeKeyFileSet: v.boolean(),
+  gitRemoteOrigin: v.optional(v.string()),
+  projectTokenKeyrings: v.object({
+    hcloud: RunnerProjectTokenKeyringSummary,
+    tailscale: RunnerProjectTokenKeyringSummary,
+  }),
+  fleetSshAuthorizedKeys: v.optional(RunnerSshListSummary),
+  fleetSshKnownHosts: v.optional(RunnerSshListSummary),
+});
+export const ProjectCredentialSection = v.union(
+  v.literal("hcloudKeyring"),
+  v.literal("tailscaleKeyring"),
+  v.literal("githubToken"),
+  v.literal("gitRemoteOrigin"),
+  v.literal("sshAuthorizedKeys"),
+  v.literal("sshKnownHosts"),
+);
+export const ProjectCredentialSyncStatus = v.union(
+  v.literal("pending"),
+  v.literal("synced"),
+  v.literal("failed"),
+);
+export const ProjectCredentialMetadata = v.object({
+  status: v.optional(v.union(v.literal("set"), v.literal("unset"))),
+  hasActive: v.optional(v.boolean()),
+  itemCount: v.optional(v.number()),
+  items: v.optional(v.array(RunnerProjectTokenKeyringItemSummary)),
+  stringItems: v.optional(v.array(v.string())),
 });
 export const SetupDraftStatus = v.union(
   v.literal("draft"),
@@ -226,8 +288,8 @@ export const SetupDraftSealedSection = v.object({
   expiresAt: v.number(),
 });
 export const SetupDraftSealedSections = v.object({
-  deployCreds: v.optional(SetupDraftSealedSection),
-  bootstrapSecrets: v.optional(SetupDraftSealedSection),
+  hostBootstrapCreds: v.optional(SetupDraftSealedSection),
+  hostBootstrapSecrets: v.optional(SetupDraftSealedSection),
 });
 
 const schema = defineSchema({
@@ -288,13 +350,14 @@ const schema = defineSchema({
     provider: v.optional(v.string()),
     region: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
-    lastStatus: v.optional(HostStatus),
-    lastRunId: v.optional(v.id("runs")),
-    lastRunStatus: v.optional(RunStatus),
-    desired: v.optional(DesiredHostSummary),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_host", ["projectId", "hostName"]),
+	  lastStatus: v.optional(HostStatus),
+	  lastRunId: v.optional(v.id("runs")),
+	  lastRunStatus: v.optional(RunStatus),
+	  desired: v.optional(DesiredHostSummary),
+	  observed: v.optional(ObservedHostSummary),
+	})
+	  .index("by_project", ["projectId"])
+	  .index("by_project_host", ["projectId", "hostName"]),
 
   gateways: defineTable({
     projectId: v.id("projects"),
@@ -369,9 +432,25 @@ const schema = defineSchema({
     lastStatus: RunnerStatus,
     version: v.optional(v.string()),
     capabilities: v.optional(RunnerCapabilities),
+    deployCredsSummary: v.optional(RunnerDeployCredsSummary),
   })
     .index("by_project", ["projectId"])
     .index("by_project_runner", ["projectId", "runnerName"]),
+
+  projectCredentials: defineTable({
+    projectId: v.id("projects"),
+    section: ProjectCredentialSection,
+    metadata: v.optional(ProjectCredentialMetadata),
+    sealedValueB64: v.optional(v.string()),
+    sealedForRunnerId: v.optional(v.id("runners")),
+    sealedInputAlg: v.optional(v.string()),
+    sealedInputKeyId: v.optional(v.string()),
+    syncStatus: ProjectCredentialSyncStatus,
+    lastSyncError: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_section", ["projectId", "section"]),
 
   runnerTokens: defineTable({
     projectId: v.id("projects"),

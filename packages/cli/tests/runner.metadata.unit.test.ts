@@ -58,6 +58,12 @@ describe("runner metadata snapshot", () => {
       lastRunStatus: "succeeded",
     });
 
+    expect(payload.deployCredsSummary).toBeTruthy();
+    expect(typeof payload.deployCredsSummary?.updatedAtMs).toBe("number");
+    expect(typeof payload.deployCredsSummary?.hasGithubToken).toBe("boolean");
+    expect(typeof payload.deployCredsSummary?.projectTokenKeyrings?.hcloud?.itemCount).toBe("number");
+    expect(typeof payload.deployCredsSummary?.projectTokenKeyrings?.tailscale?.hasActive).toBe("boolean");
+
     const fleetConfig = payload.projectConfigs.find((row) => row.path === "fleet/clawlets.json");
     const openclawConfig = payload.projectConfigs.find((row) => row.path === "fleet/openclaw.json");
     expect(fleetConfig?.sha256).toMatch(/^[a-f0-9]{64}$/);

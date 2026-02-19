@@ -40,7 +40,10 @@ function wantsInteractive(flag: boolean | undefined): boolean {
   return env === "1" || env.toLowerCase() === "true";
 }
 
-function readSecretsInitJson(fromJson: string, opts: { requireAdminPassword: boolean }): SecretsInitJson {
+function readSecretsInitJson(fromJson: string, opts: {
+  requireAdminPassword: boolean;
+  allowMissingAdminPasswordHash?: boolean;
+}): SecretsInitJson {
   const src = String(fromJson || "").trim();
   if (!src) throw new Error("missing --from-json");
 
@@ -53,7 +56,10 @@ function readSecretsInitJson(fromJson: string, opts: { requireAdminPassword: boo
     raw = fs.readFileSync(jsonPath, "utf8");
   }
 
-  return parseSecretsInitJson(raw, { requireAdminPassword: opts.requireAdminPassword });
+  return parseSecretsInitJson(raw, {
+    requireAdminPassword: opts.requireAdminPassword,
+    allowMissingAdminPasswordHash: Boolean(opts.allowMissingAdminPasswordHash),
+  });
 }
 
 export const secretsInit = defineCommand({
@@ -68,10 +74,16 @@ export const secretsInit = defineCommand({
     interactive: { type: "boolean", description: "Prompt for secret values (requires TTY).", default: false },
     fromJson: { type: "string", description: "Read secret values from JSON file (or '-' for stdin) (non-interactive)." },
     allowPlaceholders: { type: "boolean", description: "Allow placeholders for missing tokens.", default: false },
+    allowMissingAdminPasswordHash: {
+      type: "boolean",
+      description: "Allow --from-json without adminPasswordHash (keep existing value or placeholder).",
+      default: false,
+    },
     operator: {
       type: "string",
       description: "Operator id for local age key name (default: $USER).",
     },
+    ageKeyFile: { type: "string", description: "Override operator age key file path for decrypt/encrypt and recipients." },
     yes: { type: "boolean", description: "Overwrite without prompt.", default: false },
     dryRun: { type: "boolean", description: "Print actions without writing.", default: false },
     autowire: { type: "boolean", description: "Autowire missing secretEnv mappings before init.", default: false },
@@ -84,7 +96,9 @@ export const secretsInit = defineCommand({
       interactive?: boolean;
       fromJson?: string | boolean;
       allowPlaceholders?: boolean;
+      allowMissingAdminPasswordHash?: boolean;
       operator?: string;
+      ageKeyFile?: string;
       yes?: boolean;
       dryRun?: boolean;
       autowire?: boolean;
@@ -103,10 +117,14 @@ export const secretsInit = defineCommand({
     if (interactive && !hasTty) throw new Error("--interactive requires a TTY");
 
     const operatorId = sanitizeOperatorId(String(a.operator || process.env.USER || "operator"));
+    const defaultOperatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
+    const overrideOperatorKeyPath = String(a.ageKeyFile || "").trim();
+    const operatorKeyPath = overrideOperatorKeyPath || defaultOperatorKeyPath;
 
     const sopsConfigPath = layout.sopsConfigPath;
-    const operatorKeyPath = getLocalOperatorAgeKeyPath(layout, operatorId);
-    const operatorPubPath = path.join(layout.localOperatorKeysDir, `${operatorId}.age.pub`);
+    const operatorPubPath = overrideOperatorKeyPath
+      ? `${operatorKeyPath}.pub`
+      : path.join(layout.localOperatorKeysDir, `${operatorId}.age.pub`);
     const hostKeyFile = getHostEncryptedAgeKeyFile(layout, hostName);
     const extraFilesKeyPath = getHostExtraFilesKeyPath(layout, hostName);
     const extraFilesSecretsDir = getHostExtraFilesSecretsDir(layout, hostName);
@@ -426,7 +444,10 @@ export const secretsInit = defineCommand({
         i += 1;
       }
     } else {
-      const input = readSecretsInitJson(String(fromJson), { requireAdminPassword: sets.requiresAdminPassword });
+      const input = readSecretsInitJson(String(fromJson), {
+        requireAdminPassword: sets.requiresAdminPassword,
+        allowMissingAdminPasswordHash: Boolean(a.allowMissingAdminPasswordHash),
+      });
       values.adminPasswordHash = input.adminPasswordHash;
       values.tailscaleAuthKey = input.tailscaleAuthKey || "";
       values.secrets = input.secrets || {};

@@ -352,7 +352,7 @@ describe("runner sealed input execution", () => {
         plaintext,
       });
 
-      const { mod, execCaptureTail } = await loadRunnerStartWithMocks({
+      const { mod, execCaptureTail, observed } = await loadRunnerStartWithMocks({
         resolvedKind: kind,
         resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
       });
@@ -382,6 +382,11 @@ describe("runner sealed input execution", () => {
       expect(execCaptureTail.mock.calls[0]?.[0]?.maxStdoutBytes).toBe(0);
       expect(execCaptureTail.mock.calls[0]?.[0]?.maxStderrBytes).toBe(0);
 
+      expect(observed.tempPath).toBeTruthy();
+      expect(observed.tempJson).toBeTruthy();
+      const tempBody = JSON.parse(String(observed.tempJson || "{}")) as any;
+      expect(tempBody).toMatchObject({ secrets: { DISCORD_TOKEN: "token-123" } });
+
       await expect(
         mod.__test_executeJob({
           job: {
@@ -408,6 +413,60 @@ describe("runner sealed input execution", () => {
     }
   });
 
+  it("writes tailscaleAuthKey as a top-level secrets init field (not a managed secret)", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-start-"));
+    try {
+      const keypair = await loadOrCreateRunnerSealedInputKeypair({
+        privateKeyPath: path.join(tempDir, "runner.pem"),
+      });
+      const projectId = "p1";
+      const targetRunnerId = "r1";
+      const kind = "secrets_write";
+      const jobId = "job-tailscale";
+      const plaintext = JSON.stringify({ tailscaleAuthKey: "tskey-auth-abc123" });
+      const sealedInputB64 = buildEnvelope({
+        publicKeySpkiB64: keypair.publicKeySpkiB64,
+        keyId: keypair.keyId,
+        aad: `${projectId}:${jobId}:${kind}:${targetRunnerId}`,
+        plaintext,
+      });
+
+      const { mod, observed } = await loadRunnerStartWithMocks({
+        resolvedKind: kind,
+        resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
+      });
+
+      await expect(
+        mod.__test_executeJob({
+          job: {
+            jobId,
+            runId: "run-tailscale",
+            leaseId: "lease-tailscale",
+            leaseExpiresAt: Date.now() + 30_000,
+            kind,
+            attempt: 1,
+            targetRunnerId,
+            sealedInputB64,
+            sealedInputAlg: RUNNER_SEALED_INPUT_ALG,
+            sealedInputKeyId: keypair.keyId,
+            payloadMeta: { secretNames: ["tailscale_auth_key"] },
+          },
+          repoRoot: "/tmp/repo",
+          projectId,
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+        }),
+      ).resolves.toEqual({});
+
+      expect(observed.tempPath).toBeTruthy();
+      expect(observed.tempJson).toBeTruthy();
+      const tempBody = JSON.parse(String(observed.tempJson || "{}")) as any;
+      expect(tempBody).toMatchObject({ tailscaleAuthKey: "tskey-auth-abc123", secrets: {} });
+      expect(tempBody?.secrets?.tailscaleAuthKey).toBeUndefined();
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("unseals setup_apply nested drafts into final input JSON and returns structured summary", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-start-"));
     try {
@@ -420,23 +479,22 @@ describe("runner sealed input execution", () => {
       const jobId = "job-setup-apply";
       const kind = "setup_apply";
 
-      const deployCredsDraft = buildEnvelope({
+      const hostBootstrapCredsDraft = buildEnvelope({
         publicKeySpkiB64: keypair.publicKeySpkiB64,
         keyId: keypair.keyId,
-        aad: `${projectId}:${hostName}:setupDraft:deployCreds:${targetRunnerId}`,
+        aad: `${projectId}:${hostName}:setupDraft:hostBootstrapCreds:${targetRunnerId}`,
         plaintext: JSON.stringify({
           HCLOUD_TOKEN: "token-123",
           GITHUB_TOKEN: "gh-123",
           SOPS_AGE_KEY_FILE: "/tmp/operator.agekey",
         }),
       });
-      const bootstrapSecretsDraft = buildEnvelope({
+      const hostBootstrapSecretsDraft = buildEnvelope({
         publicKeySpkiB64: keypair.publicKeySpkiB64,
         keyId: keypair.keyId,
-        aad: `${projectId}:${hostName}:setupDraft:bootstrapSecrets:${targetRunnerId}`,
+        aad: `${projectId}:${hostName}:setupDraft:hostBootstrapSecrets:${targetRunnerId}`,
         plaintext: JSON.stringify({
           adminPasswordHash: "$6$hash",
-          tailscaleAuthKey: "tskey-auth",
           discord_token: "token-xyz",
         }),
       });
@@ -449,21 +507,21 @@ describe("runner sealed input execution", () => {
             del: false,
           },
         ],
-        deployCredsDraft: {
+        hostBootstrapCredsDraft: {
           alg: RUNNER_SEALED_INPUT_ALG,
           keyId: keypair.keyId,
           targetRunnerId,
-          sealedInputB64: deployCredsDraft,
-          aad: `${projectId}:${hostName}:setupDraft:deployCreds:${targetRunnerId}`,
+          sealedInputB64: hostBootstrapCredsDraft,
+          aad: `${projectId}:${hostName}:setupDraft:hostBootstrapCreds:${targetRunnerId}`,
           updatedAt: 1,
           expiresAt: Date.now() + 60_000,
         },
-        bootstrapSecretsDraft: {
+        hostBootstrapSecretsDraft: {
           alg: RUNNER_SEALED_INPUT_ALG,
           keyId: keypair.keyId,
           targetRunnerId,
-          sealedInputB64: bootstrapSecretsDraft,
-          aad: `${projectId}:${hostName}:setupDraft:bootstrapSecrets:${targetRunnerId}`,
+          sealedInputB64: hostBootstrapSecretsDraft,
+          aad: `${projectId}:${hostName}:setupDraft:hostBootstrapSecrets:${targetRunnerId}`,
           updatedAt: 1,
           expiresAt: Date.now() + 60_000,
         },
@@ -497,7 +555,7 @@ describe("runner sealed input execution", () => {
             sealedInputKeyId: keypair.keyId,
             payloadMeta: {
               args: ["setup", "apply", "--from-json", "__RUNNER_INPUT_JSON__", "--json"],
-              updatedKeys: ["hostName", "configOps", "deployCredsDraft", "bootstrapSecretsDraft"],
+              updatedKeys: ["hostName", "configOps", "hostBootstrapCredsDraft", "hostBootstrapSecretsDraft"],
             },
           },
           repoRoot: "/tmp/repo",
@@ -519,7 +577,6 @@ describe("runner sealed input execution", () => {
         },
         bootstrapSecrets: {
           adminPasswordHash: "$6$hash",
-          tailscaleAuthKey: "tskey-auth",
           discord_token: "token-xyz",
         },
       });

@@ -17,12 +17,10 @@ import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 const BASE_DEPLOY_CREDS_KEY_SPECS = [
   { key: "NIX_BIN", secret: false, defaultValue: "nix" },
   { key: "SOPS_AGE_KEY_FILE", secret: false, defaultValue: "" },
+  { key: "GIT_REMOTE_ORIGIN", secret: false, defaultValue: "" },
   // JSON payload: {"items":[{"id":"...","label":"...","value":"..."}]}
   { key: "HCLOUD_TOKEN_KEYRING", secret: true, defaultValue: "" },
   { key: "HCLOUD_TOKEN_KEYRING_ACTIVE", secret: false, defaultValue: "" },
-  // JSON payload: {"items":[{"id":"...","label":"...","value":"..."}]}
-  { key: "TAILSCALE_AUTH_KEY_KEYRING", secret: true, defaultValue: "" },
-  { key: "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE", secret: false, defaultValue: "" },
 ] as const satisfies readonly DeployCredsKeySpec[];
 
 export const DEPLOY_CREDS_KEY_SPECS = [

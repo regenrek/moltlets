@@ -239,19 +239,6 @@ export const append = mutation({
         data = { runId: run.runId };
         break;
       }
-      case "config.migrate": {
-        const t = asObject(targetRaw, "target");
-        const d = asObject(dataRaw, "data");
-        ensureNoExtraKeys(t, "target", ["to", "file"]);
-        ensureNoExtraKeys(d, "data", ["runId", "warnings"]);
-        if (typeof t.to !== "number" || !Number.isInteger(t.to)) fail("conflict", "target.to invalid");
-        if (typeof t.file !== "string") fail("conflict", "target.file required");
-        const warnings = normalizeBoundedStringArray(d.warnings, "data.warnings");
-        const run = requireRunId({ runId: d.runId });
-        target = { to: t.to, file: ensureRepoRelativePath(t.file, "target.file", 128) };
-        data = { runId: run.runId, warnings };
-        break;
-      }
       case "deployCreds.update": {
         const t = asObject(targetRaw, "target");
         const d = asObject(dataRaw, "data");

@@ -9,6 +9,7 @@ import {
   DEPLOY_CREDS_KEYS,
   updateDeployCredsEnvFile,
 } from "@clawlets/core/lib/infra/deploy-creds";
+import { mkpasswdYescryptHash } from "@clawlets/core/lib/security/mkpasswd";
 import { findRepoRoot } from "@clawlets/core/lib/project/repo";
 import { capture, run } from "@clawlets/core/lib/runtime/run";
 import { splitDotPath } from "@clawlets/core/lib/storage/dot-path";
@@ -136,8 +137,8 @@ async function applyConfigOps(params: {
     const pathKey = parts.join(".");
     if (op.del) {
       const removed = deleteAtPath(next, parts);
-      if (!removed) throw new Error(`config path not found: ${pathKey}`);
-      updatedPaths.push(pathKey);
+      // Deletes must be idempotent for first-time setup and safe re-runs.
+      if (removed) updatedPaths.push(pathKey);
       continue;
     }
     if (typeof op.valueJson === "string") {
@@ -157,16 +158,40 @@ async function applyConfigOps(params: {
   return updatedPaths;
 }
 
-function buildSecretsInitBody(bootstrapSecrets: Record<string, string>): {
+async function buildSecretsInitBody(params: {
+  bootstrapSecrets: Record<string, string>;
+  repoRoot: string;
+  nixBin: string;
+}): Promise<{
   adminPasswordHash?: string;
   tailscaleAuthKey?: string;
   secrets: Record<string, string>;
-} {
-  const adminPasswordHash = String(bootstrapSecrets["adminPasswordHash"] || "").trim();
-  const tailscaleAuthKey = String(bootstrapSecrets["tailscaleAuthKey"] || "").trim();
+}> {
+  const adminPasswordHashRaw = String(params.bootstrapSecrets["adminPasswordHash"] || "").trim();
+  const adminPasswordRaw = String(params.bootstrapSecrets["adminPassword"] || "").trim();
+  const tailscaleAuthKey =
+    String(
+      params.bootstrapSecrets["tailscaleAuthKey"]
+        || params.bootstrapSecrets["tailscale_auth_key"]
+        || "",
+    ).trim();
+  const adminPasswordHash = adminPasswordHashRaw
+    || (adminPasswordRaw
+      ? await mkpasswdYescryptHash(adminPasswordRaw, {
+          nixBin: params.nixBin,
+          cwd: params.repoRoot,
+          dryRun: false,
+          env: setupApplyEnv(),
+        })
+      : "");
   const secrets: Record<string, string> = {};
-  for (const [key, value] of Object.entries(bootstrapSecrets)) {
-    if (key === "adminPasswordHash" || key === "tailscaleAuthKey") continue;
+  for (const [key, value] of Object.entries(params.bootstrapSecrets)) {
+    if (
+      key === "adminPasswordHash"
+      || key === "adminPassword"
+      || key === "tailscaleAuthKey"
+      || key === "tailscale_auth_key"
+    ) continue;
     const normalized = key.trim();
     if (!normalized) continue;
     secrets[normalized] = value;
@@ -250,12 +275,19 @@ const setupApply = defineCommand({
         updates: deployCredsUpdates,
       });
       const bootstrapSecrets = payload.bootstrapSecrets;
-      const secretsInitBody = buildSecretsInitBody(bootstrapSecrets);
+      const nixBin = String(deployCredsUpdates.NIX_BIN || process.env.NIX_BIN || "nix").trim() || "nix";
+      const secretsInitBody = await buildSecretsInitBody({
+        bootstrapSecrets,
+        repoRoot,
+        nixBin,
+      });
       await fs.writeFile(secretsInitPath, `${JSON.stringify(secretsInitBody, null, 2)}\n`, {
         encoding: "utf8",
         mode: 0o600,
         flag: "wx",
       });
+      const sopsAgeKeyFile = String(deployCredsUpdates.SOPS_AGE_KEY_FILE || "").trim();
+      const ageKeyArgs = sopsAgeKeyFile ? ["--ageKeyFile", sopsAgeKeyFile] : [];
       await run(
         process.execPath,
         [
@@ -268,12 +300,15 @@ const setupApply = defineCommand({
           "bootstrap",
           "--from-json",
           secretsInitPath,
+          "--allowMissingAdminPasswordHash",
+          ...ageKeyArgs,
           "--yes",
         ],
         {
           cwd: repoRoot,
           env: setupApplyEnv(),
           stdin: "ignore",
+          stdout: "ignore",
         },
       );
       const verifyRaw = await capture(
@@ -286,6 +321,7 @@ const setupApply = defineCommand({
           payload.hostName,
           "--scope",
           "bootstrap",
+          ...ageKeyArgs,
           "--json",
         ],
         {

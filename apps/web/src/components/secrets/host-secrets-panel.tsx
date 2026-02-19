@@ -160,7 +160,7 @@ export function HostSecretsPanel({
   const [initRunId, setInitRunId] = useState<Id<"runs"> | null>(null)
   const [setupSavePhase, setSetupSavePhase] = useState<SetupSavePhase>("idle")
   const [setupSaveError, setSetupSaveError] = useState<string | null>(null)
-  const setupDraftSecretsSet = setupDraft?.sealedSecretDrafts?.bootstrapSecrets?.status === "set"
+  const setupDraftSecretsSet = setupDraft?.sealedSecretDrafts?.hostBootstrapSecrets?.status === "set"
 
   const pickTargetSealedRunner = () => {
     if (sealedRunners.length === 1) return sealedRunners[0]
@@ -251,7 +251,7 @@ export function HostSecretsPanel({
       const aad = buildSetupDraftSectionAad({
         projectId,
         host,
-        section: "bootstrapSecrets",
+        section: "hostBootstrapSecrets",
         targetRunnerId,
       })
       const sealedInputB64 = await sealForRunner({
@@ -265,7 +265,7 @@ export function HostSecretsPanel({
         data: {
           projectId,
           host,
-          section: "bootstrapSecrets",
+          section: "hostBootstrapSecrets",
           targetRunnerId,
           sealedInputB64,
           sealedInputAlg: alg,

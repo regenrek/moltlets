@@ -33,8 +33,9 @@ export function deriveConnectionLateHydration(
   const draftAdminCidr = toTrimmedString(input.draftAdminCidr)
   const hostAdminCidr = toTrimmedString(input.hostAdminCidr)
   const currentAdminCidr = toTrimmedString(input.currentAdminCidr)
-  if (!draftAdminCidr && !currentAdminCidr && hostAdminCidr) {
-    result.adminCidr = hostAdminCidr
+  if (!currentAdminCidr) {
+    if (draftAdminCidr) result.adminCidr = draftAdminCidr
+    else if (hostAdminCidr) result.adminCidr = hostAdminCidr
   }
 
   const draftKeys = toUniqueStringList(input.draftSshAuthorizedKeys)
@@ -51,4 +52,3 @@ export function deriveConnectionLateHydration(
   if (result.adminCidr || result.knownKeys || result.selectedKeys) return result
   return null
 }
-

@@ -1,6 +1,7 @@
 export type ConnectionStepRequirementsInput = {
   host: string
   adminCidr: string
+  adminCidrDetecting?: boolean
   hasProjectSshKeys: boolean
   keyText: string
 }
@@ -8,7 +9,7 @@ export type ConnectionStepRequirementsInput = {
 export function resolveConnectionStepMissingRequirements(input: ConnectionStepRequirementsInput): string[] {
   const missing: string[] = []
   if (!input.host.trim()) missing.push("host")
-  if (!input.adminCidr.trim()) missing.push("admin IP (CIDR)")
+  if (!input.adminCidr.trim() && !input.adminCidrDetecting) missing.push("admin IP (CIDR)")
   if (!input.hasProjectSshKeys && !input.keyText.trim()) missing.push("SSH public key")
   return missing
 }
