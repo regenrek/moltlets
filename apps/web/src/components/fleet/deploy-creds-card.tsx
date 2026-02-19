@@ -5,14 +5,11 @@ import { convexQuery } from "@convex-dev/react-query"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { api } from "../../../convex/_generated/api"
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { AsyncButton } from "~/components/ui/async-button"
-import { Badge } from "~/components/ui/badge"
 import { RunnerStatusBanner } from "~/components/fleet/runner-status-banner"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "~/components/ui/input-group"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
-import { Spinner } from "~/components/ui/spinner"
 import { StackedField } from "~/components/ui/stacked-field"
 import { WEB_DEPLOY_CREDS_EDITABLE_KEYS } from "~/lib/deploy-creds-ui"
 import { sealForRunner } from "~/lib/security/sealed-input"
@@ -45,30 +42,6 @@ type DeployCredsCardProps = {
   description?: ReactNode
   visibleKeys?: ReadonlyArray<(typeof WEB_DEPLOY_CREDS_EDITABLE_KEYS)[number]>
   headerBadge?: ReactNode
-  githubRepoHint?: ReactNode
-  githubFirstPushGuidance?: {
-    commands: string
-    hasUpstream: boolean
-    upstream?: string | null
-    note?: string
-  } | null
-  githubReadiness?: {
-    runnerOnline: boolean
-    pending: boolean
-    refreshing: boolean
-    originHead?: string | null
-    branch?: string | null
-    upstream?: string | null
-    ahead?: number | null
-    behind?: number | null
-    onRefresh?: () => void
-    alert?: {
-      severity: "info" | "warning" | "error"
-      message: string
-      title?: string
-      detail?: string
-    } | null
-  } | null
   statusSummary?: DeployCredKeyStatusSummary | null
   onQueued?: () => void
 }
@@ -84,6 +57,13 @@ const DEPLOY_CREDS_OPTIMISTIC_STATUS_TTL_MS = 15_000
 
 type OptimisticDeployCredStatus = "set" | "unset"
 
+function listSummary(parts: string[]): string {
+  if (parts.length === 0) return ""
+  if (parts.length === 1) return parts[0]
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`
+  return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`
+}
+
 export function DeployCredsCard({
   projectId,
   setupHref = null,
@@ -93,15 +73,13 @@ export function DeployCredsCard({
   description = "Local-only operator tokens used by bootstrap, infra, and doctor.",
   visibleKeys,
   headerBadge,
-  githubRepoHint = null,
-  githubFirstPushGuidance = null,
-  githubReadiness = null,
   statusSummary = null,
   onQueued,
 }: DeployCredsCardProps) {
   const queryClient = useQueryClient()
   const keysToShow = visibleKeys?.length ? visibleKeys : WEB_DEPLOY_CREDS_EDITABLE_KEYS
   const visibleKeySet = useMemo(() => new Set<string>(keysToShow), [keysToShow])
+  const showGitRemoteOrigin = visibleKeySet.has("GIT_REMOTE_ORIGIN")
   const showGithubToken = visibleKeySet.has("GITHUB_TOKEN")
   const showSopsAgeKeyFile = visibleKeySet.has("SOPS_AGE_KEY_FILE")
   const setupMode = Boolean(setupDraftFlow)
@@ -189,12 +167,17 @@ export function DeployCredsCard({
   )
 
   const [githubToken, setGithubToken] = useState("")
+  const [gitRemoteOrigin, setGitRemoteOrigin] = useState("")
   const effectiveStatusSummary = useMemo<DeployCredKeyStatusSummary>(
     () => {
       if (statusSummary) return statusSummary
       const runnerSummary = selectedRunner?.deployCredsSummary
       if (!runnerSummary) return {}
       return {
+        GIT_REMOTE_ORIGIN: {
+          status: runnerSummary.hasGitRemoteOrigin ? "set" : "unset",
+          value: runnerSummary.gitRemoteOrigin,
+        },
         GITHUB_TOKEN: { status: runnerSummary.hasGithubToken ? "set" : "unset" },
         SOPS_AGE_KEY_FILE: { status: runnerSummary.sopsAgeKeyFileSet ? "set" : "unset" },
       }
@@ -212,6 +195,12 @@ export function DeployCredsCard({
   }
   const projectVisibleKeysReady = keysToShow.every((key) => projectKeyIsSet(key))
   const setupDraftDeployCredsSet = setupDraftFlow?.setupDraft?.sealedSecretDrafts?.hostBootstrapCreds?.status === "set"
+  const gitRemoteOriginRequired = Boolean(
+    setupDraftFlow
+    && showGitRemoteOrigin
+    && !setupDraftDeployCredsSet
+    && !projectKeyIsSet("GIT_REMOTE_ORIGIN"),
+  )
   const githubTokenRequired = Boolean(
     setupDraftFlow
     && showGithubToken
@@ -222,10 +211,6 @@ export function DeployCredsCard({
   const pickTargetRunner = () => {
     if (sealedRunners.length === 1) return sealedRunners[0]
     return sealedRunners.find((row) => String(row._id) === selectedRunnerId)
-  }
-
-  function formatShortSha(sha?: string | null): string {
-    return String(sha || "").trim().slice(0, 7) || "none"
   }
 
   const saveField = useMutation({
@@ -307,6 +292,7 @@ export function DeployCredsCard({
       onQueued?.()
       setOptimisticStatus(input.key, input.kind === "remove" ? "unset" : "set")
       if (input.key === "GITHUB_TOKEN") setGithubToken("")
+      if (input.key === "GIT_REMOTE_ORIGIN") setGitRemoteOrigin("")
       if (setupDraftFlow) {
         await queryClient.invalidateQueries({ queryKey: ["setupDraft", projectId, setupDraftFlow.host] })
         return
@@ -333,7 +319,6 @@ export function DeployCredsCard({
   const runSaveKey = (key: EditableDeployCredKey, value: string) => {
     saveField.mutate({ key, kind: "save", value })
   }
-
   const runRemoveKey = (key: EditableDeployCredKey) => {
     saveField.mutate({ key, kind: "remove", value: "" })
   }
@@ -345,6 +330,24 @@ export function DeployCredsCard({
   const canMutateKeys = runnerOnline
     && sealedRunners.length > 0
     && (sealedRunners.length === 1 || Boolean(selectedRunnerId))
+
+  const setupModeReadyItems = useMemo(() => {
+    const items: string[] = []
+    if (showGithubToken) items.push("GitHub Deploy Token")
+    if (showGitRemoteOrigin) items.push("git remote origin")
+    if (showSopsAgeKeyFile) items.push("SOPS path")
+    return items
+  }, [showGithubToken, showGitRemoteOrigin, showSopsAgeKeyFile])
+
+  const setupModeReadySummary = useMemo(
+    () => `Project ${listSummary(setupModeReadyItems)} already configured. Enter values below only to override for this host draft.`,
+    [setupModeReadyItems],
+  )
+
+  const projectRemoteValue = String(effectiveStatusSummary.GIT_REMOTE_ORIGIN?.value || "").trim()
+  const projectRemoteSet = keyIsSet("GIT_REMOTE_ORIGIN")
+  const projectTokenSet = keyIsSet("GITHUB_TOKEN")
+  const remoteStoredValue = projectRemoteSet ? projectRemoteValue : ""
 
   return (
     <SettingsSection title={title} description={description} headerBadge={headerBadge}>
@@ -373,12 +376,7 @@ export function DeployCredsCard({
         <div className="space-y-4">
           {setupMode && projectVisibleKeysReady ? (
             <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-              {showGithubToken && showSopsAgeKeyFile
-                ? "Project GitHub token and SOPS path already exist."
-                : showGithubToken
-                  ? "Project GitHub token already exists."
-                  : "Project SOPS path already exists."}{" "}
-              Setup reuses project credentials across hosts. Enter values below only to override for this host draft.
+              {setupModeReadySummary}
             </div>
           ) : null}
 
@@ -410,105 +408,74 @@ export function DeployCredsCard({
             </StackedField>
           ) : null}
 
+          {showGitRemoteOrigin ? (
+            <div className="space-y-2">
+              <LabelWithHelp
+                htmlFor="gitRemoteOrigin"
+                className="text-sm font-medium"
+                help={gitRemoteOriginRequired
+                  ? "Git remote origin. Required for setup."
+                  : "Git remote origin URL for the project repository (for example, https://github.com/org/repo)."}
+              >
+                Git remote origin
+              </LabelWithHelp>
+
+              {projectRemoteSet ? (
+                <InputGroup>
+                  <InputGroupInput
+                    id="gitRemoteOrigin"
+                    value={remoteStoredValue || "Saved for this project"}
+                    readOnly
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      disabled={!canMutateKeys}
+                      pending={keyActionPending("GIT_REMOTE_ORIGIN", "remove")}
+                      pendingText="Removing..."
+                      onClick={() => runRemoveKey("GIT_REMOTE_ORIGIN")}
+                    >
+                      Remove
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+              ) : (
+                <InputGroup>
+                  <InputGroupInput
+                    id="gitRemoteOrigin"
+                    value={gitRemoteOrigin}
+                    onChange={(e) => setGitRemoteOrigin(e.target.value)}
+                    placeholder={gitRemoteOriginRequired ? "Required" : "Recommended"}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      disabled={!canMutateKeys || !gitRemoteOrigin.trim()}
+                      pending={keyActionPending("GIT_REMOTE_ORIGIN", "save")}
+                      pendingText="Saving..."
+                      onClick={() => runSaveKey("GIT_REMOTE_ORIGIN", gitRemoteOrigin)}
+                    >
+                      Save
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+              )}
+            </div>
+          ) : null}
+
           {showGithubToken ? (
             <div className="space-y-2">
-              {githubReadiness ? (
-                <div className="mb-2 rounded-md border bg-muted/30 p-3 text-xs space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium">Git push readiness</div>
-                    <AsyncButton
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!githubReadiness.runnerOnline || githubReadiness.refreshing}
-                      pending={githubReadiness.refreshing}
-                      pendingText="Refreshing..."
-                      onClick={() => githubReadiness.onRefresh?.()}
-                    >
-                      Refresh
-                    </AsyncButton>
-                  </div>
-
-                  {githubReadiness.pending ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Spinner className="size-3" />
-                      Checking repo state...
-                    </div>
-                  ) : (
-                    <>
-                      <div className="space-y-1 text-muted-foreground">
-                        <div className="flex items-center justify-between gap-3">
-                          <span>Revision to deploy</span>
-                          <code>{formatShortSha(githubReadiness.originHead)}</code>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span>Branch</span>
-                          <span>{githubReadiness.branch || "unknown"}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span>Upstream</span>
-                          <span>{githubReadiness.upstream || "unset"}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">ahead {githubReadiness.ahead ?? 0}</Badge>
-                        <Badge variant="outline">behind {githubReadiness.behind ?? 0}</Badge>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : null}
-
-              {githubReadiness?.alert ? (
-                <Alert
-                  variant={githubReadiness.alert.severity === "error" ? "destructive" : "default"}
-                  className={githubReadiness.alert.severity === "warning"
-                    ? "mb-2 border-amber-300/50 bg-amber-50/50 text-amber-900 [&_[data-slot=alert-description]]:text-amber-900/90"
-                    : "mb-2"}
-                >
-                  <AlertTitle>{githubReadiness.alert.title || "Deploy blocked"}</AlertTitle>
-                  <AlertDescription>
-                    {githubReadiness.alert.detail || githubReadiness.alert.message}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              {githubFirstPushGuidance ? (
-                <div className="mb-2 rounded-md border bg-muted/20 p-2 text-xs space-y-2">
-                  <div className="font-medium">First push help</div>
-                  <div className="text-muted-foreground">
-                    {githubFirstPushGuidance.hasUpstream
-                      ? `Upstream detected (${githubFirstPushGuidance.upstream || "configured"}). Push once, then refresh.`
-                      : "No upstream detected. Use the path below, set/update origin, push once, then refresh."}
-                  </div>
-                  <pre className="rounded-md border bg-muted/30 p-2 whitespace-pre-wrap break-words">
-                    {githubFirstPushGuidance.commands}
-                  </pre>
-                  {githubFirstPushGuidance.note ? (
-                    <div className="text-muted-foreground">{githubFirstPushGuidance.note}</div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {githubRepoHint ? (
-                <div className="mb-2 rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  {githubRepoHint}
-                </div>
-              ) : null}
-
               <LabelWithHelp
                 htmlFor="githubToken"
                 className="text-sm font-medium"
                 help={githubTokenRequired
-                  ? "GitHub token (GITHUB_TOKEN). Required for setup."
-                  : "GitHub token (GITHUB_TOKEN)."}
+                  ? "GitHub Deploy Token (GITHUB_TOKEN). Required for setup."
+                  : "Github Deploy Token (GITHUB_TOKEN)."}
               >
-                GitHub token
+                Github Deploy Token
               </LabelWithHelp>
 
-              {keyIsSet("GITHUB_TOKEN") ? (
+              {projectTokenSet ? (
                 <InputGroup>
-                  <InputGroupInput id="githubToken" readOnly value="Saved for this project" />
+                  <InputGroupInput id="githubToken" type="password" readOnly value="Saved for this project" />
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton
                       disabled={!canMutateKeys}

@@ -55,7 +55,7 @@ type DeployInitialInstallProps = {
   githubTokenAccessMessage?: string
   hasProjectGitRemoteOrigin?: boolean
   projectGitRemoteOrigin?: string
-  hasActiveTailscaleAuthKey?: boolean
+  hasHostTailscaleAuthKey?: boolean
   showRunnerStatusBanner?: boolean
 }
 
@@ -78,7 +78,7 @@ export function DeployInitialInstall({
   githubTokenAccessMessage = "",
   hasProjectGitRemoteOrigin = false,
   projectGitRemoteOrigin = "",
-  hasActiveTailscaleAuthKey = false,
+  hasHostTailscaleAuthKey = false,
   showRunnerStatusBanner = true,
 }: DeployInitialInstallProps) {
   if (variant === "setup") {
@@ -97,7 +97,7 @@ export function DeployInitialInstall({
         githubTokenAccessMessage={githubTokenAccessMessage}
         hasProjectGitRemoteOrigin={hasProjectGitRemoteOrigin}
         projectGitRemoteOrigin={projectGitRemoteOrigin}
-        hasActiveTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        hasHostTailscaleAuthKey={hasHostTailscaleAuthKey}
         showRunnerStatusBanner={showRunnerStatusBanner}
       />
     )

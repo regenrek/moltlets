@@ -1,6 +1,6 @@
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
+import { TailscaleAuthKeyCard } from "~/components/hosts/tailscale-auth-key-card"
 import { LabelWithHelp } from "~/components/ui/label-help"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { SetupSaveStateBadge } from "~/components/setup/steps/setup-save-state-badge"
@@ -10,35 +10,24 @@ import { setupFieldHelp } from "~/lib/setup-field-help"
 import type { SetupStepStatus } from "~/lib/setup/setup-model"
 import type { SetupDraftView } from "~/sdk/setup"
 
-type TailscaleKeyringSummary = {
-  hasActive: boolean
-  itemCount: number
-  items?: Array<{
-    id: string
-    label: string
-    maskedValue: string
-    isActive: boolean
-  }>
-}
-
 export function SetupStepTailscaleLockdown(props: {
   projectId: Id<"projects">
   projectSlug: string
+  host: string
   stepStatus: SetupStepStatus
   setupDraft: SetupDraftView | null
-  tailscaleKeyringSummary?: TailscaleKeyringSummary | null
   hasTailscaleAuthKey: boolean
   allowTailscaleUdpIngress: boolean
   useTailscaleLockdown: boolean
   onAllowTailscaleUdpIngressChange: (value: boolean) => void
   onUseTailscaleLockdownChange: (value: boolean) => void
-  onProjectCredsQueued?: () => void
 }) {
-  const statusText = !props.useTailscaleLockdown
-    ? "Disabled. Deploy keeps bootstrap SSH access until you run lockdown manually."
-    : props.hasTailscaleAuthKey
-      ? "Ready. Deploy will switch SSH access to tailnet and queue lockdown automatically."
-      : "Missing active project Tailscale auth key."
+  const statusText =
+    !props.useTailscaleLockdown
+      ? "Disabled. Deploy keeps bootstrap SSH access until you run lockdown manually."
+      : props.hasTailscaleAuthKey
+        ? "Ready. Deploy will switch SSH access to tailnet and queue lockdown automatically."
+        : "Missing tailscale_auth_key for this host."
   const saveState = props.setupDraft?.status === "failed"
     ? "error"
     : !props.useTailscaleLockdown || props.hasTailscaleAuthKey
@@ -66,35 +55,24 @@ export function SetupStepTailscaleLockdown(props: {
           />
         </div>
         {props.useTailscaleLockdown ? (
-          <ProjectTokenKeyringCard
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              Add a host-scoped Tailscale auth key so the machine can join your tailnet during bootstrap.{" "}
+              <a
+                className="underline underline-offset-4 hover:text-foreground"
+                href={DOCS_TAILSCALE_AUTH_KEY_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                How to create a Tailscale auth key
+              </a>
+            </div>
+            <TailscaleAuthKeyCard
             projectId={props.projectId}
-            kind="tailscale"
-            setupHref={`/${props.projectSlug}/runner`}
-            title="Tailscale auth keys"
-            description={
-              <>
-                Project-wide keyring. Add multiple keys and select the active one used during setup/deploy.{" "}
-                <a
-                  className="underline underline-offset-4 hover:text-foreground"
-                  href={DOCS_TAILSCALE_AUTH_KEY_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  How to create a Tailscale auth key
-                </a>
-              </>
-            }
-            runnerStatusMode="none"
-            wrapInSection={false}
-            showRunnerStatusBanner={false}
-            showRunnerStatusDetails={false}
-            statusSummary={{
-              hasActive: props.tailscaleKeyringSummary?.hasActive === true,
-              itemCount: Number(props.tailscaleKeyringSummary?.itemCount || 0),
-              items: props.tailscaleKeyringSummary?.items ?? [],
-            }}
-            onQueued={props.onProjectCredsQueued}
-          />
+              projectSlug={props.projectSlug}
+              host={props.host}
+            />
+          </div>
         ) : null}
 
         <Accordion className="rounded-lg border bg-muted/20">

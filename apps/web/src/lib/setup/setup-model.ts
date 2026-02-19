@@ -85,10 +85,13 @@ export type DeriveSetupModelInput = {
   pendingNonSecretDraft?: MinimalPendingNonSecretDraft | null
   latestBootstrapRun: MinimalRun | null
   latestBootstrapSecretsVerifyRun: MinimalRun | null
+  infraExists?: boolean
   useTailscaleLockdown?: boolean
-  hasActiveTailscaleAuthKey?: boolean
+  hasHostTailscaleAuthKey?: boolean
   hasActiveHcloudToken?: boolean
   hasProjectGithubToken?: boolean
+  hasProjectGitRemoteOrigin?: boolean
+  hasProjectGithubTokenAccess?: boolean
 }
 
 function asTrimmedString(value: unknown): string {
@@ -123,15 +126,18 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
   const connectionOk = Boolean(selectedHost && adminCidrOk && hasSshKey)
 
   const latestBootstrapOk = input.latestBootstrapRun?.status === "succeeded"
+  const infraMissing = input.infraExists === false
+  const bootstrappedOk = latestBootstrapOk && !infraMissing
 
   const hcloudOk = Boolean(input.hasActiveHcloudToken)
   const githubCredsOk = Boolean(input.hasProjectGithubToken)
+  const gitRemoteOriginOk = Boolean(input.hasProjectGitRemoteOrigin)
   const infrastructureProvisioningOk = Boolean(selectedHost) && infrastructureHostOk && hcloudOk
   const infrastructureStepDone = infrastructureProvisioningOk
-  const credsStepDone = githubCredsOk
+  const credsStepDone = githubCredsOk && gitRemoteOriginOk
   const connectionStepDone = connectionOk
   const useTailscaleLockdown = input.useTailscaleLockdown === true
-  const hasTailscaleAuthKey = Boolean(input.hasActiveTailscaleAuthKey)
+  const hasTailscaleAuthKey = Boolean(input.hasHostTailscaleAuthKey)
   const tailscaleLockdownOk = !useTailscaleLockdown || hasTailscaleAuthKey
 
   const steps: SetupStep[] = [
@@ -153,13 +159,13 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
     },
     {
       id: "creds",
-      title: "GitHub token",
+      title: "Git Configuration",
       status: credsStepDone ? "done" : "active",
     },
     {
       id: "deploy",
       title: "Install server",
-      status: latestBootstrapOk ? "done" : "active",
+      status: bootstrappedOk ? "done" : "active",
     },
   ]
 
@@ -173,7 +179,7 @@ export function deriveSetupModel(input: DeriveSetupModelInput): SetupModel {
 
   return {
     selectedHost,
-    hasBootstrapped: latestBootstrapOk,
+    hasBootstrapped: bootstrappedOk,
     activeStepId: requestedStep ?? firstIncomplete,
     steps,
     showCelebration,

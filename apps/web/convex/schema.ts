@@ -222,7 +222,11 @@ export const RunnerDeployCredsSummary = v.object({
   envFileStatus: DeployEnvFileStatus,
   envFileError: v.optional(v.string()),
   hasGithubToken: v.boolean(),
+  hasGithubTokenAccess: v.optional(v.boolean()),
+  githubTokenAccessMessage: v.optional(v.string()),
+  hasGitRemoteOrigin: v.optional(v.boolean()),
   sopsAgeKeyFileSet: v.boolean(),
+  gitRemoteOrigin: v.optional(v.string()),
   projectTokenKeyrings: v.object({
     hcloud: RunnerProjectTokenKeyringSummary,
     tailscale: RunnerProjectTokenKeyringSummary,
@@ -234,6 +238,7 @@ export const ProjectCredentialSection = v.union(
   v.literal("hcloudKeyring"),
   v.literal("tailscaleKeyring"),
   v.literal("githubToken"),
+  v.literal("gitRemoteOrigin"),
   v.literal("sshAuthorizedKeys"),
   v.literal("sshKnownHosts"),
 );

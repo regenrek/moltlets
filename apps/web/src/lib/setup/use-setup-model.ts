@@ -7,6 +7,7 @@ import { isProjectRunnerOnline } from "~/lib/setup/runner-status"
 import { deriveSetupModel, type SetupModel } from "~/lib/setup/setup-model"
 import { deriveRepoHealth } from "~/lib/setup/repo-health"
 import { setupConfigProbeQueryOptions, type SetupConfig } from "~/lib/setup/repo-probe"
+import { getHostInfraStatus } from "~/sdk/host"
 import { setupDraftGet } from "~/sdk/setup"
 import { SECRETS_VERIFY_BOOTSTRAP_RUN_KIND } from "~/sdk/secrets/run-kind"
 
@@ -57,6 +58,23 @@ export function useSetupModel(params: {
     [runners],
   )
 
+  const infraStatusQuery = useQuery({
+    queryKey: ["hostInfraStatus", projectId, params.host],
+    queryFn: async () => {
+      if (!projectId) throw new Error("missing projectId")
+      if (!params.host) throw new Error("missing host")
+      return await getHostInfraStatus({ data: { projectId, host: params.host } })
+    },
+    enabled: Boolean(projectId && runnerOnline && params.host),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 30_000,
+  })
+  const infraExists = React.useMemo(
+    () => (infraStatusQuery.data?.ok ? infraStatusQuery.data.exists : undefined),
+    [infraStatusQuery.data],
+  )
+
   const sealedRunners = React.useMemo(
     () =>
       runners
@@ -90,6 +108,37 @@ export function useSetupModel(params: {
     if (sealedRunners.length === 1) return sealedRunners[0] ?? null
     return sealedRunners.find((runner) => String(runner._id) === selectedRunnerId) ?? null
   }, [sealedRunners, selectedRunnerId])
+
+  const projectCredentialsQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.projectCredentials.listByProject,
+      projectId ? { projectId } : "skip",
+    ),
+  })
+  const projectCredentials = projectCredentialsQuery.data ?? []
+
+  const projectCredentialBySection = React.useMemo(() => {
+    const out = new Map<string, (typeof projectCredentials)[number]>()
+    for (const row of projectCredentials) {
+      if (typeof row?.section === "string" && row.section) out.set(row.section, row)
+    }
+    return out
+  }, [projectCredentials])
+
+  const credentialSectionSet = React.useCallback((section: string): boolean => {
+    const row = projectCredentialBySection.get(section)
+    if (!row) return false
+    if (row.metadata?.status === "set") return true
+    if (row.metadata?.status === "unset") return false
+    return row.syncStatus === "pending"
+  }, [projectCredentialBySection])
+
+  const credentialSectionStringValue = React.useCallback((section: string): string => {
+    const row = projectCredentialBySection.get(section)
+    const items = Array.isArray(row?.metadata?.stringItems) ? row.metadata.stringItems : []
+    const first = String(items[0] || "").trim()
+    return first
+  }, [projectCredentialBySection])
 
   const projectConfigsQuery = useQuery({
     ...convexQuery(
@@ -177,19 +226,56 @@ export function useSetupModel(params: {
   React.useEffect(() => {
     clearDeployCredsRefreshTimeouts()
   }, [clearDeployCredsRefreshTimeouts, targetRunnerId])
-  const effectiveProjectTokenKeyrings = deployCredsSummary?.projectTokenKeyrings
-
   const hasActiveHcloudToken = React.useMemo(
-    () => effectiveProjectTokenKeyrings?.hcloud?.hasActive === true,
-    [effectiveProjectTokenKeyrings?.hcloud?.hasActive],
+    () => deployCredsSummary?.projectTokenKeyrings?.hcloud?.hasActive === true,
+    [deployCredsSummary?.projectTokenKeyrings?.hcloud?.hasActive],
   )
-  const hasActiveTailscaleAuthKey = React.useMemo(
-    () => effectiveProjectTokenKeyrings?.tailscale?.hasActive === true,
-    [effectiveProjectTokenKeyrings?.tailscale?.hasActive],
+  const secretWiringQuery = useQuery({
+    ...convexQuery(
+      api.controlPlane.secretWiring.listByProjectHost,
+      projectId && params.host ? { projectId, hostName: params.host } : "skip",
+    ),
+    enabled: Boolean(projectId && params.host),
+  })
+  const hasHostTailscaleAuthKey = React.useMemo(
+    () =>
+      (secretWiringQuery.data ?? []).some(
+        (row) => row.secretName === "tailscale_auth_key" && row.status === "configured",
+      ),
+    [secretWiringQuery.data],
   )
   const hasProjectGithubToken = React.useMemo(
-    () => deployCredsSummary?.hasGithubToken === true,
-    [deployCredsSummary?.hasGithubToken],
+    () =>
+      deployCredsSummary?.hasGithubToken === true
+      || credentialSectionSet("githubToken"),
+    [credentialSectionSet, deployCredsSummary?.hasGithubToken],
+  )
+  const hasProjectGithubTokenAccess = React.useMemo(
+    () =>
+      deployCredsSummary?.hasGithubTokenAccess === false
+        ? false
+        : deployCredsSummary?.hasGithubTokenAccess === true || (deployCredsSummary?.hasGithubToken !== true
+          ? credentialSectionSet("githubToken")
+          : true),
+    [
+      credentialSectionSet,
+      deployCredsSummary?.hasGithubToken,
+      deployCredsSummary?.hasGithubTokenAccess,
+    ],
+  )
+  const githubTokenAccessMessage = React.useMemo(
+    () => String(deployCredsSummary?.githubTokenAccessMessage || "").trim(),
+    [deployCredsSummary?.githubTokenAccessMessage],
+  )
+  const hasProjectGitRemoteOrigin = React.useMemo(
+    () =>
+      Boolean(deployCredsSummary?.hasGitRemoteOrigin)
+      || credentialSectionSet("gitRemoteOrigin"),
+    [credentialSectionSet, deployCredsSummary?.hasGitRemoteOrigin],
+  )
+  const projectGitRemoteOrigin = React.useMemo(
+    () => String(deployCredsSummary?.gitRemoteOrigin || "").trim() || credentialSectionStringValue("gitRemoteOrigin"),
+    [credentialSectionStringValue, deployCredsSummary?.gitRemoteOrigin],
   )
 
   const projectInitRunsPageQuery = useQuery({
@@ -213,10 +299,13 @@ export function useSetupModel(params: {
         pendingNonSecretDraft: params.pendingNonSecretDraft ?? null,
         hasActiveHcloudToken,
         hasProjectGithubToken,
-        hasActiveTailscaleAuthKey,
+        hasProjectGithubTokenAccess,
+        hasProjectGitRemoteOrigin,
+        hasHostTailscaleAuthKey,
         useTailscaleLockdown: params.pendingBootstrapSecrets?.useTailscaleLockdown,
         latestBootstrapRun: latestBootstrapRunQuery.data ?? null,
         latestBootstrapSecretsVerifyRun: latestBootstrapSecretsVerifyRunQuery.data ?? null,
+        infraExists,
       }),
     [
       config,
@@ -224,11 +313,14 @@ export function useSetupModel(params: {
       params.pendingNonSecretDraft,
       hasActiveHcloudToken,
       hasProjectGithubToken,
-      hasActiveTailscaleAuthKey,
+      hasProjectGitRemoteOrigin,
+      hasHostTailscaleAuthKey,
       params.pendingBootstrapSecrets?.useTailscaleLockdown,
       latestBootstrapRunQuery.data,
       latestBootstrapSecretsVerifyRunQuery.data,
+      hasProjectGithubTokenAccess,
       params.host,
+      infraExists,
     ],
   )
 
@@ -257,8 +349,12 @@ export function useSetupModel(params: {
     model,
     selectedHost: model.selectedHost,
     hasActiveHcloudToken,
+    projectGitRemoteOrigin,
     hasProjectGithubToken,
-    hasActiveTailscaleAuthKey,
+    hasProjectGithubTokenAccess,
+    githubTokenAccessMessage,
+    hasProjectGitRemoteOrigin,
+    hasHostTailscaleAuthKey,
     refreshDeployCredsStatus,
   }
 }

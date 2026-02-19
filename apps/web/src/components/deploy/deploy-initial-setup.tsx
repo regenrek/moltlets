@@ -16,7 +16,7 @@ import { Button } from "~/components/ui/button"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Spinner } from "~/components/ui/spinner"
 import { configDotSet } from "~/sdk/config"
-import { getHostPublicIpv4, probeHostTailscaleIpv4, probeSshReachability } from "~/sdk/host"
+import { getHostInfraStatus, getHostPublicIpv4, probeHostTailscaleIpv4, probeSshReachability } from "~/sdk/host"
 import {
   bootstrapExecute,
   bootstrapStart,
@@ -54,7 +54,6 @@ import {
   type FinalizeStepId,
   type FinalizeStepStatus,
 } from "~/components/deploy/deploy-setup-model"
-import { secretsVerifyAndWait } from "~/sdk/secrets/verify"
 
 type SetupPendingBootstrapSecrets = {
   adminPassword: string
@@ -114,7 +113,7 @@ export function DeployInitialInstallSetup(props: {
   githubTokenAccessMessage: string
   hasProjectGitRemoteOrigin: boolean
   projectGitRemoteOrigin: string
-  hasActiveTailscaleAuthKey: boolean
+  hasHostTailscaleAuthKey: boolean
   showRunnerStatusBanner?: boolean
 }) {
   const projectQuery = useProjectBySlug(props.projectSlug)
@@ -125,9 +124,13 @@ export function DeployInitialInstallSetup(props: {
       projectId,
     } : "skip"),
   })
+
+  ;
   const hostsQuery = useQuery({
     ...convexQuery(api.controlPlane.hosts.listByProject, projectId ? { projectId } : "skip"),
   })
+
+  ;
   const latestBootstrapRunQuery = useQuery({
     ...convexQuery(
       api.controlPlane.runs.latestByProjectHostKind,
@@ -141,6 +144,8 @@ export function DeployInitialInstallSetup(props: {
     ),
     enabled: Boolean(projectId && props.host),
   })
+
+  ;
   const latestLockdownRunQuery = useQuery({
     ...convexQuery(
       api.controlPlane.runs.latestByProjectHostKind,
@@ -201,21 +206,41 @@ export function DeployInitialInstallSetup(props: {
     () => (hostsQuery.data ?? []).find((row) => row.hostName === props.host) ?? null,
     [hostsQuery.data, props.host],
   )
+  const infraStatusQuery = useQuery({
+    queryKey: ["hostInfraStatus", projectId, props.host],
+    queryFn: async () => {
+      if (!projectId) throw new Error("missing projectId")
+      return await getHostInfraStatus({
+        data: {
+          projectId: projectId as Id<"projects">,
+          host: props.host,
+        },
+      })
+    },
+    enabled: Boolean(projectId && runnerOnline && props.host),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 30_000,
+  })
+  const infraExists = infraStatusQuery.data?.ok ? infraStatusQuery.data.exists : undefined
+  const infraMissing = infraExists === false
+  const infraMissingDetail = infraMissing && infraStatusQuery.data?.ok && typeof infraStatusQuery.data.detail === "string"
+    ? infraStatusQuery.data.detail.trim()
+    : ""
   const tailnetMode = String(hostSummary?.desired?.tailnetMode || "none")
   const isTailnet = tailnetMode === "tailscale"
   const desiredSshExposureMode = String(hostSummary?.desired?.sshExposureMode || "").trim()
-  const hasProjectTailscaleAuthKey = props.hasActiveTailscaleAuthKey
-  const adminPasswordConfigured = useMemo(
-    () =>
-      (secretWiringQuery.data ?? []).some(
-        (row) => row.secretName === "admin_password_hash" && row.status === "configured",
-      ),
-    [secretWiringQuery.data],
-  )
   const tailscaleAuthKeyConfigured = useMemo(
     () =>
       (secretWiringQuery.data ?? []).some(
         (row) => row.secretName === "tailscale_auth_key" && row.status === "configured",
+      ),
+    [secretWiringQuery.data],
+  )
+  const adminPasswordConfigured = useMemo(
+    () =>
+      (secretWiringQuery.data ?? []).some(
+        (row) => row.secretName === "admin_password_hash" && row.status === "configured",
       ),
     [secretWiringQuery.data],
   )
@@ -265,12 +290,13 @@ export function DeployInitialInstallSetup(props: {
   const projectGitRemoteOriginFromValue = Boolean(props.projectGitRemoteOrigin.trim())
   const projectGitRemoteOriginReady = projectGitRemoteOriginSet || projectGitRemoteOriginFromValue
 
-  const requiresTailscaleAuthKey = isTailnet || desired.connection.sshExposureMode === "tailnet"
+  const wantsTailscaleLockdown = props.pendingBootstrapSecrets.useTailscaleLockdown
+  const requiresTailscaleAuthKey = wantsTailscaleLockdown || isTailnet || desired.connection.sshExposureMode === "tailnet"
   const requiredHostSecretsConfigured = !requiresTailscaleAuthKey || tailscaleAuthKeyConfigured
-  const hasSecretWiringData = secretWiringQuery.isSuccess
-  const requiredHostSecretsGateBlocked = runnerOnline && hasSecretWiringData && !requiredHostSecretsConfigured
-  const requiredHostSecretsGateMessage = runnerOnline && hasSecretWiringData && requiresTailscaleAuthKey && !tailscaleAuthKeyConfigured
-    ? "Missing tailscale auth key for bootstrap. Configure it in Host secrets."
+  const requiredHostSecretsGateBlocked = runnerOnline && !requiredHostSecretsConfigured
+  const requiredHostSecretsGateMessage = runnerOnline && requiresTailscaleAuthKey
+    && !requiredHostSecretsConfigured
+    ? "Missing tailscale_auth_key. Configure it in Tailscale lockdown (per host)."
     : null
 
   const [preparedRev, setPreparedRev] = useState<string | null>(null)
@@ -344,11 +370,10 @@ export function DeployInitialInstallSetup(props: {
     : nixGateMessage || sshKeyGateMessage || adminPasswordGateMessage
       || requiredHostSecretsGateMessage || credsGateMessage || statusReason
 
-  const wantsTailscaleLockdown = props.pendingBootstrapSecrets.useTailscaleLockdown
-  const canAutoLockdown = wantsTailscaleLockdown && hasProjectTailscaleAuthKey
+  const canAutoLockdown = wantsTailscaleLockdown && tailscaleAuthKeyConfigured
   const adminCidr = String(desired.connection.adminCidr || "").trim()
   const adminCidrWorldOpen = adminCidr === "0.0.0.0/0" || adminCidr === "::/0"
-  const autoLockdownMissingTailscaleKey = !hasProjectTailscaleAuthKey
+  const autoLockdownMissingTailscaleKey = !tailscaleAuthKeyConfigured
   const latestBootstrapRun = latestBootstrapRunQuery.data ?? null
   const latestBootstrapRunId = latestBootstrapRun?._id as Id<"runs"> | null
   const latestBootstrapRunStatus = String(latestBootstrapRun?.status || "").trim()
@@ -400,9 +425,9 @@ export function DeployInitialInstallSetup(props: {
         hasProjectGithubToken: props.hasProjectGithubToken,
         hasProjectGitRemoteOrigin: props.hasProjectGitRemoteOrigin,
         projectGitRemoteOrigin: props.projectGitRemoteOrigin,
-        hasProjectTailscaleAuthKey,
+        hasHostTailscaleAuthKey: tailscaleAuthKeyConfigured,
         requiresTailscaleAuthKey,
-        requiredHostSecretsConfigured: tailscaleAuthKeyConfigured,
+        requiredHostSecretsConfigured,
         useTailscaleLockdown: wantsTailscaleLockdown,
         adminPasswordRequired,
         adminPasswordSet: Boolean(props.pendingBootstrapSecrets.adminPassword.trim()),
@@ -413,9 +438,9 @@ export function DeployInitialInstallSetup(props: {
         props.hasProjectGithubToken,
         props.hasProjectGitRemoteOrigin,
         props.projectGitRemoteOrigin,
-        hasProjectTailscaleAuthKey,
-        requiresTailscaleAuthKey,
         tailscaleAuthKeyConfigured,
+        requiresTailscaleAuthKey,
+        requiredHostSecretsConfigured,
         props.host,
         props.pendingBootstrapSecrets.adminPassword,
         adminPasswordRequired,
@@ -451,7 +476,9 @@ export function DeployInitialInstallSetup(props: {
   useEffect(() => {
     if (!latestBootstrapRunId) return
     if (!latestBootstrapRunning) return
-    setBootstrapRunId((prev) => prev ?? latestBootstrapRunId)
+    // Always track the latest running bootstrap run. Otherwise the UI can get stuck
+    // tailing an older run after retries or multi-tab deploy attempts.
+    setBootstrapRunId(latestBootstrapRunId)
     setBootstrapStatus("running")
     setBootstrapFinalizeArmed(true)
   }, [latestBootstrapRunning, latestBootstrapRunId])
@@ -486,7 +513,7 @@ export function DeployInitialInstallSetup(props: {
       const isTailnetTargetHost = (value: string) => /^admin@100\./.test(value)
       const switchTailnetWaitMs = 10 * 60_000
       const switchTailnetPollMs = 5_000
-      const sshReachabilityWaitMs = 90_000
+      const sshReachabilityWaitMs = 5 * 60_000
       const sshReachabilityPollMs = 5_000
       await runFinalizeStep({
         id: "enableHost",
@@ -534,38 +561,28 @@ export function DeployInitialInstallSetup(props: {
         setStepStatus("switchTailnetTarget", "skipped", "Auto-lockdown disabled")
         setStepStatus("switchSshExposure", "skipped", "Auto-lockdown disabled")
         setStepStatus("lockdown", "skipped", "Auto-lockdown disabled")
-      } else if (!hasProjectTailscaleAuthKey) {
-        setStepStatus("switchTailnetTarget", "skipped", "Tailscale auth key missing")
-        setStepStatus("switchSshExposure", "skipped", "Tailscale auth key missing")
-        setStepStatus("lockdown", "skipped", "Tailscale auth key missing")
+      } else if (!tailscaleAuthKeyConfigured) {
+        setStepStatus("switchTailnetTarget", "skipped", "tailscale_auth_key missing")
+        setStepStatus("switchSshExposure", "skipped", "tailscale_auth_key missing")
+        setStepStatus("lockdown", "skipped", "tailscale_auth_key missing")
       } else {
         await runFinalizeStep({
           id: "switchTailnetTarget",
           run: async () => {
             if (!targetHost.trim()) throw new Error("targetHost missing")
-            const startedAt = Date.now()
-            let attempt = 0
-            let lastError = "SSH not reachable yet"
-            while (Date.now() - startedAt < sshReachabilityWaitMs) {
-              attempt += 1
-              setStepStatus(
-                "switchTailnetTarget",
-                "running",
-                `Waiting for SSH via ${targetHost} (attempt ${attempt})...`,
-              )
-              const sshProbe = await probeSshReachability({
-                data: {
-                  projectId: projectId as Id<"projects">,
-                  host: props.host,
-                  targetHost,
-                },
-              })
-              if (sshProbe.ok) break
-              lastError = sshProbe.error || lastError
-              await sleep(sshReachabilityPollMs)
-            }
-            if (Date.now() - startedAt >= sshReachabilityWaitMs) {
-              throw new Error(`SSH not reachable within ${sshReachabilityWaitMs}ms (${lastError || "unknown"})`)
+            setStepStatus("switchTailnetTarget", "running", `Waiting for SSH via ${targetHost}...`)
+            const sshProbe = await probeSshReachability({
+              data: {
+                projectId: projectId as Id<"projects">,
+                host: props.host,
+                targetHost,
+                wait: true,
+                waitTimeoutMs: sshReachabilityWaitMs,
+                waitPollMs: sshReachabilityPollMs,
+              },
+            })
+            if (!sshProbe.ok) {
+              throw new Error(sshProbe.error || `SSH not reachable within ${sshReachabilityWaitMs}ms`)
             }
 
             setStepStatus("switchTailnetTarget", "running", `Waiting for tailnet IPv4 via ${targetHost}...`)
@@ -591,7 +608,8 @@ export function DeployInitialInstallSetup(props: {
               if (!result.ok) throw new Error(extractIssueMessage(result, "Could not set tailnet targetHost"))
               return targetHost
             }
-            throw new Error(probe.error || "Could not resolve tailnet IPv4")
+            if (!probe.ok) throw new Error(probe.error || "Could not resolve tailnet IPv4")
+            throw new Error("Could not resolve tailnet IPv4")
           },
         })
 
@@ -998,19 +1016,14 @@ export function DeployInitialInstallSetup(props: {
 
       // Refresh wiring so admin_password_hash doesn't incorrectly appear missing while query is still loading.
       let adminPasswordConfiguredNow = adminPasswordConfigured
-      let tailscaleAuthKeyConfiguredNow = tailscaleAuthKeyConfigured
       try {
         const secretWiringNow = await secretWiringQuery.refetch().then((res) => res.data ?? [])
         adminPasswordConfiguredNow = secretWiringNow.some(
           (row) => row.secretName === "admin_password_hash" && row.status === "configured",
         )
-        tailscaleAuthKeyConfiguredNow = secretWiringNow.some(
-          (row) => row.secretName === "tailscale_auth_key" && row.status === "configured",
-        )
       } catch {
         // Fall back to current query state; require password if uncertain.
         adminPasswordConfiguredNow = adminPasswordConfigured
-        tailscaleAuthKeyConfiguredNow = tailscaleAuthKeyConfigured
       }
       const adminPasswordRequiredNow = !adminPasswordConfiguredNow
       const adminPasswordNow = props.pendingBootstrapSecrets.adminPassword.trim()
@@ -1026,36 +1039,23 @@ export function DeployInitialInstallSetup(props: {
       )
 
       const requiredTailscaleAuthKeyNow = isTailnet || desiredNow.connection.sshExposureMode === "tailnet"
-      if (requiredTailscaleAuthKeyNow) {
-        setPredeployCheck("requiredHostSecrets", "pending", "Verifying tailscale_auth_key secret...")
-        let tailscaleAuthKeyVerified = false
-        try {
-          const tailscaleVerifyResult = await secretsVerifyAndWait({
-            data: {
-              projectId: projectId as Id<"projects">,
-              host: props.host,
-              scope: "bootstrap",
-            },
-          })
-          if (tailscaleVerifyResult.status !== "succeeded") {
-            throw new Error(tailscaleVerifyResult.errorMessage || "Missing required tailscale_auth_key. Configure it in Host secrets.")
-          }
-          tailscaleAuthKeyVerified = true
-        } catch (error) {
-          const detail = error instanceof Error ? error.message : String(error)
-          setPredeployCheck(
-            "requiredHostSecrets",
-            "failed",
-            detail || "Missing required tailscale_auth_key. Configure it in Host secrets.",
-          )
-          throw new Error(detail || "Missing required tailscale_auth_key for tailscale bootstrap.")
-        }
-        tailscaleAuthKeyConfiguredNow = tailscaleAuthKeyVerified
+      if (requiredTailscaleAuthKeyNow && !tailscaleAuthKeyConfigured) {
+        setPredeployCheck(
+          "requiredHostSecrets",
+          "failed",
+          "Missing tailscale_auth_key. Configure it in Tailscale lockdown (per host).",
+        )
+        throw new Error("Missing required tailscale_auth_key for tailscale bootstrap.")
       }
+
+      const requiredHostSecretsDetail = requiredTailscaleAuthKeyNow
+        ? "tailscale_auth_key configured"
+        : "No additional required host secrets"
+
       setPredeployCheck(
         "requiredHostSecrets",
         "passed",
-        requiredTailscaleAuthKeyNow ? "tailscale_auth_key verified" : "No additional required host secrets",
+        requiredHostSecretsDetail,
       )
 
       if (credsGateBlocked) {
@@ -1100,9 +1100,9 @@ export function DeployInitialInstallSetup(props: {
         hasProjectGithubToken: props.hasProjectGithubToken,
         hasProjectGitRemoteOrigin: props.hasProjectGitRemoteOrigin,
         projectGitRemoteOrigin: props.projectGitRemoteOrigin,
-        hasProjectTailscaleAuthKey,
+        hasHostTailscaleAuthKey: tailscaleAuthKeyConfigured,
         requiresTailscaleAuthKey: requiredTailscaleAuthKeyNow,
-        requiredHostSecretsConfigured: tailscaleAuthKeyConfiguredNow,
+        requiredHostSecretsConfigured: tailscaleAuthKeyConfigured,
         useTailscaleLockdown: wantsTailscaleLockdown,
         adminPasswordRequired: adminPasswordRequiredNow,
         adminPasswordSet: Boolean(props.pendingBootstrapSecrets.adminPassword.trim()),
@@ -1120,7 +1120,7 @@ export function DeployInitialInstallSetup(props: {
       setPredeployError(message)
       toast.error(message)
     },
-  })
+  });
 
   const saveToGitNow = useMutation({
     mutationFn: async () => {
@@ -1161,7 +1161,7 @@ export function DeployInitialInstallSetup(props: {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : String(error))
     },
-  })
+  });
 
   const startDeploy = useMutation({
     mutationFn: async () => {
@@ -1225,15 +1225,19 @@ export function DeployInitialInstallSetup(props: {
       setBootstrapFinalizeArmed(false)
       toast.error(error instanceof Error ? error.message : String(error))
     },
-  })
+  });
 
+  const bootstrapSucceeded = latestBootstrapSucceeded || props.hasBootstrapped || bootstrapStatus === "succeeded"
+  const bootstrapFailed = latestBootstrapFailed || bootstrapStatus === "failed"
   const effectiveBootstrapStatus: "idle" | "running" | "succeeded" | "failed" = latestBootstrapRunning
     ? "running"
-    : latestBootstrapSucceeded || props.hasBootstrapped || bootstrapStatus === "succeeded"
-      ? "succeeded"
-      : latestBootstrapFailed || bootstrapStatus === "failed"
-        ? "failed"
-        : "idle"
+    : infraMissing
+      ? "idle"
+      : bootstrapSucceeded
+        ? "succeeded"
+        : bootstrapFailed
+          ? "failed"
+          : "idle"
   const isBootstrapped = effectiveBootstrapStatus === "succeeded"
   const bootstrapInProgress = effectiveBootstrapStatus === "running"
   const latestBootstrapStartedAt = Number(latestBootstrapRun?.startedAt || 0)
@@ -1276,6 +1280,7 @@ export function DeployInitialInstallSetup(props: {
   const effectiveLockdownRunId = lockdownRunId ?? (latestLockdownForCurrentBootstrap?._id as Id<"runs"> | null)
   const effectiveApplyRunId = applyRunId ?? (latestApplyForCurrentBootstrap?._id as Id<"runs"> | null)
   const shouldAutoStartFinalize = isBootstrapped
+    && infraExists === true
     && effectiveFinalizeState === "idle"
     && !startFinalize.isPending
   const predeployReady = predeployState === "ready" && predeployReadyFingerprint === predeployFingerprint
@@ -1302,19 +1307,23 @@ export function DeployInitialInstallSetup(props: {
   const finalizeRecoveryMessage = wantsTailscaleLockdown
     ? "Automatic hardening failed. Retry Activate VPN & lockdown."
     : "Automatic hardening failed. Review run logs before continuing."
-  const showVpnRecoveryCta = isBootstrapped && effectiveFinalizeState === "failed" && wantsTailscaleLockdown
+  const showVpnRecoveryCta = isBootstrapped && infraExists === true && effectiveFinalizeState === "failed" && wantsTailscaleLockdown
   const openClawSetupPath = `/${props.projectSlug}/hosts/${props.host}/openclaw-setup`
   const hostOverviewPath = `/${props.projectSlug}/hosts/${props.host}`
   const cardStatus = !isBootstrapped
-    ? bootstrapInProgress
-      ? "Deploy in progress..."
-      : predeployState === "running"
-        ? "Running predeploy checks..."
-        : predeployReady
-          ? "Predeploy checks are green. Review summary, then deploy."
-          : predeployState === "failed"
-            ? predeployError || "Predeploy checks failed."
-            : deployStatusReason
+    ? infraMissing
+      ? infraMissingDetail
+        ? `Infrastructure missing. ${infraMissingDetail}`
+        : "Infrastructure missing (likely destroyed). Redeploy required."
+      : bootstrapInProgress
+        ? "Deploy in progress..."
+        : predeployState === "running"
+          ? "Running predeploy checks..."
+          : predeployReady
+            ? "Predeploy checks are green. Review summary, then deploy."
+            : predeployState === "failed"
+              ? predeployError || "Predeploy checks failed."
+              : deployStatusReason
     : effectiveFinalizeState === "running"
       ? "Auto-hardening running..."
       : effectiveFinalizeState === "failed"

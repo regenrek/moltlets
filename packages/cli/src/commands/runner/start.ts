@@ -219,15 +219,19 @@ function computePostJobIdlePollDelayMs(params: {
 function metadataSnapshotFingerprint(payload: RunnerMetadataSyncPayload): string {
   const normalized = {
     deployCredsSummary: payload.deployCredsSummary
-      ? {
-          envFileOrigin: payload.deployCredsSummary.envFileOrigin,
-          envFileStatus: payload.deployCredsSummary.envFileStatus,
-          hasGithubToken: payload.deployCredsSummary.hasGithubToken,
-          sopsAgeKeyFileSet: payload.deployCredsSummary.sopsAgeKeyFileSet,
-          projectTokenKeyrings: payload.deployCredsSummary.projectTokenKeyrings,
-          fleetSshAuthorizedKeys: payload.deployCredsSummary.fleetSshAuthorizedKeys,
-          fleetSshKnownHosts: payload.deployCredsSummary.fleetSshKnownHosts,
-        }
+        ? {
+            envFileOrigin: payload.deployCredsSummary.envFileOrigin,
+            envFileStatus: payload.deployCredsSummary.envFileStatus,
+            hasGithubToken: payload.deployCredsSummary.hasGithubToken,
+            hasGithubTokenAccess: payload.deployCredsSummary.hasGithubTokenAccess,
+            githubTokenAccessMessage: payload.deployCredsSummary.githubTokenAccessMessage,
+            hasGitRemoteOrigin: payload.deployCredsSummary.hasGitRemoteOrigin,
+            gitRemoteOrigin: payload.deployCredsSummary.gitRemoteOrigin,
+            sopsAgeKeyFileSet: payload.deployCredsSummary.sopsAgeKeyFileSet,
+            projectTokenKeyrings: payload.deployCredsSummary.projectTokenKeyrings,
+            fleetSshAuthorizedKeys: payload.deployCredsSummary.fleetSshAuthorizedKeys,
+            fleetSshKnownHosts: payload.deployCredsSummary.fleetSshKnownHosts,
+          }
       : null,
     projectConfigs: payload.projectConfigs
       .map((row) => ({

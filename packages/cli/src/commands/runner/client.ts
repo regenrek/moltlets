@@ -57,10 +57,13 @@ export type RunnerDeployCredsSummary = {
   envFileStatus?: "ok" | "missing" | "invalid";
   envFileError?: string;
   hasGithubToken: boolean;
+  hasGithubTokenAccess: boolean;
+  githubTokenAccessMessage?: string;
+  hasGitRemoteOrigin: boolean;
+  gitRemoteOrigin?: string;
   sopsAgeKeyFileSet: boolean;
   projectTokenKeyrings: {
     hcloud: RunnerProjectTokenKeyringSummary;
-    tailscale: RunnerProjectTokenKeyringSummary;
   };
   fleetSshAuthorizedKeys: RunnerSshListSummary;
   fleetSshKnownHosts: RunnerSshListSummary;

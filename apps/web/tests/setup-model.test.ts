@@ -81,13 +81,47 @@ describe("deriveSetupModel", () => {
       hasActiveHcloudToken: true,
       hasProjectGithubToken: true,
       useTailscaleLockdown: true,
-      hasActiveTailscaleAuthKey: true,
+      hasHostTailscaleAuthKey: true,
       latestBootstrapRun: null,
       latestBootstrapSecretsVerifyRun: null,
     })
 
     expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
     expect(model.activeStepId).toBe("deploy")
+  })
+
+  it("marks tailscale lockdown complete when host secret is configured", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      setupDraft: withDeployCredsDraftSet(),
+      hasActiveHcloudToken: true,
+      hasProjectGithubToken: true,
+      useTailscaleLockdown: true,
+      hasHostTailscaleAuthKey: true,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("done")
+    expect(model.activeStepId).toBe("deploy")
+  })
+
+  it("keeps tailscale lockdown incomplete when host secret is missing", () => {
+    const model = deriveSetupModel({
+      config: baseConfig,
+      hostFromRoute: "h1",
+      setupDraft: withDeployCredsDraftSet(),
+      hasActiveHcloudToken: true,
+      hasProjectGithubToken: true,
+      useTailscaleLockdown: true,
+      hasHostTailscaleAuthKey: false,
+      latestBootstrapRun: null,
+      latestBootstrapSecretsVerifyRun: null,
+    })
+
+    expect(model.steps.find((s) => s.id === "tailscale-lockdown")?.status).toBe("active")
+    expect(model.activeStepId).toBe("tailscale-lockdown")
   })
 
   it("keeps infrastructure active when deploy credentials draft is missing", () => {

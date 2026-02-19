@@ -16,13 +16,13 @@ import {
 } from "@clawlets/shared/lib/project-token-keyring";
 import { coerceTrimmedString } from "@clawlets/shared/lib/strings";
 
-type TokenKeyringKind = "hcloud" | "tailscale";
+type TokenKeyringKind = "hcloud";
 type TokenKeyringAction = "add" | "remove" | "select";
 
 type TokenKeyringConfig = {
   kind: TokenKeyringKind;
-  keyringKey: "HCLOUD_TOKEN_KEYRING" | "TAILSCALE_AUTH_KEY_KEYRING";
-  activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE" | "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE";
+  keyringKey: "HCLOUD_TOKEN_KEYRING";
+  activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE";
 };
 
 const TOKEN_KEYRING_CONFIG: Record<TokenKeyringKind, TokenKeyringConfig> = {
@@ -30,11 +30,6 @@ const TOKEN_KEYRING_CONFIG: Record<TokenKeyringKind, TokenKeyringConfig> = {
     kind: "hcloud",
     keyringKey: "HCLOUD_TOKEN_KEYRING",
     activeKey: "HCLOUD_TOKEN_KEYRING_ACTIVE",
-  },
-  tailscale: {
-    kind: "tailscale",
-    keyringKey: "TAILSCALE_AUTH_KEY_KEYRING",
-    activeKey: "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE",
   },
 };
 
@@ -57,8 +52,8 @@ function requireJsonObject(text: string): Record<string, unknown> {
 
 function parseKind(raw: unknown): TokenKeyringKind {
   const value = coerceTrimmedString(raw).toLowerCase();
-  if (value === "hcloud" || value === "tailscale") return value;
-  throw new Error("kind must be hcloud or tailscale");
+  if (value === "hcloud") return value;
+  throw new Error("kind must be hcloud");
 }
 
 function parseAction(raw: unknown): TokenKeyringAction {
@@ -76,7 +71,7 @@ function ensureNoForbiddenText(value: string, field: string): void {
 export const envTokenKeyringMutate = defineCommand({
   meta: {
     name: "token-keyring-mutate",
-    description: "Mutate deploy creds project token keyrings (Hetzner/Tailscale) from a JSON file.",
+    description: "Mutate deploy creds project token keyrings (Hetzner) from a JSON file.",
   },
   args: {
     runtimeDir: { type: "string", description: "Runtime directory (default: ~/.clawlets/workspaces/<repo>-<hash>; or $CLAWLETS_HOME/workspaces/<repo>-<hash>)." },
@@ -203,4 +198,3 @@ export const envTokenKeyringMutate = defineCommand({
     console.log(`ok: updated ${updatedKeys.join(", ")}`);
   },
 });
-

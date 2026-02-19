@@ -28,8 +28,9 @@ import {
   waitForRunTerminal,
 } from "~/sdk/runtime"
 
-export type ProjectTokenKeyringKind = "hcloud" | "tailscale"
-type ProjectCredentialSection = "hcloudKeyring" | "tailscaleKeyring" | "githubToken"
+export type ProjectTokenKeyringKind = "hcloud"
+type ProjectCredentialSection = "hcloudKeyring" | "githubToken"
+  | "gitRemoteOrigin"
 
 type KeyCandidate = {
   path: string
@@ -47,7 +48,10 @@ type SealedJobReservation = {
   sealedInputPubSpkiB64: string
 }
 
-const DEPLOY_CREDS_KEY_SET = new Set<string>(DEPLOY_CREDS_KEYS)
+const DEPLOY_CREDS_KEY_SET = new Set<string>([
+  ...DEPLOY_CREDS_KEYS,
+  "GIT_REMOTE_ORIGIN",
+])
 const SEALED_INPUT_ALGORITHM = "rsa-oaep-3072/aes-256-gcm"
 
 const PROJECT_TOKEN_KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, {
@@ -62,12 +66,6 @@ const PROJECT_TOKEN_KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, {
     title: "Hetzner API key",
     section: "hcloudKeyring",
   },
-  tailscale: {
-    keyringKey: "TAILSCALE_AUTH_KEY_KEYRING",
-    activeKey: "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE",
-    title: "Tailscale auth key",
-    section: "tailscaleKeyring",
-  },
 }
 
 function projectCredentialSectionsFromUpdatedKeys(updatedKeys: string[]): ProjectCredentialSection[] {
@@ -76,16 +74,16 @@ function projectCredentialSectionsFromUpdatedKeys(updatedKeys: string[]): Projec
     const key = row.trim()
     if (!key) continue
     if (key === "GITHUB_TOKEN") out.add("githubToken")
+    if (key === "GIT_REMOTE_ORIGIN") out.add("gitRemoteOrigin")
     if (key === "HCLOUD_TOKEN_KEYRING" || key === "HCLOUD_TOKEN_KEYRING_ACTIVE") out.add("hcloudKeyring")
-    if (key === "TAILSCALE_AUTH_KEY_KEYRING" || key === "TAILSCALE_AUTH_KEY_KEYRING_ACTIVE") out.add("tailscaleKeyring")
   }
   return Array.from(out)
 }
 
 function parseProjectTokenKeyringKind(raw: unknown): ProjectTokenKeyringKind {
   const value = coerceTrimmedString(raw).toLowerCase()
-  if (value === "hcloud" || value === "tailscale") return value
-  throw new Error("kind must be hcloud or tailscale")
+  if (value === "hcloud") return value
+  throw new Error("kind must be hcloud")
 }
 
 function parseProjectIdWithOptionalHostInput(raw: unknown): {
@@ -307,6 +305,19 @@ async function upsertProjectCredentialPending(params: {
   })
 }
 
+type ProjectCredentialPendingMetadata = {
+  status?: "set" | "unset"
+  hasActive?: boolean
+  itemCount?: number
+  items?: Array<{
+    id: string
+    label: string
+    maskedValue: string
+    isActive: boolean
+  }>
+  stringItems?: string[]
+}
+
 type MutateProjectTokenKeyringAction = "add" | "remove" | "select"
 
 export const queueProjectTokenKeyringUpdate = createServerFn({ method: "POST" })
@@ -488,6 +499,21 @@ export const queueDeployCredsUpdate = createServerFn({ method: "POST" })
       updatedKeys: data.updatedKeys,
     })
     for (const section of projectCredentialSectionsFromUpdatedKeys(data.updatedKeys)) {
+      const sectionMetadata: ProjectCredentialPendingMetadata | undefined = (() => {
+        if (section === "githubToken") {
+          const token = String(data.updates.GITHUB_TOKEN || "").trim()
+          return { status: token ? ("set" as const) : ("unset" as const) }
+        }
+        if (section === "gitRemoteOrigin") {
+          const value = String(data.updates.GIT_REMOTE_ORIGIN || "").trim()
+          if (!value) {
+            return { status: "unset", itemCount: 0 }
+          }
+            return { status: "set", itemCount: 1, stringItems: [value] }
+        }
+        return undefined
+      })()
+
       await upsertProjectCredentialPending({
         projectId: data.projectId,
         section,
@@ -495,6 +521,7 @@ export const queueDeployCredsUpdate = createServerFn({ method: "POST" })
         sealedInputB64,
         sealedInputAlg: reserved.sealedInputAlg,
         sealedInputKeyId: reserved.sealedInputKeyId,
+        ...(sectionMetadata ? { metadata: sectionMetadata } : {}),
       })
     }
     return {

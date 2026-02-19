@@ -7,8 +7,6 @@ const findRepoRootMock = vi.hoisted(() => vi.fn());
 const loadFullConfigMock = vi.hoisted(() => vi.fn());
 const writeClawletsConfigMock = vi.hoisted(() => vi.fn());
 const updateDeployCredsEnvFileMock = vi.hoisted(() => vi.fn());
-const loadDeployCredsMock = vi.hoisted(() => vi.fn());
-const resolveActiveDeployCredsProjectTokenMock = vi.hoisted(() => vi.fn());
 const runMock = vi.hoisted(() => vi.fn());
 const captureMock = vi.hoisted(() => vi.fn());
 
@@ -29,8 +27,6 @@ vi.mock("@clawlets/core/lib/infra/deploy-creds", async (importOriginal) => {
   return {
     ...actual,
     updateDeployCredsEnvFile: updateDeployCredsEnvFileMock,
-    loadDeployCreds: loadDeployCredsMock,
-    resolveActiveDeployCredsProjectToken: resolveActiveDeployCredsProjectTokenMock,
   };
 });
 
@@ -42,13 +38,6 @@ vi.mock("@clawlets/core/lib/runtime/run", () => ({
 describe("setup apply command", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    loadDeployCredsMock.mockReturnValue({
-      values: {
-        TAILSCALE_AUTH_KEY_KEYRING: "",
-        TAILSCALE_AUTH_KEY_KEYRING_ACTIVE: "",
-      },
-    });
-    resolveActiveDeployCredsProjectTokenMock.mockReturnValue(undefined);
   });
 
   it("applies config + deploy creds + secrets in order and prints redacted summary", async () => {

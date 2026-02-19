@@ -62,7 +62,9 @@ function validateWaitTimeout(value: string): string | undefined {
   const withUnit = v.match(/^(\d+)\s*([smhd])$/i);
   const asMs = v.match(/^\d+$/);
   if (!withUnit && !asMs) return "wait-timeout invalid";
-  const n = withUnit ? Number.parseInt(withUnit[1], 10) : Number.parseInt(v, 10);
+  const n = withUnit
+    ? Number.parseInt(withUnit[1] ?? "", 10)
+    : Number.parseInt(v, 10);
   if (!Number.isFinite(n) || n <= 0) return "wait-timeout invalid";
   let ms = n;
   if (withUnit) {
@@ -158,6 +160,18 @@ const specGitRemoteGetUrl: CommandSpec = {
   prefix: ["git", "remote", "get-url"],
   flags: {},
   positional: [{ validate: validateGitRemoteName }],
+};
+
+const specInfraStatus: CommandSpec = {
+  id: "infra_status",
+  prefix: ["infra", "status"],
+  flags: {
+    "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
+    "--json": { kind: "boolean" },
+  },
+  required: ["--host", "--json"],
+  resultMode: "json_small",
+  resultMaxBytes: RUNNER_COMMAND_RESULT_SMALL_MAX_BYTES,
 };
 
 const specConfigShow: CommandSpec = {
@@ -486,6 +500,9 @@ const specServerSshCheck: CommandSpec = {
   flags: {
     "--host": { kind: "value", validate: validateSafeValue("--host", META_MAX.hostName) },
     "--target-host": { kind: "value", validate: validateSafeValue("--target-host", META_MAX.hostName) },
+    "--wait": { kind: "boolean" },
+    "--wait-timeout": { kind: "value", validate: validateWaitTimeout },
+    "--wait-poll-ms": { kind: "value", validate: validateIntRange({ min: 1, max: 120_000, label: "--wait-poll-ms" }) },
     "--json": { kind: "boolean" },
     "--ssh-tty": { kind: "value", validate: validateLiteral("false", "--ssh-tty") },
   },
@@ -606,6 +623,7 @@ const SPECS_BY_KIND: Record<string, CommandSpec[]> = {
     specGitRemoteGetUrl,
     specGitRemoteSetUrl,
     specGitRemoteAdd,
+    specInfraStatus,
     specConfigShow,
     specConfigGet,
     specSecretsSyncPreview,

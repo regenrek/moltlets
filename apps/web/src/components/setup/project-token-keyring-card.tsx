@@ -20,7 +20,7 @@ import {
   queueProjectTokenKeyringUpdate,
 } from "~/sdk/infra"
 
-type ProjectTokenKeyringKind = "hcloud" | "tailscale"
+type ProjectTokenKeyringKind = "hcloud"
 type KeyringMutationAction = "add" | "remove" | "select"
 
 type KeyringKindConfig = {
@@ -45,10 +45,6 @@ const KEYRING_KIND_CONFIG: Record<ProjectTokenKeyringKind, KeyringKindConfig> = 
   hcloud: {
     label: "Hetzner API key",
     valuePlaceholder: "hcloud token",
-  },
-  tailscale: {
-    label: "Tailscale auth key",
-    valuePlaceholder: "tskey-auth-...",
   },
 }
 

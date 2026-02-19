@@ -5,6 +5,7 @@ import { loadFullConfig, type ClawletsConfig } from "@clawlets/core/lib/config/c
 import { getRepoLayout, getHostSecretsDir } from "@clawlets/core/repo-layout";
 import { loadDeployCreds } from "@clawlets/core/lib/infra/deploy-creds";
 import { buildFleetSecretsPlan } from "@clawlets/core/lib/secrets/plan";
+import { checkGithubRepoVisibility, tryParseGithubFlakeUri } from "@clawlets/core/lib/vcs/github";
 import { redactKnownSecrets } from "@clawlets/core/lib/runtime/redaction";
 import {
   maskProjectToken,
@@ -63,7 +64,82 @@ function summarizeSshList(raw: unknown): { count: number; items: string[] } {
   return { count: items.length, items };
 }
 
-function toDeployCredsSummary(params: {
+function parseGitRemoteToGithubFlake(remote: string): string | null {
+  const trimmed = remote.trim();
+  if (!trimmed) return null;
+  const sshMatch = trimmed.match(
+    /^git@github\.com:([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/i,
+  );
+  if (sshMatch && sshMatch[1] && sshMatch[2]) {
+    return `github:${sshMatch[1]}/${sshMatch[2]}`;
+  }
+  const httpsMatch = trimmed.match(
+    /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?(?:\/.*)?$/i,
+  );
+  if (httpsMatch && httpsMatch[1] && httpsMatch[2]) {
+    return `github:${httpsMatch[1]}/${httpsMatch[2]}`;
+  }
+  const sshUrlMatch = trimmed.match(
+    /^ssh:\/\/(?:[^@\/\s]+@)?github\.com[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?(?:\/.*)?$/i,
+  );
+  if (sshUrlMatch && sshUrlMatch[1] && sshUrlMatch[2]) {
+    return `github:${sshUrlMatch[1]}/${sshUrlMatch[2]}`;
+  }
+  return null;
+}
+
+async function getGithubTokenAccessStatus(params: {
+  githubToken: string;
+  gitRemoteOrigin: string;
+}): Promise<{ hasGithubTokenAccess: boolean; githubTokenAccessMessage?: string }> {
+  const token = params.githubToken.trim();
+  const parsedFlake = parseGitRemoteToGithubFlake(params.gitRemoteOrigin);
+  if (!token || !parsedFlake) {
+    return { hasGithubTokenAccess: true };
+  }
+  const githubRepo = tryParseGithubFlakeUri(parsedFlake);
+  if (!githubRepo) {
+    return { hasGithubTokenAccess: true };
+  }
+  const check = await checkGithubRepoVisibility({
+    owner: githubRepo.owner,
+    repo: githubRepo.repo,
+    token,
+  });
+  if (check.ok) {
+    if (check.status === "private-or-missing") {
+      return {
+        hasGithubTokenAccess: false,
+        githubTokenAccessMessage: `(set but no access; GitHub API returned 404 for ${githubRepo.owner}/${githubRepo.repo})`,
+      };
+    }
+    if (check.status === "unauthorized") {
+      return {
+        hasGithubTokenAccess: false,
+        githubTokenAccessMessage: `(set but no access; GitHub API returned 401 for ${githubRepo.owner}/${githubRepo.repo})`,
+      };
+    }
+    return { hasGithubTokenAccess: true };
+  }
+  if (check.status === "network" && check.detail) {
+    return {
+      hasGithubTokenAccess: true,
+      githubTokenAccessMessage: `(set; cannot verify github token access for ${githubRepo.owner}/${githubRepo.repo}: ${check.detail})`,
+    };
+  }
+  if (check.status === "rate-limited") {
+    return {
+      hasGithubTokenAccess: true,
+      githubTokenAccessMessage: `(set; github token access check rate-limited for ${githubRepo.owner}/${githubRepo.repo})`,
+    };
+  }
+  return {
+    hasGithubTokenAccess: true,
+    githubTokenAccessMessage: `(set; github token access check skipped for ${githubRepo.owner}/${githubRepo.repo})`,
+  };
+}
+
+async function toDeployCredsSummary(params: {
   repoRoot: string;
   now: number;
   fleetSshAuthorizedKeys?: unknown;
@@ -76,13 +152,15 @@ function toDeployCredsSummary(params: {
     const envFileOrigin = creds.envFile?.origin ?? "default";
     const envFileStatus = creds.envFile?.status ?? "missing";
     const envFileError = creds.envFile?.error ? sanitizeMetadataErrorMessage(creds.envFile.error, "env read failed") : undefined;
+    const gitRemoteOrigin = String(creds.values.GIT_REMOTE_ORIGIN || "").trim();
+    const githubToken = String(creds.values.GITHUB_TOKEN || "").trim();
+    const githubTokenAccess = await getGithubTokenAccessStatus({
+      githubToken,
+      gitRemoteOrigin,
+    });
     const hcloud = parseKeyringSummary({
       keyringRaw: creds.values.HCLOUD_TOKEN_KEYRING,
       activeIdRaw: creds.values.HCLOUD_TOKEN_KEYRING_ACTIVE,
-    });
-    const tailscale = parseKeyringSummary({
-      keyringRaw: creds.values.TAILSCALE_AUTH_KEY_KEYRING,
-      activeIdRaw: creds.values.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE,
     });
     const fleetSshAuthorizedKeys = summarizeSshList(params.fleetSshAuthorizedKeys);
     const fleetSshKnownHosts = summarizeSshList(params.fleetSshKnownHosts);
@@ -91,11 +169,16 @@ function toDeployCredsSummary(params: {
       envFileOrigin,
       envFileStatus,
       ...(envFileError ? { envFileError } : {}),
-      hasGithubToken: Boolean(String(creds.values.GITHUB_TOKEN || "").trim()),
+      hasGithubToken: Boolean(githubToken),
+      hasGithubTokenAccess: githubTokenAccess.hasGithubTokenAccess,
+      ...(githubTokenAccess.githubTokenAccessMessage
+        ? { githubTokenAccessMessage: githubTokenAccess.githubTokenAccessMessage }
+        : {}),
+      hasGitRemoteOrigin: Boolean(gitRemoteOrigin),
+      ...(gitRemoteOrigin ? { gitRemoteOrigin } : {}),
       sopsAgeKeyFileSet: Boolean(String(creds.values.SOPS_AGE_KEY_FILE || "").trim()),
       projectTokenKeyrings: {
         hcloud,
-        tailscale,
       },
       fleetSshAuthorizedKeys,
       fleetSshKnownHosts,
@@ -107,10 +190,11 @@ function toDeployCredsSummary(params: {
       envFileStatus: "invalid",
       envFileError: sanitizeMetadataErrorMessage(err, "deploy creds read failed"),
       hasGithubToken: false,
+      hasGithubTokenAccess: false,
+      hasGitRemoteOrigin: false,
       sopsAgeKeyFileSet: false,
       projectTokenKeyrings: {
         hcloud: { hasActive: false, itemCount: 0, items: [] },
-        tailscale: { hasActive: false, itemCount: 0, items: [] },
       },
       fleetSshAuthorizedKeys: { count: 0, items: [] },
       fleetSshKnownHosts: { count: 0, items: [] },
@@ -253,7 +337,7 @@ export async function buildMetadataSnapshot(params: {
     const hostNames = Object.keys(config.hosts || {}).toSorted();
     const fleetSshAuthorizedKeys = (config as any)?.fleet?.sshAuthorizedKeys;
     const fleetSshKnownHosts = (config as any)?.fleet?.sshKnownHosts;
-    payload.deployCredsSummary = toDeployCredsSummary({
+    payload.deployCredsSummary = await toDeployCredsSummary({
       repoRoot: params.repoRoot,
       now,
       fleetSshAuthorizedKeys,
@@ -351,11 +435,11 @@ export async function buildMetadataSnapshot(params: {
       path: "fleet/clawlets.json",
       error: `metadata parse failed: ${message}`,
     });
-    payload.deployCredsSummary = toDeployCredsSummary({ repoRoot: params.repoRoot, now });
+    payload.deployCredsSummary = await toDeployCredsSummary({ repoRoot: params.repoRoot, now });
   }
 
   if (!payload.deployCredsSummary) {
-    payload.deployCredsSummary = toDeployCredsSummary({ repoRoot: params.repoRoot, now });
+    payload.deployCredsSummary = await toDeployCredsSummary({ repoRoot: params.repoRoot, now });
   }
 
   return payload;

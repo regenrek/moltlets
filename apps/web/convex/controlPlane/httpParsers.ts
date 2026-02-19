@@ -177,7 +177,11 @@ export function sanitizeDeployCredsSummary(value: unknown): {
   envFileStatus: "ok" | "missing" | "invalid";
   envFileError?: string;
   hasGithubToken: boolean;
+  hasGithubTokenAccess: boolean;
+  githubTokenAccessMessage?: string;
+  hasGitRemoteOrigin: boolean;
   sopsAgeKeyFileSet: boolean;
+  gitRemoteOrigin?: string;
   projectTokenKeyrings: {
     hcloud: {
       hasActive: boolean;
@@ -201,6 +205,16 @@ export function sanitizeDeployCredsSummary(value: unknown): {
   const envFileOrigin = row.envFileOrigin === "explicit" ? "explicit" : "default";
   const envFileStatus = row.envFileStatus === "ok" || row.envFileStatus === "invalid" ? row.envFileStatus : "missing";
   const envFileError = asBoundedOptional(row.envFileError, "deployCredsSummary.envFileError", CONTROL_PLANE_LIMITS.projectConfigPath);
+  const gitRemoteOrigin = asBoundedOptional(row.gitRemoteOrigin, "deployCredsSummary.gitRemoteOrigin", CONTROL_PLANE_LIMITS.projectConfigPath);
+  const hasGitRemoteOrigin = typeof row.hasGitRemoteOrigin === "boolean"
+    ? row.hasGitRemoteOrigin
+    : Boolean(gitRemoteOrigin);
+  const hasGithubTokenAccess = typeof row.hasGithubTokenAccess === "boolean" ? row.hasGithubTokenAccess : true;
+  const githubTokenAccessMessage = asBoundedOptional(
+    row.githubTokenAccessMessage,
+    "deployCredsSummary.githubTokenAccessMessage",
+    CONTROL_PLANE_LIMITS.errorMessage,
+  );
 
   const keyrings =
     row.projectTokenKeyrings && typeof row.projectTokenKeyrings === "object" && !Array.isArray(row.projectTokenKeyrings)
@@ -276,12 +290,16 @@ export function sanitizeDeployCredsSummary(value: unknown): {
 
   return {
     updatedAtMs,
-    envFileOrigin,
-    envFileStatus,
-    ...(envFileError ? { envFileError } : {}),
-    hasGithubToken: Boolean(row.hasGithubToken),
-    sopsAgeKeyFileSet: Boolean(row.sopsAgeKeyFileSet),
-    projectTokenKeyrings: {
+      envFileOrigin,
+      envFileStatus,
+      ...(envFileError ? { envFileError } : {}),
+      hasGithubToken: Boolean(row.hasGithubToken),
+      hasGitRemoteOrigin,
+      hasGithubTokenAccess,
+      ...(githubTokenAccessMessage ? { githubTokenAccessMessage } : {}),
+      ...(gitRemoteOrigin ? { gitRemoteOrigin } : {}),
+      sopsAgeKeyFileSet: Boolean(row.sopsAgeKeyFileSet),
+      projectTokenKeyrings: {
       hcloud: { hasActive: Boolean(hcloud.hasActive), itemCount: hcloudItemCount, items: hcloudItems },
       tailscale: { hasActive: Boolean(tailscale.hasActive), itemCount: tailscaleItemCount, items: tailscaleItems },
     },

@@ -2,7 +2,7 @@
   "name": "clawlets-workspace",
   "private": true,
   "scripts": {
-    "dev": "pnpm -C apps/web dev",
+    "dev": "pnpm -C packages/core build && pnpm -C packages/cli build && pnpm -C apps/web dev",
     "docs:dev": "pnpm -C apps/docs dev",
     "docs:build": "pnpm -C apps/docs build",
     "postinstall": "pnpm -r build",

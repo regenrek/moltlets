@@ -1,9 +1,7 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "../../../convex/_generated/dataModel"
-import { api } from "../../../convex/_generated/api"
 import { AsyncButton } from "~/components/ui/async-button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
@@ -12,6 +10,7 @@ import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { SettingsSection } from "~/components/ui/settings-section"
 import { Switch } from "~/components/ui/switch"
 import { AdminCidrField } from "~/components/hosts/admin-cidr-field"
+import { TailscaleAuthKeyCard } from "~/components/hosts/tailscale-auth-key-card"
 import {
   HostThemeBadge,
   HostThemeColorDropdown,
@@ -22,13 +21,11 @@ import {
 import { HostSshSection } from "~/components/hosts/host-ssh-section"
 import { HostUpdatesSection } from "~/components/hosts/host-updates-section"
 import { HostProviderSettingsSection } from "~/components/hosts/host-provider-settings-section"
-import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
 import {
   HETZNER_SETUP_DEFAULT_LOCATION,
   HETZNER_SETUP_DEFAULT_SERVER_TYPE,
 } from "~/components/hosts/hetzner-options"
 import { looksLikeSshPrivateKeyText, looksLikeSshPublicKeyText } from "~/lib/form-utils"
-import { DOCS_TAILSCALE_AUTH_KEY_URL } from "~/lib/docs-links"
 import { setupFieldHelp } from "~/lib/setup-field-help"
 import { ConnectivityPanel } from "~/components/hosts/connectivity-panel"
 import { configDotSet } from "~/sdk/config"
@@ -142,20 +139,6 @@ export function HostSettingsForm(props: {
   hostConfigQueryKey: readonly unknown[]
 }) {
   const queryClient = useQueryClient()
-  const credentialsQuery = useQuery({
-    ...convexQuery(api.controlPlane.projectCredentials.listByProject, {
-      projectId: props.projectId,
-    }),
-  })
-  const tailscaleKeyringSummary = useMemo(() => {
-    const bySection = new Map((credentialsQuery.data ?? []).map((row) => [row.section, row]))
-    const metadata = bySection.get("tailscaleKeyring")?.metadata
-    return {
-      hasActive: metadata?.hasActive === true,
-      itemCount: Number(metadata?.itemCount || 0),
-      items: metadata?.items ?? [],
-    }
-  }, [credentialsQuery.data])
   const initial = toHostSettingsDraft(props.hostCfg)
   const [enable, setEnable] = useState(initial.enable)
   const [diskDevice, setDiskDevice] = useState(initial.diskDevice)
@@ -390,27 +373,10 @@ export function HostSettingsForm(props: {
             </NativeSelect>
           </div>
           {tailnetMode === "tailscale" ? (
-            <ProjectTokenKeyringCard
+            <TailscaleAuthKeyCard
               projectId={props.projectId}
-              kind="tailscale"
-              title="Tailscale auth keys"
-              description={
-                <>
-                  Project-wide keyring used during setup and tailnet activation.{" "}
-                  <a
-                    className="underline underline-offset-4 hover:text-foreground"
-                    href={DOCS_TAILSCALE_AUTH_KEY_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    How to create a Tailscale auth key
-                  </a>
-                </>
-              }
-              statusSummary={tailscaleKeyringSummary}
-              onQueued={() => {
-                void credentialsQuery.refetch()
-              }}
+              projectSlug={props.projectSlug}
+              host={props.selectedHost}
             />
           ) : null}
         </div>

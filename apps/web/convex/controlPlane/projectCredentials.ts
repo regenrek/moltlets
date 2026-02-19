@@ -13,24 +13,22 @@ import {
 } from "../shared/validators";
 import {
   ProjectCredentialMetadata,
-  ProjectCredentialSection,
   ProjectCredentialSyncStatus,
   RunnerDeployCredsSummary,
 } from "../schema";
 
 type ProjectCredentialSectionValue =
   | "hcloudKeyring"
-  | "tailscaleKeyring"
   | "githubToken"
+  | "gitRemoteOrigin"
   | "sshAuthorizedKeys"
   | "sshKnownHosts";
 
 const DEPLOY_CREDS_KEY_TO_SECTION: Record<string, ProjectCredentialSectionValue> = {
   GITHUB_TOKEN: "githubToken",
+  GIT_REMOTE_ORIGIN: "gitRemoteOrigin",
   HCLOUD_TOKEN_KEYRING: "hcloudKeyring",
   HCLOUD_TOKEN_KEYRING_ACTIVE: "hcloudKeyring",
-  TAILSCALE_AUTH_KEY_KEYRING: "tailscaleKeyring",
-  TAILSCALE_AUTH_KEY_KEYRING_ACTIVE: "tailscaleKeyring",
   "fleet.sshAuthorizedKeys": "sshAuthorizedKeys",
   "fleet.sshKnownHosts": "sshKnownHosts",
 };
@@ -180,14 +178,22 @@ export const listByProject = query({
       .query("projectCredentials")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
-    return [...rows].sort((a, b) => a.section.localeCompare(b.section));
+    return [...rows]
+      .filter((row) => row.section !== "tailscaleKeyring")
+      .sort((a, b) => a.section.localeCompare(b.section));
   },
 });
 
 export const upsertPending = mutation({
   args: {
     projectId: v.id("projects"),
-    section: ProjectCredentialSection,
+    section: v.union(
+      v.literal("hcloudKeyring"),
+      v.literal("githubToken"),
+      v.literal("gitRemoteOrigin"),
+      v.literal("sshAuthorizedKeys"),
+      v.literal("sshKnownHosts"),
+    ),
     metadata: v.optional(ProjectCredentialMetadata),
     sealedValueB64: v.optional(v.string()),
     sealedForRunnerId: v.optional(v.id("runners")),
@@ -279,12 +285,9 @@ export const syncFromDeployCredsSummaryInternal = internalMutation({
     await upsertProjectCredential({
       ctx,
       projectId: args.projectId,
-      section: "tailscaleKeyring",
+      section: "githubToken",
       metadata: {
-        status: args.summary.projectTokenKeyrings.tailscale.hasActive ? "set" : "unset",
-        hasActive: args.summary.projectTokenKeyrings.tailscale.hasActive,
-        itemCount: args.summary.projectTokenKeyrings.tailscale.itemCount,
-        items: args.summary.projectTokenKeyrings.tailscale.items,
+        status: args.summary.hasGithubToken ? "set" : "unset",
       },
       syncStatus: "synced",
       updatedAt: now,
@@ -292,9 +295,11 @@ export const syncFromDeployCredsSummaryInternal = internalMutation({
     await upsertProjectCredential({
       ctx,
       projectId: args.projectId,
-      section: "githubToken",
+      section: "gitRemoteOrigin",
       metadata: {
-        status: args.summary.hasGithubToken ? "set" : "unset",
+        status: args.summary.hasGitRemoteOrigin ? "set" : "unset",
+        itemCount: args.summary.gitRemoteOrigin ? 1 : 0,
+        stringItems: args.summary.gitRemoteOrigin ? [args.summary.gitRemoteOrigin] : [],
       },
       syncStatus: "synced",
       updatedAt: now,

@@ -94,8 +94,8 @@ const STEP_META: Record<string, { title: string; description: string }> = {
     description: "Enable safer SSH access path",
   },
   creds: {
-    title: "GitHub token",
-    description: "Repo access and first push checks",
+    title: "Git Configuration",
+    description: "Git remote and deploy token",
   },
   deploy: { title: "Install Server", description: "Final check and bootstrap" },
 };
@@ -567,7 +567,7 @@ function HostSetupPage() {
   }, [stepSignature, stepperSteps]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6 xl:max-w-6xl">
+    <div className="mx-auto w-full max-w-2xl space-y-6 pb-28 xl:max-w-6xl">
       <RunnerStatusBanner
         projectId={projectId as Id<"projects">}
         setupHref={`/${projectSlug}/runner`}
@@ -684,11 +684,14 @@ function HostSetupPage() {
                   projectAdminCidrError={projectAdminCidrError}
                   hasActiveHcloudToken={setup.hasActiveHcloudToken}
                   hasProjectGithubToken={setup.hasProjectGithubToken}
-                  hasActiveTailscaleAuthKey={setup.hasActiveTailscaleAuthKey}
-                  tailscaleKeyringSummary={setup.deployCredsSummary?.projectTokenKeyrings?.tailscale ?? null}
-                  onPendingInfrastructureDraftChange={
-                    updatePendingInfrastructureDraft
-                  }
+                hasProjectGithubTokenAccess={setup.hasProjectGithubTokenAccess}
+                githubTokenAccessMessage={setup.githubTokenAccessMessage}
+                hasProjectGitRemoteOrigin={setup.hasProjectGitRemoteOrigin}
+                projectGitRemoteOrigin={setup.projectGitRemoteOrigin}
+                hasHostTailscaleAuthKey={setup.hasHostTailscaleAuthKey}
+                onPendingInfrastructureDraftChange={
+                  updatePendingInfrastructureDraft
+                }
                   onPendingConnectionDraftChange={updatePendingConnectionDraft}
                   onPendingBootstrapSecretsChange={(next) => {
                     setPendingBootstrapSecrets((prev) => ({
@@ -723,11 +726,11 @@ function StepContent(props: {
   projectAdminCidrError: string | null;
   hasActiveHcloudToken: boolean;
   hasProjectGithubToken: boolean;
-  hasActiveTailscaleAuthKey: boolean;
-  tailscaleKeyringSummary: {
-    hasActive: boolean;
-    itemCount: number;
-  } | null;
+  hasProjectGithubTokenAccess: boolean;
+  githubTokenAccessMessage: string;
+  hasProjectGitRemoteOrigin: boolean;
+  projectGitRemoteOrigin: string;
+  hasHostTailscaleAuthKey: boolean;
   onPendingInfrastructureDraftChange: (next: SetupDraftInfrastructure) => void;
   onPendingConnectionDraftChange: (next: SetupDraftConnection) => void;
   onPendingBootstrapSecretsChange: (
@@ -751,8 +754,11 @@ function StepContent(props: {
     projectAdminCidrError,
     hasActiveHcloudToken,
     hasProjectGithubToken,
-    hasActiveTailscaleAuthKey,
-    tailscaleKeyringSummary,
+    hasProjectGithubTokenAccess,
+    githubTokenAccessMessage,
+    hasProjectGitRemoteOrigin,
+    projectGitRemoteOrigin,
+    hasHostTailscaleAuthKey,
   } = props;
   const desired = React.useMemo(
     () =>
@@ -822,13 +828,12 @@ function StepContent(props: {
       <SetupStepTailscaleLockdown
         projectId={projectId}
         projectSlug={projectSlug}
+        host={host}
         stepStatus={step.status}
         setupDraft={setup.setupDraft}
-        tailscaleKeyringSummary={tailscaleKeyringSummary}
-        hasTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        hasTailscaleAuthKey={hasHostTailscaleAuthKey}
         allowTailscaleUdpIngress={desired.infrastructure.allowTailscaleUdpIngress}
         useTailscaleLockdown={pendingBootstrapSecrets.useTailscaleLockdown}
-        onProjectCredsQueued={setup.refreshDeployCredsStatus}
         onAllowTailscaleUdpIngressChange={(value) =>
           props.onPendingInfrastructureDraftChange({
             allowTailscaleUdpIngress: value,
@@ -851,10 +856,9 @@ function StepContent(props: {
       <SetupStepCreds
         projectId={projectId}
         projectSlug={projectSlug}
-        projectRunnerRepoPath={setup.projectQuery.project?.runnerRepoPath ?? null}
         hasProjectGithubToken={hasProjectGithubToken}
-        stepStatus={step.status}
-        isVisible={isVisible}
+        hasProjectGitRemoteOrigin={hasProjectGitRemoteOrigin}
+        projectGitRemoteOrigin={projectGitRemoteOrigin}
         onProjectCredsQueued={setup.refreshDeployCredsStatus}
       />
     );
@@ -872,7 +876,11 @@ function StepContent(props: {
         pendingConnectionDraft={pendingConnectionDraft}
         pendingBootstrapSecrets={pendingBootstrapSecrets}
         hasProjectGithubToken={hasProjectGithubToken}
-        hasActiveTailscaleAuthKey={hasActiveTailscaleAuthKey}
+        hasProjectGithubTokenAccess={hasProjectGithubTokenAccess}
+        githubTokenAccessMessage={githubTokenAccessMessage}
+        hasProjectGitRemoteOrigin={hasProjectGitRemoteOrigin}
+        projectGitRemoteOrigin={projectGitRemoteOrigin}
+        hasHostTailscaleAuthKey={hasHostTailscaleAuthKey}
       />
     );
   }

@@ -89,7 +89,6 @@ type KeyCandidate = {
 
 const DEPLOY_CREDS_JSON_EXPOSE_SECRET_VALUES = new Set<string>([
   "HCLOUD_TOKEN_KEYRING",
-  "TAILSCALE_AUTH_KEY_KEYRING",
 ]);
 
 function buildDeployCredsStatus(params: { cwd: string; runtimeDir?: string; envFile?: string }): DeployCredsStatusJson {
@@ -104,7 +103,7 @@ function buildDeployCredsStatus(params: { cwd: string; runtimeDir?: string; envF
     const status = value ? "set" : "unset";
     const exposeSecretValue = isDeployCredsSecretKey(key) && DEPLOY_CREDS_JSON_EXPOSE_SECRET_VALUES.has(key);
     if (isDeployCredsSecretKey(key) && !exposeSecretValue) return { key, source, status };
-    if (key === "HCLOUD_TOKEN_KEYRING" || key === "TAILSCALE_AUTH_KEY_KEYRING") {
+    if (key === "HCLOUD_TOKEN_KEYRING") {
       const masked = maskProjectTokenKeyringRaw(value ? String(value) : "");
       return { key, source, status, value: masked || undefined };
     }
@@ -147,8 +146,6 @@ export const envInit = defineCommand({
       SOPS_AGE_KEY_FILE: String(existing.SOPS_AGE_KEY_FILE || "").trim(),
       HCLOUD_TOKEN_KEYRING: String(existing.HCLOUD_TOKEN_KEYRING || "").trim(),
       HCLOUD_TOKEN_KEYRING_ACTIVE: String(existing.HCLOUD_TOKEN_KEYRING_ACTIVE || "").trim(),
-      TAILSCALE_AUTH_KEY_KEYRING: String(existing.TAILSCALE_AUTH_KEY_KEYRING || "").trim(),
-      TAILSCALE_AUTH_KEY_KEYRING_ACTIVE: String(existing.TAILSCALE_AUTH_KEY_KEYRING_ACTIVE || "").trim(),
       AWS_ACCESS_KEY_ID: String(existing.AWS_ACCESS_KEY_ID || "").trim(),
       AWS_SECRET_ACCESS_KEY: String(existing.AWS_SECRET_ACCESS_KEY || "").trim(),
       AWS_SESSION_TOKEN: String(existing.AWS_SESSION_TOKEN || "").trim(),

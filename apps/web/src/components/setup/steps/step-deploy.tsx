@@ -17,7 +17,11 @@ export function SetupStepDeploy(props: {
   pendingConnectionDraft: SetupDraftConnection | null
   pendingBootstrapSecrets: SetupPendingBootstrapSecrets
   hasProjectGithubToken: boolean
-  hasActiveTailscaleAuthKey: boolean
+  hasProjectGithubTokenAccess: boolean
+  githubTokenAccessMessage: string
+  hasProjectGitRemoteOrigin: boolean
+  projectGitRemoteOrigin: string
+  hasHostTailscaleAuthKey: boolean
 }) {
   return (
     <DeployInitialInstall
@@ -30,7 +34,11 @@ export function SetupStepDeploy(props: {
       pendingConnectionDraft={props.pendingConnectionDraft}
       pendingBootstrapSecrets={props.pendingBootstrapSecrets}
       hasProjectGithubToken={props.hasProjectGithubToken}
-      hasActiveTailscaleAuthKey={props.hasActiveTailscaleAuthKey}
+      hasProjectGithubTokenAccess={props.hasProjectGithubTokenAccess}
+      githubTokenAccessMessage={props.githubTokenAccessMessage}
+      hasProjectGitRemoteOrigin={props.hasProjectGitRemoteOrigin}
+      projectGitRemoteOrigin={props.projectGitRemoteOrigin}
+      hasHostTailscaleAuthKey={props.hasHostTailscaleAuthKey}
       showRunnerStatusBanner={false}
     />
   )

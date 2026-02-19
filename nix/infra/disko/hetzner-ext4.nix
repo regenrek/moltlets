@@ -8,6 +8,15 @@
       content = {
         type = "gpt";
         partitions = {
+          esp = {
+            size = "512M";
+            type = "EF00";
+            content = {
+              type = "filesystem";
+              format = "vfat";
+              mountpoint = "/boot";
+            };
+          };
           bios = {
             size = "1M";
             type = "EF02";

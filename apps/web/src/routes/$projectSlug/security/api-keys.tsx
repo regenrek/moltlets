@@ -5,7 +5,6 @@ import type { Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { DeployCredsCard } from "~/components/fleet/deploy-creds-card"
 import { ProjectTokenKeyringCard } from "~/components/setup/project-token-keyring-card"
-import { DOCS_TAILSCALE_AUTH_KEY_URL } from "~/lib/docs-links"
 import { useProjectBySlug } from "~/lib/project-data"
 
 export const Route = createFileRoute("/$projectSlug/security/api-keys")({
@@ -25,7 +24,6 @@ function SecurityApiKeys() {
   const credentials = credentialsQuery.data ?? []
   const bySection = new Map(credentials.map((row) => [row.section, row]))
   const hcloud = bySection.get("hcloudKeyring")?.metadata
-  const tailscale = bySection.get("tailscaleKeyring")?.metadata
   const github = bySection.get("githubToken")?.metadata
 
   if (projectQuery.isPending) {
@@ -63,33 +61,11 @@ function SecurityApiKeys() {
         }}
       />
 
-      <ProjectTokenKeyringCard
-        projectId={projectQuery.projectId as Id<"projects">}
-        kind="tailscale"
-        setupHref={`/${projectSlug}/runner`}
-        title="Tailscale auth keys"
-        description={
-          <>
-            Project-wide keyring used by setup and tailnet activation.{" "}
-            <a
-              className="underline underline-offset-4 hover:text-foreground"
-              href={DOCS_TAILSCALE_AUTH_KEY_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              How to create a Tailscale auth key
-            </a>
-          </>
-        }
-        statusSummary={{
-          hasActive: tailscale?.hasActive === true,
-          itemCount: Number(tailscale?.itemCount || 0),
-          items: tailscale?.items ?? [],
-        }}
-        onQueued={() => {
-          void credentialsQuery.refetch()
-        }}
-      />
+      <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+        Tailscale auth keys are host-scoped. Configure <code>tailscale_auth_key</code> per host under{" "}
+        <span className="text-foreground">Host Secrets</span> or the <span className="text-foreground">Setup</span>{" "}
+        flow.
+      </div>
 
       <DeployCredsCard
         projectId={projectQuery.projectId as Id<"projects">}

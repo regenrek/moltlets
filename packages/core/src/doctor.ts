@@ -1,6 +1,8 @@
 import { getRepoLayout } from "./repo-layout.js";
 import { findRepoRoot } from "./lib/project/repo.js";
-import { loadDeployCreds } from "./lib/infra/deploy-creds.js";
+import {
+  loadDeployCreds,
+} from "./lib/infra/deploy-creds.js";
 import { addRepoChecks } from "./doctor/repo-checks.js";
 import { addDeployChecks } from "./doctor/deploy-checks.js";
 import type { DoctorCheck } from "./doctor/types.js";

@@ -63,6 +63,38 @@ describe("runner command policy args parser", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("accepts git remote set-url for custom jobs", () => {
+    const result = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["git", "remote", "set-url", "origin", "https://github.com/example/repo.git"],
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts git remote add for custom jobs", () => {
+    const result = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["git", "remote", "add", "origin", "https://github.com/example/repo.git"],
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts git remote get-url for custom jobs", () => {
+    const result = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["git", "remote", "get-url", "origin"],
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts infra status for custom jobs", () => {
+    const result = __test_validateArgsForKind({
+      kind: "custom",
+      args: ["infra", "status", "--host", "openclaw-fleet-host", "--json"],
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
   it("accepts secrets verify --json for secrets_verify kinds", () => {
     for (const kind of ["secrets_verify", "secrets_verify_bootstrap", "secrets_verify_openclaw"]) {
       const result = __test_validateArgsForKind({
@@ -166,6 +198,21 @@ describe("runner command policy args parser", () => {
     expect(resolved.ok).toBe(true);
     if (!resolved.ok) return;
     expect(resolved.spec.id).toBe("git_setup_save_json");
+    expect(resolved.spec.resultMode).toBe("json_small");
+    expect(resolved.spec.resultMaxBytes).toBe(512 * 1024);
+  });
+
+  it("resolves json_small mode for infra status", () => {
+    const resolved = resolveCommandSpecForKind("custom", [
+      "infra",
+      "status",
+      "--host",
+      "openclaw-fleet-host",
+      "--json",
+    ]);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.spec.id).toBe("infra_status");
     expect(resolved.spec.resultMode).toBe("json_small");
     expect(resolved.spec.resultMaxBytes).toBe(512 * 1024);
   });
