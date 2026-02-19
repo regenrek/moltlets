@@ -352,7 +352,7 @@ describe("runner sealed input execution", () => {
         plaintext,
       });
 
-      const { mod, execCaptureTail } = await loadRunnerStartWithMocks({
+      const { mod, execCaptureTail, observed } = await loadRunnerStartWithMocks({
         resolvedKind: kind,
         resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
       });
@@ -382,6 +382,11 @@ describe("runner sealed input execution", () => {
       expect(execCaptureTail.mock.calls[0]?.[0]?.maxStdoutBytes).toBe(0);
       expect(execCaptureTail.mock.calls[0]?.[0]?.maxStderrBytes).toBe(0);
 
+      expect(observed.tempPath).toBeTruthy();
+      expect(observed.tempJson).toBeTruthy();
+      const tempBody = JSON.parse(String(observed.tempJson || "{}")) as any;
+      expect(tempBody).toMatchObject({ secrets: { DISCORD_TOKEN: "token-123" } });
+
       await expect(
         mod.__test_executeJob({
           job: {
@@ -403,6 +408,60 @@ describe("runner sealed input execution", () => {
         }),
       ).rejects.toThrow();
       expect(execCaptureTail).toHaveBeenCalledTimes(1);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes tailscaleAuthKey as a top-level secrets init field (not a managed secret)", async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "clawlets-runner-start-"));
+    try {
+      const keypair = await loadOrCreateRunnerSealedInputKeypair({
+        privateKeyPath: path.join(tempDir, "runner.pem"),
+      });
+      const projectId = "p1";
+      const targetRunnerId = "r1";
+      const kind = "secrets_write";
+      const jobId = "job-tailscale";
+      const plaintext = JSON.stringify({ tailscaleAuthKey: "tskey-auth-abc123" });
+      const sealedInputB64 = buildEnvelope({
+        publicKeySpkiB64: keypair.publicKeySpkiB64,
+        keyId: keypair.keyId,
+        aad: `${projectId}:${jobId}:${kind}:${targetRunnerId}`,
+        plaintext,
+      });
+
+      const { mod, observed } = await loadRunnerStartWithMocks({
+        resolvedKind: kind,
+        resolvedArgs: ["secrets", "init", "--host", "alpha", "--scope", "all", "--from-json", "__RUNNER_SECRETS_JSON__", "--yes"],
+      });
+
+      await expect(
+        mod.__test_executeJob({
+          job: {
+            jobId,
+            runId: "run-tailscale",
+            leaseId: "lease-tailscale",
+            leaseExpiresAt: Date.now() + 30_000,
+            kind,
+            attempt: 1,
+            targetRunnerId,
+            sealedInputB64,
+            sealedInputAlg: RUNNER_SEALED_INPUT_ALG,
+            sealedInputKeyId: keypair.keyId,
+            payloadMeta: { secretNames: ["tailscale_auth_key"] },
+          },
+          repoRoot: "/tmp/repo",
+          projectId,
+          runnerPrivateKeyPem: keypair.privateKeyPem,
+        }),
+      ).resolves.toEqual({});
+
+      expect(observed.tempPath).toBeTruthy();
+      expect(observed.tempJson).toBeTruthy();
+      const tempBody = JSON.parse(String(observed.tempJson || "{}")) as any;
+      expect(tempBody).toMatchObject({ tailscaleAuthKey: "tskey-auth-abc123", secrets: {} });
+      expect(tempBody?.secrets?.tailscaleAuthKey).toBeUndefined();
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }

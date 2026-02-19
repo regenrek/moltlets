@@ -411,15 +411,18 @@ function placeholderIndex(args: string[], placeholder: "__RUNNER_SECRETS_JSON__"
 
 async function writeSecretsJsonTemp(jobId: string, values: Record<string, string>): Promise<string> {
   const adminPasswordHash = String(values["adminPasswordHash"] || "").trim();
-  const secrets: Record<string, string> = {};
+  const tailscaleAuthKey = String(values["tailscaleAuthKey"] || "").trim();
+  const secrets: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const [key, value] of Object.entries(values)) {
     if (key === "adminPasswordHash") continue;
+    if (key === "tailscaleAuthKey") continue;
     const name = key.trim();
     if (!name) continue;
     secrets[name] = value;
   }
   const body = {
     ...(adminPasswordHash ? { adminPasswordHash } : {}),
+    ...(tailscaleAuthKey ? { tailscaleAuthKey } : {}),
     secrets,
   };
   const filePath = path.join(os.tmpdir(), `clawlets-runner-secrets.${jobId}.${process.pid}.${randomUUID()}.json`);
@@ -771,8 +774,10 @@ function validateSealedInputKeysForJob(params: {
   const secretNames = Array.isArray(params.job.payloadMeta?.secretNames)
     ? params.job.payloadMeta?.secretNames?.map((row) => (typeof row === "string" ? row.trim() : "")).filter(Boolean)
     : [];
-  const allowed = new Set<string>(["adminPasswordHash", ...secretNames]);
+  const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
+  const allowed = new Set<string>(["adminPasswordHash", "tailscaleAuthKey", ...secretNames]);
   for (const key of seen) {
+    if (forbiddenKeys.has(key)) throw new Error(`sealed input secret forbids: ${key}`);
     if (!allowed.has(key)) throw new Error(`sealed input secret not allowlisted: ${key}`);
   }
 }
